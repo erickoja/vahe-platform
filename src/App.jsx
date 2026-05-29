@@ -1392,8 +1392,7 @@ function QuoteBuilder({jobId:jobIdProp,editQuoteId,jobs,clients,quotes,setQuotes
       </div>
       <div style={{display:"flex",gap:10,justifyContent:"flex-end",alignItems:"center"}}>
         <Btn ghost onClick={()=>setView("jobDetail_"+jobId)}>Cancel</Btn>
-        <Btn ghost onClick={()=>save_("Draft")}>Save as draft</Btn>
-        <Btn onClick={()=>save_("Sent")}>{isEditing?"Save & update":"Save & mark as sent"}</Btn>
+        <Btn onClick={()=>save_(isEditing?existingQuote.status:"Draft")}>{isEditing?"Save changes":"Save quote"}</Btn>
       </div>
     </Card>
 
@@ -1678,7 +1677,15 @@ function QuoteDetail({quoteId,quotes,setQuotes,jobs,clients,biz,markupTable,natu
   const stoneClientTotal=stoneCalc?.clientTotal||0;
   const grandTotal=calc.finalLow+stoneClientTotal;
   const grandStr=calc.bracket?fmtR(grandTotal):"—";
-  const setStatus=s=>setQuotes(p=>{const n=p.map(x=>x.id===quoteId?{...x,status:s}:x);persist(K.qu,n);return n;});
+  const setStatus=s=>setQuotes(p=>{
+    // Only one approved quote per job: demote any other currently-approved quote on this job
+    const n=p.map(x=>{
+      if(x.id===quoteId)return{...x,status:s};
+      if(s==="Approved"&&x.jobId===q.jobId&&x.status==="Approved")return{...x,status:"Declined"};
+      return x;
+    });
+    persist(K.qu,n);return n;
+  });
   const delQuote=()=>{
     if(!confirm("Delete this quote? This cannot be undone."))return;
     setQuotes(p=>{const n=p.filter(x=>x.id!==quoteId);persist(K.qu,n);return n;});
