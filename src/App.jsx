@@ -41,7 +41,7 @@ const PAY_TYPES=["Deposit","CAD / Design stage","Production deposit","Progress p
 const PAY_METHODS=["Bank transfer","Cash","Card (EFTPOS)","Card (credit)","PayID","Cheque","Other"];
 const PCAT=["Metals","Labour","CAD Design","Findings","Lab Grown Diamonds | D-E","Natural diamonds G-H SI1","Natural diamonds D-E VS","Basic Setting","Complex Setting","3D Print & Cast"];
 const DIAMOND_CATS=["Lab Grown Diamonds | D-E","Natural diamonds G-H SI1","Natural diamonds D-E VS"];
-const NOTE_TYPES=["General note","Client call","Client email","Client visit","Supplier order","Supplier update","Internal update","Approval received","Payment received"];
+const NOTE_TYPES=["General note","Client call","Client email","Client visit","Internal update","Approval received"];
 const GST_RATE=0.10;
 
 // ── Default markup table ──────────────────────────────────────────────────
@@ -402,31 +402,23 @@ const getMultiplier=(cost,table)=>{
   if(!cost||cost<=0)return null;
   return table.find(b=>cost>=b.low&&cost<=b.high)||null;
 };
-const getBracket=(costLow,costHigh,table)=>{
-  // Always use the upper estimate to find the bracket — conservative, protects margin
-  const lookupCost=costHigh&&costHigh>costLow?costHigh:costLow;
-  return getMultiplier(lookupCost,table);
-};
-const lineCostLow=li=>Number(li.costLow)||0;
-const lineCostHigh=li=>Number(li.costHigh)>Number(li.costLow)?Number(li.costHigh):Number(li.costLow)||0;
-const lineIsRange=li=>Number(li.costHigh)>Number(li.costLow);
+const getBracket=(cost,table)=>getMultiplier(cost,table);
+const lineCost=li=>Number(li.costLow)||Number(li.cost)||0;
 
 const calcQuote=(items,table)=>{
-  const mItems=items.filter(i=>!i.noMarkup);  // items included in markup
-  const fItems=items.filter(i=>i.noMarkup);   // flat-fee items (not marked up)
-  const baseLow=mItems.reduce((s,li)=>s+lineCostLow(li),0);
-  const baseHigh=mItems.reduce((s,li)=>s+lineCostHigh(li),0);
-  const isRange=baseHigh>baseLow;
-  const bracket=getBracket(baseLow,baseHigh,table);
+  const mItems=items.filter(i=>!i.noMarkup);
+  const fItems=items.filter(i=>i.noMarkup);
+  const base=mItems.reduce((s,li)=>s+lineCost(li),0);
+  const bracket=getBracket(base,table);
   const mult=bracket?.multiplier||1;
-  const markupFinalLow=baseLow*mult;
-  const markupFinalHigh=baseHigh*mult;
-  const flatTotal=fItems.reduce((s,li)=>s+lineCostLow(li),0);
-  const flatHigh=fItems.reduce((s,li)=>s+lineCostHigh(li),0);
+  const markupFinal=base*mult;
+  const flatTotal=fItems.reduce((s,li)=>s+lineCost(li),0);
   const hasFlatItems=fItems.length>0;
-  const finalLow=markupFinalLow+flatTotal;
-  const finalHigh=(isRange?markupFinalHigh:markupFinalLow)+flatHigh;
-  return {baseLow,baseHigh,isRange,bracket,mult,markupFinalLow,markupFinalHigh,flatTotal,flatHigh,hasFlatItems,finalLow,finalHigh};
+  const finalLow=markupFinal+flatTotal;
+  const finalHigh=finalLow;
+  const baseLow=base;const baseHigh=base;const isRange=false;
+  const markupFinalLow=markupFinal;const markupFinalHigh=markupFinal;const flatHigh=flatTotal;
+  return {base,baseLow,baseHigh,isRange,bracket,mult,markupFinal,markupFinalLow,markupFinalHigh,flatTotal,flatHigh,hasFlatItems,finalLow,finalHigh};
 };
 
 // ── Storage ───────────────────────────────────────────────────────────────
@@ -560,10 +552,10 @@ function MarkupSummary({baseLow,baseHigh,isRange,bracket,mult,markupFinalLow,mar
   return <div style={{background:PARCH,border:`1px solid ${BD}`,borderRadius:8,overflow:"hidden"}}>
     <div style={{display:"grid",gridTemplateColumns:hasFlat?"1fr 1fr 1fr 1fr 1fr":"1fr 1fr 1fr 1fr",borderBottom:hasFlat?`1px solid ${BD}`:"none"}}>
       {[
-        ["Base cost",baseLow>0?(isRange?`${fmt(baseLow)} – ${fmt(baseHigh)}`:fmt(baseLow)):"—",WG],
+        ["Base cost",baseLow>0?fmt(baseLow):"—",WG],
         ["Bracket",bracket?`${fmt(bracket.low)} – ${fmt(bracket.high)}`:"—",WG],
         ["Multiplier",bracket?`${mult}×`:"—",GOLD_D],
-        ["Markup total",baseLow>0?(isRange?`${fmtR(mfLow)} – ${fmtR(mfHigh)}`:fmtR(mfLow)):"—",hasFlat?INK:OK],
+        ["Markup total",baseLow>0?fmtR(mfLow):"—",hasFlat?INK:OK],
         ...(hasFlat?[["+ Flat fees",fmt(flatTotal),"#7B5EA7"]]:
           []),
       ].map(([l,v,col])=>(
@@ -575,14 +567,13 @@ function MarkupSummary({baseLow,baseHigh,isRange,bracket,mult,markupFinalLow,mar
     </div>
     {hasFlat&&<div style={{display:"grid",gridTemplateColumns:"1fr auto",alignItems:"center",padding:"12px 16px",background:WHITE,gap:12}}>
       <div style={{fontSize:11,color:WG}}>
-        Markup total <strong style={{color:INK}}>{isRange?`${fmtR(mfLow)}–${fmtR(mfHigh)}`:fmtR(mfLow)}</strong> + flat fees <strong style={{color:"#7B5EA7"}}>{fmt(flatTotal)}</strong>
+        Markup total <strong style={{color:INK}}>{fmtR(mfLow)}</strong> + flat fees <strong style={{color:"#7B5EA7"}}>{fmt(flatTotal)}</strong>
       </div>
       <div>
         <div style={{fontSize:10,fontWeight:700,color:WG,textTransform:"uppercase",letterSpacing:"0.06em",marginBottom:2}}>Setting total</div>
-        <div style={{fontSize:large?22:18,fontWeight:800,color:OK}}>{isRange?`${fmtR(finalLow)}–${fmtR(finalHigh)}`:fmtR(finalLow)}</div>
+        <div style={{fontSize:large?22:18,fontWeight:800,color:OK}}>{fmtR(finalLow)}</div>
       </div>
     </div>}
-    {isRange&&<div style={{padding:"8px 16px",fontSize:11,color:WG,borderTop:`1px solid ${BD}`}}>Upper estimate used for bracket — conservative · prices rounded to nearest dollar</div>}
   </div>;
 }
 
@@ -725,20 +716,23 @@ function Dashboard({clients,jobs,quotes,payments,invoices,markupTable,setView}){
 
 // ── Clients ───────────────────────────────────────────────────────────────
 function ClientForm({initial={},onSave,onCancel}){
-  const[f,setF]=useState({name:"",email:"",phone:"",ringSize:"",metalPref:"",stonePref:"",budget:"",anniversary:"",notes:"",...initial});
+  const[f,setF]=useState({name:"",email:"",phone:"",street:"",city:"",state:"",postcode:"",notes:"",...initial});
   const set=k=>v=>setF(p=>({...p,[k]:v}));
   return <div>
     <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"0 16px"}}>
       <Input label="Full name" value={f.name} onChange={set("name")} placeholder="Sarah Mitchell"/>
       <Input label="Phone" value={f.phone} onChange={set("phone")} placeholder="0412 345 678"/>
       <Input label="Email" value={f.email} onChange={set("email")} placeholder="sarah@example.com"/>
-      <Input label="Ring size" value={f.ringSize} onChange={set("ringSize")} placeholder="N"/>
-      <Input label="Metal preference" value={f.metalPref} onChange={set("metalPref")} placeholder="18ct white gold"/>
-      <Input label="Stone preference" value={f.stonePref} onChange={set("stonePref")} placeholder="Diamond"/>
-      <Input label="Budget (approx $)" value={f.budget} onChange={set("budget")} placeholder="8000"/>
-      <Input label="Anniversary" value={f.anniversary} onChange={set("anniversary")} type="date"/>
     </div>
-    <Input label="Notes (design preferences, allergies, anything important)" value={f.notes} onChange={set("notes")} as="textarea" rows={3}/>
+    <div style={{borderTop:`1px solid ${BD}`,margin:"6px 0 16px"}}/>
+    <Input label="Street address" value={f.street||""} onChange={set("street")} placeholder="123 Main St"/>
+    <div style={{display:"grid",gridTemplateColumns:"2fr 1fr 1fr",gap:"0 16px"}}>
+      <Input label="City / Suburb" value={f.city||""} onChange={set("city")} placeholder="Sydney"/>
+      <Input label="State" value={f.state||""} onChange={set("state")} placeholder="NSW"/>
+      <Input label="Postcode" value={f.postcode||""} onChange={set("postcode")} placeholder="2000"/>
+    </div>
+    <div style={{borderTop:`1px solid ${BD}`,margin:"6px 0 16px"}}/>
+    <Input label="Instructions, notes & additional information" value={f.notes} onChange={set("notes")} as="textarea" rows={3}/>
     <div style={{display:"flex",gap:10,justifyContent:"flex-end"}}>
       <Btn ghost onClick={onCancel}>Cancel</Btn>
       <Btn onClick={()=>{if(!f.name.trim())return alert("Name required");onSave(f);}}>Save client</Btn>
@@ -766,8 +760,6 @@ function Clients({clients,setClients,jobs,payments,setView,setSelClient}){
             <div><div style={{fontWeight:700,fontSize:15,color:INK}}>{c.name}</div>
             <div style={{fontSize:12,color:WG,marginTop:2}}>{c.email} · {c.phone}</div>
             <div style={{display:"flex",gap:12,fontSize:12,color:WG,marginTop:4,flexWrap:"wrap"}}>
-              {c.ringSize&&<span>Ring: <b style={{color:INK}}>{c.ringSize}</b></span>}
-              {c.metalPref&&<span>Metal: <b style={{color:INK}}>{c.metalPref}</b></span>}
               {spent>0&&<span>Paid: <b style={{color:OK}}>{fmt(spent)}</b></span>}
             </div></div>
           </div>
@@ -802,15 +794,13 @@ function ClientDetail({clientId,clients,jobs,payments,setView,setSelJob}){
     <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:14,marginBottom:14}}>
       <Card style={{margin:0}}>
         <div style={SS.lbl}>Contact</div>
-        {[["Email",c.email],["Phone",c.phone],["Anniversary",fmtDate(c.anniversary)]].map(([k,v])=>(
+        {[["Email",c.email],["Phone",c.phone],["Address",c.street?[c.street,c.city,c.state,c.postcode].filter(Boolean).join(", "):(c.address||"")],["Client since",fmtDate(c.createdAt)]].map(([k,v])=>(
           <div key={k} style={{display:"flex",justifyContent:"space-between",fontSize:13,padding:"7px 0",borderBottom:`1px solid ${BD}`}}><span style={{color:WG}}>{k}</span><span style={{color:INK,fontWeight:600}}>{v||"—"}</span></div>
         ))}
       </Card>
       <Card style={{margin:0}}>
         <div style={SS.lbl}>Preferences</div>
-        {[["Ring size",c.ringSize],["Metal",c.metalPref],["Stones",c.stonePref],["Budget",c.budget?fmt(c.budget):""]].map(([k,v])=>(
-          <div key={k} style={{display:"flex",justifyContent:"space-between",fontSize:13,padding:"7px 0",borderBottom:`1px solid ${BD}`}}><span style={{color:WG}}>{k}</span><span style={{color:INK,fontWeight:600}}>{v||"—"}</span></div>
-        ))}
+        <div style={{fontSize:13,color:WG,padding:"7px 0"}}>—</div>
       </Card>
     </div>
     {c.notes&&<Card><div style={{...SS.lbl,marginBottom:8}}>Notes</div><div style={{fontSize:14,color:INK,lineHeight:1.7}}>{c.notes}</div></Card>}
@@ -830,20 +820,20 @@ function ClientDetail({clientId,clients,jobs,payments,setView,setSelJob}){
 
 // ── Jobs ──────────────────────────────────────────────────────────────────
 function JobForm({clients,initial={},onSave,onCancel}){
-  const[f,setF]=useState({clientId:clients[0]?.id||"",type:JOB_TYPES[0],stage:JOB_STAGES[0],description:"",deadline:"",notes:"",supplier:"",supplierRef:"",...initial});
+  const[f,setF]=useState({clientId:"",type:JOB_TYPES[0],stage:JOB_STAGES[0],description:"",deadline:"",notes:"",supplier:"",supplierRef:"",...initial});
   const set=k=>v=>setF(p=>({...p,[k]:v}));
   return <div>
-    <Input label="Client" value={f.clientId} onChange={set("clientId")} as="select" options={clients.map(c=>({value:c.id,label:c.name}))}/>
-    <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"0 16px"}}>
+    <Input label="Client" value={f.clientId} onChange={set("clientId")} as="select" options={[{value:"",label:"— Select a client —"},...clients.map(c=>({value:c.id,label:c.name}))]}/>
+    <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:"0 16px"}}>
       <Input label="Job type" value={f.type} onChange={set("type")} as="select" options={JOB_TYPES}/>
       <Input label="Stage" value={f.stage} onChange={set("stage")} as="select" options={JOB_STAGES}/>
-      <Input label="Deadline" value={f.deadline} onChange={set("deadline")} type="date"/>
+      <Input label="Due date" value={f.deadline} onChange={set("deadline")} type="date"/>
     </div>
-    <Input label="Description" value={f.description} onChange={set("description")} as="textarea" rows={3} placeholder="Describe the piece, specifications, materials…"/>
-    <Input label="Internal notes" value={f.notes} onChange={set("notes")} as="textarea" rows={2}/>
-    <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"0 16px"}}>
-      <Input label="Supplier (optional)" value={f.supplier} onChange={set("supplier")} placeholder="e.g. Palloys"/>
-      <Input label="Supplier order ref" value={f.supplierRef} onChange={set("supplierRef")} placeholder="e.g. PAL-2024-8823"/>
+    <div style={{borderTop:`1px solid ${BD}`,margin:"6px 0 16px"}}/>
+    <Input label="Job description" value={f.description} onChange={set("description")} as="textarea" rows={3} placeholder="Describe the piece, specifications, materials…"/>
+    <div style={{marginBottom:14}}>
+      <label style={{...SS.lbl,marginBottom:6}}>Internal notes <span style={{fontWeight:400,color:WG,textTransform:"none",letterSpacing:0}}>(not visible to client)</span></label>
+      <textarea value={f.notes} onChange={e=>set("notes")(e.target.value)} rows={2} style={{...SS.inp,marginTop:0,resize:"vertical"}}/>
     </div>
     <div style={{display:"flex",gap:10,justifyContent:"flex-end"}}>
       <Btn ghost onClick={onCancel}>Cancel</Btn>
@@ -896,21 +886,26 @@ function ActivityLog({jobId,notes,setNotes}){
   const[open,setOpen]=useState(true);
   const[form,setForm]=useState({type:NOTE_TYPES[0],text:"",date:today()});
   const jn=notes.filter(n=>n.jobId===jobId).sort((a,b)=>b.createdAt.localeCompare(a.createdAt));
-  const NTC={"Client call":"#3B6E8F","Client email":"#5B7FA6","Client visit":"#7B5EA7","Approval received":"#2D7A4F","Payment received":"#1A5C3A","Supplier order":"#B05C3A","Supplier update":"#C47A2E","Internal update":"#888780","General note":"#6B6560"};
+  const NTC={"Client call":"#3B6E8F","Client email":"#5B7FA6","Client visit":"#7B5EA7","Approval received":"#2D7A4F","Internal update":"#888780","General note":"#6B6560"};
   const add=()=>{if(!form.text.trim())return;const n={...form,id:uid(),jobId,createdAt:new Date().toISOString()};setNotes(p=>{const nw=[...p,n];persist(K.no,nw);return nw;});setForm(f=>({...f,text:""}));};
   const del=id=>{setNotes(p=>{const n=p.filter(x=>x.id!==id);persist(K.no,n);return n;});};
   return <Card>
     <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:open?16:0}}>
-      <div style={{fontWeight:700,fontSize:15,color:INK}}>Activity log ({jn.length})</div>
+      <div style={{fontWeight:700,fontSize:15,color:INK}}>Job notes ({jn.length})</div>
       <Btn sm ghost onClick={()=>setOpen(v=>!v)}>{open?"Hide":"Show"}</Btn>
     </div>
     {open&&<>
-      <div style={{display:"grid",gridTemplateColumns:"1fr 160px 80px",gap:8,marginBottom:8,alignItems:"end"}}>
-        <div><label style={SS.lbl}>Note</label><textarea value={form.text} onChange={e=>setForm(f=>({...f,text:e.target.value}))} placeholder="Add a note, call log, approval, or update…" rows={2} style={{...SS.inp,resize:"vertical"}}/></div>
+      <div style={{marginBottom:10}}>
+        <label style={SS.lbl}>Note</label>
+        <textarea value={form.text} onChange={e=>setForm(f=>({...f,text:e.target.value}))} placeholder="Add a note, call log, approval, or update…" rows={3} style={{...SS.inp,resize:"vertical"}}/>
+      </div>
+      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"0 16px",marginBottom:12}}>
         <Input label="Type" value={form.type} onChange={v=>setForm(f=>({...f,type:v}))} as="select" options={NOTE_TYPES}/>
         <Input label="Date" value={form.date} onChange={v=>setForm(f=>({...f,date:v}))} type="date"/>
       </div>
-      <Btn sm onClick={add}>Add note</Btn>
+      <div style={{display:"flex",justifyContent:"flex-end",marginBottom:8}}>
+        <Btn sm onClick={add}>Add note</Btn>
+      </div>
       {jn.length>0&&<div style={{marginTop:16}}>
         {jn.map(n=>(
           <div key={n.id} style={{display:"flex",gap:12,padding:"10px 0",borderBottom:`1px solid ${BD}`}}>
@@ -957,7 +952,7 @@ function JobDetail({jobId,jobs,setJobs,clients,quotes,setQuotes,payments,setPaym
   const createInvoice=qid=>{
     const q=quotes.find(x=>x.id===qid);if(!q)return;
     const calc=calcQuote(q.lineItems,markupTable);
-    const exGST=calc.isRange?calc.finalHigh:calc.finalLow;
+    const exGST=calc.finalLow+(q.stoneClientTotal||0);
     const gst=exGST*GST_RATE;
     const num=nextInvoiceNumber(invoices);
     const inv={id:uid(),jobId,quoteId:qid,number:num,date:today(),status:"Unpaid",exGST,gst,totalIncGST:exGST+gst,lineItems:q.lineItems,notes:q.notes||"",calc};
@@ -1000,7 +995,7 @@ function JobDetail({jobId,jobs,setJobs,clients,quotes,setQuotes,payments,setPaym
       {jp.length===0&&<div style={{color:WG,fontSize:14}}>No payments yet.</div>}
       {jp.map(p=>(
         <div key={p.id} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"9px 0",borderBottom:`1px solid ${BD}`}}>
-          <div><div style={{fontWeight:600,fontSize:13,color:INK}}>{p.type}</div><div style={{fontSize:12,color:WG,marginTop:1}}>{fmtDate(p.date)} · {p.method}{p.notes?` · ${p.notes}`:""}</div></div>
+          <div style={{flex:1}}><div style={{fontWeight:600,fontSize:13,color:INK,textAlign:"center"}}>{p.type}</div><div style={{fontSize:12,color:WG,marginTop:1}}>{fmtDate(p.date)} · {p.method}{p.notes?` · ${p.notes}`:""}</div></div>
           <div style={{display:"flex",gap:10,alignItems:"center"}}>
             <Badge label={p.status} color={p.status==="Received"?OK:WARN}/>
             <div style={{fontWeight:800,fontSize:14,color:INK,minWidth:76,textAlign:"right"}}>{fmt(p.amount)}</div>
@@ -1031,11 +1026,12 @@ function JobDetail({jobId,jobs,setJobs,clients,quotes,setQuotes,payments,setPaym
       {jq.map(q=>{
         const calc=calcQuote(q.lineItems,markupTable);
         const hasInv=invoices.some(i=>i.quoteId===q.id);
-        const priceStr=calc.bracket?(calc.isRange?`${fmtR(calc.finalLow)} – ${fmtR(calc.finalHigh)}`:fmtR(calc.finalLow)):"—";
+        const stoneTotal=q.stoneClientTotal||0;
+        const priceStr=calc.bracket?fmtR(calc.finalLow+stoneTotal):"—";
         return <div key={q.id} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"10px 0",borderBottom:`1px solid ${BD}`}}>
           <div style={{cursor:"pointer",flex:1}} onClick={()=>setView("quoteDetail_"+q.id)}>
             <div style={{fontWeight:600,fontSize:14,color:INK}}>Quote #{q.id.slice(-4).toUpperCase()}</div>
-            <div style={{fontSize:12,color:WG,marginTop:1}}>Base: {fmt(calc.baseLow)}{calc.isRange?` – ${fmt(calc.baseHigh)}`:""} → {calc.mult}× → <strong style={{color:OK}}>{priceStr}</strong></div>
+            <div style={{fontSize:12,color:WG,marginTop:1}}>Base: {fmt(calc.baseLow)} → {calc.mult}× → <strong style={{color:OK}}>{priceStr}</strong></div>
           </div>
           <div style={{display:"flex",gap:10,alignItems:"center"}}>
             <Badge label={q.status} color={q.status==="Approved"?OK:q.status==="Draft"?WG:GOLD_D}/>
@@ -1062,12 +1058,12 @@ function PaymentForm({onSave,onCancel,suggestedAmount}){
   const set=k=>v=>setF(p=>({...p,[k]:v}));
   return <div>
     <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"0 16px"}}>
-      <Input label="Payment type" value={f.type} onChange={set("type")} as="select" options={PAY_TYPES}/>
+      <Input label="Payment stage" value={f.type} onChange={set("type")} as="select" options={PAY_TYPES}/>
       <Input label="Amount ($)" value={f.amount} onChange={set("amount")} type="number" min="0" step="0.01"/>
       <Input label="Date" value={f.date} onChange={set("date")} type="date"/>
       <Input label="Method" value={f.method} onChange={set("method")} as="select" options={PAY_METHODS}/>
-      <Input label="Status" value={f.status} onChange={set("status")} as="select" options={["Received","Pending"]}/>
     </div>
+    <div style={{borderTop:`1px solid ${BD}`,margin:"6px 0 16px"}}/>
     <Input label="Notes" value={f.notes} onChange={set("notes")} placeholder="e.g. deposit to begin design phase"/>
     <div style={{display:"flex",gap:10,justifyContent:"flex-end"}}>
       <Btn ghost onClick={onCancel}>Cancel</Btn>
@@ -1137,7 +1133,7 @@ function QuoteBuilder({jobId:jobIdProp,editQuoteId,jobs,clients,quotes,setQuotes
   const job=jobs.find(j=>j.id===jobId);
   const c=job?clients.find(x=>x.id===job.clientId):null;
   const isEditing=!!existingQuote;
-  const blankItem=()=>({id:uid(),description:"",detail:"",costLow:"",costHigh:"",noMarkup:false});
+  const blankItem=()=>({id:uid(),description:"",detail:"",costLow:"",noMarkup:false});
   const[items,setItems]=useState(()=>existingQuote?.lineItems?.length?existingQuote.lineItems.map(i=>({...i})):[blankItem()]);
   const[notes,setNotes]=useState(existingQuote?.notes||"");
   const[clientDescription,setClientDescription]=useState(existingQuote?.clientDescription||"");
@@ -1194,20 +1190,18 @@ function QuoteBuilder({jobId:jobIdProp,editQuoteId,jobs,clients,quotes,setQuotes
       :item.unit==="piece"?`${q} piece${q!==1?"s":""}`
       :item.unit==="stone"?`${q} stone${q!==1?"s":""}`
       :q>1?`× ${q}`:"";
-    setItems(p=>[...p,{id:uid(),description:desc,detail,costLow:String(totalCost),costHigh:""}]);
+    setItems(p=>[...p,{id:uid(),description:desc,detail,costLow:String(totalCost),noMarkup:false}]);
     setPQty({});
     setPricingModal(false);
   };
 
   const validItems=items.filter(i=>i.description.trim()&&Number(i.costLow)>0);
   const calc=calcQuote(validItems.length?validItems:items,markupTable);
-  const validStoneItems=stoneItems.filter(i=>i.description.trim()&&(Number(i.cost)||Number(i.costLow))>0);
+  const validStoneItems=stoneItems.filter(i=>(Number(i.cost)||Number(i.costLow))>0);
   const activeStoneMarkup=stoneType==="lab"?labStoneMarkup:naturalStoneMarkup;
   const stoneCalc=stoneMode==="sourcing"&&stoneType&&validStoneItems.length>0?calcStoneQuote(validStoneItems,activeStoneMarkup):null;
   const stoneClientTotal=stoneCalc?.clientTotal||0;
-  const grandLow=calc.finalLow+stoneClientTotal;
-  const grandHigh=(calc.isRange?calc.finalHigh:calc.finalLow)+stoneClientTotal;
-  const grandIsRange=grandHigh>grandLow;
+  const grandTotal=calc.finalLow+stoneClientTotal;
 
   const save_=status=>{
     if(!validItems.length)return alert("Add at least one cost item to the setting section.");
@@ -1237,33 +1231,43 @@ function QuoteBuilder({jobId:jobIdProp,editQuoteId,jobs,clients,quotes,setQuotes
     </div>
 
     <Card>
-      {/* ── Valid until ── */}
-      <div style={{display:"grid",gridTemplateColumns:"200px 1fr",gap:"0 16px",marginBottom:20}}>
-        <Input label="Valid until" value={validUntil} onChange={setValidUntil} type="date"/>
+      {/* ── Quote expiry + client description ── */}
+      <div style={{marginBottom:20}}>
+        <div style={{display:"grid",gridTemplateColumns:"200px 1fr",gap:"0 24px",marginBottom:16}}>
+          <Input label="Quote expiry date" value={validUntil} onChange={setValidUntil} type="date"/>
+        </div>
+        <div>
+          <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:6}}>
+            <label style={SS.lbl}>Description for client</label>
+            <div style={{background:OK+"22",color:OK,fontSize:10,fontWeight:700,padding:"2px 8px",borderRadius:10,letterSpacing:"0.04em"}}>APPEARS ON PROPOSAL</div>
+          </div>
+          <textarea value={clientDescription} onChange={e=>setClientDescription(e.target.value)} rows={4}
+            placeholder="e.g. Custom 18ct white gold engagement ring featuring a 1.52ct oval-cut sapphire with a diamond pavé halo. All stones hand-selected and set in our studio."
+            style={{...SS.inp,marginTop:0,resize:"vertical",lineHeight:1.6,fontSize:13}}/>
+        </div>
       </div>
+      <div style={{borderTop:`1px solid ${BD}`,margin:"0 0 20px"}}/>
 
       {/* ── Setting & manufacturing line items ── */}
-      <div style={{fontSize:11,fontWeight:700,color:WG,textTransform:"uppercase",letterSpacing:"0.08em",marginBottom:12}}>Setting &amp; manufacturing costs</div>
-      <div style={{display:"grid",gridTemplateColumns:"200px 1fr 110px 110px 100px 80px",gap:8,marginBottom:6,padding:"0 2px"}}>
-        {["Item","Detail / calculation","Cost (low)","Cost (high)","Line total","Markup"].map(h=><div key={h} style={{fontSize:10,fontWeight:700,color:WG,textTransform:"uppercase",letterSpacing:"0.04em"}}>{h}</div>)}
+      <div style={{fontSize:11,fontWeight:700,color:WG,textTransform:"uppercase",letterSpacing:"0.08em",marginBottom:12}}>Jewellery costs</div>
+      <div style={{display:"grid",gridTemplateColumns:"200px 1fr 120px 80px",gap:8,marginBottom:6,padding:"0 2px"}}>
+        {["Item","Detail / calculation","Cost",""].map(h=><div key={h} style={{fontSize:10,fontWeight:700,color:WG,textTransform:"uppercase",letterSpacing:"0.04em"}}>{h}</div>)}
       </div>
-      <div style={{fontSize:11,color:WG,marginBottom:10,lineHeight:1.5}}>Leave "cost high" blank for exact costs, fill it in for estimated ranges. Use the <strong style={{color:"#7B5EA7"}}>%</strong> toggle to switch any item to a <strong style={{color:"#7B5EA7"}}>FLAT</strong> fee — flat items are added after markup at their exact cost.</div>
+      <div style={{fontSize:11,color:WG,marginBottom:10,lineHeight:1.5}}>Toggle <strong style={{color:"#7B5EA7"}}>No markup</strong> on any item to add it at exact cost after markup is applied.</div>
       {items.map((li,idx)=>{
-        const isR=Number(li.costHigh)>Number(li.costLow)&&Number(li.costLow)>0;
-        const lineLow=Number(li.costLow)||0;const lineHigh=isR?Number(li.costHigh):lineLow;
-        const totalStr=lineLow>0?(isR?`${fmt(lineLow)} – ${fmt(lineHigh)}`:fmt(lineLow)):"—";
-        return <div key={li.id} style={{display:"grid",gridTemplateColumns:"200px 1fr 110px 110px 100px 80px",gap:8,marginBottom:8,alignItems:"center"}}>
+        const cost=Number(li.costLow)||0;
+        const totalStr=cost>0?fmt(cost):"—";
+        return <div key={li.id} style={{display:"grid",gridTemplateColumns:"200px 1fr 120px 80px",gap:8,marginBottom:8,alignItems:"center"}}>
           <input value={li.description} onChange={e=>setItem(li.id,"description",e.target.value)} placeholder="e.g. 9ct white gold" style={{...SS.inp,marginTop:0,fontSize:13,padding:"7px 10px"}}/>
           <input value={li.detail} onChange={e=>setItem(li.id,"detail",e.target.value)} placeholder="e.g. 5g × $110/g" style={{...SS.inp,marginTop:0,fontSize:13,padding:"7px 10px",color:WG}}/>
           <input type="number" value={li.costLow} onChange={e=>setItem(li.id,"costLow",e.target.value)} placeholder="0.00" min="0" step="0.01" style={{...SS.inp,marginTop:0,fontSize:13,padding:"7px 8px",textAlign:"right"}}/>
-          <input type="number" value={li.costHigh} onChange={e=>setItem(li.id,"costHigh",e.target.value)} placeholder="optional" min="0" step="0.01" style={{...SS.inp,marginTop:0,fontSize:13,padding:"7px 8px",textAlign:"right",borderColor:isR?GOLD:BD}}/>
-          <div style={{fontSize:13,fontWeight:700,color:isR?WARN:INK,textAlign:"right",whiteSpace:"nowrap"}}>{totalStr}</div>
+          <div style={{fontSize:13,fontWeight:700,color:INK,textAlign:"right",whiteSpace:"nowrap"}}>{totalStr}</div>
           <div style={{display:"flex",gap:3,alignItems:"center"}}>
             <button
               onClick={()=>setItem(li.id,"noMarkup",!li.noMarkup)}
-              title={li.noMarkup?"Flat fee — not marked up (click to include in markup)":"Included in markup (click to make flat fee)"}
-              style={{background:li.noMarkup?"#7B5EA7":"transparent",border:`1px solid ${li.noMarkup?"#7B5EA7":BD}`,borderRadius:2,padding:"1px 4px",fontSize:9,fontWeight:700,color:li.noMarkup?WHITE:WG,cursor:"pointer",letterSpacing:"0.04em",lineHeight:"16px",whiteSpace:"nowrap"}}>
-              {li.noMarkup?"FLAT":"%"}
+              title={li.noMarkup?"No markup applied — click to include in markup":"Click to exclude this item from markup"}
+              style={{background:li.noMarkup?"#7B5EA7":"transparent",border:`1px solid ${li.noMarkup?"#7B5EA7":BD}`,borderRadius:2,padding:"1px 5px",fontSize:9,fontWeight:700,color:li.noMarkup?WHITE:WG,cursor:"pointer",letterSpacing:"0.04em",lineHeight:"16px",whiteSpace:"nowrap"}}>
+              {li.noMarkup?"NO MU":"MU"}
             </button>
             <button onClick={()=>removeItem(li.id)} style={{background:"none",border:"none",cursor:"pointer",color:DANGER,fontSize:17,padding:0,lineHeight:1}}>×</button>
             {idx>0&&<button onClick={()=>moveItem(li.id,-1)} style={{background:"none",border:"none",cursor:"pointer",color:WG,fontSize:13,padding:"0 2px"}}>↑</button>}
@@ -1274,7 +1278,7 @@ function QuoteBuilder({jobId:jobIdProp,editQuoteId,jobs,clients,quotes,setQuotes
         <button onClick={()=>setPricingModal(true)} style={{background:GOLD_L,border:`1px solid ${GOLD}`,borderRadius:4,padding:"6px 14px",color:GOLD_D,fontSize:12,fontWeight:700,cursor:"pointer",fontFamily:"inherit"}}>⊕ Pricing DB</button>
       </div>
       {validItems.length>0&&<div style={{marginBottom:28}}>
-        <div style={{fontSize:11,fontWeight:700,color:WG,textTransform:"uppercase",letterSpacing:"0.06em",marginBottom:10}}>Setting — markup preview</div>
+        <div style={{fontSize:11,fontWeight:700,color:WG,textTransform:"uppercase",letterSpacing:"0.06em",marginBottom:10}}>Markup preview</div>
         <MarkupSummary {...calc} large/>
       </div>}
 
@@ -1286,7 +1290,7 @@ function QuoteBuilder({jobId:jobIdProp,editQuoteId,jobs,clients,quotes,setQuotes
 
       {/* Stone mode — inline pill selector */}
       <div style={{display:"flex",gap:8,marginBottom:stoneMode==="none"?0:22}}>
-        {[["none","No stone"],["client","Client's own"],["sourcing","Studio sourcing"]].map(([val,label])=>(
+        {[["none","No stone"],["client","Client supplying their own"],["sourcing","We are sourcing the stone"]].map(([val,label])=>(
           <button key={val} onClick={()=>{setStoneMode(val);if(val!=="sourcing")setStoneItems([]);if(val!=="sourcing")setStoneType("");}} style={{
             padding:"8px 20px",borderRadius:20,fontSize:12,fontWeight:700,cursor:"pointer",fontFamily:"inherit",
             border:`1.5px solid ${stoneMode===val?(val==="sourcing"?"#7B5EA7":val==="client"?"#3B6E8F":INK):BD}`,
@@ -1363,11 +1367,11 @@ function QuoteBuilder({jobId:jobIdProp,editQuoteId,jobs,clients,quotes,setQuotes
             <div style={{fontSize:11,fontWeight:700,color:WG,textTransform:"uppercase",letterSpacing:"0.08em",marginBottom:10}}>Quote total</div>
             <div style={{display:"flex",gap:0,borderRadius:4,overflow:"hidden",border:`1px solid ${BD}`}}>
               {[
-                ["Setting",calc.bracket?(calc.isRange?`${fmtR(calc.finalLow)}–${fmtR(calc.finalHigh)}`:fmtR(calc.finalLow)):"—",GOLD,""],
-                ...(stoneMode==="sourcing"&&stoneCalc?[["Stone",(stoneCalc.isRange?`${fmtR(stoneCalc.finalLow)}–${fmtR(stoneCalc.finalHigh)}`:fmtR(stoneCalc.finalLow)),stoneType==="lab"?"#7B5EA7":"#3B6E8F","+ "]]:
+                ["Jewellery piece",calc.bracket?fmtR(calc.finalLow):"—",GOLD,""],
+                ...(stoneMode==="sourcing"&&stoneCalc?[["Stone",fmtR(stoneCalc.clientTotal),stoneType==="lab"?"#7B5EA7":"#3B6E8F","+ "]]:
                    stoneMode==="client"?[["Stone","Client supplying",WG,"+ "]]:
                    []),
-                ["Total",grandIsRange?`${fmtR(grandLow)}–${fmtR(grandHigh)}`:fmtR(grandLow),OK,"= "],
+                ["Total",fmtR(grandTotal),OK,"= "],
               ].map(([label,val,col,prefix],i,arr)=>(
                 <div key={label} style={{flex:1,padding:"12px 16px",background:i===arr.length-1?INK:PARCH,borderRight:i<arr.length-1?`1px solid ${BD}`:"none"}}>
                   <div style={{fontSize:10,fontWeight:700,color:i===arr.length-1?"rgba(255,255,255,0.5)":WG,textTransform:"uppercase",letterSpacing:"0.06em",marginBottom:4}}>{label}</div>
@@ -1379,23 +1383,17 @@ function QuoteBuilder({jobId:jobIdProp,editQuoteId,jobs,clients,quotes,setQuotes
         </div>
       </div>}
 
-      {/* ── Client-facing description ── */}
-      <div style={{borderTop:`1px solid ${BD}`,marginTop:8,paddingTop:20}}>
-        <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:8}}>
-          <div style={{fontSize:11,fontWeight:700,color:WG,textTransform:"uppercase",letterSpacing:"0.08em"}}>Description for client</div>
-          <div style={{background:OK+"22",color:OK,fontSize:10,fontWeight:700,padding:"2px 8px",borderRadius:10,letterSpacing:"0.04em"}}>APPEARS ON PROPOSAL</div>
-        </div>
-        <div style={{fontSize:12,color:WG,marginBottom:8,lineHeight:1.5}}>Write what the client will see on their quote proposal. No costs, markups, or internal details — just the piece description.</div>
-        <textarea value={clientDescription} onChange={e=>setClientDescription(e.target.value)} rows={4}
-          placeholder="e.g. Custom 18ct white gold engagement ring featuring a 1.52ct oval-cut sapphire with a diamond pavé halo and tapering band. All stones hand-selected and set in our Melbourne studio."
-          style={{...SS.inp,marginTop:0,resize:"vertical",lineHeight:1.6,fontSize:13}}/>
-      </div>
       {/* ── Internal notes ── */}
-      <Input label="Internal notes (not shown to client)" value={notes} onChange={setNotes} as="textarea" rows={2} placeholder="e.g. Price locked at approval. Metal prices current as of today."/>
-      <div style={{display:"flex",gap:10,justifyContent:"flex-end",marginTop:4}}>
+      <div style={{borderTop:`1px solid ${BD}`,marginTop:8,paddingTop:16,marginBottom:14}}>
+        <div style={{marginBottom:14}}>
+          <label style={{...SS.lbl,marginBottom:6}}>Internal notes <span style={{fontWeight:400,color:WG,textTransform:"none",letterSpacing:0}}>(not visible to client)</span></label>
+          <textarea value={notes} onChange={e=>setNotes(e.target.value)} rows={2} placeholder="e.g. Price locked at approval. Metal prices current as of today." style={{...SS.inp,marginTop:0,resize:"vertical"}}/>
+        </div>
+      </div>
+      <div style={{display:"flex",gap:10,justifyContent:"flex-end",alignItems:"center"}}>
         <Btn ghost onClick={()=>setView("jobDetail_"+jobId)}>Cancel</Btn>
-        <Btn ghost onClick={()=>save_("Draft")}>{isEditing?"Save changes (draft)":"Save as draft"}</Btn>
-        <Btn onClick={()=>save_("Sent")}>{isEditing?"Save changes":"Save &amp; send"}</Btn>
+        <Btn ghost onClick={()=>save_("Draft")}>Save as draft</Btn>
+        <Btn onClick={()=>save_("Sent")}>{isEditing?"Save & update":"Save & mark as sent"}</Btn>
       </div>
     </Card>
 
@@ -1454,7 +1452,8 @@ function QuoteBuilder({jobId:jobIdProp,editQuoteId,jobs,clients,quotes,setQuotes
 }
 
 // ── Quote Proposal Preview ────────────────────────────────────────────────
-function ProposalPreview({quote,job,client,biz,calc,onClose}){
+function ProposalPreview({quote,job,clients=[],biz,calc,onClose}){
+  const client=clients.find(x=>x.id===job?.clientId)||null;
   const quoteNum="QT-"+quote.id.slice(-6).toUpperCase();
   const issuedDate=new Date(quote.createdAt).toLocaleDateString("en-AU",{day:"numeric",month:"long",year:"numeric"});
   const validDays=biz.quoteValidityDays||30;
@@ -1463,13 +1462,10 @@ function ProposalPreview({quote,job,client,biz,calc,onClose}){
   const terms=biz.quoteTerms||"All custom jewellery requires a deposit before work commences. The final balance is due prior to collection. Quoted prices are valid for the period stated above. Price variations may apply if material costs change significantly. All pieces are handcrafted to order and cannot be returned unless faulty. Estimated completion times are indicative only.";
   // Grand total = setting final + stone client total (inc GST)
   const stoneTotal=quote.stoneClientTotal||0;
-  const settingLow=calc.bracket?calc.finalLow:0;
-  const settingHigh=calc.bracket?(calc.isRange?calc.finalHigh:calc.finalLow):0;
-  const totalLow=settingLow+stoneTotal;
-  const totalHigh=settingHigh+stoneTotal;
-  const isRange=totalHigh>totalLow;
-  const priceDisplay=calc.bracket?(isRange?`${fmtR(totalLow)} – ${fmtR(totalHigh)}`:fmtR(totalLow)):"Quote pending";
-  const depositAmt=calc.bracket?fmtR(totalLow*deposit/100):null;
+  const settingTotal=calc.bracket?calc.finalLow:0;
+  const grandProposalTotal=settingTotal+stoneTotal;
+  const priceDisplay=calc.bracket?fmtR(grandProposalTotal):"Quote pending";
+  const depositAmt=calc.bracket?fmtR(grandProposalTotal*deposit/100):null;
   // Client-facing description — manual field takes priority over job description
   const description=quote.clientDescription||job?.description||"";
 
@@ -1506,165 +1502,165 @@ function ProposalPreview({quote,job,client,biz,calc,onClose}){
   };
 
   const[copied,setCopied]=useState(false);
+  const clientName=client?.name||"";
 
-  return <div style={{position:"fixed",inset:0,background:"rgba(26,23,20,0.82)",zIndex:500,display:"flex",flexDirection:"column",backdropFilter:"blur(4px)"}}>
-    {/* Toolbar */}
-    <div style={{background:INK,padding:"12px 24px",display:"flex",alignItems:"center",justifyContent:"space-between",flexShrink:0,borderBottom:"1px solid rgba(255,255,255,0.1)"}}>
-      <div style={{display:"flex",alignItems:"center",gap:16}}>
-        <button onClick={onClose} style={{background:"none",border:"1px solid rgba(255,255,255,0.2)",borderRadius:8,padding:"6px 14px",color:"rgba(255,255,255,0.7)",fontSize:13,fontWeight:700,cursor:"pointer",fontFamily:"inherit"}}>← Back</button>
-        <div style={{fontSize:13,fontWeight:700,color:GOLD,letterSpacing:"0.04em"}}>Quote Proposal — {quoteNum}</div>
+  return <div style={{position:"fixed",inset:0,background:"rgba(10,10,10,0.88)",zIndex:500,display:"flex",flexDirection:"column"}}>
+
+    {/* ── Toolbar ── */}
+    <div style={{background:INK,padding:"10px 24px",display:"flex",alignItems:"center",justifyContent:"space-between",flexShrink:0,borderBottom:"1px solid rgba(255,255,255,0.08)"}}>
+      <div style={{display:"flex",alignItems:"center",gap:14}}>
+        <button onClick={onClose} style={{background:"none",border:"1px solid rgba(255,255,255,0.18)",borderRadius:6,padding:"6px 14px",color:"rgba(255,255,255,0.65)",fontSize:12,fontWeight:700,cursor:"pointer",fontFamily:"inherit",letterSpacing:"0.02em"}}>← Back</button>
+        <span style={{fontSize:13,fontWeight:700,color:GOLD,letterSpacing:"0.05em"}}>Proposal · {quoteNum}</span>
       </div>
       <div style={{display:"flex",gap:10}}>
-        <button onClick={copyEmailText} style={{background:copied?"#2D7A4F":"rgba(255,255,255,0.08)",border:`1px solid ${copied?"#2D7A4F":"rgba(255,255,255,0.2)"}`,borderRadius:8,padding:"7px 16px",color:copied?WHITE:"rgba(255,255,255,0.8)",fontSize:13,fontWeight:700,cursor:"pointer",fontFamily:"inherit",transition:"all 0.2s"}}>
-          {copied?"✓ Copied!":"✉ Copy email text"}
+        <button onClick={copyEmailText} style={{background:copied?"#2D7A4F22":"rgba(255,255,255,0.06)",border:`1px solid ${copied?"#2D7A4F":"rgba(255,255,255,0.15)"}`,borderRadius:6,padding:"6px 16px",color:copied?"#4CAF84":"rgba(255,255,255,0.7)",fontSize:12,fontWeight:700,cursor:"pointer",fontFamily:"inherit",transition:"all 0.2s"}}>
+          {copied?"✓ Copied":"✉ Copy email text"}
         </button>
-        <button onClick={()=>window.print()} style={{background:GOLD,border:"none",borderRadius:8,padding:"7px 20px",color:WHITE,fontSize:13,fontWeight:700,cursor:"pointer",fontFamily:"inherit"}}>
-          🖨 Print / Save PDF
+        <button onClick={()=>window.print()} style={{background:GOLD,border:"none",borderRadius:6,padding:"6px 18px",color:WHITE,fontSize:12,fontWeight:700,cursor:"pointer",fontFamily:"inherit",letterSpacing:"0.02em"}}>
+          Print / Save PDF
         </button>
       </div>
     </div>
 
-    {/* Document scroll area */}
-    <div style={{flex:1,overflow:"auto",padding:"32px 24px",display:"flex",justifyContent:"center"}} id="proposal-scroll">
-      <div id="proposal-document" style={{width:"100%",maxWidth:720,background:WHITE,borderRadius:12,boxShadow:"0 8px 48px rgba(0,0,0,0.4)",overflow:"hidden",fontFamily:"'DM Sans',sans-serif"}}>
+    {/* ── Scroll area ── */}
+    <div id="proposal-scroll" style={{flex:1,overflowY:"auto",overflowX:"hidden",padding:"40px 20px 60px",background:"#111"}}>
+      <div id="proposal-document" style={{width:"100%",maxWidth:740,margin:"0 auto",background:WHITE,borderRadius:4,boxShadow:"0 20px 80px rgba(0,0,0,0.6)",fontFamily:"Georgia,serif",color:INK}}>
 
-        {/* Header band */}
-        <div style={{background:INK,padding:"36px 44px",display:"flex",justifyContent:"space-between",alignItems:"flex-start"}}>
+        {/* ── HEADER ── */}
+        <div style={{background:INK,padding:"40px 52px 36px",display:"flex",justifyContent:"space-between",alignItems:"flex-start"}}>
           <div>
-            <div style={{fontSize:11,fontWeight:700,color:GOLD,letterSpacing:"0.18em",textTransform:"uppercase",marginBottom:6,fontFamily:"inherit"}}>Quote Proposal</div>
-            <div style={{fontSize:28,fontWeight:800,color:WHITE,letterSpacing:"-0.02em",fontFamily:"inherit"}}>{biz.name||"Your Business"}</div>
-            {biz.address&&<div style={{fontSize:12,color:"rgba(255,255,255,0.5)",marginTop:6,lineHeight:1.5}}>{biz.address}</div>}
-            <div style={{fontSize:12,color:"rgba(255,255,255,0.5)",marginTop:3,lineHeight:1.5}}>
-              {[biz.phone,biz.email].filter(Boolean).join("  ·  ")}
+            <div style={{fontSize:10,fontWeight:700,color:GOLD,letterSpacing:"0.2em",textTransform:"uppercase",marginBottom:10,fontFamily:"'DM Sans',sans-serif"}}>Quote Proposal</div>
+            <div style={{fontSize:26,fontWeight:800,color:WHITE,letterSpacing:"-0.01em",fontFamily:"'DM Sans',sans-serif",lineHeight:1.1}}>{biz.name||"Your Studio"}</div>
+            <div style={{marginTop:12,display:"flex",flexDirection:"column",gap:3}}>
+              {biz.address&&<div style={{fontSize:11,color:"rgba(255,255,255,0.45)",fontFamily:"'DM Sans',sans-serif"}}>{biz.address}</div>}
+              {(biz.phone||biz.email)&&<div style={{fontSize:11,color:"rgba(255,255,255,0.45)",fontFamily:"'DM Sans',sans-serif"}}>{[biz.phone,biz.email].filter(Boolean).join("  ·  ")}</div>}
+              {biz.abn&&<div style={{fontSize:10,color:"rgba(255,255,255,0.28)",fontFamily:"'DM Sans',sans-serif",marginTop:2}}>ABN {biz.abn}</div>}
             </div>
-            {biz.abn&&<div style={{fontSize:11,color:"rgba(255,255,255,0.35)",marginTop:4}}>ABN {biz.abn}</div>}
           </div>
-          <div style={{textAlign:"right"}}>
-            <div style={{fontSize:22,fontWeight:800,color:GOLD,letterSpacing:"0.04em",fontFamily:"inherit"}}>{quoteNum}</div>
-            <div style={{fontSize:12,color:"rgba(255,255,255,0.5)",marginTop:6}}>Issued {issuedDate}</div>
-            <div style={{fontSize:12,color:GOLD+"99",marginTop:3}}>Valid until {validUntil}</div>
-          </div>
-        </div>
-
-        {/* Client info + description */}
-        <div style={{padding:"24px 44px",borderBottom:`1px solid ${BD}`,display:"grid",gridTemplateColumns:"1fr 1fr",gap:24}}>
-          <div>
-            <div style={{fontSize:10,fontWeight:700,color:WG,letterSpacing:"0.12em",textTransform:"uppercase",marginBottom:8,fontFamily:"'DM Sans',sans-serif"}}>Prepared for</div>
-            <div style={{fontSize:18,fontWeight:700,color:INK}}>{client?.name||"—"}</div>
-            {client?.email&&<div style={{fontSize:13,color:WG,marginTop:3}}>{client.email}</div>}
-            {client?.phone&&<div style={{fontSize:13,color:WG,marginTop:1}}>{client.phone}</div>}
-          </div>
-          <div>
-            <div style={{fontSize:10,fontWeight:700,color:WG,letterSpacing:"0.12em",textTransform:"uppercase",marginBottom:8,fontFamily:"'DM Sans',sans-serif"}}>Description</div>
-            <div style={{fontSize:15,fontWeight:700,color:INK,marginBottom:description?6:0}}>{job?.type||"Custom piece"}</div>
-            {description&&<div style={{fontSize:13,color:INK,lineHeight:1.7}}>{description}</div>}
-            {!description&&<div style={{fontSize:12,color:WG,fontStyle:"italic"}}>No client description — edit the quote to add one.</div>}
+          <div style={{textAlign:"right",flexShrink:0}}>
+            <div style={{fontSize:20,fontWeight:800,color:GOLD,letterSpacing:"0.06em",fontFamily:"'DM Sans',sans-serif"}}>{quoteNum}</div>
+            <div style={{marginTop:10,display:"flex",flexDirection:"column",gap:4,alignItems:"flex-end"}}>
+              <div style={{fontSize:11,color:"rgba(255,255,255,0.45)",fontFamily:"'DM Sans',sans-serif"}}>Issued: <span style={{color:"rgba(255,255,255,0.7)"}}>{issuedDate}</span></div>
+              <div style={{fontSize:11,color:"rgba(255,255,255,0.45)",fontFamily:"'DM Sans',sans-serif"}}>Valid until: <span style={{color:GOLD+"cc"}}>{validUntil}</span></div>
+            </div>
           </div>
         </div>
 
-        {/* ── Price breakdown — always visible, top of financial info ── */}
-        <div style={{padding:"24px 44px 0"}}>
+        {/* ── GOLD DIVIDER ── */}
+        <div style={{height:3,background:`linear-gradient(90deg, ${GOLD}, ${GOLD_L}, ${GOLD})`}}/>
+
+        {/* ── PREPARED FOR + JOB DESCRIPTION ── */}
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:0,borderBottom:`1px solid ${BD}`}}>
+          <div style={{padding:"28px 32px 28px 52px",borderRight:`1px solid ${BD}`}}>
+            <div style={{fontSize:9,fontWeight:700,color:WG,letterSpacing:"0.16em",textTransform:"uppercase",marginBottom:12,fontFamily:"'DM Sans',sans-serif"}}>Prepared for</div>
+            <div style={{fontSize:20,fontWeight:700,color:INK,fontFamily:"'DM Sans',sans-serif",marginBottom:6}}>{clientName||"—"}</div>
+            {client?.email&&<div style={{fontSize:12,color:WG,fontFamily:"'DM Sans',sans-serif",marginTop:3}}>{client.email}</div>}
+            {client?.phone&&<div style={{fontSize:12,color:WG,fontFamily:"'DM Sans',sans-serif",marginTop:2}}>{client.phone}</div>}
+          </div>
+          <div style={{padding:"28px 52px 28px 32px"}}>
+            <div style={{fontSize:9,fontWeight:700,color:WG,letterSpacing:"0.16em",textTransform:"uppercase",marginBottom:12,fontFamily:"'DM Sans',sans-serif"}}>Piece</div>
+            <div style={{fontSize:15,fontWeight:700,color:INK,fontFamily:"'DM Sans',sans-serif",marginBottom:8}}>{job?.type||"Custom Jewellery"}</div>
+            {description
+              ?<div style={{fontSize:13,color:"#444",lineHeight:1.75,fontFamily:"Georgia,serif"}}>{description}</div>
+              :<div style={{fontSize:12,color:WG,fontStyle:"italic",fontFamily:"'DM Sans',sans-serif"}}>No description added — edit quote to add one.</div>
+            }
+          </div>
+        </div>
+
+        {/* ── RENDER / IMAGE ── */}
+        <div style={{padding:"28px 52px",borderBottom:`1px solid ${BD}`}}>
+          <div style={{fontSize:9,fontWeight:700,color:WG,letterSpacing:"0.16em",textTransform:"uppercase",marginBottom:14,fontFamily:"'DM Sans',sans-serif"}}>Render / Reference image</div>
+          <div style={{background:PARCH,border:`1.5px dashed ${BD}`,borderRadius:4,minHeight:160,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",gap:8,padding:"24px"}}>
+            <div style={{fontSize:28,opacity:0.2}}>🖼</div>
+            <div style={{fontSize:12,color:WG,fontFamily:"'DM Sans',sans-serif",textAlign:"center"}}>Attach render or reference image before printing</div>
+          </div>
+        </div>
+
+        {/* ── PRICE BREAKDOWN ── */}
+        <div style={{padding:"28px 52px",borderBottom:`1px solid ${BD}`}}>
           <div style={{display:"flex",justifyContent:"space-between",alignItems:"baseline",marginBottom:16}}>
-            <div style={{fontSize:10,fontWeight:700,color:WG,letterSpacing:"0.12em",textTransform:"uppercase",fontFamily:"'DM Sans',sans-serif"}}>Price breakdown</div>
+            <div style={{fontSize:9,fontWeight:700,color:WG,letterSpacing:"0.16em",textTransform:"uppercase",fontFamily:"'DM Sans',sans-serif"}}>Price breakdown</div>
             <div style={{fontSize:10,color:WG,fontFamily:"'DM Sans',sans-serif"}}>All prices inclusive of GST</div>
           </div>
 
-          {/* Setting row */}
-          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"14px 0",borderTop:`1px solid ${BD}`,borderBottom:`1px solid ${BD}`}}>
+          {/* Jewellery row */}
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"13px 0",borderTop:`1px solid ${BD}`}}>
             <div>
-              <div style={{fontSize:14,fontWeight:600,color:INK,fontFamily:"'DM Sans',sans-serif"}}>Setting &amp; manufacturing</div>
-              <div style={{fontSize:12,color:WG,marginTop:2,fontFamily:"'DM Sans',sans-serif"}}>Design, materials &amp; craftsmanship</div>
+              <div style={{fontSize:13,fontWeight:600,color:INK,fontFamily:"'DM Sans',sans-serif"}}>Jewellery piece</div>
+              <div style={{fontSize:11,color:WG,marginTop:2,fontFamily:"'DM Sans',sans-serif"}}>Design, materials &amp; craftsmanship</div>
             </div>
-            <div style={{fontSize:17,fontWeight:700,color:INK,fontFamily:"'DM Sans',sans-serif"}}>
-              {calc.bracket?(calc.isRange?`${fmtR(settingLow)} – ${fmtR(settingHigh)}`:fmtR(settingLow)):"—"}
-            </div>
+            <div style={{fontSize:16,fontWeight:700,color:INK,fontFamily:"'DM Sans',sans-serif"}}>{calc.bracket?fmtR(settingTotal):"—"}</div>
           </div>
 
           {/* Stone row — studio sourcing */}
-          {quote.stoneMode==="sourcing"&&stoneTotal>0&&<div style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"14px 0",borderBottom:`1px solid ${BD}`}}>
+          {quote.stoneMode==="sourcing"&&stoneTotal>0&&<div style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"13px 0",borderTop:`1px solid ${BD}`}}>
             <div>
-              <div style={{fontSize:14,fontWeight:600,color:INK,fontFamily:"'DM Sans',sans-serif"}}>Centre / feature stone</div>
-              <div style={{fontSize:12,color:WG,marginTop:2,fontFamily:"'DM Sans',sans-serif"}}>
-                {quote.stoneType==="lab"?"Lab-grown diamond / gemstone":"Natural diamond / gemstone"} · sourced by studio · inc. GST
-              </div>
+              <div style={{fontSize:13,fontWeight:600,color:INK,fontFamily:"'DM Sans',sans-serif"}}>Centre / feature stone</div>
+              <div style={{fontSize:11,color:WG,marginTop:2,fontFamily:"'DM Sans',sans-serif"}}>{quote.stoneType==="lab"?"Lab-grown diamond / gemstone":"Natural diamond / gemstone"} · inc. GST</div>
             </div>
-            <div style={{fontSize:17,fontWeight:700,color:INK,fontFamily:"'DM Sans',sans-serif"}}>{fmtR(stoneTotal)}</div>
+            <div style={{fontSize:16,fontWeight:700,color:INK,fontFamily:"'DM Sans',sans-serif"}}>{fmtR(stoneTotal)}</div>
           </div>}
 
-          {/* Stone row — client supplying */}
-          {quote.stoneMode==="client"&&<div style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"14px 0",borderBottom:`1px solid ${BD}`}}>
+          {/* Client stone row */}
+          {quote.stoneMode==="client"&&<div style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"13px 0",borderTop:`1px solid ${BD}`}}>
             <div>
-              <div style={{fontSize:14,fontWeight:600,color:INK,fontFamily:"'DM Sans',sans-serif"}}>Centre / feature stone</div>
-              <div style={{fontSize:12,color:WG,marginTop:2,fontFamily:"'DM Sans',sans-serif"}}>Supplied by client — not included in this quote</div>
+              <div style={{fontSize:13,fontWeight:600,color:INK,fontFamily:"'DM Sans',sans-serif"}}>Centre / feature stone</div>
+              <div style={{fontSize:11,color:WG,marginTop:2,fontFamily:"'DM Sans',sans-serif"}}>Supplied by client — not included in this quote</div>
             </div>
-            <div style={{fontSize:13,color:WG,fontStyle:"italic",fontFamily:"'DM Sans',sans-serif"}}>N/A</div>
+            <div style={{fontSize:12,color:WG,fontStyle:"italic",fontFamily:"'DM Sans',sans-serif"}}>Client supplied</div>
           </div>}
 
           {/* Total row */}
-          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"14px 0 0"}}>
-            <div style={{fontSize:14,fontWeight:700,color:INK,fontFamily:"'DM Sans',sans-serif"}}>Total (inc. GST)</div>
-            <div style={{fontSize:22,fontWeight:800,color:INK,fontFamily:"'DM Sans',sans-serif"}}>{priceDisplay}</div>
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"16px 20px",marginTop:12,background:INK,borderRadius:4}}>
+            <div>
+              <div style={{fontSize:11,fontWeight:700,color:"rgba(255,255,255,0.5)",letterSpacing:"0.1em",textTransform:"uppercase",fontFamily:"'DM Sans',sans-serif",marginBottom:2}}>Total quoted price</div>
+              <div style={{fontSize:10,color:"rgba(255,255,255,0.3)",fontFamily:"'DM Sans',sans-serif"}}>Inc. GST · Quoted in AUD</div>
+            </div>
+            <div style={{textAlign:"right"}}>
+              <div style={{fontSize:30,fontWeight:800,color:GOLD,letterSpacing:"-0.02em",fontFamily:"'DM Sans',sans-serif"}}>{priceDisplay}</div>
+              {depositAmt&&<div style={{fontSize:11,color:"rgba(255,255,255,0.4)",marginTop:4,fontFamily:"'DM Sans',sans-serif"}}>
+                {deposit}% deposit to commence: <span style={{color:GOLD,fontWeight:700}}>{depositAmt}</span>
+              </div>}
+            </div>
           </div>
         </div>
 
-        {/* Dark price band */}
-        <div style={{background:"#1A1714",margin:"24px 0 0",padding:"24px 44px",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
-          <div>
-            <div style={{fontSize:10,fontWeight:700,color:"rgba(255,255,255,0.4)",letterSpacing:"0.14em",textTransform:"uppercase",marginBottom:6,fontFamily:"'DM Sans',sans-serif"}}>Total quoted price</div>
-            <div style={{fontSize:10,color:"rgba(255,255,255,0.3)",fontFamily:"'DM Sans',sans-serif"}}>inc. GST · quoted in AUD</div>
-          </div>
-          <div style={{textAlign:"right"}}>
-            <div style={{fontSize:isRange?28:34,fontWeight:800,color:GOLD,letterSpacing:"-0.02em",fontFamily:"'DM Sans',sans-serif"}}>{priceDisplay}</div>
-            {depositAmt&&<div style={{marginTop:6,fontSize:12,color:"rgba(255,255,255,0.4)",fontFamily:"'DM Sans',sans-serif"}}>
-              Deposit to commence: <span style={{color:GOLD,fontWeight:700}}>{depositAmt}</span><span style={{color:"rgba(255,255,255,0.3)"}}> ({deposit}%)</span>
-            </div>}
-          </div>
+        {/* ── TERMS ── */}
+        <div style={{padding:"28px 52px",borderBottom:`1px solid ${BD}`}}>
+          <div style={{fontSize:9,fontWeight:700,color:WG,letterSpacing:"0.16em",textTransform:"uppercase",marginBottom:14,fontFamily:"'DM Sans',sans-serif"}}>Terms &amp; conditions</div>
+          <div style={{fontSize:11,color:"#555",lineHeight:1.85,fontFamily:"Georgia,serif"}}>{terms}</div>
         </div>
 
-        {/* Render / image area */}
-        <div style={{padding:"24px 44px",borderBottom:`1px solid ${BD}`}}>
-          <div style={{fontSize:10,fontWeight:700,color:WG,letterSpacing:"0.12em",textTransform:"uppercase",marginBottom:10,fontFamily:"'DM Sans',sans-serif"}}>Render / Reference image</div>
-          <div style={{background:PARCH,border:`2px dashed ${BD}`,borderRadius:8,height:180,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",gap:6}}>
-            <div style={{fontSize:24,opacity:0.25}}>🖼</div>
-            <div style={{fontSize:12,color:WG,fontFamily:"'DM Sans',sans-serif"}}>Attach render or reference image before printing</div>
-          </div>
-        </div>
-
-        {/* Terms */}
-        <div style={{padding:"28px 44px",borderBottom:`1px solid ${BD}`}}>
-          <div style={{fontSize:10,fontWeight:700,color:WG,letterSpacing:"0.12em",textTransform:"uppercase",marginBottom:12,fontFamily:"'DM Sans',sans-serif"}}>Terms &amp; conditions</div>
-          <div style={{fontSize:12,color:WG,lineHeight:1.8,fontFamily:"'DM Sans',sans-serif"}}>{terms}</div>
-        </div>
-
-        {/* Signature */}
-        <div style={{padding:"28px 44px 40px"}}>
-          <div style={{fontSize:10,fontWeight:700,color:WG,letterSpacing:"0.12em",textTransform:"uppercase",marginBottom:20,fontFamily:"'DM Sans',sans-serif"}}>Client acceptance</div>
-          <div style={{fontSize:12,color:WG,marginBottom:24,fontFamily:"'DM Sans',sans-serif",lineHeight:1.7}}>
+        {/* ── CLIENT ACCEPTANCE ── */}
+        <div style={{padding:"28px 52px 44px"}}>
+          <div style={{fontSize:9,fontWeight:700,color:WG,letterSpacing:"0.16em",textTransform:"uppercase",marginBottom:14,fontFamily:"'DM Sans',sans-serif"}}>Client acceptance</div>
+          <div style={{fontSize:12,color:"#555",marginBottom:28,fontFamily:"Georgia,serif",lineHeight:1.75}}>
             I, the undersigned, accept the above quote and authorise work to commence upon payment of the required deposit.
           </div>
-          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:32}}>
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"24px 40px"}}>
             {[["Signature",""],["Print name",""],["Date",""],["Deposit paid","$"]].map(([label,prefix])=>(
               <div key={label}>
-                <div style={{fontSize:11,color:WG,marginBottom:6,fontFamily:"'DM Sans',sans-serif"}}>{label}</div>
-                <div style={{borderBottom:`1.5px solid ${INK}`,height:32,display:"flex",alignItems:"flex-end",paddingBottom:4,fontSize:13,color:WG,fontFamily:"'DM Sans',sans-serif"}}>{prefix}</div>
+                <div style={{borderBottom:`1px solid #CCC`,paddingBottom:6,minHeight:36,display:"flex",alignItems:"flex-end",fontSize:13,color:WG,fontFamily:"'DM Sans',sans-serif"}}>{prefix}</div>
+                <div style={{fontSize:10,color:WG,marginTop:6,fontFamily:"'DM Sans',sans-serif",letterSpacing:"0.05em"}}>{label}</div>
               </div>
             ))}
           </div>
         </div>
 
-        {/* Footer */}
-        <div style={{background:PARCH,padding:"14px 44px",borderTop:`1px solid ${BD}`,display:"flex",justifyContent:"space-between",alignItems:"center"}}>
-          <div style={{fontSize:11,color:WG,fontFamily:"'DM Sans',sans-serif"}}>{biz.name||""} · {quoteNum}</div>
-          <div style={{fontSize:11,color:WG,fontFamily:"'DM Sans',sans-serif"}}>Quote valid until {validUntil}</div>
+        {/* ── FOOTER ── */}
+        <div style={{borderTop:`1px solid ${BD}`,padding:"14px 52px",display:"flex",justifyContent:"space-between",alignItems:"center",background:PARCH}}>
+          <div style={{fontSize:10,color:WG,fontFamily:"'DM Sans',sans-serif"}}>{biz.name||""}{biz.name?" · ":""}{quoteNum}</div>
+          <div style={{fontSize:10,color:WG,fontFamily:"'DM Sans',sans-serif"}}>Valid until {validUntil}</div>
         </div>
+
       </div>
     </div>
 
     <style>{`
       @media print {
         body > * { display: none !important; }
-        #proposal-document { display: block !important; box-shadow: none !important; border-radius: 0 !important; max-width: 100% !important; }
-        #proposal-scroll { display: block !important; padding: 0 !important; overflow: visible !important; }
+        #proposal-scroll { display: block !important; padding: 0 !important; overflow: visible !important; background: white !important; }
+        #proposal-document { box-shadow: none !important; border-radius: 0 !important; max-width: 100% !important; margin: 0 !important; }
       }
     `}</style>
   </div>;
@@ -1680,10 +1676,8 @@ function QuoteDetail({quoteId,quotes,setQuotes,jobs,clients,biz,markupTable,natu
   const activeStoneMarkup=q.stoneType==="lab"?(labStoneMarkup||[]):(naturalStoneMarkup||[]);
   const stoneCalc=q.stoneMode==="sourcing"&&q.stoneItems?.length?calcStoneQuote(q.stoneItems,activeStoneMarkup):null;
   const stoneClientTotal=stoneCalc?.clientTotal||0;
-  const grandLow=calc.finalLow+stoneClientTotal;
-  const grandHigh=(calc.isRange?calc.finalHigh:calc.finalLow)+stoneClientTotal;
-  const grandIsRange=grandHigh>grandLow;
-  const grandStr=calc.bracket?(grandIsRange?`${fmtR(grandLow)} – ${fmtR(grandHigh)}`:fmtR(grandLow)):"—";
+  const grandTotal=calc.finalLow+stoneClientTotal;
+  const grandStr=calc.bracket?fmtR(grandTotal):"—";
   const setStatus=s=>setQuotes(p=>{const n=p.map(x=>x.id===quoteId?{...x,status:s}:x);persist(K.qu,n);return n;});
   const delQuote=()=>{
     if(!confirm("Delete this quote? This cannot be undone."))return;
@@ -1693,7 +1687,7 @@ function QuoteDetail({quoteId,quotes,setQuotes,jobs,clients,biz,markupTable,natu
   const[showProposal,setShowProposal]=useState(false);
 
   return <div>
-    {showProposal&&<ProposalPreview quote={q} job={job} client={c} biz={biz} calc={calc} onClose={()=>setShowProposal(false)}/>}
+    {showProposal&&<ProposalPreview quote={q} job={job} clients={clients} biz={biz} calc={calc} onClose={()=>setShowProposal(false)}/>}
     <button onClick={()=>setView("jobDetail_"+q.jobId)} style={{background:"none",border:"none",cursor:"pointer",color:GOLD,fontSize:13,fontWeight:700,fontFamily:"inherit",marginBottom:18,padding:0}}>← Back to job</button>
     <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:20}}>
       <div><h1 style={{margin:0,fontSize:24,fontWeight:800,color:INK,letterSpacing:"-0.02em"}}>Quote #{q.id.slice(-4).toUpperCase()}</h1>
@@ -1713,18 +1707,18 @@ function QuoteDetail({quoteId,quotes,setQuotes,jobs,clients,biz,markupTable,natu
         {["Item","Detail","Cost"].map(h=><div key={h} style={{fontSize:10,fontWeight:700,color:WG,textTransform:"uppercase",letterSpacing:"0.05em"}}>{h}</div>)}
       </div>
       {q.lineItems.map(li=>{
-        const isR=lineIsRange(li);
+        const cost=lineCost(li);
         return <div key={li.id} style={{display:"grid",gridTemplateColumns:"180px 1fr 44px 110px",gap:6,padding:"9px 0",borderBottom:`1px solid ${BD}`,fontSize:13,alignItems:"center"}}>
           <span style={{fontWeight:600,color:INK}}>{li.description}</span>
           <span style={{color:WG,fontSize:12}}>{li.detail}</span>
-          <span>{li.noMarkup&&<span style={{background:"#7B5EA7",color:WHITE,fontSize:9,fontWeight:700,padding:"2px 6px",borderRadius:2,letterSpacing:"0.04em",whiteSpace:"nowrap"}}>FLAT</span>}</span>
-          <span style={{fontWeight:isR?500:700,color:isR?WARN:li.noMarkup?"#7B5EA7":INK,textAlign:"right"}}>{isR?`approx ${fmt(lineCostLow(li))} – ${fmt(lineCostHigh(li))}`:fmt(lineCostLow(li))}</span>
+          <span>{li.noMarkup&&<span style={{background:"#7B5EA7",color:WHITE,fontSize:9,fontWeight:700,padding:"2px 6px",borderRadius:2,letterSpacing:"0.04em",whiteSpace:"nowrap"}}>NO MU</span>}</span>
+          <span style={{fontWeight:700,color:li.noMarkup?"#7B5EA7":INK,textAlign:"right"}}>{fmt(cost)}</span>
         </div>;
       })}
 
       {/* Markup summary */}
       <div style={{marginTop:20,marginBottom:q.stoneMode&&q.stoneMode!=="none"?24:0}}>
-        <div style={{fontSize:11,fontWeight:700,color:WG,textTransform:"uppercase",letterSpacing:"0.06em",marginBottom:10}}>Setting &amp; manufacturing</div>
+        <div style={{fontSize:11,fontWeight:700,color:WG,textTransform:"uppercase",letterSpacing:"0.06em",marginBottom:10}}>Jewellery costs</div>
         <MarkupSummary {...calc} large/>
       </div>
 
@@ -1762,7 +1756,7 @@ function QuoteDetail({quoteId,quotes,setQuotes,jobs,clients,biz,markupTable,natu
       {/* Grand total bar */}
       {q.stoneMode==="sourcing"&&stoneCalc&&<div style={{background:INK,borderRadius:4,padding:"14px 20px",marginBottom:16,display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:1}}>
         {[
-          ["Setting (ex GST)",calc.bracket?(calc.isRange?`${fmtR(calc.finalLow)}–${fmtR(calc.finalHigh)}`:fmtR(calc.finalLow)):"—",GOLD],
+          ["Jewellery piece (ex GST)",calc.bracket?fmtR(calc.finalLow):"—",GOLD],
           ["Stone (inc GST)",fmtR(stoneCalc.clientTotal),q.stoneType==="lab"?"#C4A8F0":"#8EB5D4"],
           ["Combined total",grandStr,OK],
         ].map(([l,v,col])=>(
@@ -1804,9 +1798,7 @@ function QuotesList({quotes,jobs,clients,markupTable,setView}){
       const cl=job?clients.find(x=>x.id===job.clientId):null;
       const calc=calcQuote(q.lineItems,markupTable);
       const stoneTotal=q.stoneClientTotal||0;
-      const gLow=calc.finalLow+stoneTotal;
-      const gHigh=(calc.isRange?calc.finalHigh:calc.finalLow)+stoneTotal;
-      const priceStr=calc.bracket?((gHigh>gLow)?`${fmtR(gLow)} – ${fmtR(gHigh)}`:fmtR(gLow)):"—";
+      const priceStr=calc.bracket?fmtR(calc.finalLow+stoneTotal):"—";
       return <Card key={q.id} onClick={()=>setView("quoteDetail_"+q.id)}>
         <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
           <div>
