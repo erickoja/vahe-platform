@@ -3746,6 +3746,8 @@ export default function App(){
   const[storageReady,setStorageReady]=useState(false);
   const[session,setSession]=useState(null);
   const[authReady,setAuthReady]=useState(!supabaseEnabled);
+  // Stable across token refreshes — only changes on real sign-in/out
+  const userId=session?.user?.id||null;
 
   // Auth: track Supabase session (no-op when Supabase isn't configured → local mode)
   useEffect(()=>{
@@ -3771,7 +3773,7 @@ export default function App(){
   useEffect(()=>{
     // Wait until we know the auth state. In cloud mode, only load once logged in.
     if(!authReady)return;
-    if(supabaseEnabled&&!session)return;
+    if(supabaseEnabled&&!userId)return;
 
     const keyToSetter={
       [K.cl]:setClients,[K.jo]:setJobs,[K.qu]:setQuotes,[K.pa]:setPayments,
@@ -3800,7 +3802,7 @@ export default function App(){
 
     // Live sync: apply changes made on other computers
     let channel=null;
-    if(supabaseEnabled&&session&&supabase){
+    if(supabaseEnabled&&userId&&supabase){
       channel=supabase.channel("studio_state_changes")
         .on("postgres_changes",{event:"*",schema:"public",table:STATE_TABLE},(payload)=>{
           const row=payload.new&&Object.keys(payload.new).length?payload.new:null;
@@ -3811,7 +3813,7 @@ export default function App(){
         .subscribe();
     }
     return()=>{clearTimeout(giveUp);if(channel&&supabase){try{supabase.removeChannel(channel);}catch(e){}}};
-  },[authReady,session]);
+  },[authReady,userId]);
 
   const setView=useCallback(v=>{
     if(v.startsWith("clientDetail_")){setSelClient(v.split("_")[1]);setViewRaw("clientDetail");}
