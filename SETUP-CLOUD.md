@@ -39,6 +39,25 @@ create policy "authenticated update" on public.studio_state for update using (au
 alter publication supabase_realtime add table public.studio_state;
 ```
 
+## 2b. Create the image storage bucket (for job photos)
+
+In **SQL Editor** → **New query**, run:
+
+```sql
+-- Private bucket for job images
+insert into storage.buckets (id, name, public)
+values ('job-images', 'job-images', false)
+on conflict (id) do nothing;
+
+-- Logged-in users can read / upload / delete images in this bucket
+create policy "job-images read"   on storage.objects for select to authenticated using (bucket_id = 'job-images');
+create policy "job-images insert" on storage.objects for insert to authenticated with check (bucket_id = 'job-images');
+create policy "job-images delete" on storage.objects for delete to authenticated using (bucket_id = 'job-images');
+```
+
+The bucket is private — images are only viewable through the app via temporary
+secure links. Free tier includes ~1GB of storage.
+
 ## 3. Create your two user logins
 
 1. In the dashboard go to **Authentication** → **Users** → **Add user** →

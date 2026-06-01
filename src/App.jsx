@@ -506,6 +506,47 @@ const persist=(k,v)=>{
   }
 };
 
+// ── Image storage (Supabase Storage, private bucket) ───────────────────────
+const IMG_BUCKET="job-images";
+const imagesEnabled=()=>Boolean(supabase&&_cloudActive);
+// Resize + compress in the browser before upload (phone photos are huge)
+const compressImage=(file,maxDim=1600,quality=0.82)=>new Promise((resolve,reject)=>{
+  try{
+    const reader=new FileReader();
+    reader.onload=e=>{
+      const img=new Image();
+      img.onload=()=>{
+        let{width,height}=img;
+        if(width>=height&&width>maxDim){height=Math.round(height*maxDim/width);width=maxDim;}
+        else if(height>width&&height>maxDim){width=Math.round(width*maxDim/height);height=maxDim;}
+        const canvas=document.createElement("canvas");canvas.width=width;canvas.height=height;
+        canvas.getContext("2d").drawImage(img,0,0,width,height);
+        canvas.toBlob(b=>b?resolve(b):reject(new Error("compress failed")),"image/jpeg",quality);
+      };
+      img.onerror=()=>reject(new Error("invalid image"));
+      img.src=e.target.result;
+    };
+    reader.onerror=()=>reject(new Error("read failed"));
+    reader.readAsDataURL(file);
+  }catch(e){reject(e);}
+});
+const uploadJobImage=async(jobId,blob)=>{
+  const path=`${jobId}/${uid()}.jpg`;
+  const{error}=await supabase.storage.from(IMG_BUCKET).upload(path,blob,{contentType:"image/jpeg",upsert:false});
+  if(error)throw error;
+  return path;
+};
+const signedImageUrl=async(path)=>{
+  try{
+    const{data,error}=await supabase.storage.from(IMG_BUCKET).createSignedUrl(path,86400);
+    if(error)throw error;
+    return data?.signedUrl||null;
+  }catch(e){return null;}
+};
+const deleteJobImage=async(path)=>{
+  try{await supabase.storage.from(IMG_BUCKET).remove([path]);}catch(e){}
+};
+
 // ── Shared UI ─────────────────────────────────────────────────────────────
 const SS={inp:{width:"100%",padding:"9px 12px",borderRadius:2,border:`1px solid ${BD}`,fontSize:13,fontFamily:"inherit",color:INK,background:WHITE,outline:"none",boxSizing:"border-box",marginTop:4},lbl:{fontSize:10,fontWeight:700,color:WG,letterSpacing:"0.1em",textTransform:"uppercase",display:"block"}};
 
@@ -991,6 +1032,92 @@ function ActivityLog({jobId,notes,setNotes}){
   </Card>;
 }
 
+// ── Job image gallery ─────────────────────────────────────────────────────
+function JobImages({job,setJobs}){
+  const images=job.images||[];
+  const[urls,setUrls]=useState({});
+  const[busy,setBusy]=useState(false);
+  const[err,setErr]=useState("");
+  const[lightbox,setLightbox]=useState(null);
+
+  useEffect(()=>{
+    let cancelled=false;
+    (async()=>{
+      if(!imagesEnabled()||!images.length)return;
+      const map={};
+      for(const img of images){
+        const u=await signedImageUrl(img.path);
+        if(u)map[img.path]=u;
+      }
+      if(!cancelled)setUrls(map);
+    })();
+    return()=>{cancelled=true;};
+  },[job.id,images.map(i=>i.path).join(",")]);
+
+  const saveImages=(next)=>setJobs(p=>{const n=p.map(j=>j.id===job.id?{...j,images:next}:j);persist(K.jo,n);return n;});
+
+  const onFiles=async(fileList)=>{
+    const files=Array.from(fileList||[]).filter(f=>f.type.startsWith("image/"));
+    if(!files.length)return;
+    setErr("");setBusy(true);
+    try{
+      const added=[];
+      for(const file of files){
+        const blob=await compressImage(file);
+        const path=await uploadJobImage(job.id,blob);
+        const u=await signedImageUrl(path);
+        added.push({id:uid(),path,caption:"",uploadedAt:new Date().toISOString()});
+        if(u)setUrls(prev=>({...prev,[path]:u}));
+      }
+      saveImages([...images,...added]);
+    }catch(e){setErr(e.message||"Upload failed.");}
+    setBusy(false);
+  };
+
+  const removeImg=async(img)=>{
+    if(!confirm("Remove this image?"))return;
+    saveImages(images.filter(i=>i.id!==img.id));
+    deleteJobImage(img.path);
+  };
+  const setCaption=(img,caption)=>saveImages(images.map(i=>i.id===img.id?{...i,caption}:i));
+
+  if(!imagesEnabled())return <Card>
+    <div style={{fontWeight:700,fontSize:15,color:INK,marginBottom:6}}>Images</div>
+    <div style={{fontSize:13,color:WG,lineHeight:1.6}}>Image uploads need the cloud backend. Sign in on the deployed app to add photos.</div>
+  </Card>;
+
+  return <Card>
+    <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:14}}>
+      <div style={{fontWeight:700,fontSize:15,color:INK}}>Images ({images.length})</div>
+      <label style={{background:GOLD,color:WHITE,borderRadius:8,padding:"7px 16px",fontSize:12,fontWeight:700,cursor:busy?"default":"pointer",fontFamily:"inherit",letterSpacing:"0.02em",opacity:busy?0.6:1}}>
+        {busy?"Uploading…":"+ Upload images"}
+        <input type="file" accept="image/*" multiple disabled={busy} onChange={e=>{onFiles(e.target.files);e.target.value="";}} style={{display:"none"}}/>
+      </label>
+    </div>
+    {err&&<div style={{background:DANGER+"15",border:`1px solid ${DANGER}44`,color:DANGER,fontSize:12,padding:"8px 12px",borderRadius:8,marginBottom:12}}>{err}</div>}
+    {images.length===0&&!busy&&<div style={{fontSize:13,color:WG,fontStyle:"italic",padding:"8px 0"}}>No images yet. Upload reference shots, CAD renders, progress photos or the finished piece.</div>}
+    {images.length>0&&<div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(150px,1fr))",gap:12}}>
+      {images.map(img=>(
+        <div key={img.id} style={{border:`1px solid ${BD}`,borderRadius:10,overflow:"hidden",background:PARCH}}>
+          <div onClick={()=>urls[img.path]&&setLightbox(urls[img.path])} style={{width:"100%",height:130,background:`#EEE center/cover no-repeat`,backgroundImage:urls[img.path]?`url(${urls[img.path]})`:"none",cursor:urls[img.path]?"zoom-in":"default",display:"flex",alignItems:"center",justifyContent:"center"}}>
+            {!urls[img.path]&&<span style={{fontSize:11,color:WG}}>loading…</span>}
+          </div>
+          <div style={{padding:"7px 8px"}}>
+            <input value={img.caption||""} onChange={e=>setCaption(img,e.target.value)} placeholder="Add caption…" style={{...SS.inp,marginTop:0,fontSize:11,padding:"4px 7px"}}/>
+            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginTop:5}}>
+              <span style={{fontSize:10,color:WG}}>{fmtDate(img.uploadedAt)}</span>
+              <button onClick={()=>removeImg(img)} style={{background:"none",border:"none",cursor:"pointer",color:DANGER,fontSize:11,fontWeight:700,fontFamily:"inherit",padding:0}}>Remove</button>
+            </div>
+          </div>
+        </div>
+      ))}
+    </div>}
+    {lightbox&&<div onClick={()=>setLightbox(null)} style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.85)",zIndex:600,display:"flex",alignItems:"center",justifyContent:"center",padding:30,cursor:"zoom-out"}}>
+      <img src={lightbox} alt="" style={{maxWidth:"100%",maxHeight:"100%",borderRadius:8,boxShadow:"0 20px 80px rgba(0,0,0,0.6)"}}/>
+    </div>}
+  </Card>;
+}
+
 function JobDetail({jobId,jobs,setJobs,clients,quotes,setQuotes,payments,setPayments,notes,setNotes,invoices,setInvoices,biz,markupTable,setView}){
   const job=jobs.find(j=>j.id===jobId);
   if(!job)return null;
@@ -1047,6 +1174,7 @@ function JobDetail({jobId,jobs,setJobs,clients,quotes,setQuotes,payments,setPaym
       </div>
     </Card>}
     {job.description&&<Card><div style={{...SS.lbl,marginBottom:8}}>Description</div><div style={{fontSize:14,color:INK,lineHeight:1.7}}>{job.description}</div>{job.notes&&<div style={{marginTop:10,fontSize:13,color:WG,fontStyle:"italic",borderTop:`1px solid ${BD}`,paddingTop:10}}>Notes: {job.notes}</div>}</Card>}
+    <JobImages job={job} setJobs={setJobs}/>
     <Card>
       <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:14}}>
         <div style={{fontWeight:700,fontSize:15,color:INK}}>Payments</div>
