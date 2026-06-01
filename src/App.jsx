@@ -682,8 +682,8 @@ function Dashboard({clients,jobs,quotes,payments,invoices,markupTable,setView}){
   const ready=jobs.filter(j=>j.stage==="Ready for collection");
   const overdue=active.filter(j=>j.deadline&&j.deadline<today());
   const thisMonth=new Date().toISOString().slice(0,7);
-  const monthRevenue=invoices.filter(i=>i.date?.startsWith(thisMonth)&&i.status==="Paid").reduce((s,i)=>s+i.totalIncGST,0);
-  const outstanding=invoices.filter(i=>i.status!=="Paid").reduce((s,i)=>s+i.totalIncGST,0);
+  // Cash-received view: actual payments received this month (deposits included), regardless of invoicing
+  const monthReceived=payments.filter(p=>p.status==="Received"&&p.date?.startsWith(thisMonth)).reduce((s,p)=>s+Number(p.amount),0);
   const balanceOwing=jobs.map(j=>{
     const aq=quotes.filter(q=>q.jobId===j.id&&q.status==="Approved");
     if(!aq.length)return null;
@@ -692,6 +692,8 @@ function Dashboard({clients,jobs,quotes,payments,invoices,markupTable,setView}){
     const bal=total-paid;
     return bal>1?{job:j,balance:bal}:null;
   }).filter(Boolean);
+  // Outstanding = total still owed across approved jobs (quote total − payments received)
+  const outstanding=balanceOwing.reduce((s,b)=>s+b.balance,0);
 
   return <div>
     <div style={{marginBottom:26}}>
@@ -702,8 +704,8 @@ function Dashboard({clients,jobs,quotes,payments,invoices,markupTable,setView}){
     <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(140px,1fr))",gap:12,marginBottom:22}}>
       <Stat label="Clients" value={clients.length} onClick={()=>setView("clients")}/>
       <Stat label="Active jobs" value={active.length} onClick={()=>setView("jobs")}/>
-      <Stat label="This month" value={fmt(monthRevenue)} sub="invoiced & paid"/>
-      <Stat label="Outstanding" value={fmt(outstanding)} accent={outstanding>0}/>
+      <Stat label="This month" value={fmt(monthReceived)} sub="payments received"/>
+      <Stat label="Outstanding" value={fmt(outstanding)} sub="balance owed" accent={outstanding>0}/>
       <Stat label="Ready to collect" value={ready.length} accent={ready.length>0} onClick={()=>setView("jobs")}/>
       <Stat label="Overdue" value={overdue.length} accent={overdue.length>0} onClick={()=>setView("jobs")}/>
     </div>
