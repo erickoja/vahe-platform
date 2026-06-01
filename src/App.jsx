@@ -429,6 +429,17 @@ const calcQuote=(items,table)=>{
   return {base,baseLow,baseHigh,isRange,bracket,mult,markupFinal,markupFinalLow,markupFinalHigh,flatTotal,flatHigh,hasFlatItems,finalLow,finalHigh};
 };
 
+// Total agreed charge for a job, used by every financial view.
+// Uses the manual Total Charge Override when set; otherwise sums approved quotes.
+const jobChargeTotal=(job,quotes,markupTable)=>{
+  const ov=Number(job?.totalOverride);
+  if(ov>0)return ov;
+  const aq=(quotes||[]).filter(q=>q.jobId===job.id&&q.status==="Approved");
+  return aq.reduce((s,q)=>{const c=calcQuote(q.lineItems,markupTable);return s+(c.isRange?c.finalHigh:c.finalLow)+(q.stoneClientTotal||0);},0);
+};
+// True if the job has any agreed charge (override or approved quote)
+const jobHasCharge=(job,quotes)=>Number(job?.totalOverride)>0||(quotes||[]).some(q=>q.jobId===job.id&&q.status==="Approved");
+
 // ── Storage ───────────────────────────────────────────────────────────────
 // ── Stone quote calculation (cost → markup → +GST) ───────────────────────
 const calcStoneQuote=(items,table)=>{
@@ -685,9 +696,8 @@ function Dashboard({clients,jobs,quotes,payments,invoices,markupTable,setView}){
   // Cash-received view: actual payments received this month (deposits included), regardless of invoicing
   const monthReceived=payments.filter(p=>p.status==="Received"&&p.date?.startsWith(thisMonth)).reduce((s,p)=>s+Number(p.amount),0);
   const balanceOwing=jobs.map(j=>{
-    const aq=quotes.filter(q=>q.jobId===j.id&&q.status==="Approved");
-    if(!aq.length)return null;
-    const total=aq.reduce((s,q)=>{const c=calcQuote(q.lineItems,markupTable);return s+(c.isRange?c.finalHigh:c.finalLow)+(q.stoneClientTotal||0);},0);
+    if(!jobHasCharge(j,quotes))return null;
+    const total=jobChargeTotal(j,quotes,markupTable);
     const paid=payments.filter(p=>p.jobId===j.id&&p.status==="Received").reduce((s,p)=>s+Number(p.amount),0);
     const bal=total-paid;
     return bal>1?{job:j,balance:bal}:null;
@@ -812,18 +822,28 @@ function Clients({clients,setClients,jobs,payments,setView,setSelClient}){
   </div>;
 }
 
-function ClientDetail({clientId,clients,jobs,payments,setView,setSelJob}){
+function ClientDetail({clientId,clients,jobs,quotes,payments,markupTable,setView,setSelJob}){
   const c=clients.find(x=>x.id===clientId);
   if(!c)return null;
   const cj=jobs.filter(j=>j.clientId===clientId);
   const spent=cj.flatMap(j=>payments.filter(p=>p.jobId===j.id&&p.status==="Received")).reduce((s,p)=>s+Number(p.amount),0);
+  const charged=cj.reduce((s,j)=>s+jobChargeTotal(j,quotes,markupTable),0);
+  const owing=Math.max(0,charged-spent);
   return <div>
     <button onClick={()=>setView("clients")} style={{background:"none",border:"none",cursor:"pointer",color:GOLD,fontSize:13,fontWeight:700,fontFamily:"inherit",marginBottom:18,padding:0}}>← Back to clients</button>
-    <div style={{display:"flex",alignItems:"center",gap:14,marginBottom:24}}>
+    <div style={{display:"flex",alignItems:"center",gap:14,marginBottom:20}}>
       <div style={{width:50,height:50,borderRadius:"50%",background:GOLD_L,display:"flex",alignItems:"center",justifyContent:"center",fontSize:20,fontWeight:800,color:GOLD_D}}>{c.name.charAt(0)}</div>
       <div><h1 style={{margin:0,fontSize:24,fontWeight:800,color:INK,letterSpacing:"-0.02em"}}>{c.name}</h1>
       <div style={{fontSize:13,color:WG}}>Since {fmtDate(c.createdAt)} · {fmt(spent)} paid to date</div></div>
     </div>
+    {charged>0&&<div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:12,marginBottom:16}}>
+      {[["Total charged",fmt(charged),INK],["Paid",fmt(spent),OK],["Outstanding",fmt(owing),owing>0.5?WARN:OK]].map(([l,v,col])=>(
+        <div key={l} style={{background:WHITE,border:`1px solid ${BD}`,borderRadius:14,padding:"14px 16px"}}>
+          <div style={{fontSize:10,color:WG,fontWeight:700,textTransform:"uppercase",letterSpacing:"0.06em"}}>{l}</div>
+          <div style={{fontSize:20,fontWeight:800,color:col,marginTop:3}}>{v}</div>
+        </div>
+      ))}
+    </div>}
     <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:14,marginBottom:14}}>
       <Card style={{margin:0}}>
         <div style={SS.lbl}>Contact</div>
@@ -853,7 +873,7 @@ function ClientDetail({clientId,clients,jobs,payments,setView,setSelJob}){
 
 // ── Jobs ──────────────────────────────────────────────────────────────────
 function JobForm({clients,initial={},onSave,onCancel}){
-  const[f,setF]=useState({clientId:"",type:JOB_TYPES[0],stage:JOB_STAGES[0],description:"",deadline:"",notes:"",supplier:"",supplierRef:"",...initial});
+  const[f,setF]=useState({clientId:"",type:JOB_TYPES[0],stage:JOB_STAGES[0],description:"",deadline:"",notes:"",supplier:"",supplierRef:"",totalOverride:"",...initial});
   const set=k=>v=>setF(p=>({...p,[k]:v}));
   return <div>
     <Input label="Client" value={f.clientId} onChange={set("clientId")} as="select" options={[{value:"",label:"— Select a client —"},...clients.map(c=>({value:c.id,label:c.name}))]}/>
@@ -863,6 +883,10 @@ function JobForm({clients,initial={},onSave,onCancel}){
       <Input label="Due date" value={f.deadline} onChange={set("deadline")} type="date"/>
     </div>
     <div style={{borderTop:`1px solid ${BD}`,margin:"6px 0 16px"}}/>
+    <div style={{background:GOLD_L,border:`1px solid ${GOLD}55`,borderRadius:10,padding:"12px 16px",marginBottom:16}}>
+      <Input label="Total charge override ($) — optional" value={f.totalOverride||""} onChange={set("totalOverride")} type="number" min="0" step="0.01" placeholder="e.g. 4500"/>
+      <div style={{fontSize:11,color:GOLD_D,marginTop:-6,lineHeight:1.5}}>Set this when the sale was agreed outside the CRM (no quote needed). The CRM uses it as the job's total for balances, overview &amp; reports. Leave blank to use approved quotes instead.</div>
+    </div>
     <Input label="Job description" value={f.description} onChange={set("description")} as="textarea" rows={3} placeholder="Describe the piece, specifications, materials…"/>
     <div style={{marginBottom:14}}>
       <label style={{...SS.lbl,marginBottom:6}}>Internal notes <span style={{fontWeight:400,color:WG,textTransform:"none",letterSpacing:0}}>(not visible to client)</span></label>
@@ -965,8 +989,9 @@ function JobDetail({jobId,jobs,setJobs,clients,quotes,setQuotes,payments,setPaym
   const jp=payments.filter(p=>p.jobId===jobId);
   const ji=invoices.filter(i=>i.jobId===jobId);
   const paidTotal=jp.filter(p=>p.status==="Received").reduce((s,p)=>s+Number(p.amount),0);
-  const approvedMid=jq.filter(q=>q.status==="Approved").reduce((s,q)=>{const c=calcQuote(q.lineItems,markupTable);return s+(c.isRange?c.finalHigh:c.finalLow)+(q.stoneClientTotal||0);},0);
-  const balance=approvedMid-paidTotal;
+  const usingOverride=Number(job.totalOverride)>0;
+  const jobTotal=jobChargeTotal(job,quotes,markupTable);
+  const balance=jobTotal-paidTotal;
   const[editStage,setEditStage]=useState(false);
   const[editJobModal,setEditJobModal]=useState(false);
   const[payModal,setPayModal]=useState(false);
@@ -1017,8 +1042,8 @@ function JobDetail({jobId,jobs,setJobs,clients,quotes,setQuotes,payments,setPaym
         <div style={{fontWeight:700,fontSize:15,color:INK}}>Payments</div>
         <Btn sm onClick={()=>setPayModal(true)}>+ Record payment</Btn>
       </div>
-      {approvedMid>0&&<div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:10,marginBottom:14}}>
-        {[["Approx. quote",fmt(approvedMid),INK],["Received",fmt(paidTotal),OK],["Outstanding",fmt(Math.max(0,balance)),balance>0.5?WARN:OK]].map(([l,v,col])=>(
+      {jobTotal>0&&<div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:10,marginBottom:14}}>
+        {[[usingOverride?"Total charge":"Approx. quote",fmt(jobTotal),INK],["Received",fmt(paidTotal),OK],["Outstanding",fmt(Math.max(0,balance)),balance>0.5?WARN:OK]].map(([l,v,col])=>(
           <div key={l} style={{background:PARCH,borderRadius:10,padding:"10px 12px",border:`1px solid ${BD}`}}>
             <div style={{fontSize:10,color:WG,fontWeight:700,textTransform:"uppercase",letterSpacing:"0.05em"}}>{l}</div>
             <div style={{fontSize:19,fontWeight:800,color:col,marginTop:3}}>{v}</div>
@@ -3303,17 +3328,23 @@ function Reports({jobs,clients,quotes,payments,invoices,markupTable}){
   const avgBase=totalQ>0?quotes.reduce((s,q)=>s+calcQuote(q.lineItems,markupTable).baseLow,0)/totalQ:0;
   const avgFinal=totalQ>0?quotes.reduce((s,q)=>{const c=calcQuote(q.lineItems,markupTable);return s+(c.bracket?(c.isRange?c.finalHigh:c.finalLow):0);},0)/totalQ:0;
   const totalPaid=payments.filter(p=>p.status==="Received").reduce((s,p)=>s+Number(p.amount),0);
-  const outstanding=invoices.filter(i=>i.status!=="Paid").reduce((s,i)=>s+i.totalIncGST,0);
+  // Sales = agreed charge across all jobs (override or approved quotes)
+  const totalSales=jobs.reduce((s,j)=>s+jobChargeTotal(j,quotes,markupTable),0);
+  const outstanding=jobs.reduce((s,j)=>{
+    const bal=jobChargeTotal(j,quotes,markupTable)-payments.filter(p=>p.jobId===j.id&&p.status==="Received").reduce((a,p)=>a+Number(p.amount),0);
+    return s+(bal>1?bal:0);
+  },0);
   return <div>
     <SectionHeader title="Reports"/>
     <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(140px,1fr))",gap:12,marginBottom:22}}>
       <Stat label="Total clients" value={clients.length}/>
       <Stat label="Total jobs" value={jobs.length}/>
+      <Stat label="Total sales" value={fmt(totalSales)} sub="agreed charges"/>
       <Stat label="Quote conversion" value={`${conv}%`} sub={`${appQ} of ${totalQ} approved`}/>
       <Stat label="Avg base cost" value={fmt(avgBase)}/>
       <Stat label="Avg final price" value={fmt(avgFinal)}/>
       <Stat label="Total received" value={fmt(totalPaid)}/>
-      <Stat label="Outstanding" value={fmt(outstanding)} accent={outstanding>0}/>
+      <Stat label="Outstanding" value={fmt(outstanding)} sub="balance owed" accent={outstanding>0}/>
     </div>
     <Card>
       <div style={{fontWeight:700,fontSize:15,color:INK,marginBottom:18}}>Payments received — last 6 months</div>
@@ -3661,7 +3692,7 @@ export default function App(){
   const render=()=>{
     if(view==="dashboard")return <Dashboard clients={clients} jobs={jobs} quotes={quotes} payments={payments} invoices={invoices} markupTable={markupTable} setView={setView}/>;
     if(view==="clients")return <Clients clients={clients} setClients={setClients} jobs={jobs} payments={payments} setView={setView} setSelClient={setSelClient}/>;
-    if(view==="clientDetail")return <ClientDetail clientId={selClient} clients={clients} jobs={jobs} payments={payments} setView={setView} setSelJob={setSelJob}/>;
+    if(view==="clientDetail")return <ClientDetail clientId={selClient} clients={clients} jobs={jobs} quotes={quotes} payments={payments} markupTable={markupTable} setView={setView} setSelJob={setSelJob}/>;
     if(view==="jobs")return <Jobs clients={clients} jobs={jobs} setJobs={setJobs} quotes={quotes} setQuotes={setQuotes} payments={payments} setPayments={setPayments} notes={notes} setNotes={setNotes} invoices={invoices} setInvoices={setInvoices} setView={setView} setSelJob={setSelJob}/>;
     if(view==="jobDetail")return <JobDetail jobId={selJob} jobs={jobs} setJobs={setJobs} clients={clients} quotes={quotes} setQuotes={setQuotes} payments={payments} setPayments={setPayments} notes={notes} setNotes={setNotes} invoices={invoices} setInvoices={setInvoices} biz={biz} markupTable={markupTable} setView={setView}/>;
     if(view==="quotes")return <QuotesList quotes={quotes} jobs={jobs} clients={clients} markupTable={markupTable} setView={setView}/>;
