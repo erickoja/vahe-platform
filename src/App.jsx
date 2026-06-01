@@ -899,7 +899,7 @@ function JobForm({clients,initial={},onSave,onCancel}){
   </div>;
 }
 
-function Jobs({clients,jobs,setJobs,quotes,setQuotes,payments,setPayments,notes,setNotes,invoices,setInvoices,setView,setSelJob}){
+function Jobs({clients,jobs,setJobs,quotes,setQuotes,payments,setPayments,notes,setNotes,invoices,setInvoices,markupTable,setView,setSelJob}){
   const[modal,setModal]=useState(null);
   const[sf,setSf]=useState("All");
   const filtered=sf==="All"?jobs:jobs.filter(j=>j.stage===sf);
@@ -922,6 +922,10 @@ function Jobs({clients,jobs,setJobs,quotes,setQuotes,payments,setPayments,notes,
     {filtered.map(j=>{
       const c=clients.find(x=>x.id===j.clientId);
       const od=j.deadline&&j.deadline<today()&&j.stage!=="Collected";
+      const total=jobChargeTotal(j,quotes,markupTable);
+      const paid=payments.filter(p=>p.jobId===j.id&&p.status==="Received").reduce((s,p)=>s+Number(p.amount),0);
+      const owing=total-paid;
+      const isOverride=Number(j.totalOverride)>0;
       return <Card key={j.id} onClick={()=>{setSelJob(j.id);setView("jobDetail");}}>
         <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start"}}>
           <div><div style={{fontWeight:700,fontSize:15,color:INK,marginBottom:2}}>{j.type} <span style={{color:WG,fontWeight:400,fontSize:13}}>· {c?.name}</span></div>
@@ -932,6 +936,12 @@ function Jobs({clients,jobs,setJobs,quotes,setQuotes,payments,setPayments,notes,
             <button onClick={e=>delJob(j.id,e)} style={{background:"none",border:`1px solid ${DANGER}44`,borderRadius:2,padding:"3px 10px",fontSize:11,color:DANGER,cursor:"pointer",fontFamily:"inherit",fontWeight:700,letterSpacing:"0.04em",opacity:0.7}} onMouseEnter={e=>e.currentTarget.style.opacity=1} onMouseLeave={e=>e.currentTarget.style.opacity=0.7}>Delete</button>
           </div>
         </div>
+        {total>0&&<div style={{display:"flex",gap:18,marginTop:12,paddingTop:10,borderTop:`1px solid ${BD}`,fontSize:12,flexWrap:"wrap"}}>
+          <span style={{color:WG}}>Total <b style={{color:INK}}>{fmt(total)}</b>{isOverride&&<span style={{color:GOLD_D,fontSize:10,fontWeight:700,marginLeft:5,letterSpacing:"0.04em"}}>OVERRIDE</span>}</span>
+          <span style={{color:WG}}>Paid <b style={{color:OK}}>{fmt(paid)}</b></span>
+          {owing>0.5&&<span style={{color:WG}}>Owing <b style={{color:WARN}}>{fmt(owing)}</b></span>}
+          {owing<=0.5&&total>0&&<span style={{color:OK,fontWeight:700}}>✓ Paid in full</span>}
+        </div>}
       </Card>;
     })}
     {modal&&<Modal title="New job" onClose={()=>setModal(null)}><JobForm clients={clients} onSave={add} onCancel={()=>setModal(null)}/></Modal>}
@@ -3693,7 +3703,7 @@ export default function App(){
     if(view==="dashboard")return <Dashboard clients={clients} jobs={jobs} quotes={quotes} payments={payments} invoices={invoices} markupTable={markupTable} setView={setView}/>;
     if(view==="clients")return <Clients clients={clients} setClients={setClients} jobs={jobs} payments={payments} setView={setView} setSelClient={setSelClient}/>;
     if(view==="clientDetail")return <ClientDetail clientId={selClient} clients={clients} jobs={jobs} quotes={quotes} payments={payments} markupTable={markupTable} setView={setView} setSelJob={setSelJob}/>;
-    if(view==="jobs")return <Jobs clients={clients} jobs={jobs} setJobs={setJobs} quotes={quotes} setQuotes={setQuotes} payments={payments} setPayments={setPayments} notes={notes} setNotes={setNotes} invoices={invoices} setInvoices={setInvoices} setView={setView} setSelJob={setSelJob}/>;
+    if(view==="jobs")return <Jobs clients={clients} jobs={jobs} setJobs={setJobs} quotes={quotes} setQuotes={setQuotes} payments={payments} setPayments={setPayments} notes={notes} setNotes={setNotes} invoices={invoices} setInvoices={setInvoices} markupTable={markupTable} setView={setView} setSelJob={setSelJob}/>;
     if(view==="jobDetail")return <JobDetail jobId={selJob} jobs={jobs} setJobs={setJobs} clients={clients} quotes={quotes} setQuotes={setQuotes} payments={payments} setPayments={setPayments} notes={notes} setNotes={setNotes} invoices={invoices} setInvoices={setInvoices} biz={biz} markupTable={markupTable} setView={setView}/>;
     if(view==="quotes")return <QuotesList quotes={quotes} jobs={jobs} clients={clients} markupTable={markupTable} setView={setView}/>;
     if(view.startsWith("quoteDetail_"))return <QuoteDetail quoteId={view.split("_")[1]} quotes={quotes} setQuotes={setQuotes} jobs={jobs} clients={clients} biz={biz} markupTable={markupTable} naturalStoneMarkup={naturalStoneMarkup} labStoneMarkup={labStoneMarkup} setView={setView}/>;
