@@ -39,7 +39,12 @@ const JOB_STAGES=["Enquiry","Consultation","Quoted","Approved","Design / CAD","R
 const SC={"Enquiry":"#A0845C","Consultation":"#7A6C5D","Quoted":"#5B7FA6","Approved":"#3B6E8F","Design / CAD":"#7B5EA7","Render approval":"#9B4F96","Wax / Cast":"#B05C3A","Stone setting":"#C47A2E","Polishing / Finish":"#8B9E3A","QC check":"#4A8E6A","Ready for collection":"#2D7A4F","Collected":"#1A5C3A"};
 const PAY_TYPES=["Deposit","CAD / Design stage","Production deposit","Progress payment","Final balance","Lay-by payment","Other"];
 const PAY_METHODS=["Bank transfer","Cash","Card (EFTPOS)","Card (credit)","PayID","Cheque","Other"];
-const PCAT=["Metals","Labour","CAD Design","Findings","Lab Grown Diamonds | D-E","Natural diamonds G-H SI1","Natural diamonds D-E VS","Basic Setting","Complex Setting","3D Print & Cast"];
+const FINDINGS_CAT="Findings";
+const PURCHASED_CAT="Purchased Components";
+const CENTRE_SET_CAT="Centre Stone Setting";
+// Centre stone setting: fee = carat × per-ct rate (basic default $50/ct, complex default $75/ct)
+const DEFAULT_CENTRE_RATES={basicPerCt:50,complexPerCt:75};
+const PCAT=["Metals","Labour","CAD Design",FINDINGS_CAT,PURCHASED_CAT,"Lab Grown Diamonds | D-E","Natural diamonds G-H SI1","Natural diamonds D-E VS","Basic Setting","Complex Setting",CENTRE_SET_CAT,"3D Print & Cast","Accent Stones"];
 const DIAMOND_CATS=["Lab Grown Diamonds | D-E","Natural diamonds G-H SI1","Natural diamonds D-E VS"];
 const NOTE_TYPES=["General note","Client call","Client email","Client visit","Internal update","Approval received"];
 const GST_RATE=0.10;
@@ -114,9 +119,11 @@ const SEED_PRICING=[
   {id:"p8",category:"Labour",name:"Bench Labour (Casting Assembly)",unit:"hr",baseCost:70},
   {id:"p10",category:"Labour",name:"Custom Fabrication (Handmade)",unit:"job",baseCost:320},
 
-  {id:"p19",category:"Findings",name:"Lobster clasp 18ct yellow",unit:"item",baseCost:22},
-  {id:"p20",category:"Findings",name:"Earring posts + butterflies",unit:"pair",baseCost:18},
-  {id:"p21",category:"Findings",name:"Box chain 18ct yellow 45cm",unit:"item",baseCost:145},
+  {id:"p19",category:FINDINGS_CAT,name:"Lobster clasp 18ct yellow",unit:"item",baseCost:22},
+  {id:"p20",category:FINDINGS_CAT,name:"Earring posts + butterflies",unit:"pair",baseCost:18},
+  // ── Purchased Components (sourced chains etc.) ────────────────────────────
+  {id:"p21",category:PURCHASED_CAT,name:"Box chain 18ct yellow 45cm",unit:"item",baseCost:145},
+  {id:"pc10",category:PURCHASED_CAT,name:"Cable chain 9ct yellow 50cm",unit:"item",baseCost:95},
   // ── 3D Printing & Casting ─────────────────────────────────────────────────
   {id:"pc1",category:"3D Print & Cast",name:"3D print fee",unit:"piece",baseCost:60},
   {id:"pc2",category:"3D Print & Cast",name:"Casting fee",unit:"piece",baseCost:15},
@@ -435,7 +442,7 @@ const calcStoneQuote=(items,table)=>{
   return{totalCost,bracket,mult,markedUp,gst,clientTotal};
 };
 
-const K={cl:"jlr4_clients",jo:"jlr4_jobs",qu:"jlr4_quotes",pa:"jlr4_payments",pr:"jlr4_pricing_v9",biz:"jlr4_biz",no:"jlr4_notes",inv:"jlr4_invoices",spot:"jlr4_spot",mt:"jlr4_markup",smn:"jlr4_stone_nat",sml:"jlr4_stone_lab"};
+const K={cl:"jlr4_clients",jo:"jlr4_jobs",qu:"jlr4_quotes",pa:"jlr4_payments",pr:"jlr4_pricing_v9",biz:"jlr4_biz",no:"jlr4_notes",inv:"jlr4_invoices",spot:"jlr4_spot",mt:"jlr4_markup",smn:"jlr4_stone_nat",sml:"jlr4_stone_lab",csr:"jlr4_centre_rates"};
 
 // ── Dual-environment storage ───────────────────────────────────────────────
 // Uses window.storage inside Claude artifacts, localStorage when run standalone in a browser.
@@ -1075,6 +1082,196 @@ function PaymentForm({onSave,onCancel,suggestedAmount}){
 // ── Quote Builder ─────────────────────────────────────────────────────────
 const CAD_TIER_COLORS={"None (no charge)":WG,"Simple Design":"#5B7FA6","Standard Design":GOLD_D,"Complex Design":"#7B5EA7"};
 
+// ── Accent Stone Modal ────────────────────────────────────────────────────
+function AccentStoneModal({pricing,setPricing,onAdd,onClose}){
+  const accentDB=pricing.filter(p=>p.category==="Accent Stones");
+  const[costs,setCosts]=useState({});
+  const[adding,setAdding]=useState(false);
+  const[newName,setNewName]=useState("");
+  const[newDetail,setNewDetail]=useState("");
+  const saveAndAdd=()=>{
+    if(!newName.trim())return alert("Enter a stone name");
+    const item={id:uid(),category:"Accent Stones",name:newName.trim(),detail:newDetail.trim(),unit:"stone",baseCost:0};
+    setPricing(p=>{const n=[...p,item];persist(K.pr,n);return n;});
+    onAdd({description:item.name,detail:item.detail,costLow:""});
+  };
+  return <Modal title="Add accent & fancy stone" onClose={onClose}>
+    {!adding&&<>
+      {accentDB.length===0
+        ?<div style={{textAlign:"center",padding:"24px 0 16px"}}>
+          <div style={{fontSize:28,marginBottom:12}}>💎</div>
+          <div style={{fontSize:14,fontWeight:600,color:INK,marginBottom:6}}>No stones in your catalog yet</div>
+          <div style={{fontSize:13,color:WG,marginBottom:20,lineHeight:1.6}}>Save your commonly used stone types once — then pick them from your catalog in any quote.</div>
+          <Btn onClick={()=>setAdding(true)}>+ Add your first stone type</Btn>
+        </div>
+        :<>
+          <div style={{fontSize:13,color:WG,marginBottom:16,lineHeight:1.6}}>Pick a stone and enter your cost for this job.</div>
+          {accentDB.map(item=>{
+            const cost=costs[item.id]||"";
+            return <div key={item.id} style={{display:"flex",alignItems:"center",gap:12,padding:"12px 0",borderBottom:`1px solid ${BD}`}}>
+              <div style={{flex:1}}>
+                <div style={{fontWeight:600,fontSize:14,color:INK}}>{item.name}</div>
+                {item.detail&&<div style={{fontSize:12,color:WG,marginTop:2}}>{item.detail}</div>}
+              </div>
+              <div style={{position:"relative",width:120,flexShrink:0}}>
+                <span style={{position:"absolute",left:10,top:"50%",transform:"translateY(-50%)",fontSize:12,color:WG,pointerEvents:"none"}}>$</span>
+                <input type="number" value={cost} min="0" step="0.01" placeholder="Your cost"
+                  onChange={e=>setCosts(p=>({...p,[item.id]:e.target.value}))}
+                  style={{...SS.inp,marginTop:0,padding:"7px 8px 7px 22px",fontSize:13,textAlign:"right",width:"100%"}}/>
+              </div>
+              <Btn sm onClick={()=>onAdd({description:item.name,detail:item.detail||"",costLow:String(cost||"")})}>Add</Btn>
+            </div>;
+          })}
+          <div style={{marginTop:18,paddingTop:14,borderTop:`1px solid ${BD}`}}>
+            <button onClick={()=>setAdding(true)} style={{background:"none",border:"none",cursor:"pointer",color:GOLD,fontSize:13,fontWeight:700,fontFamily:"inherit",padding:0}}>
+              + Save &amp; add a new stone type
+            </button>
+          </div>
+        </>}
+    </>}
+    {adding&&<>
+      <div style={{fontSize:13,color:WG,marginBottom:16,lineHeight:1.6}}>This stone type will be saved to your catalog for use in future quotes.</div>
+      <Input label="Stone name" value={newName} onChange={setNewName} placeholder="e.g. 2mm blue sapphires"/>
+      <Input label="Notes / detail (optional)" value={newDetail} onChange={setNewDetail} placeholder="e.g. heat treated, round, supplier XYZ"/>
+      <div style={{display:"flex",gap:10,justifyContent:"flex-end",marginTop:8}}>
+        <Btn ghost onClick={()=>setAdding(false)}>Back</Btn>
+        <Btn onClick={saveAndAdd}>Save &amp; add to quote</Btn>
+      </div>
+    </>}
+  </Modal>;
+}
+
+// ── Findings & Components Modal ───────────────────────────────────────────
+// ── Centre Stone Setting calculator ───────────────────────────────────────
+const centreSettingFee=(ct,complex,rates=DEFAULT_CENTRE_RATES)=>{
+  const w=Number(ct)||0;
+  if(w<=0)return 0;
+  const perCt=complex?(Number(rates.complexPerCt)||0):(Number(rates.basicPerCt)||0);
+  return w*perCt;
+};
+function CentreStonePicker({onAdd,centreRates=DEFAULT_CENTRE_RATES}){
+  const[ct,setCt]=useState("");
+  const[complex,setComplex]=useState(false);
+  const w=Number(ct)||0;
+  const fee=centreSettingFee(ct,complex,centreRates);
+  const perCt=complex?centreRates.complexPerCt:centreRates.basicPerCt;
+  return <div>
+    <div style={{fontSize:12,color:WG,marginBottom:16,lineHeight:1.6}}>
+      Centre stones are larger and higher-risk to set. Enter the carat weight and choose the setting type — the fee is calculated automatically.
+      <br/><strong style={{color:INK}}>Basic</strong> = carat × {fmt(centreRates.basicPerCt)}/ct · <strong style={{color:INK}}>Complex</strong> = carat × {fmt(centreRates.complexPerCt)}/ct (pear claws, bezels, fragile stones, sapphires, etc.)
+    </div>
+    <div style={{display:"grid",gridTemplateColumns:"180px 1fr",gap:"0 20px",alignItems:"start"}}>
+      <div>
+        <label style={SS.lbl}>Centre stone carat weight</label>
+        <div style={{position:"relative",marginTop:4}}>
+          <input type="number" value={ct} min="0" step="0.01" placeholder="e.g. 1.50" onChange={e=>setCt(e.target.value)}
+            style={{...SS.inp,marginTop:0,paddingRight:34,fontSize:15,fontWeight:700,textAlign:"right"}}/>
+          <span style={{position:"absolute",right:12,top:"50%",transform:"translateY(-50%)",fontSize:12,color:WG,pointerEvents:"none"}}>ct</span>
+        </div>
+      </div>
+      <div>
+        <label style={SS.lbl}>Setting type</label>
+        <div style={{display:"flex",gap:10,marginTop:4}}>
+          {[[false,"Basic","Round diamond, standard claw"],[true,"Complex","Pear claws, bezels, fragile / sapphire"]].map(([val,label,sub])=>(
+            <button key={label} onClick={()=>setComplex(val)} style={{
+              flex:1,padding:"10px 14px",borderRadius:8,cursor:"pointer",fontFamily:"inherit",textAlign:"left",
+              border:`2px solid ${complex===val?(val?"#B05C3A":"#4A8E6A"):BD}`,
+              background:complex===val?(val?"#B05C3A11":"#4A8E6A11"):"transparent",transition:"all 0.12s"
+            }}>
+              <div style={{fontSize:13,fontWeight:700,color:complex===val?(val?"#B05C3A":"#4A8E6A"):INK}}>{label}</div>
+              <div style={{fontSize:10,color:WG,marginTop:2,lineHeight:1.3}}>{sub}</div>
+            </button>
+          ))}
+        </div>
+      </div>
+    </div>
+    <div style={{marginTop:18,background:fee>0?OK+"11":PARCH,border:`1px solid ${fee>0?OK:BD}`,borderRadius:10,padding:"14px 18px",display:"flex",justifyContent:"space-between",alignItems:"center",gap:12}}>
+      <div>
+        <div style={{fontSize:12,fontWeight:700,color:INK}}>Centre stone setting — {complex?"complex":"basic"}</div>
+        <div style={{fontSize:12,color:WG,marginTop:2}}>{w>0?`${w}ct × ${fmt(perCt)}/ct`:"Enter a carat weight to calculate"}</div>
+      </div>
+      <div style={{display:"flex",gap:12,alignItems:"center",flexShrink:0}}>
+        <div style={{fontSize:20,fontWeight:800,color:fee>0?OK:WG}}>{fmt(fee)}</div>
+        <Btn disabled={fee<=0} onClick={()=>onAdd(w,complex,fee)}>Add to quote</Btn>
+      </div>
+    </div>
+  </div>;
+}
+
+function FindingsModal({pricing,setPricing,onAdd,onClose}){
+  const findingDB=pricing.filter(p=>p.category===FINDINGS_CAT);
+  const[qtys,setQtys]=useState({});
+  const[adding,setAdding]=useState(false);
+  const[newName,setNewName]=useState("");
+  const[newDetail,setNewDetail]=useState("");
+  const[newUnit,setNewUnit]=useState("item");
+  const[newCost,setNewCost]=useState("");
+  const addToQuote=(item,qty)=>{
+    const q=Math.max(1,Number(qty)||1);
+    const total=(Number(item.baseCost)*q).toFixed(2);
+    const detail=q>1?`${q} × ${fmt(item.baseCost)}/${item.unit||"item"}${item.detail?` · ${item.detail}`:""}`:(item.detail||"");
+    onAdd({description:item.name,detail,costLow:String(total)});
+  };
+  const saveAndAdd=()=>{
+    if(!newName.trim())return alert("Enter a component name");
+    if(!newCost||Number(newCost)<=0)return alert("Enter your cost");
+    const item={id:uid(),category:FINDINGS_CAT,name:newName.trim(),detail:newDetail.trim(),unit:newUnit,baseCost:Number(newCost)};
+    setPricing(p=>{const n=[...p,item];persist(K.pr,n);return n;});
+    onAdd({description:item.name,detail:item.detail,costLow:String(Number(newCost).toFixed(2))});
+  };
+  return <Modal title="Add finding / component" onClose={onClose}>
+    {!adding&&<>
+      {findingDB.length===0
+        ?<div style={{textAlign:"center",padding:"24px 0 16px"}}>
+          <div style={{fontSize:28,marginBottom:12}}>🔗</div>
+          <div style={{fontSize:14,fontWeight:600,color:INK,marginBottom:6}}>No findings in your catalog yet</div>
+          <div style={{fontSize:13,color:WG,marginBottom:20,lineHeight:1.6}}>Save the chains, clasps, posts &amp; parts you use — with your cost — then pick them in any quote.</div>
+          <Btn onClick={()=>setAdding(true)}>+ Add your first component</Btn>
+        </div>
+        :<>
+          <div style={{fontSize:13,color:WG,marginBottom:16,lineHeight:1.6}}>Pick a component, set the quantity, and add it to the quote. You can adjust the cost on the quote afterwards.</div>
+          {findingDB.map(item=>{
+            const qty=qtys[item.id]||"";
+            const q=Math.max(1,Number(qty)||1);
+            const total=Number(item.baseCost)*q;
+            return <div key={item.id} style={{display:"flex",alignItems:"center",gap:12,padding:"12px 0",borderBottom:`1px solid ${BD}`}}>
+              <div style={{flex:1}}>
+                <div style={{fontWeight:600,fontSize:14,color:INK}}>{item.name}</div>
+                <div style={{fontSize:12,color:WG,marginTop:2}}><strong style={{color:INK}}>{fmt(item.baseCost)}</strong>/{item.unit||"item"}{item.detail?` · ${item.detail}`:""}</div>
+              </div>
+              <div style={{display:"flex",alignItems:"center",gap:6,flexShrink:0}}>
+                <label style={{fontSize:11,fontWeight:700,color:WG}}>Qty</label>
+                <input type="number" value={qty} min="1" step="1" placeholder="1"
+                  onChange={e=>setQtys(p=>({...p,[item.id]:e.target.value}))}
+                  style={{...SS.inp,marginTop:0,width:56,padding:"7px 8px",fontSize:13,textAlign:"center"}}/>
+              </div>
+              {qty&&q>0&&<div style={{fontSize:13,fontWeight:800,color:OK,whiteSpace:"nowrap",width:64,textAlign:"right"}}>{fmt(total)}</div>}
+              <Btn sm onClick={()=>addToQuote(item,qty)}>Add</Btn>
+            </div>;
+          })}
+          <div style={{marginTop:18,paddingTop:14,borderTop:`1px solid ${BD}`}}>
+            <button onClick={()=>setAdding(true)} style={{background:"none",border:"none",cursor:"pointer",color:GOLD,fontSize:13,fontWeight:700,fontFamily:"inherit",padding:0}}>
+              + Save &amp; add a new component
+            </button>
+          </div>
+        </>}
+    </>}
+    {adding&&<>
+      <div style={{fontSize:13,color:WG,marginBottom:16,lineHeight:1.6}}>This component will be saved to your catalog for use in future quotes.</div>
+      <Input label="Component name" value={newName} onChange={setNewName} placeholder="e.g. Box chain 18ct yellow 45cm"/>
+      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"0 16px"}}>
+        <Input label="Your cost ($)" value={newCost} onChange={setNewCost} type="number" min="0" step="0.01"/>
+        <Input label="Unit" value={newUnit} onChange={setNewUnit} as="select" options={["item","pair","set","g","cm","piece"]}/>
+      </div>
+      <Input label="Notes / detail (optional)" value={newDetail} onChange={setNewDetail} placeholder="e.g. 1.2mm gauge, lobster clasp"/>
+      <div style={{display:"flex",gap:10,justifyContent:"flex-end",marginTop:8}}>
+        <Btn ghost onClick={()=>setAdding(false)}>Back</Btn>
+        <Btn onClick={saveAndAdd}>Save &amp; add to quote</Btn>
+      </div>
+    </>}
+  </Modal>;
+}
+
 function CADQuotePicker({pricing,selCAD,setSelCAD,pQty,setPQty,addFromDB}){
   const cadTiers=pricing.filter(p=>p.category==="CAD Design"&&p.cadTier);
   const cadRev=pricing.find(p=>p.category==="CAD Design"&&p.cadRevision);
@@ -1127,14 +1324,16 @@ function CADQuotePicker({pricing,selCAD,setSelCAD,pQty,setPQty,addFromDB}){
   </div>;
 }
 
-function QuoteBuilder({jobId:jobIdProp,editQuoteId,jobs,clients,quotes,setQuotes,pricing,markupTable,naturalStoneMarkup,labStoneMarkup,setView}){
+function QuoteBuilder({jobId:jobIdProp,editQuoteId,jobs,clients,quotes,setQuotes,pricing,setPricing,markupTable,naturalStoneMarkup,labStoneMarkup,centreRates=DEFAULT_CENTRE_RATES,setView}){
   const existingQuote=editQuoteId?quotes.find(q=>q.id===editQuoteId):null;
   const jobId=existingQuote?.jobId||jobIdProp;
   const job=jobs.find(j=>j.id===jobId);
   const c=job?clients.find(x=>x.id===job.clientId):null;
   const isEditing=!!existingQuote;
   const blankItem=()=>({id:uid(),description:"",detail:"",costLow:"",noMarkup:false});
-  const[items,setItems]=useState(()=>existingQuote?.lineItems?.length?existingQuote.lineItems.map(i=>({...i})):[blankItem()]);
+  const[items,setItems]=useState(()=>existingQuote?.lineItems?.length?existingQuote.lineItems.filter(i=>!i.accentStone&&!i.finding).map(i=>({...i})):[blankItem()]);
+  const[accentItems,setAccentItems]=useState(()=>existingQuote?.lineItems?.length?existingQuote.lineItems.filter(i=>i.accentStone).map(i=>({...i})):[]);
+  const[findingItems,setFindingItems]=useState(()=>existingQuote?.lineItems?.length?existingQuote.lineItems.filter(i=>i.finding).map(i=>({...i})):[]);
   const[notes,setNotes]=useState(existingQuote?.notes||"");
   const[clientDescription,setClientDescription]=useState(existingQuote?.clientDescription||"");
   const[validUntil,setValidUntil]=useState(existingQuote?.validUntil||"");
@@ -1143,6 +1342,8 @@ function QuoteBuilder({jobId:jobIdProp,editQuoteId,jobs,clients,quotes,setQuotes
   const[pCat,setPCat]=useState("All");
   const[pQty,setPQty]=useState({});
   const[selCAD,setSelCAD]=useState(null);
+  const[accentModal,setAccentModal]=useState(false);
+  const[findingModal,setFindingModal]=useState(false);
   // Centre stone section
   const[stoneMode,setStoneMode]=useState(existingQuote?.stoneMode||"none");
   const[stoneType,setStoneType]=useState(existingQuote?.stoneType||"");
@@ -1155,6 +1356,10 @@ function QuoteBuilder({jobId:jobIdProp,editQuoteId,jobs,clients,quotes,setQuotes
 
   const setItem=(id,k,v)=>setItems(p=>p.map(i=>i.id===id?{...i,[k]:v}:i));
   const removeItem=id=>setItems(p=>p.filter(i=>i.id!==id));
+  const setAccentItem=(id,k,v)=>setAccentItems(p=>p.map(i=>i.id===id?{...i,[k]:v}:i));
+  const removeAccentItem=id=>setAccentItems(p=>p.filter(i=>i.id!==id));
+  const setFindingItem=(id,k,v)=>setFindingItems(p=>p.map(i=>i.id===id?{...i,[k]:v}:i));
+  const removeFindingItem=id=>setFindingItems(p=>p.filter(i=>i.id!==id));
   const moveItem=(id,dir)=>{
     setItems(p=>{const i=p.findIndex(x=>x.id===id);if(i<0)return p;const n=[...p];const t=n[i+dir];if(!t)return p;n[i+dir]=n[i];n[i]=t;return n;});
   };
@@ -1195,7 +1400,17 @@ function QuoteBuilder({jobId:jobIdProp,editQuoteId,jobs,clients,quotes,setQuotes
     setPricingModal(false);
   };
 
-  const validItems=items.filter(i=>i.description.trim()&&Number(i.costLow)>0);
+  const addCentreSetting=(ct,complex,fee)=>{
+    const perCt=complex?centreRates.complexPerCt:centreRates.basicPerCt;
+    const desc=`Centre stone setting — ${complex?"complex":"basic"}`;
+    const detail=`${ct}ct centre stone · ${complex?"complex":"basic"} setting (${fmt(perCt)}/ct)`;
+    setItems(p=>[...p,{id:uid(),description:desc,detail,costLow:fee.toFixed(2),noMarkup:false}]);
+    setPricingModal(false);
+  };
+
+  const validAccentItems=accentItems.filter(i=>i.description.trim()&&Number(i.costLow)>0);
+  const validFindingItems=findingItems.filter(i=>i.description.trim()&&Number(i.costLow)>0);
+  const validItems=[...items.filter(i=>i.description.trim()&&Number(i.costLow)>0),...validAccentItems,...validFindingItems];
   const calc=calcQuote(validItems.length?validItems:items,markupTable);
   const validStoneItems=stoneItems.filter(i=>(Number(i.cost)||Number(i.costLow))>0);
   const activeStoneMarkup=stoneType==="lab"?labStoneMarkup:naturalStoneMarkup;
@@ -1204,7 +1419,8 @@ function QuoteBuilder({jobId:jobIdProp,editQuoteId,jobs,clients,quotes,setQuotes
   const grandTotal=calc.finalLow+stoneClientTotal;
 
   const save_=status=>{
-    if(!validItems.length)return alert("Add at least one cost item to the setting section.");
+    const baseValidItems=items.filter(i=>i.description.trim()&&Number(i.costLow)>0);
+    if(!baseValidItems.length&&!validAccentItems.length&&!validFindingItems.length)return alert("Add at least one cost item.");
     if(isEditing){
       // Update existing quote — preserve id, jobId, createdAt
       const updated={...existingQuote,status,validUntil,notes,lineItems:validItems,
@@ -1281,6 +1497,72 @@ function QuoteBuilder({jobId:jobIdProp,editQuoteId,jobs,clients,quotes,setQuotes
         <div style={{fontSize:11,fontWeight:700,color:WG,textTransform:"uppercase",letterSpacing:"0.06em",marginBottom:10}}>Markup preview</div>
         <MarkupSummary {...calc} large/>
       </div>}
+
+      {/* ── Accent & fancy stones ── */}
+      <div style={{borderTop:`1px solid ${BD}`,margin:"8px 0 20px",paddingTop:20}}>
+        <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:12}}>
+          <div>
+            <div style={{fontSize:11,fontWeight:700,color:WG,textTransform:"uppercase",letterSpacing:"0.08em"}}>Accent &amp; fancy stones</div>
+            <div style={{fontSize:11,color:WG,marginTop:3}}>Coloured gemstones, fancy-cut diamonds &amp; non-standard accents. Included in manufacturing markup.</div>
+          </div>
+          <button onClick={()=>setAccentModal(true)}
+            style={{background:"#EEF4FB",border:"1px solid #8EB5D4",borderRadius:6,padding:"7px 16px",color:"#3B6E8F",fontSize:12,fontWeight:700,cursor:"pointer",fontFamily:"inherit",whiteSpace:"nowrap",flexShrink:0}}>
+            + Add accent &amp; fancy stone
+          </button>
+        </div>
+        {accentItems.length===0&&<div style={{fontSize:13,color:WG,fontStyle:"italic",padding:"10px 0"}}>No accent stones added to this quote.</div>}
+        {accentItems.length>0&&<>
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 110px 36px",gap:8,marginBottom:6,padding:"0 2px"}}>
+            {["Stone","Notes / detail","Your cost",""].map(h=><div key={h} style={{fontSize:10,fontWeight:700,color:WG,textTransform:"uppercase",letterSpacing:"0.04em"}}>{h}</div>)}
+          </div>
+          {accentItems.map(li=>{
+            const cost=Number(li.costLow)||0;
+            return <div key={li.id} style={{display:"grid",gridTemplateColumns:"1fr 1fr 110px 36px",gap:8,marginBottom:8,alignItems:"center"}}>
+              <div style={{fontSize:13,fontWeight:600,color:INK,padding:"7px 0"}}>{li.description||<span style={{color:WG,fontStyle:"italic"}}>—</span>}</div>
+              <div style={{fontSize:12,color:WG,padding:"7px 0"}}>{li.detail||"—"}</div>
+              <div style={{position:"relative"}}>
+                <span style={{position:"absolute",left:10,top:"50%",transform:"translateY(-50%)",fontSize:12,color:WG,pointerEvents:"none"}}>$</span>
+                <input type="number" value={li.costLow} onChange={e=>setAccentItem(li.id,"costLow",e.target.value)} placeholder="0.00" min="0" step="0.01"
+                  style={{...SS.inp,marginTop:0,fontSize:13,padding:"7px 8px 7px 22px",textAlign:"right",borderColor:cost>0?"#8EB5D4":BD,fontWeight:cost>0?700:400}}/>
+              </div>
+              <button onClick={()=>removeAccentItem(li.id)} style={{background:"none",border:"none",cursor:"pointer",color:DANGER,fontSize:17,padding:0,lineHeight:1,textAlign:"center"}}>×</button>
+            </div>;
+          })}
+        </>}
+      </div>
+
+      {/* ── Findings & components ── */}
+      <div style={{borderTop:`1px solid ${BD}`,margin:"8px 0 20px",paddingTop:20}}>
+        <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:12}}>
+          <div>
+            <div style={{fontSize:11,fontWeight:700,color:WG,textTransform:"uppercase",letterSpacing:"0.08em"}}>Findings &amp; components</div>
+            <div style={{fontSize:11,color:WG,marginTop:3}}>Chains, clasps, jump rings, earring backs, posts &amp; purchased parts. Included in manufacturing markup.</div>
+          </div>
+          <button onClick={()=>setFindingModal(true)}
+            style={{background:"#EAF5EF",border:`1px solid ${OK}`,borderRadius:6,padding:"7px 16px",color:OK,fontSize:12,fontWeight:700,cursor:"pointer",fontFamily:"inherit",whiteSpace:"nowrap",flexShrink:0}}>
+            + Add finding / component
+          </button>
+        </div>
+        {findingItems.length===0&&<div style={{fontSize:13,color:WG,fontStyle:"italic",padding:"10px 0"}}>No findings added to this quote.</div>}
+        {findingItems.length>0&&<>
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 110px 36px",gap:8,marginBottom:6,padding:"0 2px"}}>
+            {["Component","Notes / detail","Your cost",""].map(h=><div key={h} style={{fontSize:10,fontWeight:700,color:WG,textTransform:"uppercase",letterSpacing:"0.04em"}}>{h}</div>)}
+          </div>
+          {findingItems.map(li=>{
+            const cost=Number(li.costLow)||0;
+            return <div key={li.id} style={{display:"grid",gridTemplateColumns:"1fr 1fr 110px 36px",gap:8,marginBottom:8,alignItems:"center"}}>
+              <div style={{fontSize:13,fontWeight:600,color:INK,padding:"7px 0"}}>{li.description||<span style={{color:WG,fontStyle:"italic"}}>—</span>}</div>
+              <div style={{fontSize:12,color:WG,padding:"7px 0"}}>{li.detail||"—"}</div>
+              <div style={{position:"relative"}}>
+                <span style={{position:"absolute",left:10,top:"50%",transform:"translateY(-50%)",fontSize:12,color:WG,pointerEvents:"none"}}>$</span>
+                <input type="number" value={li.costLow} onChange={e=>setFindingItem(li.id,"costLow",e.target.value)} placeholder="0.00" min="0" step="0.01"
+                  style={{...SS.inp,marginTop:0,fontSize:13,padding:"7px 8px 7px 22px",textAlign:"right",borderColor:cost>0?OK:BD,fontWeight:cost>0?700:400}}/>
+              </div>
+              <button onClick={()=>removeFindingItem(li.id)} style={{background:"none",border:"none",cursor:"pointer",color:DANGER,fontSize:17,padding:0,lineHeight:1,textAlign:"center"}}>×</button>
+            </div>;
+          })}
+        </>}
+      </div>
 
       {/* ── Centre / feature stone divider ── */}
       <div style={{display:"flex",alignItems:"center",gap:14,margin:"4px 0 20px"}}>
@@ -1399,13 +1681,15 @@ function QuoteBuilder({jobId:jobIdProp,editQuoteId,jobs,clients,quotes,setQuotes
     {pricingModal&&<Modal title="Add from pricing DB" onClose={()=>{setPricingModal(false);setSelCAD(null);}} wide>
       <div style={{display:"flex",gap:8,marginBottom:12,flexWrap:"wrap"}}>
         <input value={pSearch} onChange={e=>setPSearch(e.target.value)} placeholder="Search items…" style={{...SS.inp,marginTop:0,flex:1,minWidth:200}}/>
-        {["All",...PCAT].map(cat=><button key={cat} onClick={()=>{setPCat(cat);setSelCAD(null);}} style={{padding:"6px 12px",borderRadius:20,border:`1px solid ${pCat===cat?GOLD:BD}`,background:pCat===cat?GOLD:"transparent",color:pCat===cat?WHITE:WG,fontSize:11,fontWeight:700,cursor:"pointer",fontFamily:"inherit"}}>{cat}</button>)}
+        {["All",...PCAT.filter(c=>c!=="Accent Stones")].map(cat=><button key={cat} onClick={()=>{setPCat(cat);setSelCAD(null);}} style={{padding:"6px 12px",borderRadius:20,border:`1px solid ${pCat===cat?GOLD:BD}`,background:pCat===cat?GOLD:"transparent",color:pCat===cat?WHITE:WG,fontSize:11,fontWeight:700,cursor:"pointer",fontFamily:"inherit"}}>{cat}</button>)}
       </div>
 
-      {pCat==="CAD Design"&&pSearch===""
+      {pCat===CENTRE_SET_CAT
+        ? <CentreStonePicker onAdd={addCentreSetting} centreRates={centreRates}/>
+        : pCat==="CAD Design"&&pSearch===""
         ? <CADQuotePicker pricing={pricing} selCAD={selCAD} setSelCAD={setSelCAD} pQty={pQty} setPQty={setPQty} addFromDB={addFromDB}/>
         : <div style={{maxHeight:440,overflowY:"auto"}}>
-            {fp.filter(item=>!(item.category==="CAD Design"&&item.cadTier)).map(item=>{
+            {fp.filter(item=>!(item.category==="CAD Design"&&item.cadTier)&&item.category!=="Accent Stones").map(item=>{
               const isDiamond=DIAMOND_CATS.includes(item.category);
               const isSetting=item.category==="Basic Setting"||item.category==="Complex Setting";
               const isPrintCast=item.category==="3D Print & Cast";
@@ -1447,6 +1731,18 @@ function QuoteBuilder({jobId:jobIdProp,editQuoteId,jobs,clients,quotes,setQuotes
           </div>
       }
     </Modal>}
+
+    {accentModal&&<AccentStoneModal
+      pricing={pricing} setPricing={setPricing}
+      onAdd={item=>{setAccentItems(p=>[...p,{...item,id:uid(),accentStone:true,noMarkup:false}]);setAccentModal(false);}}
+      onClose={()=>setAccentModal(false)}
+    />}
+
+    {findingModal&&<FindingsModal
+      pricing={pricing} setPricing={setPricing}
+      onAdd={item=>{setFindingItems(p=>[...p,{...item,id:uid(),finding:true,noMarkup:false}]);setFindingModal(false);}}
+      onClose={()=>setFindingModal(false)}
+    />}
   </div>;
 }
 
@@ -2509,7 +2805,7 @@ function PrintCastTable({items,onSavePrices,onQtyChange}){
   </div>;
 }
 
-function PricingDB({pricing,setPricing,spotPrices,setSpotPrices,markupTable}){
+function PricingDB({pricing,setPricing,spotPrices,setSpotPrices,markupTable,centreRates=DEFAULT_CENTRE_RATES,setCentreRates}){
   const[modal,setModal]=useState(null);
   const[cf,setCf]=useState("All");
   const[spotModal,setSpotModal]=useState(false);
@@ -2520,6 +2816,19 @@ function PricingDB({pricing,setPricing,spotPrices,setSpotPrices,markupTable}){
   const[savedToast,setSavedToast]=useState(false);
   const[regularEditing,setRegularEditing]=useState(false);
   const[regularEditPrices,setRegularEditPrices]=useState({});
+  const[centreCt,setCentreCt]=useState("");
+  const[centreComplex,setCentreComplex]=useState(false);
+  const[editRates,setEditRates]=useState(false);
+  const[rateDraft,setRateDraft]=useState({basicPerCt:"",complexPerCt:""});
+  const startEditRates=()=>{setRateDraft({basicPerCt:String(centreRates.basicPerCt),complexPerCt:String(centreRates.complexPerCt)});setEditRates(true);};
+  const saveRates=()=>{
+    const nr={basicPerCt:Number(rateDraft.basicPerCt)||0,complexPerCt:Number(rateDraft.complexPerCt)||0};
+    setCentreRates&&setCentreRates(nr);persist(K.csr,nr);
+    setEditRates(false);showSaved();
+    // refresh any live-calc entry with the new rate
+    const fee=centreSettingFee(centreCt,centreComplex,nr);
+    setSelections(prev=>{const next={...prev};if(fee>0){next["__centre__"]={item:{id:"__centre__",name:`Centre stone setting — ${centreComplex?"complex":"basic"} (${Number(centreCt)}ct)`,baseCost:fee},qty:1};}else{delete next["__centre__"];}return next;});
+  };
 
   const showSaved=()=>{setSavedToast(true);setTimeout(()=>setSavedToast(false),2200);};
 
@@ -2536,6 +2845,7 @@ function PricingDB({pricing,setPricing,spotPrices,setSpotPrices,markupTable}){
   const isComplexSettingView=cf==="Complex Setting";
   const isPrintCastView=cf==="3D Print & Cast";
   const isCADView=cf==="CAD Design";
+  const isCentreView=cf===CENTRE_SET_CAT;
   const isAllView=cf==="All";
   const specialCats=[...DIAMOND_CATS,"Basic Setting","Complex Setting","3D Print & Cast","CAD Design"];
   const regularItems=pricing.filter(p=>!specialCats.includes(p.category));
@@ -2567,6 +2877,19 @@ function PricingDB({pricing,setPricing,spotPrices,setSpotPrices,markupTable}){
     });
   };
 
+  // Centre stone setting → feed live calc panel as a calculated entry
+  const updateCentreSelection=(ct,complex)=>{
+    const fee=centreSettingFee(ct,complex,centreRates);
+    setSelections(prev=>{
+      const next={...prev};
+      if(fee>0){
+        next["__centre__"]={item:{id:"__centre__",name:`Centre stone setting — ${complex?"complex":"basic"} (${Number(ct)}ct)`,baseCost:fee},qty:1};
+      }else{delete next["__centre__"];}
+      return next;
+    });
+  };
+  const clearAll=()=>{setSelections({});setCentreCt("");setCentreComplex(false);};
+
   // Calc panel derived values
   const selEntries=Object.values(selections);
   const baseCost=selEntries.reduce((s,{item,qty})=>s+(item.baseCost*qty),0);
@@ -2583,7 +2906,7 @@ function PricingDB({pricing,setPricing,spotPrices,setSpotPrices,markupTable}){
     </div>}
 
     <div style={{display:"flex",gap:6,flexWrap:"wrap",marginBottom:16}}>
-      {["All","Metals","Labour","CAD Design","Basic Setting","Complex Setting","3D Print & Cast","Findings",...DIAMOND_CATS].map(cat=>(
+      {["All","Metals","Labour","CAD Design","Basic Setting","Complex Setting",CENTRE_SET_CAT,"3D Print & Cast",FINDINGS_CAT,PURCHASED_CAT,...DIAMOND_CATS].map(cat=>(
         <button key={cat} onClick={()=>setCf(cat)} style={{padding:"4px 11px",borderRadius:20,border:`1px solid ${cf===cat?(DCOLORS[cat]||GOLD):BD}`,background:cf===cat?(DCOLORS[cat]||GOLD):"transparent",color:cf===cat?WHITE:WG,fontSize:11,fontWeight:700,cursor:"pointer",fontFamily:"inherit"}}>{cat}</button>
       ))}
     </div>
@@ -2594,7 +2917,7 @@ function PricingDB({pricing,setPricing,spotPrices,setSpotPrices,markupTable}){
         <div style={{fontSize:11,fontWeight:700,color:hasSelections?GOLD:WG,letterSpacing:"0.1em",textTransform:"uppercase"}}>
           {hasSelections?"Live calculation — enter quantities in any table below":"Cost calculator — enter quantities in the tables below to see your base cost and marked-up price"}
         </div>
-        {hasSelections&&<button onClick={()=>setSelections({})} style={{background:"none",border:`1px solid rgba(255,255,255,0.2)`,borderRadius:6,padding:"3px 10px",fontSize:11,color:"rgba(255,255,255,0.5)",cursor:"pointer",fontFamily:"inherit"}}>Clear all</button>}
+        {hasSelections&&<button onClick={clearAll} style={{background:"none",border:`1px solid rgba(255,255,255,0.2)`,borderRadius:6,padding:"3px 10px",fontSize:11,color:"rgba(255,255,255,0.5)",cursor:"pointer",fontFamily:"inherit"}}>Clear all</button>}
       </div>
       {hasSelections&&<>
         {/* Line items */}
@@ -2672,8 +2995,94 @@ function PricingDB({pricing,setPricing,spotPrices,setSpotPrices,markupTable}){
       <CADDesignTable items={filteredCAD} onSavePrices={saveSettingPrices} onQtyChange={handleQtyChange}/>
     </div>}
 
+    {/* Centre Stone Setting view — interactive calculator feeding live calc */}
+    {isCentreView&&<div>
+      <div style={{background:WHITE,border:`1px solid ${editRates?GOLD:BD}`,borderRadius:12,padding:"14px 18px",marginBottom:14,fontSize:13,lineHeight:1.6}}>
+        <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:12}}>
+          <div>
+            <strong style={{color:INK}}>Centre Stone Setting — calculated fee</strong>
+            <span style={{display:"block",marginTop:4,fontSize:12,color:WG}}>Centre stones are larger and higher-risk to set, so the fee scales with carat weight. Enter a weight below to feed the live calculation above.</span>
+          </div>
+          {!editRates&&<Btn sm ghost onClick={startEditRates}>✎ Edit rates</Btn>}
+        </div>
+        {!editRates
+          ?<div style={{marginTop:8,display:"flex",gap:24,flexWrap:"wrap"}}>
+            <div style={{fontSize:12,color:INK}}><strong>Basic</strong> = carat × <strong style={{color:"#4A8E6A"}}>{fmt(centreRates.basicPerCt)}</strong>/ct</div>
+            <div style={{fontSize:12,color:INK}}><strong>Complex</strong> = carat × <strong style={{color:"#B05C3A"}}>{fmt(centreRates.complexPerCt)}</strong>/ct <span style={{color:WG}}>(pear claws, bezels, fragile / sapphire stones)</span></div>
+          </div>
+          :<div style={{marginTop:12,background:PARCH,border:`1px solid ${BD}`,borderRadius:10,padding:"14px 16px"}}>
+            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"0 16px"}}>
+              <div>
+                <label style={SS.lbl}>Basic setting ($ per carat)</label>
+                <div style={{position:"relative",marginTop:4}}>
+                  <span style={{position:"absolute",left:10,top:"50%",transform:"translateY(-50%)",fontSize:12,color:WG,pointerEvents:"none"}}>$</span>
+                  <input type="number" value={rateDraft.basicPerCt} min="0" step="1" onChange={e=>setRateDraft(d=>({...d,basicPerCt:e.target.value}))}
+                    style={{...SS.inp,marginTop:0,padding:"8px 10px 8px 22px",fontSize:14,fontWeight:700}}/>
+                </div>
+              </div>
+              <div>
+                <label style={SS.lbl}>Complex setting ($ per carat)</label>
+                <div style={{position:"relative",marginTop:4}}>
+                  <span style={{position:"absolute",left:10,top:"50%",transform:"translateY(-50%)",fontSize:12,color:WG,pointerEvents:"none"}}>$</span>
+                  <input type="number" value={rateDraft.complexPerCt} min="0" step="1" onChange={e=>setRateDraft(d=>({...d,complexPerCt:e.target.value}))}
+                    style={{...SS.inp,marginTop:0,padding:"8px 10px 8px 22px",fontSize:14,fontWeight:700}}/>
+                </div>
+              </div>
+            </div>
+            <div style={{display:"flex",gap:10,justifyContent:"flex-end",marginTop:14}}>
+              <Btn sm ghost onClick={()=>setEditRates(false)}>Cancel</Btn>
+              <Btn sm onClick={saveRates}>Save rates</Btn>
+            </div>
+          </div>}
+      </div>
+      <div style={{background:WHITE,border:`1px solid ${BD}`,borderRadius:14,padding:"18px 20px",marginBottom:16}}>
+        <div style={{display:"grid",gridTemplateColumns:"180px 1fr",gap:"0 20px",alignItems:"start"}}>
+          <div>
+            <label style={SS.lbl}>Centre stone carat weight</label>
+            <div style={{position:"relative",marginTop:4}}>
+              <input type="number" value={centreCt} min="0" step="0.01" placeholder="e.g. 1.50"
+                onChange={e=>{setCentreCt(e.target.value);updateCentreSelection(e.target.value,centreComplex);}}
+                style={{...SS.inp,marginTop:0,paddingRight:34,fontSize:15,fontWeight:700,textAlign:"right"}}/>
+              <span style={{position:"absolute",right:12,top:"50%",transform:"translateY(-50%)",fontSize:12,color:WG,pointerEvents:"none"}}>ct</span>
+            </div>
+          </div>
+          <div>
+            <label style={SS.lbl}>Setting type</label>
+            <div style={{display:"flex",gap:10,marginTop:4}}>
+              {[[false,"Basic","Round diamond, standard claw"],[true,"Complex","Pear claws, bezels, fragile / sapphire"]].map(([val,label,sub])=>(
+                <button key={label} onClick={()=>{setCentreComplex(val);updateCentreSelection(centreCt,val);}} style={{
+                  flex:1,padding:"10px 14px",borderRadius:8,cursor:"pointer",fontFamily:"inherit",textAlign:"left",
+                  border:`2px solid ${centreComplex===val?(val?"#B05C3A":"#4A8E6A"):BD}`,
+                  background:centreComplex===val?(val?"#B05C3A11":"#4A8E6A11"):"transparent",transition:"all 0.12s"
+                }}>
+                  <div style={{fontSize:13,fontWeight:700,color:centreComplex===val?(val?"#B05C3A":"#4A8E6A"):INK}}>{label}</div>
+                  <div style={{fontSize:10,color:WG,marginTop:2,lineHeight:1.3}}>{sub}</div>
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+        <div style={{marginTop:16,paddingTop:14,borderTop:`1px solid ${BD}`,display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+          <div style={{fontSize:12,color:WG}}>{Number(centreCt)>0?`${Number(centreCt)}ct × ${fmt(centreComplex?centreRates.complexPerCt:centreRates.basicPerCt)}/ct`:"Enter a carat weight to calculate the setting fee"}</div>
+          <div style={{fontSize:20,fontWeight:800,color:centreSettingFee(centreCt,centreComplex,centreRates)>0?OK:WG}}>{fmt(centreSettingFee(centreCt,centreComplex,centreRates))}</div>
+        </div>
+      </div>
+      <div style={{background:WHITE,border:`1px solid ${BD}`,borderRadius:14,overflow:"hidden"}}>
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",background:PARCH,borderBottom:`1px solid ${BD}`}}>
+          {["Carat weight","Basic fee","Complex fee"].map(h=><div key={h} style={{padding:"10px 16px",fontSize:10,fontWeight:700,color:WG,textTransform:"uppercase",letterSpacing:"0.06em"}}>{h}</div>)}
+        </div>
+        {[0.5,1,1.5,2,2.5,3,3.5,4,5].map(ct=>(
+          <div key={ct} style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",borderBottom:`1px solid ${BD}`}}>
+            <div style={{padding:"9px 16px",fontSize:13,fontWeight:600,color:INK}}>{ct.toFixed(2)}ct</div>
+            <div style={{padding:"9px 16px",fontSize:13,color:INK}}>{fmt(centreSettingFee(ct,false,centreRates))}</div>
+            <div style={{padding:"9px 16px",fontSize:13,color:"#B05C3A",fontWeight:600}}>{fmt(centreSettingFee(ct,true,centreRates))}</div>
+          </div>
+        ))}
+      </div>
+    </div>}
+
     {/* Regular items view */}
-    {!isDiamondView&&!isSettingView&&!isComplexSettingView&&!isPrintCastView&&!isCADView&&<>
+    {!isDiamondView&&!isSettingView&&!isComplexSettingView&&!isPrintCastView&&!isCADView&&!isCentreView&&<>
       {isAllView&&<div style={{background:WHITE,borderRadius:10,border:`1px solid ${BD}`,padding:"11px 16px",marginBottom:14,fontSize:13,color:WG,lineHeight:1.6}}>
         Raw costs — no markup applied here. The multiplier table handles that at quote time. Select a diamond category or "Basic Setting" to view those price charts.
       </div>}
@@ -2797,18 +3206,27 @@ function PricingDB({pricing,setPricing,spotPrices,setSpotPrices,markupTable}){
 }
 
 function PricingItemForm({initial={},onSave,onCancel}){
-  const[f,setF]=useState({category:PCAT[0],name:"",unit:"job",baseCost:"",...initial});
+  const[f,setF]=useState({category:PCAT[0],name:"",unit:"stone",baseCost:"",detail:"",...initial});
   const set=k=>v=>setF(p=>({...p,[k]:v}));
+  const isAccent=f.category==="Accent Stones";
   return <div>
     <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"0 16px"}}>
-      <Input label="Category" value={f.category} onChange={set("category")} as="select" options={PCAT}/>
-      <Input label="Unit" value={f.unit} onChange={set("unit")} as="select" options={["job","g","stone","ct","item","pair","hr","piece","set"]}/>
+      <Input label="Category" value={f.category} onChange={set("category")} as="select" options={PCAT.filter(c=>c!=="Accent Stones"||f.category==="Accent Stones")}/>
+      {!isAccent&&<Input label="Unit" value={f.unit} onChange={set("unit")} as="select" options={["job","g","stone","ct","item","pair","hr","piece","set"]}/>}
     </div>
-    <Input label="Item name" value={f.name} onChange={set("name")} placeholder="e.g. 9ct white gold"/>
-    <Input label="Your cost per unit ($)" value={f.baseCost} onChange={set("baseCost")} type="number" min="0" step="0.01"/>
+    <Input label="Item name / description" value={f.name} onChange={set("name")} placeholder={isAccent?"e.g. 2mm blue sapphires":"e.g. 9ct white gold"}/>
+    {isAccent
+      ?<>
+        <Input label="Notes / detail (optional)" value={f.detail||""} onChange={set("detail")} placeholder="e.g. heat treated, round, supplier XYZ"/>
+        <div style={{background:"#EEF4FB",border:"1px solid #C8DFF0",borderRadius:8,padding:"10px 14px",fontSize:12,color:"#3B6E8F",marginBottom:14}}>
+          Cost is entered per quote — accent stone prices vary job to job.
+        </div>
+      </>
+      :<Input label="Your cost per unit ($)" value={f.baseCost} onChange={set("baseCost")} type="number" min="0" step="0.01"/>
+    }
     <div style={{display:"flex",gap:10,justifyContent:"flex-end"}}>
       <Btn ghost onClick={onCancel}>Cancel</Btn>
-      <Btn onClick={()=>{if(!f.name.trim()||!f.baseCost)return alert("Name and cost required");onSave(f);}}>Save item</Btn>
+      <Btn onClick={()=>{if(!f.name.trim())return alert("Name required");if(!isAccent&&!f.baseCost)return alert("Cost required");onSave(f);}}>Save item</Btn>
     </div>
   </div>;
 }
@@ -3091,6 +3509,7 @@ export default function App(){
   const[markupTable,setMarkupTable]=useState(DEFAULT_MARKUP_TABLE);
   const[naturalStoneMarkup,setNaturalStoneMarkup]=useState(DEFAULT_NATURAL_STONE_MARKUP);
   const[labStoneMarkup,setLabStoneMarkup]=useState(DEFAULT_LAB_STONE_MARKUP);
+  const[centreRates,setCentreRates]=useState(DEFAULT_CENTRE_RATES);
   const[view,setViewRaw]=useState("dashboard");
   const[selClient,setSelClient]=useState(null);
   const[selJob,setSelJob]=useState(null);
@@ -3111,13 +3530,21 @@ export default function App(){
     const init=async()=>{
       // Works in both Claude artifacts (window.storage) and standalone Chrome (localStorage)
       const tryLoad=async(k,setter)=>{
-        try{const v=await _storeGet(k);if(v!==null)setter(v);}
-        catch(e){}
+        try{
+          const v=await _storeGet(k);
+          if(v===null)return;
+          // Normalise any legacy findings category labels to FINDINGS_CAT
+          if(k===K.pr&&Array.isArray(v)){
+            const migrated=v.map(it=>it&&it.category==="Findings / Components / Purchased Parts"?{...it,category:FINDINGS_CAT}:it);
+            setter(migrated);return;
+          }
+          setter(v);
+        }catch(e){}
       };
       const pairs=[
         [K.cl,setClients],[K.jo,setJobs],[K.qu,setQuotes],[K.pa,setPayments],
         [K.pr,setPricing],[K.biz,setBiz],[K.no,setNotes],[K.inv,setInvoices],
-        [K.mt,setMarkupTable],[K.smn,setNaturalStoneMarkup],[K.sml,setLabStoneMarkup],
+        [K.mt,setMarkupTable],[K.smn,setNaturalStoneMarkup],[K.sml,setLabStoneMarkup],[K.csr,setCentreRates],
       ];
       for(const[k,setter] of pairs){await tryLoad(k,setter);}
       clearTimeout(giveUp);
@@ -3149,11 +3576,11 @@ export default function App(){
     if(view==="jobDetail")return <JobDetail jobId={selJob} jobs={jobs} setJobs={setJobs} clients={clients} quotes={quotes} setQuotes={setQuotes} payments={payments} setPayments={setPayments} notes={notes} setNotes={setNotes} invoices={invoices} setInvoices={setInvoices} biz={biz} markupTable={markupTable} setView={setView}/>;
     if(view==="quotes")return <QuotesList quotes={quotes} jobs={jobs} clients={clients} markupTable={markupTable} setView={setView}/>;
     if(view.startsWith("quoteDetail_"))return <QuoteDetail quoteId={view.split("_")[1]} quotes={quotes} setQuotes={setQuotes} jobs={jobs} clients={clients} biz={biz} markupTable={markupTable} naturalStoneMarkup={naturalStoneMarkup} labStoneMarkup={labStoneMarkup} setView={setView}/>;
-    if(view.startsWith("newQuote_"))return <QuoteBuilder jobId={view.split("_")[1]} jobs={jobs} clients={clients} quotes={quotes} setQuotes={setQuotes} pricing={pricing} markupTable={markupTable} naturalStoneMarkup={naturalStoneMarkup} labStoneMarkup={labStoneMarkup} setView={setView}/>;
-    if(view.startsWith("editQuote_"))return <QuoteBuilder editQuoteId={view.split("_")[1]} jobs={jobs} clients={clients} quotes={quotes} setQuotes={setQuotes} pricing={pricing} markupTable={markupTable} naturalStoneMarkup={naturalStoneMarkup} labStoneMarkup={labStoneMarkup} setView={setView}/>;
+    if(view.startsWith("newQuote_"))return <QuoteBuilder jobId={view.split("_")[1]} jobs={jobs} clients={clients} quotes={quotes} setQuotes={setQuotes} pricing={pricing} setPricing={setPricing} markupTable={markupTable} naturalStoneMarkup={naturalStoneMarkup} labStoneMarkup={labStoneMarkup} centreRates={centreRates} setView={setView}/>;
+    if(view.startsWith("editQuote_"))return <QuoteBuilder editQuoteId={view.split("_")[1]} jobs={jobs} clients={clients} quotes={quotes} setQuotes={setQuotes} pricing={pricing} setPricing={setPricing} markupTable={markupTable} naturalStoneMarkup={naturalStoneMarkup} labStoneMarkup={labStoneMarkup} centreRates={centreRates} setView={setView}/>;
     if(view==="invoices")return <InvoicesList invoices={invoices} jobs={jobs} clients={clients} quotes={quotes} payments={payments} setInvoices={setInvoices} markupTable={markupTable} setView={setView}/>;
     if(view.startsWith("invoiceDetail_"))return <InvoiceDetail invoiceId={view.split("_")[1]} invoices={invoices} setInvoices={setInvoices} jobs={jobs} clients={clients} payments={payments} biz={biz} setView={setView}/>;
-    if(view==="pricing")return <PricingDB pricing={pricing} setPricing={setPricing} spotPrices={spotPrices} setSpotPrices={setSpotPrices} markupTable={markupTable}/>;
+    if(view==="pricing")return <PricingDB pricing={pricing} setPricing={setPricing} spotPrices={spotPrices} setSpotPrices={setSpotPrices} markupTable={markupTable} centreRates={centreRates} setCentreRates={setCentreRates}/>;
     if(view==="reports")return <Reports jobs={jobs} clients={clients} quotes={quotes} payments={payments} invoices={invoices} markupTable={markupTable}/>;
     if(view==="settings")return <Settings biz={biz} setBiz={setBiz} markupTable={markupTable} setMarkupTable={setMarkupTable} naturalStoneMarkup={naturalStoneMarkup} setNaturalStoneMarkup={setNaturalStoneMarkup} labStoneMarkup={labStoneMarkup} setLabStoneMarkup={setLabStoneMarkup}/>;
     return null;
