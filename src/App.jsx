@@ -1,4 +1,5 @@
 import { useState, useCallback, useMemo, useEffect } from "react";
+import { supabase, supabaseEnabled, STATE_TABLE } from "./supabaseClient";
 // Iframe-safe overrides
 // Only suppress alert/confirm inside Claude artifact iframes, not standalone
 try{
@@ -444,31 +445,54 @@ const calcStoneQuote=(items,table)=>{
 
 const K={cl:"jlr4_clients",jo:"jlr4_jobs",qu:"jlr4_quotes",pa:"jlr4_payments",pr:"jlr4_pricing_v9",biz:"jlr4_biz",no:"jlr4_notes",inv:"jlr4_invoices",spot:"jlr4_spot",mt:"jlr4_markup",smn:"jlr4_stone_nat",sml:"jlr4_stone_lab",csr:"jlr4_centre_rates"};
 
-// ── Dual-environment storage ───────────────────────────────────────────────
-// Uses window.storage inside Claude artifacts, localStorage when run standalone in a browser.
+// ── Storage layer ───────────────────────────────────────────────────────────
+// Three backends, chosen at runtime:
+//  1. Supabase cloud table (when configured + logged in) → shared across computers
+//  2. window.storage inside Claude artifacts
+//  3. localStorage when run standalone in a browser (also the offline fallback)
 const _useClaudeStorage=()=>{
   try{return typeof window!=='undefined'&&window.storage&&typeof window.storage.get==='function';}
   catch(e){return false;}
 };
-const _storeGet=async(k)=>{
+// When true, reads/writes go to Supabase. Toggled on once a user session exists.
+let _cloudActive=false;
+const setCloudActive=(v)=>{_cloudActive=v;};
+
+const _localGet=async(k)=>{
   try{
     if(_useClaudeStorage()){
       const r=await window.storage.get(k);
       return(r&&r.value)?JSON.parse(r.value):null;
-    }else{
-      const v=localStorage.getItem(k);
-      return v?JSON.parse(v):null;
     }
+    const v=localStorage.getItem(k);
+    return v?JSON.parse(v):null;
   }catch(e){return null;}
 };
-const persist=(k,v)=>{
+const _localSet=(k,v)=>{
   try{
-    if(_useClaudeStorage()){
-      window.storage.set(k,JSON.stringify(v)).catch(()=>{});
-    }else{
-      localStorage.setItem(k,JSON.stringify(v));
-    }
+    if(_useClaudeStorage()){window.storage.set(k,JSON.stringify(v)).catch(()=>{});}
+    else{localStorage.setItem(k,JSON.stringify(v));}
   }catch(e){}
+};
+
+const _storeGet=async(k)=>{
+  if(_cloudActive&&supabase){
+    try{
+      const{data,error}=await supabase.from(STATE_TABLE).select("value").eq("key",k).maybeSingle();
+      if(error)throw error;
+      return data?data.value:null;
+    }catch(e){return await _localGet(k);}
+  }
+  return await _localGet(k);
+};
+const persist=(k,v)=>{
+  // Always keep a local copy (offline resilience + instant reloads)
+  _localSet(k,v);
+  if(_cloudActive&&supabase){
+    supabase.from(STATE_TABLE).upsert({key:k,value:v,updated_at:new Date().toISOString()},{onConflict:"key"}).then(({error})=>{
+      if(error)console.warn("Cloud save failed for",k,error.message);
+    });
+  }
 };
 
 // ── Shared UI ─────────────────────────────────────────────────────────────
@@ -3496,6 +3520,41 @@ const NAV=[
   {id:"settings",label:"Settings",icon:"⚙"},
 ];
 
+// ── Login screen ──────────────────────────────────────────────────────────
+function Login(){
+  const[email,setEmail]=useState("");
+  const[password,setPassword]=useState("");
+  const[busy,setBusy]=useState(false);
+  const[err,setErr]=useState("");
+  const submit=async(e)=>{
+    e&&e.preventDefault();
+    if(!email.trim()||!password)return setErr("Enter your email and password.");
+    setBusy(true);setErr("");
+    const{error}=await supabase.auth.signInWithPassword({email:email.trim(),password});
+    setBusy(false);
+    if(error)setErr(error.message||"Sign in failed.");
+  };
+  return <div style={{minHeight:"100vh",display:"flex",alignItems:"center",justifyContent:"center",background:"#000000",fontFamily:"'DM Sans',sans-serif",padding:20}}>
+    <form onSubmit={submit} style={{width:"100%",maxWidth:360,background:"#0E0E0E",border:"1px solid rgba(255,255,255,0.08)",borderRadius:16,padding:"36px 32px"}}>
+      <div style={{textAlign:"center",marginBottom:28}}>
+        <div style={{fontSize:8,fontWeight:700,color:GOLD,letterSpacing:"0.28em",textTransform:"uppercase",marginBottom:8,opacity:0.85}}>Studio Platform</div>
+        <div style={{fontSize:30,fontWeight:300,color:WHITE,letterSpacing:"0.2em"}}>VAHÉ</div>
+      </div>
+      <label style={{...SS.lbl,color:"rgba(255,255,255,0.5)"}}>Email</label>
+      <input type="email" value={email} onChange={e=>setEmail(e.target.value)} autoFocus placeholder="you@studio.com"
+        style={{...SS.inp,marginTop:4,marginBottom:14,background:"#161616",border:"1px solid rgba(255,255,255,0.12)",color:WHITE}}/>
+      <label style={{...SS.lbl,color:"rgba(255,255,255,0.5)"}}>Password</label>
+      <input type="password" value={password} onChange={e=>setPassword(e.target.value)} placeholder="••••••••"
+        style={{...SS.inp,marginTop:4,marginBottom:18,background:"#161616",border:"1px solid rgba(255,255,255,0.12)",color:WHITE}}/>
+      {err&&<div style={{background:DANGER+"22",border:`1px solid ${DANGER}55`,color:"#FF9B91",fontSize:12,padding:"9px 12px",borderRadius:8,marginBottom:14}}>{err}</div>}
+      <button type="submit" disabled={busy} style={{width:"100%",background:busy?"#7A5F0F":GOLD,color:WHITE,border:"none",borderRadius:8,padding:"11px",fontSize:14,fontWeight:700,cursor:busy?"default":"pointer",fontFamily:"inherit",letterSpacing:"0.04em"}}>
+        {busy?"Signing in…":"Sign in"}
+      </button>
+      <div style={{fontSize:11,color:"rgba(255,255,255,0.3)",textAlign:"center",marginTop:16,lineHeight:1.6}}>Accounts are created by your studio administrator.</div>
+    </form>
+  </div>;
+}
+
 export default function App(){
   const[clients,setClients]=useState(SEED_CLIENTS);
   const[jobs,setJobs]=useState(SEED_JOBS);
@@ -3514,6 +3573,20 @@ export default function App(){
   const[selClient,setSelClient]=useState(null);
   const[selJob,setSelJob]=useState(null);
   const[storageReady,setStorageReady]=useState(false);
+  const[session,setSession]=useState(null);
+  const[authReady,setAuthReady]=useState(!supabaseEnabled);
+
+  // Auth: track Supabase session (no-op when Supabase isn't configured → local mode)
+  useEffect(()=>{
+    if(!supabaseEnabled){setCloudActive(false);return;}
+    supabase.auth.getSession().then(({data})=>{
+      setSession(data.session||null);setCloudActive(!!data.session);setAuthReady(true);
+    });
+    const{data:sub}=supabase.auth.onAuthStateChange((_e,s)=>{
+      setSession(s||null);setCloudActive(!!s);
+    });
+    return()=>{try{sub.subscription.unsubscribe();}catch(e){}};
+  },[]);
 
   // Load all persisted data on mount
   useEffect(()=>{
@@ -3525,34 +3598,49 @@ export default function App(){
   },[]);
 
   useEffect(()=>{
-    // Hard timeout — always renders within 4s even if storage hangs
-    const giveUp=setTimeout(()=>setStorageReady(true),4000);
+    // Wait until we know the auth state. In cloud mode, only load once logged in.
+    if(!authReady)return;
+    if(supabaseEnabled&&!session)return;
+
+    const keyToSetter={
+      [K.cl]:setClients,[K.jo]:setJobs,[K.qu]:setQuotes,[K.pa]:setPayments,
+      [K.pr]:setPricing,[K.biz]:setBiz,[K.no]:setNotes,[K.inv]:setInvoices,
+      [K.mt]:setMarkupTable,[K.smn]:setNaturalStoneMarkup,[K.sml]:setLabStoneMarkup,[K.csr]:setCentreRates,
+    };
+    // Normalise legacy values before applying to state
+    const applyLoaded=(k,v,setter)=>{
+      if(v===null||v===undefined)return;
+      if(k===K.pr&&Array.isArray(v)){
+        v=v.map(it=>it&&it.category==="Findings / Components / Purchased Parts"?{...it,category:FINDINGS_CAT}:it);
+      }
+      setter(v);
+    };
+
+    // Hard timeout — always renders within 6s even if the network hangs
+    const giveUp=setTimeout(()=>setStorageReady(true),6000);
     const init=async()=>{
-      // Works in both Claude artifacts (window.storage) and standalone Chrome (localStorage)
-      const tryLoad=async(k,setter)=>{
-        try{
-          const v=await _storeGet(k);
-          if(v===null)return;
-          // Normalise any legacy findings category labels to FINDINGS_CAT
-          if(k===K.pr&&Array.isArray(v)){
-            const migrated=v.map(it=>it&&it.category==="Findings / Components / Purchased Parts"?{...it,category:FINDINGS_CAT}:it);
-            setter(migrated);return;
-          }
-          setter(v);
-        }catch(e){}
-      };
-      const pairs=[
-        [K.cl,setClients],[K.jo,setJobs],[K.qu,setQuotes],[K.pa,setPayments],
-        [K.pr,setPricing],[K.biz,setBiz],[K.no,setNotes],[K.inv,setInvoices],
-        [K.mt,setMarkupTable],[K.smn,setNaturalStoneMarkup],[K.sml,setLabStoneMarkup],[K.csr,setCentreRates],
-      ];
-      for(const[k,setter] of pairs){await tryLoad(k,setter);}
+      for(const[k,setter] of Object.entries(keyToSetter)){
+        try{const v=await _storeGet(k);applyLoaded(k,v,setter);}catch(e){}
+      }
       clearTimeout(giveUp);
       setStorageReady(true);
     };
     init().catch(()=>{clearTimeout(giveUp);setStorageReady(true);});
-    return()=>clearTimeout(giveUp);
-  },[]);
+
+    // Live sync: apply changes made on other computers
+    let channel=null;
+    if(supabaseEnabled&&session&&supabase){
+      channel=supabase.channel("studio_state_changes")
+        .on("postgres_changes",{event:"*",schema:"public",table:STATE_TABLE},(payload)=>{
+          const row=payload.new&&Object.keys(payload.new).length?payload.new:null;
+          if(!row)return;
+          const setter=keyToSetter[row.key];
+          if(setter)applyLoaded(row.key,row.value,setter);
+        })
+        .subscribe();
+    }
+    return()=>{clearTimeout(giveUp);if(channel&&supabase){try{supabase.removeChannel(channel);}catch(e){}}};
+  },[authReady,session]);
 
   const setView=useCallback(v=>{
     if(v.startsWith("clientDetail_")){setSelClient(v.split("_")[1]);setViewRaw("clientDetail");}
@@ -3586,6 +3674,12 @@ export default function App(){
     return null;
   };
 
+  // Auth gate — only when Supabase is configured (cloud mode)
+  if(supabaseEnabled){
+    if(!authReady)return <div style={{display:"flex",alignItems:"center",justifyContent:"center",minHeight:"100vh",background:"#F7F5F0",fontFamily:"'DM Sans',sans-serif",color:WG,fontSize:14}}>Loading…</div>;
+    if(!session)return <Login/>;
+  }
+
   return <div style={{display:"flex",minHeight:"100vh",background:"#F7F5F0",fontFamily:"'DM Sans',sans-serif"}}>
     <div style={{width:210,background:"#000000",display:"flex",flexDirection:"column",padding:"28px 0",flexShrink:0,position:"sticky",top:0,height:"100vh",overflowY:"auto"}}>
       <div style={{padding:"0 20px 28px",borderBottom:"1px solid rgba(255,255,255,0.06)"}}>
@@ -3603,7 +3697,11 @@ export default function App(){
         })}
       </nav>
       <div style={{padding:"12px 20px",borderTop:"1px solid rgba(255,255,255,0.08)"}}>
-        <div style={{fontSize:9,color:"rgba(255,255,255,0.18)",letterSpacing:"0.1em",textTransform:"uppercase"}}>v0.8</div>
+        {supabaseEnabled&&session&&<div style={{marginBottom:10}}>
+          <div style={{fontSize:10,color:"rgba(255,255,255,0.4)",marginBottom:6,wordBreak:"break-all"}}>{session.user?.email}</div>
+          <button onClick={()=>supabase.auth.signOut()} style={{background:"none",border:"1px solid rgba(255,255,255,0.18)",borderRadius:6,padding:"5px 12px",color:"rgba(255,255,255,0.55)",fontSize:11,fontWeight:700,cursor:"pointer",fontFamily:"inherit",letterSpacing:"0.04em"}}>Sign out</button>
+        </div>}
+        <div style={{fontSize:9,color:"rgba(255,255,255,0.18)",letterSpacing:"0.1em",textTransform:"uppercase"}}>v0.9</div>
       </div>
     </div>
     <div style={{flex:1,padding:"40px 48px",maxWidth:980,margin:"0 auto",width:"100%"}}>
