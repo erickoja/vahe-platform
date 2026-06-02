@@ -480,6 +480,17 @@ const _useClaudeStorage=()=>{
 // When true, reads/writes go to Supabase. Toggled on once a user session exists.
 let _cloudActive=false;
 const setCloudActive=(v)=>{_cloudActive=v;};
+// SAFETY: cloud writes are blocked until we've successfully READ the cloud once.
+// This prevents a stale/empty boot (seed data) from overwriting good cloud data.
+let _cloudLoaded=false;
+const setCloudLoaded=(v)=>{_cloudLoaded=v;};
+// Strict cloud read — throws on error (no silent fallback) so the loader can tell
+// the difference between "no data yet" (null) and "couldn't reach the cloud" (throw).
+const _cloudGet=async(k)=>{
+  const{data,error}=await supabase.from(STATE_TABLE).select("value").eq("key",k).maybeSingle();
+  if(error)throw error;
+  return data?data.value:null;
+};
 
 const _localGet=async(k)=>{
   try{
@@ -512,6 +523,9 @@ const persist=(k,v)=>{
   // Always keep a local copy (offline resilience + instant reloads)
   _localSet(k,v);
   if(_cloudActive&&supabase){
+    // SAFETY GUARD: never push to the cloud until we've confirmed a successful
+    // cloud read this session. Stops a stale/seed boot from wiping real data.
+    if(!_cloudLoaded){console.warn("Skipped cloud save for",k,"— cloud not loaded yet");return;}
     supabase.from(STATE_TABLE).upsert({key:k,value:v,updated_at:new Date().toISOString()},{onConflict:"key"}).then(({error})=>{
       if(error)console.warn("Cloud save failed for",k,error.message);
     });
@@ -848,7 +862,14 @@ function Clients({clients,setClients,jobs,payments,setView,setSelClient}){
   const[search,setSearch]=useState("");
   const filtered=clients.filter(c=>c.name.toLowerCase().includes(search.toLowerCase())||c.email.toLowerCase().includes(search.toLowerCase()));
   const save_=(f,id)=>{setClients(p=>{const n=id?p.map(c=>c.id===id?{...c,...f}:c):[...p,{...f,id:uid(),createdAt:today()}];persist(K.cl,n);return n;});setModal(null);};
-  const del=id=>{if(!confirm("Delete this client?"))return;setClients(p=>{const n=p.filter(c=>c.id!==id);persist(K.cl,n);return n;});};
+  const del=id=>{
+    const jobCount=jobs.filter(j=>j.clientId===id).length;
+    const msg=jobCount>0
+      ?`This client has ${jobCount} job${jobCount!==1?"s":""}. Deleting the client will leave ${jobCount!==1?"those jobs":"that job"} without an owner. Delete anyway?`
+      :"Delete this client?";
+    if(!confirm(msg))return;
+    setClients(p=>{const n=p.filter(c=>c.id!==id);persist(K.cl,n);return n;});
+  };
   return <div>
     <SectionHeader title="Clients" action={<Btn onClick={()=>setModal("add")}>+ Add client</Btn>}/>
     <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Search by name or email…" style={{...SS.inp,marginBottom:16,marginTop:0}}/>
@@ -1550,6 +1571,7 @@ function QuoteBuilder({jobId:jobIdProp,editQuoteId,jobs,clients,quotes,setQuotes
   const[pCat,setPCat]=useState("All");
   const[pQty,setPQty]=useState({});
   const[selCAD,setSelCAD]=useState(null);
+  const[pcOverride,setPcOverride]=useState("");
   const[accentModal,setAccentModal]=useState(false);
   const[findingModal,setFindingModal]=useState(false);
   // Centre stone section
@@ -1613,6 +1635,14 @@ function QuoteBuilder({jobId:jobIdProp,editQuoteId,jobs,clients,quotes,setQuotes
     const desc=`Centre stone setting — ${complex?"complex":"basic"}`;
     const detail=`${ct}ct centre stone · ${complex?"complex":"basic"} setting (${fmt(perCt)}/ct)`;
     setItems(p=>[...p,{id:uid(),description:desc,detail,costLow:fee.toFixed(2),noMarkup:false}]);
+    setPricingModal(false);
+  };
+
+  const addCustomPrintCast=()=>{
+    const price=Number(pcOverride)||0;
+    if(price<=0)return alert("Enter a price.");
+    setItems(p=>[...p,{id:uid(),description:"3D Print & Cast",detail:"Manual price",costLow:price.toFixed(2),noMarkup:false}]);
+    setPcOverride("");
     setPricingModal(false);
   };
 
@@ -1897,6 +1927,19 @@ function QuoteBuilder({jobId:jobIdProp,editQuoteId,jobs,clients,quotes,setQuotes
         : pCat==="CAD Design"&&pSearch===""
         ? <CADQuotePicker pricing={pricing} selCAD={selCAD} setSelCAD={setSelCAD} pQty={pQty} setPQty={setPQty} addFromDB={addFromDB}/>
         : <div style={{maxHeight:440,overflowY:"auto"}}>
+            {pCat==="3D Print & Cast"&&<div style={{display:"flex",alignItems:"center",gap:12,padding:"12px 14px",marginBottom:8,background:GOLD_L+"66",border:`1px solid ${GOLD}55`,borderRadius:10,flexWrap:"wrap"}}>
+              <div style={{flex:1,minWidth:180}}>
+                <div style={{fontSize:12,fontWeight:700,color:GOLD_D}}>Manual override price</div>
+                <div style={{fontSize:11,color:WG,marginTop:2}}>Add your own 3D print &amp; cast total instead of the per-piece figures.</div>
+              </div>
+              <div style={{position:"relative"}}>
+                <span style={{position:"absolute",left:10,top:"50%",transform:"translateY(-50%)",fontSize:13,color:WG,pointerEvents:"none"}}>$</span>
+                <input type="number" value={pcOverride} min="0" step="0.01" placeholder="0.00"
+                  onChange={e=>setPcOverride(e.target.value)}
+                  style={{...SS.inp,marginTop:0,width:130,padding:"8px 10px 8px 22px",fontSize:14,fontWeight:700,textAlign:"right"}}/>
+              </div>
+              <Btn sm onClick={addCustomPrintCast}>Add to quote</Btn>
+            </div>}
             {fp.filter(item=>!(item.category==="CAD Design"&&item.cadTier)&&item.category!=="Accent Stones").map(item=>{
               const isDiamond=DIAMOND_CATS.includes(item.category);
               const isSetting=item.category==="Basic Setting"||item.category==="Complex Setting";
@@ -2007,19 +2050,36 @@ function ProposalPreview({quote,job,clients=[],biz,calc,onClose}){
   const[copied,setCopied]=useState(false);
   const clientName=client?.name||"";
 
+  // Pull the job's uploaded images into the proposal (secure signed URLs)
+  const jobImages=job?.images||[];
+  const[imgUrls,setImgUrls]=useState([]);
+  useEffect(()=>{
+    let cancelled=false;
+    (async()=>{
+      if(!imagesEnabled()||!jobImages.length){setImgUrls([]);return;}
+      const urls=[];
+      for(const img of jobImages.slice(0,3)){
+        const u=await signedImageUrl(img.path);
+        if(u)urls.push({url:u,caption:img.caption||""});
+      }
+      if(!cancelled)setImgUrls(urls);
+    })();
+    return()=>{cancelled=true;};
+  },[job?.id,jobImages.map(i=>i.path).join(",")]);
+
   return <div style={{position:"fixed",inset:0,background:"rgba(10,10,10,0.88)",zIndex:500,display:"flex",flexDirection:"column"}}>
 
     {/* ── Toolbar ── */}
     <div style={{background:INK,padding:"10px 24px",display:"flex",alignItems:"center",justifyContent:"space-between",flexShrink:0,borderBottom:"1px solid rgba(255,255,255,0.08)"}}>
       <div style={{display:"flex",alignItems:"center",gap:14}}>
         <button onClick={onClose} style={{background:"none",border:"1px solid rgba(255,255,255,0.18)",borderRadius:6,padding:"6px 14px",color:"rgba(255,255,255,0.65)",fontSize:12,fontWeight:700,cursor:"pointer",fontFamily:"inherit",letterSpacing:"0.02em"}}>← Back</button>
-        <span style={{fontSize:13,fontWeight:700,color:GOLD,letterSpacing:"0.05em"}}>Proposal · {quoteNum}</span>
+        <span style={{fontSize:13,fontWeight:700,color:"rgba(255,255,255,0.85)",letterSpacing:"0.05em"}}>Proposal · {quoteNum}</span>
       </div>
       <div style={{display:"flex",gap:10}}>
-        <button onClick={copyEmailText} style={{background:copied?"#2D7A4F22":"rgba(255,255,255,0.06)",border:`1px solid ${copied?"#2D7A4F":"rgba(255,255,255,0.15)"}`,borderRadius:6,padding:"6px 16px",color:copied?"#4CAF84":"rgba(255,255,255,0.7)",fontSize:12,fontWeight:700,cursor:"pointer",fontFamily:"inherit",transition:"all 0.2s"}}>
+        <button onClick={copyEmailText} style={{background:copied?"#2D7A4F22":"rgba(255,255,255,0.06)",border:`1px solid ${copied?"#2D7A4F":"rgba(255,255,255,0.15)"}`,borderRadius:8,padding:"6px 16px",color:copied?"#4CAF84":"rgba(255,255,255,0.7)",fontSize:12,fontWeight:700,cursor:"pointer",fontFamily:"inherit",transition:"all 0.2s"}}>
           {copied?"✓ Copied":"✉ Copy email text"}
         </button>
-        <button onClick={()=>window.print()} style={{background:GOLD,border:"none",borderRadius:6,padding:"6px 18px",color:WHITE,fontSize:12,fontWeight:700,cursor:"pointer",fontFamily:"inherit",letterSpacing:"0.02em"}}>
+        <button onClick={()=>window.print()} style={{background:WHITE,border:"none",borderRadius:8,padding:"6px 18px",color:INK,fontSize:12,fontWeight:700,cursor:"pointer",fontFamily:"inherit",letterSpacing:"0.02em"}}>
           Print / Save PDF
         </button>
       </div>
@@ -2032,7 +2092,7 @@ function ProposalPreview({quote,job,clients=[],biz,calc,onClose}){
         {/* ── HEADER ── */}
         <div style={{background:INK,padding:"40px 52px 36px",display:"flex",justifyContent:"space-between",alignItems:"flex-start"}}>
           <div>
-            <div style={{fontSize:10,fontWeight:700,color:GOLD,letterSpacing:"0.2em",textTransform:"uppercase",marginBottom:10,fontFamily:"'DM Sans',sans-serif"}}>Quote Proposal</div>
+            <div style={{fontSize:10,fontWeight:700,color:"rgba(255,255,255,0.55)",letterSpacing:"0.2em",textTransform:"uppercase",marginBottom:10,fontFamily:"'DM Sans',sans-serif"}}>Quote Proposal</div>
             <div style={{fontSize:26,fontWeight:800,color:WHITE,letterSpacing:"-0.01em",fontFamily:"'DM Sans',sans-serif",lineHeight:1.1}}>{biz.name||"Your Studio"}</div>
             <div style={{marginTop:12,display:"flex",flexDirection:"column",gap:3}}>
               {biz.address&&<div style={{fontSize:11,color:"rgba(255,255,255,0.45)",fontFamily:"'DM Sans',sans-serif"}}>{biz.address}</div>}
@@ -2041,16 +2101,16 @@ function ProposalPreview({quote,job,clients=[],biz,calc,onClose}){
             </div>
           </div>
           <div style={{textAlign:"right",flexShrink:0}}>
-            <div style={{fontSize:20,fontWeight:800,color:GOLD,letterSpacing:"0.06em",fontFamily:"'DM Sans',sans-serif"}}>{quoteNum}</div>
+            <div style={{fontSize:20,fontWeight:800,color:WHITE,letterSpacing:"0.06em",fontFamily:"'DM Sans',sans-serif"}}>{quoteNum}</div>
             <div style={{marginTop:10,display:"flex",flexDirection:"column",gap:4,alignItems:"flex-end"}}>
               <div style={{fontSize:11,color:"rgba(255,255,255,0.45)",fontFamily:"'DM Sans',sans-serif"}}>Issued: <span style={{color:"rgba(255,255,255,0.7)"}}>{issuedDate}</span></div>
-              <div style={{fontSize:11,color:"rgba(255,255,255,0.45)",fontFamily:"'DM Sans',sans-serif"}}>Valid until: <span style={{color:GOLD+"cc"}}>{validUntil}</span></div>
+              <div style={{fontSize:11,color:"rgba(255,255,255,0.45)",fontFamily:"'DM Sans',sans-serif"}}>Valid until: <span style={{color:"rgba(255,255,255,0.85)"}}>{validUntil}</span></div>
             </div>
           </div>
         </div>
 
-        {/* ── GOLD DIVIDER ── */}
-        <div style={{height:3,background:`linear-gradient(90deg, ${GOLD}, ${GOLD_L}, ${GOLD})`}}/>
+        {/* ── DIVIDER ── */}
+        <div style={{height:1,background:BD}}/>
 
         {/* ── PREPARED FOR + JOB DESCRIPTION ── */}
         <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:0,borderBottom:`1px solid ${BD}`}}>
@@ -2070,14 +2130,18 @@ function ProposalPreview({quote,job,clients=[],biz,calc,onClose}){
           </div>
         </div>
 
-        {/* ── RENDER / IMAGE ── */}
-        <div style={{padding:"28px 52px",borderBottom:`1px solid ${BD}`}}>
-          <div style={{fontSize:9,fontWeight:700,color:WG,letterSpacing:"0.16em",textTransform:"uppercase",marginBottom:14,fontFamily:"'DM Sans',sans-serif"}}>Render / Reference image</div>
-          <div style={{background:PARCH,border:`1.5px dashed ${BD}`,borderRadius:4,minHeight:160,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",gap:8,padding:"24px"}}>
-            <div style={{fontSize:28,opacity:0.2}}>🖼</div>
-            <div style={{fontSize:12,color:WG,fontFamily:"'DM Sans',sans-serif",textAlign:"center"}}>Attach render or reference image before printing</div>
+        {/* ── RENDER / IMAGE ── (only shown when the job has photos) */}
+        {imgUrls.length>0&&<div style={{padding:"28px 52px",borderBottom:`1px solid ${BD}`}}>
+          <div style={{fontSize:9,fontWeight:700,color:WG,letterSpacing:"0.16em",textTransform:"uppercase",marginBottom:14,fontFamily:"'DM Sans',sans-serif"}}>Design &amp; reference</div>
+          <div style={{display:"grid",gridTemplateColumns:imgUrls.length===1?"1fr":"1fr 1fr",gap:12}}>
+            {imgUrls.map((im,i)=>(
+              <div key={i} style={{gridColumn:imgUrls.length===3&&i===0?"1 / -1":"auto"}}>
+                <img src={im.url} alt={im.caption||"Reference"} style={{width:"100%",height:imgUrls.length===1?320:220,objectFit:"cover",borderRadius:6,border:`1px solid ${BD}`,display:"block"}}/>
+                {im.caption&&<div style={{fontSize:11,color:WG,marginTop:6,fontStyle:"italic",fontFamily:"Georgia,serif"}}>{im.caption}</div>}
+              </div>
+            ))}
           </div>
-        </div>
+        </div>}
 
         {/* ── PRICE BREAKDOWN ── */}
         <div style={{padding:"28px 52px",borderBottom:`1px solid ${BD}`}}>
@@ -2087,12 +2151,12 @@ function ProposalPreview({quote,job,clients=[],biz,calc,onClose}){
           </div>
 
           {/* Jewellery row */}
-          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"13px 0",borderTop:`1px solid ${BD}`}}>
-            <div>
-              <div style={{fontSize:13,fontWeight:600,color:INK,fontFamily:"'DM Sans',sans-serif"}}>Jewellery piece</div>
-              <div style={{fontSize:11,color:WG,marginTop:2,fontFamily:"'DM Sans',sans-serif"}}>Design, materials &amp; craftsmanship</div>
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:24,padding:"13px 0",borderTop:`1px solid ${BD}`}}>
+            <div style={{flex:1,minWidth:0}}>
+              <div style={{fontSize:13,fontWeight:600,color:INK,fontFamily:"'DM Sans',sans-serif"}}>{job?.type||"Jewellery piece"}</div>
+              <div style={{fontSize:11,color:WG,marginTop:3,lineHeight:1.6,fontFamily:"Georgia,serif"}}>{description||"Design, materials & craftsmanship"}</div>
             </div>
-            <div style={{fontSize:16,fontWeight:700,color:INK,fontFamily:"'DM Sans',sans-serif"}}>{calc.bracket?fmtR(settingTotal):"—"}</div>
+            <div style={{fontSize:16,fontWeight:700,color:INK,fontFamily:"'DM Sans',sans-serif",whiteSpace:"nowrap"}}>{calc.bracket?fmtR(settingTotal):"—"}</div>
           </div>
 
           {/* Stone row — studio sourcing */}
@@ -2120,9 +2184,9 @@ function ProposalPreview({quote,job,clients=[],biz,calc,onClose}){
               <div style={{fontSize:10,color:"rgba(255,255,255,0.3)",fontFamily:"'DM Sans',sans-serif"}}>Inc. GST · Quoted in AUD</div>
             </div>
             <div style={{textAlign:"right"}}>
-              <div style={{fontSize:30,fontWeight:800,color:GOLD,letterSpacing:"-0.02em",fontFamily:"'DM Sans',sans-serif"}}>{priceDisplay}</div>
-              {depositAmt&&<div style={{fontSize:11,color:"rgba(255,255,255,0.4)",marginTop:4,fontFamily:"'DM Sans',sans-serif"}}>
-                {deposit}% deposit to commence: <span style={{color:GOLD,fontWeight:700}}>{depositAmt}</span>
+              <div style={{fontSize:30,fontWeight:800,color:WHITE,letterSpacing:"-0.02em",fontFamily:"'DM Sans',sans-serif"}}>{priceDisplay}</div>
+              {depositAmt&&<div style={{fontSize:11,color:"rgba(255,255,255,0.5)",marginTop:4,fontFamily:"'DM Sans',sans-serif"}}>
+                {deposit}% deposit to commence: <span style={{color:WHITE,fontWeight:700}}>{depositAmt}</span>
               </div>}
             </div>
           </div>
@@ -2161,9 +2225,19 @@ function ProposalPreview({quote,job,clients=[],biz,calc,onClose}){
 
     <style>{`
       @media print {
-        body > * { display: none !important; }
-        #proposal-scroll { display: block !important; padding: 0 !important; overflow: visible !important; background: white !important; }
-        #proposal-document { box-shadow: none !important; border-radius: 0 !important; max-width: 100% !important; margin: 0 !important; }
+        @page { margin: 12mm; }
+        html, body { background: #fff !important; }
+        /* Hide everything, then reveal only the proposal document */
+        body * { visibility: hidden !important; }
+        #proposal-document, #proposal-document * { visibility: visible !important; }
+        #proposal-scroll { position: static !important; overflow: visible !important; padding: 0 !important; background: #fff !important; }
+        #proposal-document {
+          position: absolute !important; left: 0 !important; top: 0 !important;
+          width: 100% !important; max-width: 100% !important;
+          box-shadow: none !important; border-radius: 0 !important; margin: 0 !important;
+        }
+        /* Make dark backgrounds (header, total) actually print */
+        * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
       }
     `}</style>
   </div>;
@@ -2378,16 +2452,16 @@ function InvoicePrintView({inv,job,client,biz,payments,onClose}){
     <div style={{background:"#000",padding:"12px 24px",display:"flex",alignItems:"center",justifyContent:"space-between",flexShrink:0,borderBottom:"1px solid rgba(255,255,255,0.1)"}}>
       <div style={{display:"flex",alignItems:"center",gap:16}}>
         <button onClick={onClose} style={{background:"none",border:"1px solid rgba(255,255,255,0.2)",borderRadius:2,padding:"6px 14px",color:"rgba(255,255,255,0.7)",fontSize:11,fontWeight:700,cursor:"pointer",fontFamily:"inherit",letterSpacing:"0.08em",textTransform:"uppercase"}}>← Back</button>
-        <div style={{fontSize:11,fontWeight:700,color:GOLD,letterSpacing:"0.1em",textTransform:"uppercase"}}>Tax Invoice — {inv.number}</div>
+        <div style={{fontSize:11,fontWeight:700,color:"rgba(255,255,255,0.85)",letterSpacing:"0.1em",textTransform:"uppercase"}}>Tax Invoice — {inv.number}</div>
       </div>
       <div style={{display:"flex",gap:10}}>
-        <button onClick={copyBank} style={{background:copied?"#2D7A4F":"rgba(255,255,255,0.08)",border:`1px solid ${copied?"#2D7A4F":"rgba(255,255,255,0.2)"}`,borderRadius:2,padding:"7px 16px",color:copied?WHITE:"rgba(255,255,255,0.8)",fontSize:11,fontWeight:700,cursor:"pointer",fontFamily:"inherit",letterSpacing:"0.06em",textTransform:"uppercase",transition:"all 0.2s"}}>{copied?"✓ Copied":"Copy bank details"}</button>
-        <button onClick={()=>window.print()} style={{background:GOLD,border:"none",borderRadius:2,padding:"7px 20px",color:WHITE,fontSize:11,fontWeight:700,cursor:"pointer",fontFamily:"inherit",letterSpacing:"0.06em",textTransform:"uppercase"}}>Print / Save PDF</button>
+        <button onClick={copyBank} style={{background:copied?"#2D7A4F":"rgba(255,255,255,0.08)",border:`1px solid ${copied?"#2D7A4F":"rgba(255,255,255,0.2)"}`,borderRadius:8,padding:"7px 16px",color:copied?WHITE:"rgba(255,255,255,0.8)",fontSize:11,fontWeight:700,cursor:"pointer",fontFamily:"inherit",letterSpacing:"0.06em",textTransform:"uppercase",transition:"all 0.2s"}}>{copied?"✓ Copied":"Copy bank details"}</button>
+        <button onClick={()=>window.print()} style={{background:WHITE,border:"none",borderRadius:8,padding:"7px 20px",color:INK,fontSize:11,fontWeight:700,cursor:"pointer",fontFamily:"inherit",letterSpacing:"0.06em",textTransform:"uppercase"}}>Print / Save PDF</button>
       </div>
     </div>
     {/* page */}
-    <div style={{flex:1,overflow:"auto",padding:"32px 24px",display:"flex",justifyContent:"center"}}>
-      <div style={{width:"100%",maxWidth:700,background:WHITE,fontFamily:"'DM Sans',sans-serif",boxShadow:"0 8px 48px rgba(0,0,0,0.5)"}}>
+    <div id="invoice-scroll" style={{flex:1,overflow:"auto",padding:"32px 24px",display:"flex",justifyContent:"center"}}>
+      <div id="invoice-document" style={{width:"100%",maxWidth:700,background:WHITE,fontFamily:"'DM Sans',sans-serif",boxShadow:"0 8px 48px rgba(0,0,0,0.5)"}}>
         {/* header */}
         <div style={{padding:"32px 44px 24px",borderBottom:"3px solid #000",display:"flex",justifyContent:"space-between",alignItems:"flex-start"}}>
           {/* logo */}
@@ -2485,6 +2559,21 @@ function InvoicePrintView({inv,job,client,biz,payments,onClose}){
         </div>
       </div>
     </div>
+
+    <style>{`
+      @media print {
+        @page { margin: 12mm; }
+        html, body { background: #fff !important; }
+        body * { visibility: hidden !important; }
+        #invoice-document, #invoice-document * { visibility: visible !important; }
+        #invoice-scroll { position: static !important; overflow: visible !important; padding: 0 !important; background: #fff !important; }
+        #invoice-document {
+          position: absolute !important; left: 0 !important; top: 0 !important;
+          width: 100% !important; max-width: 100% !important; box-shadow: none !important; margin: 0 !important;
+        }
+        * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+      }
+    `}</style>
   </div>;
 }
 
@@ -3783,6 +3872,8 @@ export default function App(){
   const[selClient,setSelClient]=useState(null);
   const[selJob,setSelJob]=useState(null);
   const[storageReady,setStorageReady]=useState(false);
+  const[loadError,setLoadError]=useState(false);
+  const[loadNonce,setLoadNonce]=useState(0);
   const[session,setSession]=useState(null);
   const[authReady,setAuthReady]=useState(!supabaseEnabled);
   // Stable across token refreshes — only changes on real sign-in/out
@@ -3828,16 +3919,38 @@ export default function App(){
       setter(v);
     };
 
-    // Hard timeout — always renders within 6s even if the network hangs
-    const giveUp=setTimeout(()=>setStorageReady(true),6000);
+    const cloudMode=supabaseEnabled&&userId&&supabase;
+    // Hard timeout — if the cloud hangs, surface an error rather than booting on seed data
+    const giveUp=setTimeout(()=>{
+      if(cloudMode&&!_cloudLoaded)setLoadError(true);
+      setStorageReady(true);
+    },9000);
     const init=async()=>{
-      for(const[k,setter] of Object.entries(keyToSetter)){
-        try{const v=await _storeGet(k);applyLoaded(k,v,setter);}catch(e){}
+      setLoadError(false);
+      if(cloudMode){
+        // Strict load: ALL keys must read from the cloud before we allow any cloud writes.
+        // If the cloud can't be reached, we block the app instead of risking an overwrite.
+        try{
+          const entries=Object.entries(keyToSetter);
+          const values=await Promise.all(entries.map(([k])=>_cloudGet(k)));
+          entries.forEach(([k,setter],i)=>applyLoaded(k,values[i],setter));
+          setCloudLoaded(true);   // ✅ now safe to persist to the cloud
+        }catch(e){
+          setCloudLoaded(false);
+          clearTimeout(giveUp);
+          setLoadError(true);
+          setStorageReady(true);
+          return;
+        }
+      }else{
+        for(const[k,setter] of Object.entries(keyToSetter)){
+          try{const v=await _localGet(k);applyLoaded(k,v,setter);}catch(e){}
+        }
       }
       clearTimeout(giveUp);
       setStorageReady(true);
     };
-    init().catch(()=>{clearTimeout(giveUp);setStorageReady(true);});
+    init().catch(()=>{clearTimeout(giveUp);if(cloudMode)setLoadError(true);setStorageReady(true);});
 
     // Live sync: apply changes made on other computers
     let channel=null;
@@ -3852,7 +3965,7 @@ export default function App(){
         .subscribe();
     }
     return()=>{clearTimeout(giveUp);if(channel&&supabase){try{supabase.removeChannel(channel);}catch(e){}}};
-  },[authReady,userId]);
+  },[authReady,userId,loadNonce]);
 
   const setView=useCallback(v=>{
     if(v.startsWith("clientDetail_")){setSelClient(v.split("_")[1]);setViewRaw("clientDetail");}
@@ -3890,6 +4003,15 @@ export default function App(){
   if(supabaseEnabled){
     if(!authReady)return <div style={{display:"flex",alignItems:"center",justifyContent:"center",minHeight:"100vh",background:CREAM,fontFamily:"'DM Sans',sans-serif",color:WG,fontSize:14}}>Loading…</div>;
     if(!session)return <Login/>;
+    // Cloud load failed — block the app so stale/seed data can't be saved over good cloud data
+    if(loadError)return <div style={{display:"flex",alignItems:"center",justifyContent:"center",minHeight:"100vh",background:CREAM,fontFamily:"'DM Sans',sans-serif",padding:20}}>
+      <div style={{maxWidth:420,textAlign:"center",background:WHITE,border:`1px solid ${BD}`,borderRadius:RADIUS,padding:"32px 30px",boxShadow:SHADOW}}>
+        <div style={{fontSize:32,marginBottom:12}}>⚠️</div>
+        <div style={{fontSize:17,fontWeight:800,color:INK,marginBottom:8}}>Couldn't load your data</div>
+        <div style={{fontSize:13,color:WG,lineHeight:1.6,marginBottom:22}}>We couldn't reach the cloud, so the app is paused to protect your saved data from being overwritten. Check your connection and try again.</div>
+        <Btn onClick={()=>{setLoadError(false);setStorageReady(false);setLoadNonce(n=>n+1);}}>Retry</Btn>
+      </div>
+    </div>;
   }
 
   return <div style={{display:"flex",minHeight:"100vh",background:CREAM,fontFamily:"'DM Sans',sans-serif"}}>
