@@ -424,6 +424,10 @@ const getMultiplier=(cost,table)=>{
 };
 const getBracket=(cost,table)=>getMultiplier(cost,table);
 const lineCost=li=>Number(li.costLow)||Number(li.cost)||0;
+// Per-line cost helpers (used by invoice + proposal views)
+const lineCostLow=li=>Number(li.costLow)||Number(li.cost)||0;
+const lineCostHigh=li=>Number(li.costHigh)||0;
+const lineIsRange=li=>lineCostHigh(li)>lineCostLow(li);
 
 const calcQuote=(items,table)=>{
   const mItems=items.filter(i=>!i.noMarkup);
@@ -2463,99 +2467,109 @@ function InvoicePrintView({inv,job,client,biz,payments,onClose}){
     <div id="invoice-scroll" style={{flex:1,overflow:"auto",padding:"32px 24px",display:"flex",justifyContent:"center"}}>
       <div id="invoice-document" style={{width:"100%",maxWidth:700,background:WHITE,fontFamily:"'DM Sans',sans-serif",boxShadow:"0 8px 48px rgba(0,0,0,0.5)"}}>
         {/* header */}
-        <div style={{padding:"32px 44px 24px",borderBottom:"3px solid #000",display:"flex",justifyContent:"space-between",alignItems:"flex-start"}}>
-          {/* logo */}
-          <div style={{display:"flex",flexDirection:"column",gap:0}}>
-            <div style={{background:"#000",padding:"10px 18px 6px",display:"inline-block"}}>
-              <div style={{fontSize:28,fontWeight:900,color:WHITE,letterSpacing:"0.12em",lineHeight:1,fontFamily:"'DM Sans',sans-serif"}}>VAHÉ</div>
-              <div style={{fontSize:8,fontWeight:400,color:"rgba(255,255,255,0.8)",letterSpacing:"0.28em",textAlign:"center",marginTop:2}}>JEWELLERY</div>
-              {biz.abn&&<div style={{fontSize:7,color:"rgba(255,255,255,0.5)",letterSpacing:"0.1em",textAlign:"center",marginTop:1}}>ABN {biz.abn}</div>}
+        <div style={{padding:"52px 56px 40px",display:"flex",justifyContent:"space-between",alignItems:"flex-start"}}>
+          <div>
+            <div style={{background:INK,padding:"12px 20px 8px",display:"inline-block",borderRadius:4}}>
+              <div style={{fontSize:30,fontWeight:900,color:WHITE,letterSpacing:"0.12em",lineHeight:1}}>VAHÉ</div>
+              <div style={{fontSize:8,fontWeight:400,color:"rgba(255,255,255,0.8)",letterSpacing:"0.3em",textAlign:"center",marginTop:3}}>JEWELLERY</div>
             </div>
+            {biz.abn&&<div style={{fontSize:10,color:WG,letterSpacing:"0.04em",marginTop:12}}>ABN {biz.abn}</div>}
+            {(biz.email||biz.phone)&&<div style={{fontSize:11,color:WG,marginTop:3}}>{[biz.phone,biz.email].filter(Boolean).join("  ·  ")}</div>}
           </div>
           <div style={{textAlign:"right"}}>
-            <div style={{fontSize:11,fontWeight:700,color:WG,textTransform:"uppercase",letterSpacing:"0.1em",marginBottom:12}}>Tax Invoice</div>
+            <div style={{fontSize:13,fontWeight:800,color:INK,textTransform:"uppercase",letterSpacing:"0.18em",marginBottom:16}}>Tax Invoice</div>
             <table style={{fontSize:12,borderCollapse:"collapse",marginLeft:"auto"}}>
               <tbody>
-                {[["Invoice number",inv.number],["Issue date",fmtDate(inv.date)],["Due date","C.O.D."]].map(([l,v])=>(
-                  <tr key={l}><td style={{color:WG,paddingRight:20,paddingBottom:4,fontWeight:500}}>{l}</td><td style={{fontWeight:700,color:INK,textAlign:"right"}}>{v}</td></tr>
+                {[["Invoice no.",inv.number],["Issue date",fmtDate(inv.date)],["Due date","C.O.D."]].map(([l,v])=>(
+                  <tr key={l}><td style={{color:WG,paddingRight:24,paddingBottom:7,fontWeight:500}}>{l}</td><td style={{fontWeight:700,color:INK,textAlign:"right",paddingBottom:7}}>{v}</td></tr>
                 ))}
               </tbody>
             </table>
           </div>
         </div>
+
         {/* bill to */}
-        <div style={{padding:"20px 44px",borderBottom:`1px solid ${BD}`}}>
-          <div style={{fontSize:10,fontWeight:700,color:WG,textTransform:"uppercase",letterSpacing:"0.1em",marginBottom:6}}>Bill to</div>
-          <div style={{fontSize:13,fontStyle:"italic",color:INK,fontWeight:500}}>{client?.name||"—"}</div>
-          {client?.address&&<div style={{fontSize:12,color:WG,marginTop:2}}>{client.address}</div>}
-          {!client?.address&&<div style={{fontSize:12,color:WG,marginTop:2}}>{client?.email||""}{client?.phone?` · ${client.phone}`:""}</div>}
+        <div style={{padding:"0 56px 36px"}}>
+          <div style={{fontSize:10,fontWeight:700,color:WG,textTransform:"uppercase",letterSpacing:"0.14em",marginBottom:8}}>Bill to</div>
+          <div style={{fontSize:17,color:INK,fontWeight:700}}>{client?.name||"—"}</div>
+          {client?.address&&<div style={{fontSize:12,color:WG,marginTop:4}}>{client.address}</div>}
+          {(client?.email||client?.phone)&&<div style={{fontSize:12,color:WG,marginTop:3}}>{[client?.email,client?.phone].filter(Boolean).join("  ·  ")}</div>}
         </div>
+
         {/* line items */}
-        <div style={{padding:"0 44px"}}>
-          <table style={{width:"100%",borderCollapse:"collapse",fontSize:12}}>
+        <div style={{padding:"0 56px"}}>
+          <table style={{width:"100%",borderCollapse:"collapse",fontSize:13}}>
             <thead>
-              <tr style={{background:"#f5f5f5",borderBottom:"2px solid #000"}}>
-                <th style={{padding:"10px 12px",textAlign:"left",fontWeight:700,fontSize:10,letterSpacing:"0.08em",textTransform:"uppercase",color:INK,width:"60%"}}>Description</th>
-                <th style={{padding:"10px 12px",textAlign:"center",fontWeight:700,fontSize:10,letterSpacing:"0.08em",textTransform:"uppercase",color:INK,width:"15%"}}>Tax</th>
-                <th style={{padding:"10px 12px",textAlign:"right",fontWeight:700,fontSize:10,letterSpacing:"0.08em",textTransform:"uppercase",color:INK,width:"25%"}}>Amount ($)<br/><span style={{fontStyle:"italic",fontWeight:400,textTransform:"none",letterSpacing:0,fontSize:9}}>including tax</span></th>
+              <tr style={{borderBottom:`2px solid ${INK}`}}>
+                <th style={{padding:"0 0 12px",textAlign:"left",fontWeight:700,fontSize:10,letterSpacing:"0.1em",textTransform:"uppercase",color:WG,width:"64%"}}>Description</th>
+                <th style={{padding:"0 0 12px",textAlign:"center",fontWeight:700,fontSize:10,letterSpacing:"0.1em",textTransform:"uppercase",color:WG,width:"12%"}}>Tax</th>
+                <th style={{padding:"0 0 12px",textAlign:"right",fontWeight:700,fontSize:10,letterSpacing:"0.1em",textTransform:"uppercase",color:WG,width:"24%"}}>Amount (inc&nbsp;GST)</th>
               </tr>
             </thead>
             <tbody>
-              {inv.lineItems.map((li,i)=>(
-                <tr key={li.id} style={{borderBottom:`1px solid ${BD}`,background:i%2===0?WHITE:"#fafafa"}}>
-                  <td style={{padding:"10px 12px",color:INK,lineHeight:1.5}}>
-                    <div style={{fontWeight:500}}>{li.description}</div>
-                    {li.detail&&<div style={{fontSize:11,color:WG,marginTop:2}}>{li.detail}</div>}
-                  </td>
-                  <td style={{padding:"10px 12px",textAlign:"center",color:WG,fontSize:11}}>GST</td>
-                  <td style={{padding:"10px 12px",textAlign:"right",fontWeight:600,color:INK}}>{fmt(lineCostLow(li))}</td>
-                </tr>
-              ))}
+              {inv.descriptionOverride?.trim()
+                ?<tr style={{borderBottom:`1px solid ${BD_SOFT}`}}>
+                    <td style={{padding:"18px 0",color:INK,lineHeight:1.65,whiteSpace:"pre-wrap",fontWeight:500}}>{inv.descriptionOverride}</td>
+                    <td style={{padding:"18px 0",textAlign:"center",color:WG,fontSize:12}}>GST</td>
+                    <td style={{padding:"18px 0",textAlign:"right",fontWeight:700,color:INK}}>{fmt(inv.totalIncGST)}</td>
+                  </tr>
+                :inv.lineItems.map(li=>(
+                  <tr key={li.id} style={{borderBottom:`1px solid ${BD_SOFT}`}}>
+                    <td style={{padding:"15px 0",color:INK,lineHeight:1.5}}>
+                      <div style={{fontWeight:600}}>{li.description}</div>
+                      {li.detail&&<div style={{fontSize:11,color:WG,marginTop:3}}>{li.detail}</div>}
+                    </td>
+                    <td style={{padding:"15px 0",textAlign:"center",color:WG,fontSize:12}}>GST</td>
+                    <td style={{padding:"15px 0",textAlign:"right",fontWeight:600,color:INK}}>{fmt(lineCostLow(li))}</td>
+                  </tr>
+                ))}
             </tbody>
           </table>
         </div>
-        {/* totals + notes */}
-        <div style={{padding:"16px 44px 24px",display:"grid",gridTemplateColumns:"1fr 1fr",gap:24,borderBottom:`1px solid ${BD}`}}>
-          <div>
-            {inv.notes&&<><div style={{fontSize:10,fontWeight:700,color:WG,textTransform:"uppercase",letterSpacing:"0.1em",marginBottom:6}}>Notes</div><div style={{fontSize:12,color:INK,lineHeight:1.6}}>{inv.notes}</div></>}
-          </div>
-          <div>
-            {[["Tax",fmt(inv.gst)],["Total Amount (inc. tax)",fmt(inv.totalIncGST)],["Total paid",fmt(paidTotal)]].map(([l,v])=>(
-              <div key={l} style={{display:"flex",justifyContent:"space-between",fontSize:12,padding:"4px 0",borderBottom:`1px solid ${BD}`}}>
+
+        {/* totals */}
+        <div style={{padding:"28px 56px 40px",display:"flex",justifyContent:"flex-end"}}>
+          <div style={{minWidth:300}}>
+            {[["Subtotal (ex GST)",fmt(inv.exGST)],["GST (10%)",fmt(inv.gst)],["Total (inc GST)",fmt(inv.totalIncGST)],["Paid to date",fmt(paidTotal)]].map(([l,v])=>(
+              <div key={l} style={{display:"flex",justifyContent:"space-between",fontSize:13,padding:"8px 0",borderBottom:`1px solid ${BD_SOFT}`}}>
                 <span style={{color:WG}}>{l}</span><span style={{fontWeight:600,color:INK}}>{v}</span>
               </div>
             ))}
-            <div style={{display:"flex",justifyContent:"space-between",fontSize:15,fontWeight:800,color:INK,marginTop:8,paddingTop:8,borderTop:"2px solid #000"}}>
-              <span>Balance due</span><span>{fmt(balance)}</span>
+            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",background:INK,color:WHITE,borderRadius:6,padding:"14px 18px",marginTop:14}}>
+              <span style={{fontSize:12,fontWeight:700,textTransform:"uppercase",letterSpacing:"0.08em",color:"rgba(255,255,255,0.6)"}}>Balance due</span>
+              <span style={{fontSize:22,fontWeight:800}}>{fmt(balance)}</span>
             </div>
           </div>
         </div>
+
+        {inv.notes&&<div style={{padding:"0 56px 36px"}}>
+          <div style={{fontSize:10,fontWeight:700,color:WG,textTransform:"uppercase",letterSpacing:"0.14em",marginBottom:8}}>Notes</div>
+          <div style={{fontSize:12,color:INK,lineHeight:1.7}}>{inv.notes}</div>
+        </div>}
+
         {/* how to pay */}
-        <div style={{background:"#f5f5f5",borderTop:`1px solid ${BD}`,padding:"20px 44px 28px"}}>
-          <div style={{fontSize:10,fontWeight:700,color:WG,textTransform:"uppercase",letterSpacing:"0.1em",marginBottom:14}}>How to pay</div>
-          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:24}}>
-            <div style={{background:WHITE,border:`1px solid ${BD}`,borderRadius:4,padding:"14px 18px",fontSize:12,color:INK,lineHeight:2.2}}>
-              <div style={{fontSize:10,fontWeight:700,color:WG,textTransform:"uppercase",letterSpacing:"0.1em",marginBottom:8}}>Bank deposit</div>
-              <div><span style={{color:WG,fontWeight:500}}>Bank:&nbsp;</span><span style={{fontWeight:600}}>{biz.bankName||"—"}</span></div>
-              <div><span style={{color:WG,fontWeight:500}}>Name:&nbsp;</span><span style={{fontWeight:600}}>{biz.bankAccountName||biz.name||"—"}</span></div>
-              <div><span style={{color:WG,fontWeight:500}}>BSB:&nbsp;</span><strong>{biz.bankBSB||"—"}</strong></div>
-              <div><span style={{color:WG,fontWeight:500}}>Account:&nbsp;</span><strong>{biz.bankAccount||"—"}</strong></div>
-              <div><span style={{color:WG,fontWeight:500}}>Reference:&nbsp;</span><strong>{inv.number}</strong></div>
+        <div style={{borderTop:`1px solid ${BD_SOFT}`,padding:"36px 56px"}}>
+          <div style={{fontSize:10,fontWeight:700,color:WG,textTransform:"uppercase",letterSpacing:"0.14em",marginBottom:18}}>How to pay</div>
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:36,alignItems:"start"}}>
+            <div style={{fontSize:12,color:INK,lineHeight:2.1}}>
+              <div><span style={{color:WG}}>Bank</span>&nbsp;&nbsp;<span style={{fontWeight:600}}>{biz.bankName||"—"}</span></div>
+              <div><span style={{color:WG}}>Name</span>&nbsp;&nbsp;<span style={{fontWeight:600}}>{biz.bankAccountName||biz.name||"—"}</span></div>
+              <div><span style={{color:WG}}>BSB</span>&nbsp;&nbsp;<strong>{biz.bankBSB||"—"}</strong></div>
+              <div><span style={{color:WG}}>Account</span>&nbsp;&nbsp;<strong>{biz.bankAccount||"—"}</strong></div>
+              <div><span style={{color:WG}}>Reference</span>&nbsp;&nbsp;<strong>{inv.number}</strong></div>
             </div>
-            <div style={{display:"flex",alignItems:"flex-start",gap:10,paddingTop:4}}>
-              <div style={{fontSize:12,color:WG,lineHeight:1.7}}>
-                <div style={{fontWeight:700,color:INK,marginBottom:4}}>Important</div>
-                Please use your invoice number <strong style={{color:INK}}>{inv.number}</strong> as the payment reference so we can match your payment quickly.
-                {!biz.bankBSB&&<div style={{marginTop:8,color:WARN,fontSize:11}}>⚠ Add bank details in Settings → Business details to show here.</div>}
-              </div>
+            <div style={{fontSize:12,color:WG,lineHeight:1.8}}>
+              Please use invoice number <strong style={{color:INK}}>{inv.number}</strong> as your payment reference so we can match your payment quickly. Thank you for your business.
+              {!biz.bankBSB&&<div style={{marginTop:10,color:WARN,fontSize:11}}>⚠ Add bank details in Settings → Business details to show here.</div>}
             </div>
           </div>
         </div>
+
         {/* footer */}
-        <div style={{background:"#f5f5f5",padding:"10px 44px",display:"flex",justifyContent:"space-between",fontSize:10,color:WG,borderTop:`1px solid ${BD}`}}>
-          <span>Invoice no: {inv.number}</span>
-          <span>Due date: C.O.D.</span>
-          <span>Balance due: {fmt(balance)}</span>
+        <div style={{padding:"18px 56px",display:"flex",justifyContent:"space-between",fontSize:10,color:WG,borderTop:`1px solid ${BD_SOFT}`}}>
+          <span>{biz.name||"VAHÉ Jewellery"}</span>
+          <span>Invoice {inv.number}</span>
+          <span>Balance due {fmt(balance)}</span>
         </div>
       </div>
     </div>
@@ -2585,6 +2599,7 @@ function InvoiceDetail({invoiceId,invoices,setInvoices,jobs,clients,payments,biz
   const c=job?clients.find(x=>x.id===job.clientId):null;
   const[showPrint,setShowPrint]=useState(false);
   const setStatus=s=>setInvoices(p=>{const n=p.map(x=>x.id===invoiceId?{...x,status:s}:x);persist(K.inv,n);return n;});
+  const setDescOverride=v=>setInvoices(p=>{const n=p.map(x=>x.id===invoiceId?{...x,descriptionOverride:v}:x);persist(K.inv,n);return n;});
   const paidTotal=(payments||[]).filter(p=>p.jobId===inv.jobId&&p.status==="Received").reduce((s,p)=>s+Number(p.amount),0);
   const balance=Math.max(0,inv.totalIncGST-paidTotal);
   return <div>
@@ -2612,8 +2627,18 @@ function InvoiceDetail({invoiceId,invoices,setInvoices,jobs,clients,payments,biz
       ))}
     </div>
     <Card>
+      <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:8}}>
+        <label style={SS.lbl}>Customer-facing description (optional)</label>
+        <div style={{background:inv.descriptionOverride?.trim()?OK+"22":BD,color:inv.descriptionOverride?.trim()?OK:WG,fontSize:10,fontWeight:700,padding:"2px 8px",borderRadius:10,letterSpacing:"0.04em"}}>{inv.descriptionOverride?.trim()?"SHOWN ON INVOICE":"USING ITEMISED LIST"}</div>
+      </div>
+      <textarea value={inv.descriptionOverride||""} onChange={e=>setDescOverride(e.target.value)} rows={3}
+        placeholder="e.g. Custom 18ct yellow gold bracelet — design, materials & handcrafting"
+        style={{...SS.inp,marginTop:0,resize:"vertical",lineHeight:1.6}}/>
+      <div style={{fontSize:11,color:WG,marginTop:6,lineHeight:1.5}}>When filled in, the printed invoice shows this single description (with the total) instead of the itemised cost lines below — so the customer doesn't see internal items like "3D Print & Cast". Leave blank to itemise.</div>
+    </Card>
+    <Card>
       <div style={{display:"grid",gridTemplateColumns:"1fr 100px 120px",gap:6,marginBottom:8,paddingBottom:8,borderBottom:`1px solid ${BD}`}}>
-        {["Item / Description","Tax","Amount inc GST"].map(h=><div key={h} style={{fontSize:10,fontWeight:700,color:WG,textTransform:"uppercase",letterSpacing:"0.05em"}}>{h}</div>)}
+        {["Item / Description (internal)","Tax","Amount inc GST"].map(h=><div key={h} style={{fontSize:10,fontWeight:700,color:WG,textTransform:"uppercase",letterSpacing:"0.05em"}}>{h}</div>)}
       </div>
       {inv.lineItems.map(li=>(
         <div key={li.id} style={{display:"grid",gridTemplateColumns:"1fr 100px 120px",gap:6,padding:"10px 0",borderBottom:`1px solid ${BD}`,fontSize:13,alignItems:"start"}}>
