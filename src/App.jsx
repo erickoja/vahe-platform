@@ -32,7 +32,19 @@ try{
 }catch(e){}
 
 // ── Tokens ────────────────────────────────────────────────────────────────
-const GOLD="#B8922A",GOLD_L="#F5EDD8",GOLD_D="#7A5F0F",INK="#0A0A0A",PARCH="#FAFAF8",WG="#8A8680",BD="#E4E0D8",WHITE="#FFFFFF",OK="#2D7A4F",OK_BG="#EAF5EF",DANGER="#A33028",WARN="#B06A10";
+const GOLD="#B8922A",GOLD_L="#F5EDD8",GOLD_D="#7A5F0F",INK="#141414",PARCH="#F7F7F8",WG="#8A8A8E",BD="#E6E6E8",WHITE="#FFFFFF",OK="#2D7A4F",OK_BG="#EAF5EF",DANGER="#C0392B",WARN="#B06A10";
+// Monochrome (black & white) system
+const CREAM="#F5F5F6";          // app background (light neutral grey)
+const BD_SOFT="#ECECEE";        // softer hairline border
+const RADIUS=18;                // card corner radius
+const SHADOW="0 1px 2px rgba(20,20,22,0.04),0 4px 14px rgba(20,20,22,0.06)";
+const SHADOW_HV="0 6px 18px rgba(20,20,22,0.10),0 16px 36px rgba(20,20,22,0.12)";
+// Stat-tile treatments — neutral by default; a couple carry a functional status hint
+const _NEU={bg:WHITE,ring:"#F0F0F2",fg:INK};
+const TINTS={
+  peach:_NEU,blue:_NEU,lilac:_NEU,mint:_NEU,gold:_NEU,
+  rose:{bg:WHITE,ring:"#FBEAEA",fg:DANGER},   // overdue / alert
+};
 
 // ── Constants ─────────────────────────────────────────────────────────────
 const JOB_TYPES=["Engagement ring","Wedding band","Custom pendant","Earrings","Bracelet","Repair","Remodelling","Grillz","Resize","Chain","Other"];
@@ -548,7 +560,7 @@ const deleteJobImage=async(path)=>{
 };
 
 // ── Shared UI ─────────────────────────────────────────────────────────────
-const SS={inp:{width:"100%",padding:"9px 12px",borderRadius:2,border:`1px solid ${BD}`,fontSize:13,fontFamily:"inherit",color:INK,background:WHITE,outline:"none",boxSizing:"border-box",marginTop:4},lbl:{fontSize:10,fontWeight:700,color:WG,letterSpacing:"0.1em",textTransform:"uppercase",display:"block"}};
+const SS={inp:{width:"100%",padding:"10px 13px",borderRadius:10,border:`1px solid ${BD}`,fontSize:13,fontFamily:"inherit",color:INK,background:WHITE,outline:"none",boxSizing:"border-box",marginTop:4},lbl:{fontSize:10,fontWeight:700,color:WG,letterSpacing:"0.1em",textTransform:"uppercase",display:"block"}};
 
 
 function StoneMarkupSummary({calc}){
@@ -578,10 +590,11 @@ function Badge({label,color=WG,size="sm"}){
 }
 function Btn({onClick,children,sm,danger,ghost,disabled}){
   const[h,setH]=useState(false);
-  const bg=disabled?"#ccc":danger?(h?"#7A221A":DANGER):ghost?(h?BD:"transparent"):(h?GOLD_D:GOLD);
+  const bg=disabled?"#D6D6D8":danger?(h?"#9A2D22":DANGER):ghost?(h?"#EFEFF1":"transparent"):(h?"#000000":INK);
   const fg=ghost?(h?INK:WG):WHITE;
+  const shadow=disabled||ghost?"none":h?(danger?"0 4px 12px rgba(192,57,43,0.28)":"0 4px 12px rgba(20,20,22,0.28)"):(danger?"0 2px 6px rgba(192,57,43,0.20)":"0 2px 6px rgba(20,20,22,0.20)");
   return <button onClick={disabled?undefined:onClick} onMouseEnter={()=>setH(true)} onMouseLeave={()=>setH(false)} disabled={disabled}
-    style={{background:bg,color:fg,border:ghost?`1px solid ${BD}`:"none",borderRadius:8,padding:sm?"5px 13px":"9px 20px",fontSize:sm?12:14,fontWeight:700,cursor:disabled?"default":"pointer",fontFamily:"inherit",letterSpacing:"0.02em",transition:"background 0.12s",opacity:disabled?0.5:1}}>{children}</button>;
+    style={{background:bg,color:fg,border:ghost?`1px solid ${BD}`:"none",borderRadius:999,padding:sm?"6px 15px":"10px 22px",fontSize:sm?12:14,fontWeight:700,cursor:disabled?"default":"pointer",fontFamily:"inherit",letterSpacing:"0.01em",transition:"all 0.15s",opacity:disabled?0.6:1,boxShadow:shadow,transform:h&&!disabled?"translateY(-1px)":"none"}}>{children}</button>;
 }
 function Input({label,value,onChange,type="text",placeholder,as,options,rows,min,step,disabled}){
   return <div style={{marginBottom:14}}>
@@ -595,7 +608,7 @@ function Input({label,value,onChange,type="text",placeholder,as,options,rows,min
 function Card({children,style={},onClick}){
   const[h,setH]=useState(false);
   return <div onClick={onClick} onMouseEnter={()=>onClick&&setH(true)} onMouseLeave={()=>setH(false)}
-    style={{background:WHITE,borderRadius:14,border:`1px solid ${h?GOLD:BD}`,padding:"22px 26px",marginBottom:14,transition:"border-color 0.15s",cursor:onClick?"pointer":"default",...style}}>{children}</div>;
+    style={{background:WHITE,borderRadius:RADIUS,border:`1px solid ${onClick&&h?"#D2D2D6":BD_SOFT}`,padding:"22px 26px",marginBottom:16,transition:"all 0.18s",cursor:onClick?"pointer":"default",boxShadow:onClick&&h?SHADOW_HV:SHADOW,transform:onClick&&h?"translateY(-2px)":"none",...style}}>{children}</div>;
 }
 function Modal({title,onClose,children,wide}){
   return <div style={{position:"fixed",inset:0,background:"rgba(26,23,20,0.6)",display:"flex",alignItems:"center",justifyContent:"center",zIndex:200,backdropFilter:"blur(3px)"}}>
@@ -614,13 +627,15 @@ function SectionHeader({title,action}){
     {action}
   </div>;
 }
-function Stat({label,value,accent,sub,onClick}){
+function Stat({label,value,accent,sub,onClick,tint,icon}){
   const[h,setH]=useState(false);
+  const t=tint?TINTS[tint]:null;
   return <div onClick={onClick} onMouseEnter={()=>setH(true)} onMouseLeave={()=>setH(false)}
-    style={{background:WHITE,border:`1px solid ${h||accent?GOLD:BD}`,borderRadius:14,padding:"16px 18px",cursor:onClick?"pointer":"default",transition:"all 0.15s",boxShadow:h?"0 4px 16px rgba(201,168,76,0.15)":"none"}}>
-    <div style={{fontSize:24,fontWeight:800,color:accent?GOLD:INK,letterSpacing:"-0.02em"}}>{value}</div>
-    <div style={{fontSize:11,color:WG,fontWeight:700,marginTop:3,textTransform:"uppercase",letterSpacing:"0.06em"}}>{label}</div>
-    {sub&&<div style={{fontSize:11,color:WG,marginTop:2}}>{sub}</div>}
+    style={{background:t?t.bg:WHITE,border:`1px solid ${t?"transparent":(accent?GOLD+"66":BD_SOFT)}`,borderRadius:RADIUS,padding:"18px 20px",cursor:onClick?"pointer":"default",transition:"all 0.18s",boxShadow:h?SHADOW_HV:SHADOW,transform:onClick&&h?"translateY(-2px)":"none"}}>
+    {icon&&<div style={{width:40,height:40,borderRadius:13,background:t?t.ring:GOLD_L,display:"flex",alignItems:"center",justifyContent:"center",fontSize:19,marginBottom:14,color:t?t.fg:GOLD_D}}>{icon}</div>}
+    <div style={{fontSize:27,fontWeight:800,color:t?t.fg:(accent?GOLD:INK),letterSpacing:"-0.02em",lineHeight:1.1}}>{value}</div>
+    <div style={{fontSize:11,color:t?t.fg:WG,opacity:t?0.85:1,fontWeight:700,marginTop:5,textTransform:"uppercase",letterSpacing:"0.06em"}}>{label}</div>
+    {sub&&<div style={{fontSize:11,color:t?t.fg:WG,opacity:t?0.7:1,marginTop:2}}>{sub}</div>}
   </div>;
 }
 
@@ -747,54 +762,58 @@ function Dashboard({clients,jobs,quotes,payments,invoices,markupTable,setView}){
   const outstanding=balanceOwing.reduce((s,b)=>s+b.balance,0);
 
   return <div>
-    <div style={{marginBottom:26}}>
-      <div style={{fontSize:11,fontWeight:700,color:GOLD,letterSpacing:"0.1em",textTransform:"uppercase",marginBottom:3}}>Workshop overview</div>
-      <h1 style={{margin:0,fontSize:28,fontWeight:400,color:INK,letterSpacing:"0.04em",fontFamily:"'DM Sans',sans-serif",fontStyle:"italic"}}>{(()=>{const h=new Date().getHours();return h<12?"Good morning":h<17?"Good afternoon":"Good evening";})()}</h1>
-      <div style={{color:WG,fontSize:14,marginTop:3}}>{fmtDate(today())}</div>
+    <div style={{marginBottom:28}}>
+      <div style={{fontSize:11,fontWeight:700,color:WG,letterSpacing:"0.14em",textTransform:"uppercase",marginBottom:5}}>Workshop overview</div>
+      <h1 style={{margin:0,fontSize:32,fontWeight:500,color:INK,letterSpacing:"-0.01em",fontFamily:"'DM Sans',sans-serif"}}>{(()=>{const h=new Date().getHours();return h<12?"Good morning":h<17?"Good afternoon":"Good evening";})()}</h1>
+      <div style={{color:WG,fontSize:14,marginTop:4}}>{fmtDate(today())}</div>
     </div>
-    <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(140px,1fr))",gap:12,marginBottom:22}}>
-      <Stat label="Clients" value={clients.length} onClick={()=>setView("clients")}/>
-      <Stat label="Active jobs" value={active.length} onClick={()=>setView("jobs")}/>
-      <Stat label="This month" value={fmt(monthReceived)} sub="payments received"/>
-      <Stat label="Outstanding" value={fmt(outstanding)} sub="balance owed" accent={outstanding>0}/>
-      <Stat label="Ready to collect" value={ready.length} accent={ready.length>0} onClick={()=>setView("jobs")}/>
-      <Stat label="Overdue" value={overdue.length} accent={overdue.length>0} onClick={()=>setView("jobs")}/>
+    <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(150px,1fr))",gap:14,marginBottom:24}}>
+      <Stat label="Clients" value={clients.length} tint="blue" icon="♦" onClick={()=>setView("clients")}/>
+      <Stat label="Active jobs" value={active.length} tint="lilac" icon="✦" onClick={()=>setView("jobs")}/>
+      <Stat label="This month" value={fmt(monthReceived)} sub="payments received" tint="mint" icon="↑"/>
+      <Stat label="Outstanding" value={fmt(outstanding)} sub="balance owed" tint={outstanding>0?"peach":"mint"} icon="$"/>
+      <Stat label="Ready to collect" value={ready.length} tint="gold" icon="✓" onClick={()=>setView("jobs")}/>
+      <Stat label="Overdue" value={overdue.length} tint={overdue.length>0?"rose":"mint"} icon="!" onClick={()=>setView("jobs")}/>
     </div>
-    <Card>
-      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:14}}>
-        <span style={{fontWeight:700,fontSize:15,color:INK}}>Active jobs</span>
-        <Btn sm ghost onClick={()=>setView("jobs")}>View all</Btn>
-      </div>
-      {active.length===0&&<div style={{color:WG,fontSize:14}}>No active jobs.</div>}
-      {active.slice(0,6).map(j=>{
-        const c=clients.find(x=>x.id===j.clientId);
-        const od=j.deadline&&j.deadline<today();
-        return <div key={j.id} style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"9px 0",borderBottom:`1px solid ${BD}`}}>
-          <div><div style={{fontWeight:600,fontSize:13,color:INK}}>{j.type} <span style={{color:WG,fontWeight:400}}>· {c?.name}</span></div>
-          <div style={{fontSize:12,color:od?DANGER:WG,marginTop:1}}>Due {fmtDate(j.deadline)}{od?" — OVERDUE":""}</div></div>
-          <Badge label={j.stage} color={SC[j.stage]||WG}/>
-        </div>;
-      })}
-    </Card>
-    {balanceOwing.length>0&&<Card>
-      <div style={{fontWeight:700,fontSize:15,color:INK,marginBottom:14}}>Balance owing by job</div>
-      {balanceOwing.map(({job,balance})=>{
-        const c=clients.find(x=>x.id===job.clientId);
-        return <div key={job.id} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"9px 0",borderBottom:`1px solid ${BD}`}}>
-          <div><div style={{fontWeight:600,fontSize:13,color:INK}}>{job.type} · {c?.name}</div><div style={{fontSize:12,color:WG}}>{job.stage}</div></div>
-          <div style={{fontWeight:800,fontSize:15,color:WARN}}>{fmt(balance)} owing</div>
-        </div>;
-      })}
-    </Card>}
-    <Card>
-      <div style={{fontWeight:700,fontSize:15,color:INK,marginBottom:14}}>Anniversary reminders</div>
-      {clients.filter(c=>c.anniversary).length===0?<div style={{color:WG,fontSize:14}}>None recorded.</div>
-      :clients.filter(c=>c.anniversary).sort((a,b)=>a.anniversary.slice(5).localeCompare(b.anniversary.slice(5))).map(c=>(
-        <div key={c.id} style={{display:"flex",justifyContent:"space-between",padding:"8px 0",borderBottom:`1px solid ${BD}`,fontSize:13}}>
-          <span style={{fontWeight:600,color:INK}}>{c.name}</span><span style={{color:WG}}>{fmtDate(c.anniversary)}</span>
+    <div style={{display:"grid",gridTemplateColumns:"minmax(0,1.6fr) minmax(0,1fr)",gap:16,alignItems:"start"}}>
+      <Card style={{marginBottom:0}}>
+        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:14}}>
+          <span style={{fontWeight:700,fontSize:15,color:INK}}>Active jobs</span>
+          <Btn sm ghost onClick={()=>setView("jobs")}>View all</Btn>
         </div>
-      ))}
-    </Card>
+        {active.length===0&&<div style={{color:WG,fontSize:14}}>No active jobs.</div>}
+        {active.slice(0,8).map(j=>{
+          const c=clients.find(x=>x.id===j.clientId);
+          const od=j.deadline&&j.deadline<today();
+          return <div key={j.id} style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"9px 0",borderBottom:`1px solid ${BD}`}}>
+            <div><div style={{fontWeight:600,fontSize:13,color:INK}}>{j.type} <span style={{color:WG,fontWeight:400}}>· {c?.name}</span></div>
+            <div style={{fontSize:12,color:od?DANGER:WG,marginTop:1}}>Due {fmtDate(j.deadline)}{od?" — OVERDUE":""}</div></div>
+            <Badge label={j.stage} color={SC[j.stage]||WG}/>
+          </div>;
+        })}
+      </Card>
+      <div style={{display:"flex",flexDirection:"column",gap:16}}>
+        {balanceOwing.length>0&&<Card style={{marginBottom:0}}>
+          <div style={{fontWeight:700,fontSize:15,color:INK,marginBottom:14}}>Balance owing by job</div>
+          {balanceOwing.map(({job,balance})=>{
+            const c=clients.find(x=>x.id===job.clientId);
+            return <div key={job.id} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"9px 0",borderBottom:`1px solid ${BD}`}}>
+              <div><div style={{fontWeight:600,fontSize:13,color:INK}}>{job.type} · {c?.name}</div><div style={{fontSize:12,color:WG}}>{job.stage}</div></div>
+              <div style={{fontWeight:800,fontSize:15,color:WARN}}>{fmt(balance)} owing</div>
+            </div>;
+          })}
+        </Card>}
+        <Card style={{marginBottom:0}}>
+          <div style={{fontWeight:700,fontSize:15,color:INK,marginBottom:14}}>Anniversary reminders</div>
+          {clients.filter(c=>c.anniversary).length===0?<div style={{color:WG,fontSize:14}}>None recorded.</div>
+          :clients.filter(c=>c.anniversary).sort((a,b)=>a.anniversary.slice(5).localeCompare(b.anniversary.slice(5))).map(c=>(
+            <div key={c.id} style={{display:"flex",justifyContent:"space-between",padding:"8px 0",borderBottom:`1px solid ${BD}`,fontSize:13}}>
+              <span style={{fontWeight:600,color:INK}}>{c.name}</span><span style={{color:WG}}>{fmtDate(c.anniversary)}</span>
+            </div>
+          ))}
+        </Card>
+      </div>
+    </div>
   </div>;
 }
 
@@ -2906,17 +2925,22 @@ function PrintCastTable({items,onSavePrices,onQtyChange}){
   const[printFee,setPrintFee]=useState(String(printItem.baseCost));
   const[castFee,setCastFee]=useState(String(castItem.baseCost));
   const[qty,setQty]=useState("1");
+  const[override,setOverride]=useState("");
   const print=Number(printFee)||0;
   const cast=Number(castFee)||0;
   const pieces=Math.max(0,Number(qty)||0);
+  const ov=Number(override)||0;
+  const usingOverride=ov>0;
 
-  const handleQtyChange=v=>{
-    setQty(v);
-    const p=Math.max(0,Number(v)||0);
-    if(onQtyChange){
-      onQtyChange("pc_combined","1",{id:"pc_combined",name:`3D Print & Cast × ${p} piece${p!==1?"s":""}`,baseCost:(print+cast)*p,unit:"job"});
-    }
+  const pushSelection=(nextQty,nextOverride)=>{
+    const p=Math.max(0,Number(nextQty)||0);
+    const o=Number(nextOverride)||0;
+    const t=o>0?o:(print+cast)*p;
+    const label=o>0?"3D Print & Cast (manual price)":`3D Print & Cast × ${p} piece${p!==1?"s":""}`;
+    if(onQtyChange)onQtyChange("pc_combined","1",{id:"pc_combined",name:label,baseCost:t,unit:"job"});
   };
+  const handleQtyChange=v=>{setQty(v);pushSelection(v,override);};
+  const handleOverrideChange=v=>{setOverride(v);pushSelection(qty,v);};
   const startEdit=()=>{setPrintFee(String(printItem.baseCost));setCastFee(String(castItem.baseCost));setEditing(true);};
   const cancelEdit=()=>setEditing(false);
   const saveEdit=()=>{
@@ -2931,7 +2955,7 @@ function PrintCastTable({items,onSavePrices,onQtyChange}){
 
   const printTotal=print*pieces;
   const castTotal=cast*pieces;
-  const total=printTotal+castTotal;
+  const total=usingOverride?ov:printTotal+castTotal;
 
   return <div style={{background:WHITE,borderRadius:14,border:`1px solid ${editing?GOLD:BD}`,overflow:"hidden",transition:"border-color 0.15s"}}>
     {/* Toolbar */}
@@ -2973,21 +2997,36 @@ function PrintCastTable({items,onSavePrices,onQtyChange}){
         min="0"
         step="1"
         onChange={e=>handleQtyChange(e.target.value)}
-        style={{...SS.inp,marginTop:0,width:100,fontSize:18,fontWeight:800,padding:"8px 12px",textAlign:"center",border:`1px solid ${pieces>0?GOLD:BD}`,color:INK}}
+        disabled={usingOverride}
+        style={{...SS.inp,marginTop:0,width:100,fontSize:18,fontWeight:800,padding:"8px 12px",textAlign:"center",border:`1px solid ${pieces>0&&!usingOverride?GOLD:BD}`,color:INK,opacity:usingOverride?0.5:1}}
       />
+    </div>
+
+    {/* Manual override price */}
+    <div style={{padding:"14px 18px",borderBottom:`1px solid ${BD}`,background:usingOverride?GOLD_L+"66":WHITE,display:"flex",alignItems:"center",gap:14,flexWrap:"wrap"}}>
+      <div style={{flex:1,minWidth:200}}>
+        <div style={{fontSize:11,fontWeight:700,color:usingOverride?GOLD_D:WG,textTransform:"uppercase",letterSpacing:"0.06em"}}>Manual override price</div>
+        <div style={{fontSize:11,color:WG,marginTop:2}}>Enter your own total to ignore the per-piece figures above. Leave blank to use the calculator.</div>
+      </div>
+      <div style={{position:"relative"}}>
+        <span style={{position:"absolute",left:11,top:"50%",transform:"translateY(-50%)",fontSize:13,color:WG,pointerEvents:"none"}}>$</span>
+        <input type="number" value={override} min="0" step="0.01" placeholder="0.00"
+          onChange={e=>handleOverrideChange(e.target.value)}
+          style={{...SS.inp,marginTop:0,width:150,fontSize:16,fontWeight:800,padding:"8px 12px 8px 24px",textAlign:"right",border:`1px solid ${usingOverride?GOLD:BD}`,color:INK}}/>
+      </div>
     </div>
 
     {/* Result breakdown */}
     <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr 1fr",padding:"0"}}>
       {[
-        ["Pieces",pieces===0?"—":String(pieces),WG,false],
-        ["Print cost",pieces===0?"—":fmt(printTotal),INK,false],
-        ["Casting cost",pieces===0?"—":fmt(castTotal),INK,false],
-        ["Total",pieces===0?"—":fmt(total),OK,true],
+        ["Pieces",usingOverride?"—":(pieces===0?"—":String(pieces)),WG,false],
+        ["Print cost",usingOverride?"—":(pieces===0?"—":fmt(printTotal)),INK,false],
+        ["Casting cost",usingOverride?"—":(pieces===0?"—":fmt(castTotal)),INK,false],
+        [usingOverride?"Override total":"Total",total>0?fmt(total):"—",OK,true],
       ].map(([label,value,col,accent],i)=>(
-        <div key={label} style={{padding:"18px 18px",borderRight:i<3?`1px solid ${BD}`:"none",background:accent&&pieces>0?OK+"0d":WHITE}}>
+        <div key={label} style={{padding:"18px 18px",borderRight:i<3?`1px solid ${BD}`:"none",background:accent&&total>0?OK+"0d":WHITE}}>
           <div style={{fontSize:10,fontWeight:700,color:WG,textTransform:"uppercase",letterSpacing:"0.06em",marginBottom:8}}>{label}</div>
-          <div style={{fontSize:accent?22:18,fontWeight:800,color:pieces===0?WG:col}}>{value}</div>
+          <div style={{fontSize:accent?22:18,fontWeight:800,color:total===0&&!accent?WG:(accent?(total>0?col:WG):col)}}>{value}</div>
         </div>
       ))}
     </div>
@@ -3849,11 +3888,11 @@ export default function App(){
 
   // Auth gate — only when Supabase is configured (cloud mode)
   if(supabaseEnabled){
-    if(!authReady)return <div style={{display:"flex",alignItems:"center",justifyContent:"center",minHeight:"100vh",background:"#F7F5F0",fontFamily:"'DM Sans',sans-serif",color:WG,fontSize:14}}>Loading…</div>;
+    if(!authReady)return <div style={{display:"flex",alignItems:"center",justifyContent:"center",minHeight:"100vh",background:CREAM,fontFamily:"'DM Sans',sans-serif",color:WG,fontSize:14}}>Loading…</div>;
     if(!session)return <Login/>;
   }
 
-  return <div style={{display:"flex",minHeight:"100vh",background:"#F7F5F0",fontFamily:"'DM Sans',sans-serif"}}>
+  return <div style={{display:"flex",minHeight:"100vh",background:CREAM,fontFamily:"'DM Sans',sans-serif"}}>
     <div style={{width:210,background:"#000000",display:"flex",flexDirection:"column",padding:"28px 0",flexShrink:0,position:"sticky",top:0,height:"100vh",overflowY:"auto"}}>
       <div style={{padding:"0 20px 28px",borderBottom:"1px solid rgba(255,255,255,0.06)"}}>
         <div style={{fontSize:8,fontWeight:700,color:GOLD,letterSpacing:"0.28em",textTransform:"uppercase",marginBottom:6,opacity:0.8}}>Studio Platform</div>
@@ -3877,7 +3916,7 @@ export default function App(){
         <div style={{fontSize:9,color:"rgba(255,255,255,0.18)",letterSpacing:"0.1em",textTransform:"uppercase"}}>v0.9</div>
       </div>
     </div>
-    <div style={{flex:1,padding:"40px 48px",maxWidth:980,margin:"0 auto",width:"100%"}}>
+    <div style={{flex:1,padding:"40px 56px",width:"100%",minWidth:0}}>
       {!storageReady
         ?<div style={{display:"flex",alignItems:"center",justifyContent:"center",height:300,flexDirection:"column",gap:12}}>
             <div style={{fontSize:13,color:WG}}>Loading your data…</div>
