@@ -560,6 +560,28 @@ const compressImage=(file,maxDim=1600,quality=0.82)=>new Promise((resolve,reject
     reader.readAsDataURL(file);
   }catch(e){reject(e);}
 });
+// Logo → small PNG data URL (kept inline in biz settings; preserves transparency).
+// Stored as a data URL so it prints reliably and needs no separate bucket.
+const fileToLogoDataUrl=(file,maxDim=400)=>new Promise((resolve,reject)=>{
+  try{
+    const reader=new FileReader();
+    reader.onload=e=>{
+      const img=new Image();
+      img.onload=()=>{
+        let{width,height}=img;
+        if(width>=height&&width>maxDim){height=Math.round(height*maxDim/width);width=maxDim;}
+        else if(height>width&&height>maxDim){width=Math.round(width*maxDim/height);height=maxDim;}
+        const canvas=document.createElement("canvas");canvas.width=width;canvas.height=height;
+        canvas.getContext("2d").drawImage(img,0,0,width,height);
+        resolve(canvas.toDataURL("image/png"));
+      };
+      img.onerror=()=>reject(new Error("invalid image"));
+      img.src=e.target.result;
+    };
+    reader.onerror=()=>reject(new Error("read failed"));
+    reader.readAsDataURL(file);
+  }catch(e){reject(e);}
+});
 const uploadJobImage=async(jobId,blob)=>{
   const path=`${jobId}/${uid()}.jpg`;
   const{error}=await supabase.storage.from(IMG_BUCKET).upload(path,blob,{contentType:"image/jpeg",upsert:false});
@@ -1194,7 +1216,9 @@ function JobDetail({jobId,jobs,setJobs,clients,quotes,setQuotes,payments,setPaym
     const exGST=calc.finalLow+(q.stoneClientTotal||0);
     const gst=exGST*GST_RATE;
     const num=nextInvoiceNumber(invoices);
-    const inv={id:uid(),jobId,quoteId:qid,number:num,date:today(),status:"Unpaid",exGST,gst,totalIncGST:exGST+gst,lineItems:q.lineItems,notes:q.notes||"",calc};
+    // Pre-fill the customer-facing description from the quote (or job) so it's ready to edit
+    const descriptionOverride=q.clientDescription||job?.description||"";
+    const inv={id:uid(),jobId,quoteId:qid,number:num,date:today(),status:"Unpaid",exGST,gst,totalIncGST:exGST+gst,lineItems:q.lineItems,notes:q.notes||"",descriptionOverride,calc};
     setInvoices(p=>{const n=[...p,inv];persist(K.inv,n);return n;});
     setView("invoiceDetail_"+inv.id);
   };
@@ -1564,7 +1588,7 @@ function QuoteBuilder({jobId:jobIdProp,editQuoteId,jobs,clients,quotes,setQuotes
   const c=job?clients.find(x=>x.id===job.clientId):null;
   const isEditing=!!existingQuote;
   const blankItem=()=>({id:uid(),description:"",detail:"",costLow:"",noMarkup:false});
-  const[items,setItems]=useState(()=>existingQuote?.lineItems?.length?existingQuote.lineItems.filter(i=>!i.accentStone&&!i.finding).map(i=>({...i})):[blankItem()]);
+  const[items,setItems]=useState(()=>existingQuote?.lineItems?.length?existingQuote.lineItems.filter(i=>!i.accentStone&&!i.finding).map(i=>({...i})):[]);
   const[accentItems,setAccentItems]=useState(()=>existingQuote?.lineItems?.length?existingQuote.lineItems.filter(i=>i.accentStone).map(i=>({...i})):[]);
   const[findingItems,setFindingItems]=useState(()=>existingQuote?.lineItems?.length?existingQuote.lineItems.filter(i=>i.finding).map(i=>({...i})):[]);
   const[notes,setNotes]=useState(existingQuote?.notes||"");
@@ -1576,6 +1600,7 @@ function QuoteBuilder({jobId:jobIdProp,editQuoteId,jobs,clients,quotes,setQuotes
   const[pQty,setPQty]=useState({});
   const[selCAD,setSelCAD]=useState(null);
   const[pcOverride,setPcOverride]=useState("");
+  const[pMode,setPMode]=useState({});   // per-item: "qty" (default) or "amt" (manual figure)
   const[accentModal,setAccentModal]=useState(false);
   const[findingModal,setFindingModal]=useState(false);
   // Centre stone section
@@ -1650,6 +1675,19 @@ function QuoteBuilder({jobId:jobIdProp,editQuoteId,jobs,clients,quotes,setQuotes
     setPricingModal(false);
   };
 
+  const addManualAmount=(item,amount)=>{
+    const amt=Number(amount)||0;
+    if(amt<=0)return alert("Enter an amount.");
+    const isD=DIAMOND_CATS.includes(item.category);
+    const isS=item.category==="Basic Setting"||item.category==="Complex Setting";
+    const desc=isD?`${item.category} ${item.sizeMm}mm`
+      :isS?(item.category==="Complex Setting"?`Complex setting ${item.sizeMm}mm`:`Basic setting ${item.sizeMm}mm`)
+      :item.name;
+    setItems(p=>[...p,{id:uid(),description:desc,detail:"Manual amount",costLow:amt.toFixed(2),noMarkup:false}]);
+    setPQty({});setPMode({});
+    setPricingModal(false);
+  };
+
   const validAccentItems=accentItems.filter(i=>i.description.trim()&&Number(i.costLow)>0);
   const validFindingItems=findingItems.filter(i=>i.description.trim()&&Number(i.costLow)>0);
   const validItems=[...items.filter(i=>i.description.trim()&&Number(i.costLow)>0),...validAccentItems,...validFindingItems];
@@ -1708,10 +1746,10 @@ function QuoteBuilder({jobId:jobIdProp,editQuoteId,jobs,clients,quotes,setQuotes
 
       {/* ── Setting & manufacturing line items ── */}
       <div style={{fontSize:11,fontWeight:700,color:WG,textTransform:"uppercase",letterSpacing:"0.08em",marginBottom:12}}>Jewellery costs</div>
-      <div style={{display:"grid",gridTemplateColumns:"200px 1fr 120px 80px",gap:8,marginBottom:6,padding:"0 2px"}}>
+      {items.length>0&&<><div style={{display:"grid",gridTemplateColumns:"200px 1fr 120px 80px",gap:8,marginBottom:6,padding:"0 2px"}}>
         {["Item","Detail / calculation","Cost",""].map(h=><div key={h} style={{fontSize:10,fontWeight:700,color:WG,textTransform:"uppercase",letterSpacing:"0.04em"}}>{h}</div>)}
       </div>
-      <div style={{fontSize:11,color:WG,marginBottom:10,lineHeight:1.5}}>Toggle <strong style={{color:"#7B5EA7"}}>No markup</strong> on any item to add it at exact cost after markup is applied.</div>
+      <div style={{fontSize:11,color:WG,marginBottom:10,lineHeight:1.5}}>Toggle <strong style={{color:"#7B5EA7"}}>No markup</strong> on any item to add it at exact cost after markup is applied.</div></>}
       {items.map((li,idx)=>{
         const cost=Number(li.costLow)||0;
         const totalStr=cost>0?fmt(cost):"—";
@@ -1971,15 +2009,41 @@ function QuoteBuilder({jobId:jobIdProp,editQuoteId,jobs,clients,quotes,setQuotes
                   </div>
                   {isFixedJob&&<Btn sm onClick={()=>addFromDB(item,1)}>Add</Btn>}
                 </div>
-                {needsQty&&<div style={{display:"flex",alignItems:"center",gap:10,marginTop:10,background:PARCH,borderRadius:6,padding:"10px 12px"}}>
-                  <label style={{fontSize:12,fontWeight:700,color:WG,whiteSpace:"nowrap"}}>{qtyLabel}</label>
-                  <input type="number" value={qty} min="0" step={qtyStep}
-                    onChange={e=>setPQty(p=>({...p,[item.id]:e.target.value}))}
-                    placeholder={qtyPlaceholder}
-                    style={{...SS.inp,marginTop:0,flex:1,padding:"7px 10px",fontSize:14,textAlign:"right"}}/>
-                  {previewCost&&<div style={{fontSize:13,fontWeight:800,color:OK,whiteSpace:"nowrap"}}>= {fmt(previewCost)}</div>}
-                  <Btn sm onClick={()=>addFromDB(item,qty||1)}>Add</Btn>
-                </div>}
+                {needsQty&&(()=>{
+                  const allowManual=true;
+                  const mode=pMode[item.id]||"qty";
+                  const amtMode=allowManual&&mode==="amt";
+                  return <div style={{marginTop:10,background:PARCH,borderRadius:6,padding:"10px 12px"}}>
+                    {allowManual&&<div style={{display:"flex",gap:6,marginBottom:8}}>
+                      {[["qty",`By ${qtyLabel.toLowerCase()}`],["amt","Manual $"]].map(([m,label])=>(
+                        <button key={m} onClick={()=>setPMode(p=>({...p,[item.id]:m}))}
+                          style={{padding:"3px 11px",borderRadius:20,border:`1px solid ${mode===m?INK:BD}`,background:mode===m?INK:"transparent",color:mode===m?WHITE:WG,fontSize:10,fontWeight:700,cursor:"pointer",fontFamily:"inherit"}}>{label}</button>
+                      ))}
+                    </div>}
+                    <div style={{display:"flex",alignItems:"center",gap:10}}>
+                      {amtMode
+                        ?<>
+                          <label style={{fontSize:12,fontWeight:700,color:WG,whiteSpace:"nowrap"}}>Amount</label>
+                          <div style={{position:"relative",flex:1}}>
+                            <span style={{position:"absolute",left:10,top:"50%",transform:"translateY(-50%)",fontSize:12,color:WG,pointerEvents:"none"}}>$</span>
+                            <input type="number" value={qty} min="0" step="0.01" placeholder="0.00"
+                              onChange={e=>setPQty(p=>({...p,[item.id]:e.target.value}))}
+                              style={{...SS.inp,marginTop:0,width:"100%",padding:"7px 10px 7px 22px",fontSize:14,textAlign:"right"}}/>
+                          </div>
+                          <Btn sm onClick={()=>addManualAmount(item,qty)}>Add</Btn>
+                        </>
+                        :<>
+                          <label style={{fontSize:12,fontWeight:700,color:WG,whiteSpace:"nowrap"}}>{qtyLabel}</label>
+                          <input type="number" value={qty} min="0" step={qtyStep}
+                            onChange={e=>setPQty(p=>({...p,[item.id]:e.target.value}))}
+                            placeholder={qtyPlaceholder}
+                            style={{...SS.inp,marginTop:0,flex:1,padding:"7px 10px",fontSize:14,textAlign:"right"}}/>
+                          {previewCost&&<div style={{fontSize:13,fontWeight:800,color:OK,whiteSpace:"nowrap"}}>= {fmt(previewCost)}</div>}
+                          <Btn sm onClick={()=>addFromDB(item,qty||1)}>Add</Btn>
+                        </>}
+                    </div>
+                  </div>;
+                })()}
               </div>;
             })}
             {fp.length===0&&<div style={{color:WG,fontSize:14,padding:"10px 0"}}>No items found.</div>}
@@ -2097,7 +2161,9 @@ function ProposalPreview({quote,job,clients=[],biz,calc,onClose}){
         <div style={{background:INK,padding:"40px 52px 36px",display:"flex",justifyContent:"space-between",alignItems:"flex-start"}}>
           <div>
             <div style={{fontSize:10,fontWeight:700,color:"rgba(255,255,255,0.55)",letterSpacing:"0.2em",textTransform:"uppercase",marginBottom:10,fontFamily:"'DM Sans',sans-serif"}}>Quote Proposal</div>
-            <div style={{fontSize:26,fontWeight:800,color:WHITE,letterSpacing:"-0.01em",fontFamily:"'DM Sans',sans-serif",lineHeight:1.1}}>{biz.name||"Your Studio"}</div>
+            {biz.logo
+              ?<div style={{background:WHITE,borderRadius:10,padding:"8px 14px",display:"inline-block"}}><img src={biz.logo} alt={biz.name||"Logo"} style={{maxWidth:220,maxHeight:60,objectFit:"contain",display:"block"}}/></div>
+              :<div style={{fontSize:26,fontWeight:800,color:WHITE,letterSpacing:"-0.01em",fontFamily:"'DM Sans',sans-serif",lineHeight:1.1}}>{biz.name||"Your Studio"}</div>}
             <div style={{marginTop:12,display:"flex",flexDirection:"column",gap:3}}>
               {biz.address&&<div style={{fontSize:11,color:"rgba(255,255,255,0.45)",fontFamily:"'DM Sans',sans-serif"}}>{biz.address}</div>}
               {(biz.phone||biz.email)&&<div style={{fontSize:11,color:"rgba(255,255,255,0.45)",fontFamily:"'DM Sans',sans-serif"}}>{[biz.phone,biz.email].filter(Boolean).join("  ·  ")}</div>}
@@ -2464,15 +2530,17 @@ function InvoicePrintView({inv,job,client,biz,payments,onClose}){
       </div>
     </div>
     {/* page */}
-    <div id="invoice-scroll" style={{flex:1,overflow:"auto",padding:"32px 24px",display:"flex",justifyContent:"center"}}>
-      <div id="invoice-document" style={{width:"100%",maxWidth:700,background:WHITE,fontFamily:"'DM Sans',sans-serif",boxShadow:"0 8px 48px rgba(0,0,0,0.5)"}}>
+    <div id="invoice-scroll" style={{flex:1,overflow:"auto",padding:"32px 24px",display:"flex",justifyContent:"center",alignItems:"flex-start"}}>
+      <div id="invoice-document" style={{width:"100%",maxWidth:700,minHeight:990,background:WHITE,fontFamily:"'DM Sans',sans-serif",boxShadow:"0 8px 48px rgba(0,0,0,0.5)",display:"flex",flexDirection:"column"}}>
         {/* header */}
         <div style={{padding:"52px 56px 40px",display:"flex",justifyContent:"space-between",alignItems:"flex-start"}}>
           <div>
-            <div style={{background:INK,padding:"12px 20px 8px",display:"inline-block",borderRadius:4}}>
-              <div style={{fontSize:30,fontWeight:900,color:WHITE,letterSpacing:"0.12em",lineHeight:1}}>VAHÉ</div>
-              <div style={{fontSize:8,fontWeight:400,color:"rgba(255,255,255,0.8)",letterSpacing:"0.3em",textAlign:"center",marginTop:3}}>JEWELLERY</div>
-            </div>
+            {biz.logo
+              ?<img src={biz.logo} alt={biz.name||"Logo"} style={{maxWidth:240,maxHeight:80,objectFit:"contain",display:"block"}}/>
+              :<div style={{background:INK,padding:"12px 20px 8px",display:"inline-block",borderRadius:4}}>
+                  <div style={{fontSize:30,fontWeight:900,color:WHITE,letterSpacing:"0.12em",lineHeight:1}}>{biz.name||"VAHÉ"}</div>
+                  <div style={{fontSize:8,fontWeight:400,color:"rgba(255,255,255,0.8)",letterSpacing:"0.3em",textAlign:"center",marginTop:3}}>JEWELLERY</div>
+                </div>}
             {biz.abn&&<div style={{fontSize:10,color:WG,letterSpacing:"0.04em",marginTop:12}}>ABN {biz.abn}</div>}
             {(biz.email||biz.phone)&&<div style={{fontSize:11,color:WG,marginTop:3}}>{[biz.phone,biz.email].filter(Boolean).join("  ·  ")}</div>}
           </div>
@@ -2565,8 +2633,8 @@ function InvoicePrintView({inv,job,client,biz,payments,onClose}){
           </div>
         </div>
 
-        {/* footer */}
-        <div style={{padding:"18px 56px",display:"flex",justifyContent:"space-between",fontSize:10,color:WG,borderTop:`1px solid ${BD_SOFT}`}}>
+        {/* footer (pinned to bottom of the page) */}
+        <div style={{marginTop:"auto",padding:"18px 56px",display:"flex",justifyContent:"space-between",fontSize:10,color:WG,borderTop:`1px solid ${BD_SOFT}`}}>
           <span>{biz.name||"VAHÉ Jewellery"}</span>
           <span>Invoice {inv.number}</span>
           <span>Balance due {fmt(balance)}</span>
@@ -2785,6 +2853,33 @@ function DiamondTable({items,onQtyChange,onSavePrices}){
     const updated=items.map(x=>({...x,baseCost:Number(editPrices[x.id]??x.baseCost)}));
     onSavePrices(updated);setEditing(false);setEditPrices({});
   };
+  const dcols="64px 78px 96px 92px 72px 92px";
+  const half=Math.ceil(sorted.length/2);
+  const groups=[sorted.slice(0,half),sorted.slice(half)];
+  const Header=()=><div style={{display:"grid",gridTemplateColumns:dcols,padding:"9px 16px",background:PARCH,borderBottom:`1px solid ${BD}`}}>
+    {["Size","Carat","Per stone","Per ct","Qty","Total"].map(h=>(
+      <div key={h} style={{fontSize:10,fontWeight:700,color:WG,textTransform:"uppercase",letterSpacing:"0.04em"}}>{h}</div>
+    ))}
+  </div>;
+  const Row=(item,i,len)=>{
+    const qty=qtys[item.id]||"";
+    const cost=editing?(Number(editPrices[item.id])||0):item.baseCost;
+    const total=qty&&Number(qty)>0?item.baseCost*Number(qty):null;
+    return <div key={item.id} style={{display:"grid",gridTemplateColumns:dcols,padding:"8px 16px",borderBottom:i<len-1?`1px solid ${BD}`:"none",alignItems:"center",background:i%2===0?WHITE:PARCH+"66"}}>
+      <div style={{fontWeight:700,fontSize:13,color:INK}}>{item.sizeMm}mm</div>
+      <div style={{fontSize:13,color:WG}}>{item.caratWeight}ct</div>
+      {editing
+        ?<input type="number" value={editPrices[item.id]||""} min="0" step="0.01"
+            onChange={e=>setEditPrices(p=>({...p,[item.id]:e.target.value}))}
+            style={{width:"84px",padding:"5px 8px",borderRadius:7,border:`1px solid ${GOLD}`,fontSize:13,fontFamily:"inherit",color:GOLD_D,fontWeight:700,background:GOLD_L,outline:"none",textAlign:"right"}}/>
+        :<div style={{fontSize:13,fontWeight:700,color:INK}}>{fmt(item.baseCost)}</div>}
+      <div style={{fontSize:12,color:WG}}>{fmt(cost/item.caratWeight)}</div>
+      <input type="number" value={qty} min="1" step="1" onChange={e=>setQty(item.id,e.target.value)} placeholder="0"
+        disabled={editing}
+        style={{width:"60px",padding:"5px 8px",borderRadius:7,border:`1px solid ${qty&&!editing?GOLD:BD}`,fontSize:13,fontFamily:"inherit",color:INK,background:editing?"#f5f5f5":WHITE,outline:"none",textAlign:"right",opacity:editing?0.4:1}}/>
+      <div style={{fontSize:13,fontWeight:800,color:total&&!editing?OK:WG,textAlign:"right",paddingRight:4}}>{total&&!editing?fmt(total):"—"}</div>
+    </div>;
+  };
   return <div style={{background:WHITE,borderRadius:14,border:`1px solid ${editing?GOLD:BD}`,overflow:"hidden",transition:"border-color 0.15s"}}>
     <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"10px 16px",background:editing?GOLD_L:PARCH,borderBottom:`1px solid ${editing?GOLD+"55":BD}`}}>
       <div style={{fontSize:11,fontWeight:700,color:editing?GOLD_D:WG,textTransform:"uppercase",letterSpacing:"0.06em"}}>{editing?"Editing per-stone prices — update then save":"Per stone cost · click ✎ to update prices"}</div>
@@ -2793,30 +2888,12 @@ function DiamondTable({items,onQtyChange,onSavePrices}){
           :<Btn sm ghost onClick={startEdit}>✎ Edit prices</Btn>}
       </div>
     </div>
-    <div style={{display:"grid",gridTemplateColumns:"80px 100px 120px 110px 90px 110px",padding:"9px 16px",background:PARCH,borderBottom:`1px solid ${BD}`}}>
-      {["Size","Est. carat","Per stone","Per carat","Qty","Total"].map(h=>(
-        <div key={h} style={{fontSize:10,fontWeight:700,color:WG,textTransform:"uppercase",letterSpacing:"0.05em"}}>{h}</div>
-      ))}
+    <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(500px,1fr))"}}>
+      {groups.map((g,gi)=><div key={gi} style={{borderLeft:gi>0?`1px solid ${BD}`:"none"}}>
+        <Header/>
+        {g.map((item,i)=>Row(item,i,g.length))}
+      </div>)}
     </div>
-    {sorted.map((item,i)=>{
-      const qty=qtys[item.id]||"";
-      const cost=editing?(Number(editPrices[item.id])||0):item.baseCost;
-      const total=qty&&Number(qty)>0?item.baseCost*Number(qty):null;
-      return <div key={item.id} style={{display:"grid",gridTemplateColumns:"80px 100px 120px 110px 90px 110px",padding:"8px 16px",borderBottom:i<sorted.length-1?`1px solid ${BD}`:"none",alignItems:"center",background:i%2===0?WHITE:PARCH+"66"}}>
-        <div style={{fontWeight:700,fontSize:13,color:INK}}>{item.sizeMm}mm</div>
-        <div style={{fontSize:13,color:WG}}>{item.caratWeight}ct</div>
-        {editing
-          ?<input type="number" value={editPrices[item.id]||""} min="0" step="0.01" autoFocus={i===0}
-              onChange={e=>setEditPrices(p=>({...p,[item.id]:e.target.value}))}
-              style={{width:"100px",padding:"5px 8px",borderRadius:7,border:`1px solid ${GOLD}`,fontSize:13,fontFamily:"inherit",color:GOLD_D,fontWeight:700,background:GOLD_L,outline:"none",textAlign:"right"}}/>
-          :<div style={{fontSize:13,fontWeight:700,color:INK}}>{fmt(item.baseCost)}</div>}
-        <div style={{fontSize:12,color:WG}}>{fmt(cost/item.caratWeight)}/ct</div>
-        <input type="number" value={qty} min="1" step="1" onChange={e=>setQty(item.id,e.target.value)} placeholder="0"
-          disabled={editing}
-          style={{width:"72px",padding:"5px 8px",borderRadius:7,border:`1px solid ${qty&&!editing?GOLD:BD}`,fontSize:13,fontFamily:"inherit",color:INK,background:editing?"#f5f5f5":WHITE,outline:"none",textAlign:"right",opacity:editing?0.4:1}}/>
-        <div style={{fontSize:13,fontWeight:800,color:total&&!editing?OK:WG,textAlign:"right",paddingRight:4}}>{total&&!editing?fmt(total):"—"}</div>
-      </div>;
-    })}
   </div>;
 }
 
@@ -2849,11 +2926,39 @@ function SettingTable({items,onSavePrices,label="Basic Setting",onQtyChange}){
   };
 
   const cols=editing
-    ?"80px 110px 140px 120px"
-    :"80px 110px 120px 90px 110px";
+    ?"66px 96px 120px 1fr"
+    :"66px 96px 104px 70px 92px";
   const headers=editing
-    ?["Size","Stone fits (ct)","Setting cost (edit)",""]
-    :["Size","Stone fits (ct)","Setting cost","Qty","Total"];
+    ?["Size","Fits (ct)","Setting cost (edit)",""]
+    :["Size","Fits (ct)","Setting cost","Qty","Total"];
+  const half=Math.ceil(sorted.length/2);
+  const groups=[sorted.slice(0,half),sorted.slice(half)];
+  const Header=()=><div style={{display:"grid",gridTemplateColumns:cols,padding:"9px 16px",background:PARCH,borderBottom:`1px solid ${BD}`}}>
+    {headers.map((h,hi)=>(
+      <div key={hi} style={{fontSize:10,fontWeight:700,color:WG,textTransform:"uppercase",letterSpacing:"0.04em"}}>{h}</div>
+    ))}
+  </div>;
+  const Row=(item,i,len)=>{
+    const qty=qtys[item.id]||"";
+    const displayCost=editing?Number(editPrices[item.id]??item.baseCost):item.baseCost;
+    const total=!editing&&qty&&Number(qty)>0?item.baseCost*Number(qty):null;
+    return <div key={item.id} style={{display:"grid",gridTemplateColumns:cols,padding:"7px 16px",borderBottom:i<len-1?`1px solid ${BD}`:"none",alignItems:"center",background:i%2===0?WHITE:PARCH+"66"}}>
+      <div style={{fontWeight:700,fontSize:13,color:INK}}>{item.sizeMm}mm</div>
+      <div style={{fontSize:13,color:WG}}>{item.caratWeight}ct</div>
+      {editing
+        ?<input type="number" value={editPrices[item.id]??""} min="0" step="0.01"
+            onChange={e=>setEditPrices(p=>({...p,[item.id]:e.target.value}))}
+            style={{width:"100px",padding:"5px 8px",borderRadius:7,border:`1px solid ${GOLD}`,fontSize:13,fontFamily:"inherit",color:INK,background:WHITE,outline:"none",textAlign:"right",fontWeight:700}}/>
+        :<div style={{fontSize:13,fontWeight:700,color:INK}}>{fmt(displayCost)}</div>}
+      {editing
+        ?<div style={{fontSize:11,color:WG,paddingLeft:4}}>per stone</div>
+        :<>
+          <input type="number" value={qty} min="1" step="1" onChange={e=>setQty(item.id,e.target.value)} placeholder="0"
+            style={{width:"60px",padding:"5px 8px",borderRadius:7,border:`1px solid ${qty?GOLD:BD}`,fontSize:13,fontFamily:"inherit",color:INK,background:WHITE,outline:"none",textAlign:"right"}}/>
+          <div style={{fontSize:13,fontWeight:800,color:total?OK:WG,textAlign:"right",paddingRight:4}}>{total?fmt(total):"—"}</div>
+        </>}
+    </div>;
+  };
 
   return <div style={{background:WHITE,borderRadius:14,border:`1px solid ${editing?GOLD:BD}`,overflow:"hidden",transition:"border-color 0.15s"}}>
     {/* Toolbar */}
@@ -2867,41 +2972,12 @@ function SettingTable({items,onSavePrices,label="Basic Setting",onQtyChange}){
           :<Btn sm ghost onClick={startEdit}>✎ Edit prices</Btn>}
       </div>
     </div>
-    {/* Column headers */}
-    <div style={{display:"grid",gridTemplateColumns:cols,padding:"9px 16px",background:PARCH,borderBottom:`1px solid ${BD}`}}>
-      {headers.map(h=>(
-        <div key={h} style={{fontSize:10,fontWeight:700,color:WG,textTransform:"uppercase",letterSpacing:"0.05em"}}>{h}</div>
-      ))}
+    <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(460px,1fr))"}}>
+      {groups.map((g,gi)=><div key={gi} style={{borderLeft:gi>0?`1px solid ${BD}`:"none"}}>
+        <Header/>
+        {g.map((item,i)=>Row(item,i,g.length))}
+      </div>)}
     </div>
-    {sorted.map((item,i)=>{
-      const qty=qtys[item.id]||"";
-      const displayCost=editing?Number(editPrices[item.id]??item.baseCost):item.baseCost;
-      const total=!editing&&qty&&Number(qty)>0?item.baseCost*Number(qty):null;
-      const rowBg=i%2===0?WHITE:PARCH+"66";
-      return <div key={item.id} style={{display:"grid",gridTemplateColumns:cols,padding:"7px 16px",borderBottom:i<sorted.length-1?`1px solid ${BD}`:"none",alignItems:"center",background:rowBg}}>
-        <div style={{fontWeight:700,fontSize:13,color:INK}}>{item.sizeMm}mm</div>
-        <div style={{fontSize:13,color:WG}}>{item.caratWeight}ct</div>
-        {editing
-          ?<input
-              type="number"
-              value={editPrices[item.id]??""}
-              min="0"
-              step="0.01"
-              onChange={e=>setEditPrices(p=>({...p,[item.id]:e.target.value}))}
-              style={{width:"100px",padding:"5px 8px",borderRadius:7,border:`1px solid ${GOLD}`,fontSize:13,fontFamily:"inherit",color:INK,background:WHITE,outline:"none",textAlign:"right",fontWeight:700}}
-            />
-          :<div style={{fontSize:13,fontWeight:700,color:INK}}>{fmt(displayCost)}/stone</div>
-        }
-        {editing
-          ?<div style={{fontSize:11,color:WG,paddingLeft:4}}>per stone</div>
-          :<>
-            <input type="number" value={qty} min="1" step="1" onChange={e=>setQty(item.id,e.target.value)} placeholder="0"
-              style={{width:"72px",padding:"5px 8px",borderRadius:7,border:`1px solid ${qty?GOLD:BD}`,fontSize:13,fontFamily:"inherit",color:INK,background:WHITE,outline:"none",textAlign:"right"}}/>
-            <div style={{fontSize:13,fontWeight:800,color:total?OK:WG,textAlign:"right",paddingRight:4}}>{total?fmt(total):"—"}</div>
-          </>
-        }
-      </div>;
-    })}
     {editing&&<div style={{padding:"12px 16px",background:GOLD_L,borderTop:`1px solid ${GOLD}44`,display:"flex",justifyContent:"flex-end",gap:8}}>
       <Btn sm ghost onClick={cancelEdit}>Cancel</Btn>
       <Btn sm onClick={saveEdit}>Save prices</Btn>
@@ -3158,6 +3234,14 @@ function PricingDB({pricing,setPricing,spotPrices,setSpotPrices,markupTable,cent
   const[savedToast,setSavedToast]=useState(false);
   const[regularEditing,setRegularEditing]=useState(false);
   const[regularEditPrices,setRegularEditPrices]=useState({});
+  const[manLabel,setManLabel]=useState("");
+  const[manAmt,setManAmt]=useState("");
+  const addManualToCalc=()=>{
+    const amt=Number(manAmt)||0;if(amt<=0)return;
+    const id="man_"+uid();
+    setSelections(prev=>({...prev,[id]:{item:{id,name:manLabel.trim()||"Manual amount",baseCost:amt},qty:1}}));
+    setManLabel("");setManAmt("");
+  };
   const[centreCt,setCentreCt]=useState("");
   const[centreComplex,setCentreComplex]=useState(false);
   const[editRates,setEditRates]=useState(false);
@@ -3260,6 +3344,19 @@ function PricingDB({pricing,setPricing,spotPrices,setSpotPrices,markupTable,cent
           {hasSelections?"Live calculation — enter quantities in any table below":"Cost calculator — enter quantities in the tables below to see your base cost and marked-up price"}
         </div>
         {hasSelections&&<button onClick={clearAll} style={{background:"none",border:`1px solid rgba(255,255,255,0.2)`,borderRadius:6,padding:"3px 10px",fontSize:11,color:"rgba(255,255,255,0.5)",cursor:"pointer",fontFamily:"inherit"}}>Clear all</button>}
+      </div>
+      {/* Manual amount adder — type any figure (e.g. labour) straight into the calc */}
+      <div style={{display:"flex",gap:8,alignItems:"center",flexWrap:"wrap",marginTop:hasSelections?14:12,marginBottom:hasSelections?14:0,paddingTop:hasSelections?14:12,borderTop:`1px solid ${hasSelections?"rgba(255,255,255,0.12)":BD}`}}>
+        <span style={{fontSize:10,fontWeight:700,letterSpacing:"0.08em",textTransform:"uppercase",color:hasSelections?"rgba(255,255,255,0.5)":WG,whiteSpace:"nowrap"}}>Add manual amount</span>
+        <input value={manLabel} onChange={e=>setManLabel(e.target.value)} placeholder="Label (e.g. Labour)"
+          style={{...SS.inp,marginTop:0,flex:1,minWidth:130,padding:"7px 10px",fontSize:13}}/>
+        <div style={{position:"relative",width:120}}>
+          <span style={{position:"absolute",left:10,top:"50%",transform:"translateY(-50%)",fontSize:12,color:WG,pointerEvents:"none"}}>$</span>
+          <input type="number" value={manAmt} min="0" step="0.01" placeholder="0.00" onChange={e=>setManAmt(e.target.value)}
+            onKeyDown={e=>{if(e.key==="Enter")addManualToCalc();}}
+            style={{...SS.inp,marginTop:0,width:"100%",padding:"7px 10px 7px 22px",fontSize:13,textAlign:"right"}}/>
+        </div>
+        <Btn sm onClick={addManualToCalc}>Add</Btn>
       </div>
       {hasSelections&&<>
         {/* Line items */}
@@ -3702,6 +3799,28 @@ function Settings({biz,setBiz,markupTable,setMarkupTable,naturalStoneMarkup,setN
     <Card>
       <div style={{fontWeight:700,fontSize:15,color:INK,marginBottom:4}}>Business details</div>
       <div style={{fontSize:13,color:WG,marginBottom:16}}>These appear on printed proposals and invoices.</div>
+      {/* Logo uploader */}
+      <div style={{marginBottom:18}}>
+        <label style={SS.lbl}>Business logo</label>
+        <div style={{display:"flex",alignItems:"center",gap:16,marginTop:8}}>
+          <div style={{width:90,height:90,borderRadius:14,border:`1px solid ${BD}`,background:PARCH,display:"flex",alignItems:"center",justifyContent:"center",overflow:"hidden",flexShrink:0}}>
+            {bForm.logo?<img src={bForm.logo} alt="Logo" style={{maxWidth:"100%",maxHeight:"100%",objectFit:"contain"}}/>:<span style={{fontSize:11,color:WG}}>No logo</span>}
+          </div>
+          <div>
+            <div style={{display:"flex",gap:8,alignItems:"center"}}>
+              <label style={{background:INK,color:WHITE,borderRadius:999,padding:"8px 18px",fontSize:13,fontWeight:700,cursor:"pointer",fontFamily:"inherit"}}>
+                {bForm.logo?"Replace logo":"Upload logo"}
+                <input type="file" accept="image/*" style={{display:"none"}} onChange={async e=>{
+                  const f=e.target.files?.[0];e.target.value="";if(!f)return;
+                  try{const url=await fileToLogoDataUrl(f);setBForm(p=>({...p,logo:url}));}catch(err){alert("Couldn't load that image.");}
+                }}/>
+              </label>
+              {bForm.logo&&<button onClick={()=>setBForm(p=>({...p,logo:""}))} style={{background:"none",border:"none",cursor:"pointer",color:DANGER,fontSize:13,fontWeight:700,fontFamily:"inherit"}}>Remove</button>}
+            </div>
+            <div style={{fontSize:11,color:WG,marginTop:8,lineHeight:1.5,maxWidth:300}}>PNG or JPG. Appears in the sidebar and on your invoices &amp; proposals. Click <strong>Save business details</strong> below to apply.</div>
+          </div>
+        </div>
+      </div>
       <Input label="Business name" value={bForm.name} onChange={setBF("name")} placeholder="Mitchell Fine Jewellery"/>
       <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"0 16px"}}>
         <Input label="Email" value={bForm.email} onChange={setBF("email")} placeholder="hello@studio.com.au"/>
@@ -4042,8 +4161,12 @@ export default function App(){
   return <div style={{display:"flex",minHeight:"100vh",background:CREAM,fontFamily:"'DM Sans',sans-serif"}}>
     <div style={{width:210,background:"#000000",display:"flex",flexDirection:"column",padding:"28px 0",flexShrink:0,position:"sticky",top:0,height:"100vh",overflowY:"auto"}}>
       <div style={{padding:"0 20px 28px",borderBottom:"1px solid rgba(255,255,255,0.06)"}}>
-        <div style={{fontSize:8,fontWeight:700,color:GOLD,letterSpacing:"0.28em",textTransform:"uppercase",marginBottom:6,opacity:0.8}}>Studio Platform</div>
-        <div style={{fontSize:24,fontWeight:300,color:WHITE,letterSpacing:"0.18em",fontFamily:"'DM Sans',sans-serif",lineHeight:1.1}}>VAHÉ</div>
+        <div style={{fontSize:8,fontWeight:700,color:GOLD,letterSpacing:"0.28em",textTransform:"uppercase",marginBottom:10,opacity:0.8}}>Studio Platform</div>
+        {biz.logo
+          ?<div style={{background:WHITE,borderRadius:10,padding:"8px 12px",display:"inline-flex",maxWidth:"100%"}}>
+              <img src={biz.logo} alt={biz.name||"Logo"} style={{maxWidth:"100%",maxHeight:46,objectFit:"contain",display:"block"}}/>
+            </div>
+          :<div style={{fontSize:24,fontWeight:300,color:WHITE,letterSpacing:"0.18em",fontFamily:"'DM Sans',sans-serif",lineHeight:1.1}}>{biz.name||"VAHÉ"}</div>}
       </div>
       <nav style={{padding:"16px 8px",flex:1}}>
         {NAV.map(n=>{
