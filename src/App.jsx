@@ -47,7 +47,7 @@ const TINTS={
 };
 
 // ── Constants ─────────────────────────────────────────────────────────────
-const JOB_TYPES=["Engagement ring","Wedding band","Custom pendant","Earrings","Bracelet","Repair","Remodelling","Grillz","Resize","Chain","Other"];
+const JOB_TYPES=["Engagement ring","Wedding band","Custom pendant","Earrings","Bracelet","Repair","Remodelling","Grillz","Chain","Other"];
 const JOB_STAGES=["Enquiry","Consultation","Quoted","Approved","Design / CAD","Render approval","Wax / Cast","Stone setting","Polishing / Finish","QC check","Ready for collection","Collected"];
 const SC={"Enquiry":"#A0845C","Consultation":"#7A6C5D","Quoted":"#5B7FA6","Approved":"#3B6E8F","Design / CAD":"#7B5EA7","Render approval":"#9B4F96","Wax / Cast":"#B05C3A","Stone setting":"#C47A2E","Polishing / Finish":"#8B9E3A","QC check":"#4A8E6A","Ready for collection":"#2D7A4F","Collected":"#1A5C3A"};
 const PAY_TYPES=["Deposit","CAD / Design stage","Production deposit","Progress payment","Final balance","Lay-by payment","Other"];
@@ -55,9 +55,11 @@ const PAY_METHODS=["Bank transfer","Cash","Card (EFTPOS)","Card (credit)","PayID
 const FINDINGS_CAT="Findings";
 const PURCHASED_CAT="Purchased Components";
 const CENTRE_SET_CAT="Centre Stone Setting";
+const REPAIRS_CAT="Repairs";
+const REPAIR_GROUPS=["Cleaning & Polishing","Ring Repairs","Ring Resizing — up to 3mm wide","Ring Resizing — 3mm+ wide","Claw Re-tipping","Band Replacements","Chain Repair","Stone Setting (Repair)","Stone Tightening","Diamond Replacement"];
 // Centre stone setting: fee = carat × per-ct rate (basic default $50/ct, complex default $75/ct)
 const DEFAULT_CENTRE_RATES={basicPerCt:50,complexPerCt:75};
-const PCAT=["Metals","Labour","CAD Design",FINDINGS_CAT,PURCHASED_CAT,"Lab Grown Diamonds | D-E","Natural diamonds G-H SI1","Natural diamonds D-E VS","Basic Setting","Complex Setting",CENTRE_SET_CAT,"3D Print & Cast","Accent Stones"];
+const PCAT=["Metals","Labour","CAD Design",FINDINGS_CAT,PURCHASED_CAT,"Lab Grown Diamonds | D-E","Natural diamonds G-H SI1","Natural diamonds D-E VS","Basic Setting","Complex Setting",CENTRE_SET_CAT,"3D Print & Cast","Accent Stones",REPAIRS_CAT];
 const DIAMOND_CATS=["Lab Grown Diamonds | D-E","Natural diamonds G-H SI1","Natural diamonds D-E VS"];
 const NOTE_TYPES=["General note","Client call","Client email","Client visit","Internal update","Approval received"];
 const GST_RATE=0.10;
@@ -379,6 +381,186 @@ const SEED_PRICING=[
   {id:"css62",category:"Complex Setting",name:"6.8mm",unit:"stone",baseCost:42.50,sizeMm:6.8,caratWeight:1.226},
   {id:"css63",category:"Complex Setting",name:"6.9mm",unit:"stone",baseCost:43.13,sizeMm:6.9,caratWeight:1.281},
   {id:"css64",category:"Complex Setting",name:"7.0mm",unit:"stone",baseCost:43.75,sizeMm:7.0,caratWeight:1.338},
+  // ── Repairs ──────────────────────────────────────────────────────────────
+  {id:"rp01",category:REPAIRS_CAT,group:"Cleaning & Polishing",name:"Clean and Checkup",unit:"job",baseCost:40,noMarkup:true},
+  {id:"rp02",category:REPAIRS_CAT,group:"Cleaning & Polishing",name:"Clean, Checkup & Polish",unit:"job",baseCost:80,noMarkup:true},
+  {id:"rp03",category:REPAIRS_CAT,group:"Cleaning & Polishing",name:"Clean, Checkup, Polish & Rhodium",unit:"job",baseCost:120,noMarkup:true},
+  {id:"rp04",category:REPAIRS_CAT,group:"Cleaning & Polishing",name:"Clean, Checkup, Polish & Rhodium (Two Tone)",unit:"job",baseCost:130,noMarkup:true},
+  {id:"rp05",category:REPAIRS_CAT,group:"Ring Repairs",name:"Build up cracks & dints",unit:"job",baseCost:75,noMarkup:true},
+  {id:"rp06",category:REPAIRS_CAT,group:"Ring Repairs",name:"Join rings (per join)",unit:"job",baseCost:75,noMarkup:true},
+  {id:"rp07",category:REPAIRS_CAT,group:"Ring Repairs",name:"Stability balls",unit:"job",baseCost:100,noMarkup:true},
+  {id:"rp08",category:REPAIRS_CAT,group:"Ring Resizing — up to 3mm wide",name:"Resize down — Silver (≤3mm)",unit:"job",baseCost:60,noMarkup:true},
+  {id:"rp09",category:REPAIRS_CAT,group:"Ring Resizing — up to 3mm wide",name:"Resize up ~2 sizes — Silver (≤3mm)",unit:"job",baseCost:70,noMarkup:true},
+  {id:"rp10",category:REPAIRS_CAT,group:"Ring Resizing — up to 3mm wide",name:"Resize up ~3 sizes — Silver (≤3mm)",unit:"job",baseCost:100,noMarkup:true},
+  {id:"rp11",category:REPAIRS_CAT,group:"Ring Resizing — up to 3mm wide",name:"Each additional size — Silver (≤3mm)",unit:"job",baseCost:35,noMarkup:true},
+  {id:"rp12",category:REPAIRS_CAT,group:"Ring Resizing — up to 3mm wide",name:"Resize down — 9ct Gold (≤3mm)",unit:"job",baseCost:60,noMarkup:true},
+  {id:"rp13",category:REPAIRS_CAT,group:"Ring Resizing — up to 3mm wide",name:"Resize up ~2 sizes — 9ct Gold (≤3mm)",unit:"job",baseCost:90,noMarkup:true},
+  {id:"rp14",category:REPAIRS_CAT,group:"Ring Resizing — up to 3mm wide",name:"Resize up ~3 sizes — 9ct Gold (≤3mm)",unit:"job",baseCost:135,noMarkup:true},
+  {id:"rp15",category:REPAIRS_CAT,group:"Ring Resizing — up to 3mm wide",name:"Each additional size — 9ct Gold (≤3mm)",unit:"job",baseCost:45,noMarkup:true},
+  {id:"rp16",category:REPAIRS_CAT,group:"Ring Resizing — up to 3mm wide",name:"Resize down — 18ct Gold (≤3mm)",unit:"job",baseCost:60,noMarkup:true},
+  {id:"rp17",category:REPAIRS_CAT,group:"Ring Resizing — up to 3mm wide",name:"Resize up ~2 sizes — 18ct Gold (≤3mm)",unit:"job",baseCost:120,noMarkup:true},
+  {id:"rp18",category:REPAIRS_CAT,group:"Ring Resizing — up to 3mm wide",name:"Resize up ~3 sizes — 18ct Gold (≤3mm)",unit:"job",baseCost:180,noMarkup:true},
+  {id:"rp19",category:REPAIRS_CAT,group:"Ring Resizing — up to 3mm wide",name:"Each additional size — 18ct Gold (≤3mm)",unit:"job",baseCost:60,noMarkup:true},
+  {id:"rp20",category:REPAIRS_CAT,group:"Ring Resizing — up to 3mm wide",name:"Resize down — Platinum (≤3mm)",unit:"job",baseCost:80,noMarkup:true},
+  {id:"rp21",category:REPAIRS_CAT,group:"Ring Resizing — up to 3mm wide",name:"Resize up ~2 sizes — Platinum (≤3mm)",unit:"job",baseCost:160,noMarkup:true},
+  {id:"rp22",category:REPAIRS_CAT,group:"Ring Resizing — up to 3mm wide",name:"Resize up ~3 sizes — Platinum (≤3mm)",unit:"job",baseCost:240,noMarkup:true},
+  {id:"rp23",category:REPAIRS_CAT,group:"Ring Resizing — up to 3mm wide",name:"Each additional size — Platinum (≤3mm)",unit:"job",baseCost:80,noMarkup:true},
+  {id:"rp24",category:REPAIRS_CAT,group:"Ring Resizing — 3mm+ wide",name:"Resize down — Silver (3mm+)",unit:"job",baseCost:80,noMarkup:true},
+  {id:"rp25",category:REPAIRS_CAT,group:"Ring Resizing — 3mm+ wide",name:"Resize up ~2 sizes — Silver (3mm+)",unit:"job",baseCost:110,noMarkup:true},
+  {id:"rp26",category:REPAIRS_CAT,group:"Ring Resizing — 3mm+ wide",name:"Resize up ~3 sizes — Silver (3mm+)",unit:"job",baseCost:165,noMarkup:true},
+  {id:"rp27",category:REPAIRS_CAT,group:"Ring Resizing — 3mm+ wide",name:"Each additional size — Silver (3mm+)",unit:"job",baseCost:55,noMarkup:true},
+  {id:"rp28",category:REPAIRS_CAT,group:"Ring Resizing — 3mm+ wide",name:"Resize down — 9ct Gold (3mm+)",unit:"job",baseCost:80,noMarkup:true},
+  {id:"rp29",category:REPAIRS_CAT,group:"Ring Resizing — 3mm+ wide",name:"Resize up ~2 sizes — 9ct Gold (3mm+)",unit:"job",baseCost:130,noMarkup:true},
+  {id:"rp30",category:REPAIRS_CAT,group:"Ring Resizing — 3mm+ wide",name:"Resize up ~3 sizes — 9ct Gold (3mm+)",unit:"job",baseCost:195,noMarkup:true},
+  {id:"rp31",category:REPAIRS_CAT,group:"Ring Resizing — 3mm+ wide",name:"Each additional size — 9ct Gold (3mm+)",unit:"job",baseCost:65,noMarkup:true},
+  {id:"rp32",category:REPAIRS_CAT,group:"Ring Resizing — 3mm+ wide",name:"Resize down — 18ct Gold (3mm+)",unit:"job",baseCost:80,noMarkup:true},
+  {id:"rp33",category:REPAIRS_CAT,group:"Ring Resizing — 3mm+ wide",name:"Resize up ~2 sizes — 18ct Gold (3mm+)",unit:"job",baseCost:160,noMarkup:true},
+  {id:"rp34",category:REPAIRS_CAT,group:"Ring Resizing — 3mm+ wide",name:"Resize up ~3 sizes — 18ct Gold (3mm+)",unit:"job",baseCost:240,noMarkup:true},
+  {id:"rp35",category:REPAIRS_CAT,group:"Ring Resizing — 3mm+ wide",name:"Each additional size — 18ct Gold (3mm+)",unit:"job",baseCost:80,noMarkup:true},
+  {id:"rp36",category:REPAIRS_CAT,group:"Ring Resizing — 3mm+ wide",name:"Resize down — Platinum (3mm+)",unit:"job",baseCost:100,noMarkup:true},
+  {id:"rp37",category:REPAIRS_CAT,group:"Ring Resizing — 3mm+ wide",name:"Resize up ~2 sizes — Platinum (3mm+)",unit:"job",baseCost:220,noMarkup:true},
+  {id:"rp38",category:REPAIRS_CAT,group:"Ring Resizing — 3mm+ wide",name:"Resize up ~3 sizes — Platinum (3mm+)",unit:"job",baseCost:330,noMarkup:true},
+  {id:"rp39",category:REPAIRS_CAT,group:"Ring Resizing — 3mm+ wide",name:"Each additional size — Platinum (3mm+)",unit:"job",baseCost:110,noMarkup:true},
+  {id:"rp40",category:REPAIRS_CAT,group:"Claw Re-tipping",name:"Re-tip 1 prong — 9ct Gold",unit:"job",baseCost:60,noMarkup:true},
+  {id:"rp41",category:REPAIRS_CAT,group:"Claw Re-tipping",name:"Re-tip 1 prong — 18ct Gold",unit:"job",baseCost:75,noMarkup:true},
+  {id:"rp42",category:REPAIRS_CAT,group:"Claw Re-tipping",name:"Re-tip 1 prong — Platinum",unit:"job",baseCost:90,noMarkup:true},
+  {id:"rp43",category:REPAIRS_CAT,group:"Claw Re-tipping",name:"Re-tip 1 prong — Silver",unit:"job",baseCost:35,noMarkup:true},
+  {id:"rp44",category:REPAIRS_CAT,group:"Claw Re-tipping",name:"Re-tip 6 prongs — 9ct Gold",unit:"job",baseCost:180,noMarkup:true},
+  {id:"rp45",category:REPAIRS_CAT,group:"Claw Re-tipping",name:"Re-tip 6 prongs — 18ct Gold",unit:"job",baseCost:225,noMarkup:true},
+  {id:"rp46",category:REPAIRS_CAT,group:"Claw Re-tipping",name:"Re-tip 6 prongs — Platinum",unit:"job",baseCost:270,noMarkup:true},
+  {id:"rp47",category:REPAIRS_CAT,group:"Claw Re-tipping",name:"Re-tip 6 prongs — Silver",unit:"job",baseCost:105,noMarkup:true},
+  {id:"rp48",category:REPAIRS_CAT,group:"Claw Re-tipping",name:"Re-tip 12 prongs — 9ct Gold",unit:"job",baseCost:360,noMarkup:true},
+  {id:"rp49",category:REPAIRS_CAT,group:"Claw Re-tipping",name:"Re-tip 12 prongs — 18ct Gold",unit:"job",baseCost:450,noMarkup:true},
+  {id:"rp50",category:REPAIRS_CAT,group:"Claw Re-tipping",name:"Re-tip 12 prongs — Platinum",unit:"job",baseCost:540,noMarkup:true},
+  {id:"rp51",category:REPAIRS_CAT,group:"Claw Re-tipping",name:"Re-tip 12 prongs — Silver",unit:"job",baseCost:210,noMarkup:true},
+  {id:"rp52",category:REPAIRS_CAT,group:"Claw Re-tipping",name:"V-claw or double claw (each)",unit:"job",baseCost:90,noMarkup:true},
+  {id:"rp53",category:REPAIRS_CAT,group:"Band Replacements",name:"1/4 shank replacement — 9ct Gold (≤3mm)",unit:"job",baseCost:250,noMarkup:true},
+  {id:"rp54",category:REPAIRS_CAT,group:"Band Replacements",name:"1/4 shank replacement — 18ct Gold (≤3mm)",unit:"job",baseCost:350,noMarkup:true},
+  {id:"rp55",category:REPAIRS_CAT,group:"Band Replacements",name:"1/4 shank replacement — Platinum (≤3mm)",unit:"job",baseCost:450,noMarkup:true},
+  {id:"rp56",category:REPAIRS_CAT,group:"Band Replacements",name:"1/4 shank replacement — Silver (≤3mm)",unit:"job",baseCost:200,noMarkup:true},
+  {id:"rp57",category:REPAIRS_CAT,group:"Band Replacements",name:"1/2 shank replacement — 9ct Gold (≤3mm)",unit:"job",baseCost:350,noMarkup:true},
+  {id:"rp58",category:REPAIRS_CAT,group:"Band Replacements",name:"1/2 shank replacement — 18ct Gold (≤3mm)",unit:"job",baseCost:450,noMarkup:true},
+  {id:"rp59",category:REPAIRS_CAT,group:"Band Replacements",name:"1/2 shank replacement — Platinum (≤3mm)",unit:"job",baseCost:550,noMarkup:true},
+  {id:"rp60",category:REPAIRS_CAT,group:"Band Replacements",name:"1/2 shank replacement — Silver (≤3mm)",unit:"job",baseCost:250,noMarkup:true},
+  {id:"rp61",category:REPAIRS_CAT,group:"Band Replacements",name:"3/4 shank replacement — 9ct Gold (≤3mm)",unit:"job",baseCost:400,noMarkup:true},
+  {id:"rp62",category:REPAIRS_CAT,group:"Band Replacements",name:"3/4 shank replacement — 18ct Gold (≤3mm)",unit:"job",baseCost:500,noMarkup:true},
+  {id:"rp63",category:REPAIRS_CAT,group:"Band Replacements",name:"3/4 shank replacement — Platinum (≤3mm)",unit:"job",baseCost:600,noMarkup:true},
+  {id:"rp64",category:REPAIRS_CAT,group:"Band Replacements",name:"3/4 shank replacement — Silver (≤3mm)",unit:"job",baseCost:300,noMarkup:true},
+  {id:"rp65",category:REPAIRS_CAT,group:"Chain Repair",name:"Chain tumble polish",unit:"job",baseCost:15,noMarkup:true},
+  {id:"rp66",category:REPAIRS_CAT,group:"Chain Repair",name:"Chain hand polish",unit:"job",baseCost:30,noMarkup:true},
+  {id:"rp67",category:REPAIRS_CAT,group:"Chain Repair",name:"Solder & restore — small chain (per link)",unit:"job",baseCost:40,noMarkup:true},
+  {id:"rp68",category:REPAIRS_CAT,group:"Chain Repair",name:"Solder & restore — medium chain (per link)",unit:"job",baseCost:60,noMarkup:true},
+  {id:"rp69",category:REPAIRS_CAT,group:"Chain Repair",name:"Solder & restore — large chain (per link)",unit:"job",baseCost:80,noMarkup:true},
+  {id:"rp70",category:REPAIRS_CAT,group:"Chain Repair",name:"Re-build end links — small chain",unit:"job",baseCost:40,noMarkup:true},
+  {id:"rp71",category:REPAIRS_CAT,group:"Chain Repair",name:"Re-build end links — medium chain",unit:"job",baseCost:60,noMarkup:true},
+  {id:"rp72",category:REPAIRS_CAT,group:"Chain Repair",name:"Re-build end links — large chain",unit:"job",baseCost:80,noMarkup:true},
+  {id:"rp73",category:REPAIRS_CAT,group:"Chain Repair",name:"Re-build bail — small",unit:"job",baseCost:60,noMarkup:true},
+  {id:"rp74",category:REPAIRS_CAT,group:"Chain Repair",name:"Re-build bail — medium",unit:"job",baseCost:90,noMarkup:true},
+  {id:"rp75",category:REPAIRS_CAT,group:"Chain Repair",name:"Re-build bail — large",unit:"job",baseCost:120,noMarkup:true},
+  {id:"rp76",category:REPAIRS_CAT,group:"Chain Repair",name:"Shorten chain — small",unit:"job",baseCost:40,noMarkup:true},
+  {id:"rp77",category:REPAIRS_CAT,group:"Chain Repair",name:"Shorten chain — medium",unit:"job",baseCost:60,noMarkup:true},
+  {id:"rp78",category:REPAIRS_CAT,group:"Chain Repair",name:"Shorten chain — large",unit:"job",baseCost:80,noMarkup:true},
+  {id:"rps01",category:REPAIRS_CAT,group:"Stone Setting (Repair)",name:"Stone setting repair — 0.7mm",unit:"stone",baseCost:3.50,sizeMm:0.7,noMarkup:true},
+  {id:"rps02",category:REPAIRS_CAT,group:"Stone Setting (Repair)",name:"Stone setting repair — 0.8mm",unit:"stone",baseCost:4.00,sizeMm:0.8,noMarkup:true},
+  {id:"rps03",category:REPAIRS_CAT,group:"Stone Setting (Repair)",name:"Stone setting repair — 0.9mm",unit:"stone",baseCost:4.50,sizeMm:0.9,noMarkup:true},
+  {id:"rps04",category:REPAIRS_CAT,group:"Stone Setting (Repair)",name:"Stone setting repair — 1.0mm",unit:"stone",baseCost:5.00,sizeMm:1.0,noMarkup:true},
+  {id:"rps05",category:REPAIRS_CAT,group:"Stone Setting (Repair)",name:"Stone setting repair — 1.1mm",unit:"stone",baseCost:5.50,sizeMm:1.1,noMarkup:true},
+  {id:"rps06",category:REPAIRS_CAT,group:"Stone Setting (Repair)",name:"Stone setting repair — 1.2mm",unit:"stone",baseCost:6.00,sizeMm:1.2,noMarkup:true},
+  {id:"rps07",category:REPAIRS_CAT,group:"Stone Setting (Repair)",name:"Stone setting repair — 1.3mm",unit:"stone",baseCost:6.50,sizeMm:1.3,noMarkup:true},
+  {id:"rps08",category:REPAIRS_CAT,group:"Stone Setting (Repair)",name:"Stone setting repair — 1.4mm",unit:"stone",baseCost:7.00,sizeMm:1.4,noMarkup:true},
+  {id:"rps09",category:REPAIRS_CAT,group:"Stone Setting (Repair)",name:"Stone setting repair — 1.5mm",unit:"stone",baseCost:7.50,sizeMm:1.5,noMarkup:true},
+  {id:"rps10",category:REPAIRS_CAT,group:"Stone Setting (Repair)",name:"Stone setting repair — 1.6mm",unit:"stone",baseCost:8.00,sizeMm:1.6,noMarkup:true},
+  {id:"rps11",category:REPAIRS_CAT,group:"Stone Setting (Repair)",name:"Stone setting repair — 1.7mm",unit:"stone",baseCost:8.50,sizeMm:1.7,noMarkup:true},
+  {id:"rps12",category:REPAIRS_CAT,group:"Stone Setting (Repair)",name:"Stone setting repair — 1.8mm",unit:"stone",baseCost:9.00,sizeMm:1.8,noMarkup:true},
+  {id:"rps13",category:REPAIRS_CAT,group:"Stone Setting (Repair)",name:"Stone setting repair — 1.9mm",unit:"stone",baseCost:9.50,sizeMm:1.9,noMarkup:true},
+  {id:"rps14",category:REPAIRS_CAT,group:"Stone Setting (Repair)",name:"Stone setting repair — 2.0mm",unit:"stone",baseCost:10.00,sizeMm:2.0,noMarkup:true},
+  {id:"rps15",category:REPAIRS_CAT,group:"Stone Setting (Repair)",name:"Stone setting repair — 2.1mm",unit:"stone",baseCost:10.50,sizeMm:2.1,noMarkup:true},
+  {id:"rps16",category:REPAIRS_CAT,group:"Stone Setting (Repair)",name:"Stone setting repair — 2.2mm",unit:"stone",baseCost:11.00,sizeMm:2.2,noMarkup:true},
+  {id:"rps17",category:REPAIRS_CAT,group:"Stone Setting (Repair)",name:"Stone setting repair — 2.3mm",unit:"stone",baseCost:11.50,sizeMm:2.3,noMarkup:true},
+  {id:"rps18",category:REPAIRS_CAT,group:"Stone Setting (Repair)",name:"Stone setting repair — 2.4mm",unit:"stone",baseCost:12.00,sizeMm:2.4,noMarkup:true},
+  {id:"rps19",category:REPAIRS_CAT,group:"Stone Setting (Repair)",name:"Stone setting repair — 2.5mm",unit:"stone",baseCost:12.50,sizeMm:2.5,noMarkup:true},
+  {id:"rps20",category:REPAIRS_CAT,group:"Stone Setting (Repair)",name:"Stone setting repair — 2.6mm",unit:"stone",baseCost:13.00,sizeMm:2.6,noMarkup:true},
+  {id:"rps21",category:REPAIRS_CAT,group:"Stone Setting (Repair)",name:"Stone setting repair — 2.7mm",unit:"stone",baseCost:13.50,sizeMm:2.7,noMarkup:true},
+  {id:"rps22",category:REPAIRS_CAT,group:"Stone Setting (Repair)",name:"Stone setting repair — 2.8mm",unit:"stone",baseCost:14.00,sizeMm:2.8,noMarkup:true},
+  {id:"rps23",category:REPAIRS_CAT,group:"Stone Setting (Repair)",name:"Stone setting repair — 2.9mm",unit:"stone",baseCost:14.50,sizeMm:2.9,noMarkup:true},
+  {id:"rps24",category:REPAIRS_CAT,group:"Stone Setting (Repair)",name:"Stone setting repair — 3.0mm",unit:"stone",baseCost:15.00,sizeMm:3.0,noMarkup:true},
+  {id:"rps25",category:REPAIRS_CAT,group:"Stone Setting (Repair)",name:"Stone setting repair — 3.1mm",unit:"stone",baseCost:15.50,sizeMm:3.1,noMarkup:true},
+  {id:"rps26",category:REPAIRS_CAT,group:"Stone Setting (Repair)",name:"Stone setting repair — 3.2mm",unit:"stone",baseCost:16.00,sizeMm:3.2,noMarkup:true},
+  {id:"rps27",category:REPAIRS_CAT,group:"Stone Setting (Repair)",name:"Stone setting repair — 3.3mm",unit:"stone",baseCost:16.50,sizeMm:3.3,noMarkup:true},
+  {id:"rps28",category:REPAIRS_CAT,group:"Stone Setting (Repair)",name:"Stone setting repair — 3.4mm",unit:"stone",baseCost:17.00,sizeMm:3.4,noMarkup:true},
+  {id:"rps29",category:REPAIRS_CAT,group:"Stone Setting (Repair)",name:"Stone setting repair — 3.5mm",unit:"stone",baseCost:17.50,sizeMm:3.5,noMarkup:true},
+  {id:"rps30",category:REPAIRS_CAT,group:"Stone Setting (Repair)",name:"Stone setting repair — 3.6mm",unit:"stone",baseCost:18.00,sizeMm:3.6,noMarkup:true},
+  {id:"rps31",category:REPAIRS_CAT,group:"Stone Setting (Repair)",name:"Stone setting repair — 3.7mm",unit:"stone",baseCost:18.50,sizeMm:3.7,noMarkup:true},
+  {id:"rps32",category:REPAIRS_CAT,group:"Stone Setting (Repair)",name:"Stone setting repair — 3.8mm",unit:"stone",baseCost:19.00,sizeMm:3.8,noMarkup:true},
+  {id:"rps33",category:REPAIRS_CAT,group:"Stone Setting (Repair)",name:"Stone setting repair — 3.9mm",unit:"stone",baseCost:19.50,sizeMm:3.9,noMarkup:true},
+  {id:"rps34",category:REPAIRS_CAT,group:"Stone Setting (Repair)",name:"Stone setting repair — 4.0mm",unit:"stone",baseCost:20.00,sizeMm:4.0,noMarkup:true},
+  {id:"rst01",category:REPAIRS_CAT,group:"Stone Tightening",name:"Stone tightening — 0.7mm",unit:"stone",baseCost:1.75,sizeMm:0.7,noMarkup:true},
+  {id:"rst02",category:REPAIRS_CAT,group:"Stone Tightening",name:"Stone tightening — 0.8mm",unit:"stone",baseCost:2.00,sizeMm:0.8,noMarkup:true},
+  {id:"rst03",category:REPAIRS_CAT,group:"Stone Tightening",name:"Stone tightening — 0.9mm",unit:"stone",baseCost:2.25,sizeMm:0.9,noMarkup:true},
+  {id:"rst04",category:REPAIRS_CAT,group:"Stone Tightening",name:"Stone tightening — 1.0mm",unit:"stone",baseCost:2.50,sizeMm:1.0,noMarkup:true},
+  {id:"rst05",category:REPAIRS_CAT,group:"Stone Tightening",name:"Stone tightening — 1.1mm",unit:"stone",baseCost:2.75,sizeMm:1.1,noMarkup:true},
+  {id:"rst06",category:REPAIRS_CAT,group:"Stone Tightening",name:"Stone tightening — 1.2mm",unit:"stone",baseCost:3.00,sizeMm:1.2,noMarkup:true},
+  {id:"rst07",category:REPAIRS_CAT,group:"Stone Tightening",name:"Stone tightening — 1.3mm",unit:"stone",baseCost:3.25,sizeMm:1.3,noMarkup:true},
+  {id:"rst08",category:REPAIRS_CAT,group:"Stone Tightening",name:"Stone tightening — 1.4mm",unit:"stone",baseCost:3.50,sizeMm:1.4,noMarkup:true},
+  {id:"rst09",category:REPAIRS_CAT,group:"Stone Tightening",name:"Stone tightening — 1.5mm",unit:"stone",baseCost:3.75,sizeMm:1.5,noMarkup:true},
+  {id:"rst10",category:REPAIRS_CAT,group:"Stone Tightening",name:"Stone tightening — 1.6mm",unit:"stone",baseCost:4.00,sizeMm:1.6,noMarkup:true},
+  {id:"rst11",category:REPAIRS_CAT,group:"Stone Tightening",name:"Stone tightening — 1.7mm",unit:"stone",baseCost:4.25,sizeMm:1.7,noMarkup:true},
+  {id:"rst12",category:REPAIRS_CAT,group:"Stone Tightening",name:"Stone tightening — 1.8mm",unit:"stone",baseCost:4.50,sizeMm:1.8,noMarkup:true},
+  {id:"rst13",category:REPAIRS_CAT,group:"Stone Tightening",name:"Stone tightening — 1.9mm",unit:"stone",baseCost:4.75,sizeMm:1.9,noMarkup:true},
+  {id:"rst14",category:REPAIRS_CAT,group:"Stone Tightening",name:"Stone tightening — 2.0mm",unit:"stone",baseCost:5.00,sizeMm:2.0,noMarkup:true},
+  {id:"rst15",category:REPAIRS_CAT,group:"Stone Tightening",name:"Stone tightening — 2.1mm",unit:"stone",baseCost:5.25,sizeMm:2.1,noMarkup:true},
+  {id:"rst16",category:REPAIRS_CAT,group:"Stone Tightening",name:"Stone tightening — 2.2mm",unit:"stone",baseCost:5.50,sizeMm:2.2,noMarkup:true},
+  {id:"rst17",category:REPAIRS_CAT,group:"Stone Tightening",name:"Stone tightening — 2.3mm",unit:"stone",baseCost:5.75,sizeMm:2.3,noMarkup:true},
+  {id:"rst18",category:REPAIRS_CAT,group:"Stone Tightening",name:"Stone tightening — 2.4mm",unit:"stone",baseCost:6.00,sizeMm:2.4,noMarkup:true},
+  {id:"rst19",category:REPAIRS_CAT,group:"Stone Tightening",name:"Stone tightening — 2.5mm",unit:"stone",baseCost:6.25,sizeMm:2.5,noMarkup:true},
+  {id:"rst20",category:REPAIRS_CAT,group:"Stone Tightening",name:"Stone tightening — 2.6mm",unit:"stone",baseCost:6.50,sizeMm:2.6,noMarkup:true},
+  {id:"rst21",category:REPAIRS_CAT,group:"Stone Tightening",name:"Stone tightening — 2.7mm",unit:"stone",baseCost:6.75,sizeMm:2.7,noMarkup:true},
+  {id:"rst22",category:REPAIRS_CAT,group:"Stone Tightening",name:"Stone tightening — 2.8mm",unit:"stone",baseCost:7.00,sizeMm:2.8,noMarkup:true},
+  {id:"rst23",category:REPAIRS_CAT,group:"Stone Tightening",name:"Stone tightening — 2.9mm",unit:"stone",baseCost:7.25,sizeMm:2.9,noMarkup:true},
+  {id:"rst24",category:REPAIRS_CAT,group:"Stone Tightening",name:"Stone tightening — 3.0mm",unit:"stone",baseCost:7.50,sizeMm:3.0,noMarkup:true},
+  {id:"rst25",category:REPAIRS_CAT,group:"Stone Tightening",name:"Stone tightening — 3.1mm",unit:"stone",baseCost:7.75,sizeMm:3.1,noMarkup:true},
+  {id:"rst26",category:REPAIRS_CAT,group:"Stone Tightening",name:"Stone tightening — 3.2mm",unit:"stone",baseCost:8.00,sizeMm:3.2,noMarkup:true},
+  {id:"rst27",category:REPAIRS_CAT,group:"Stone Tightening",name:"Stone tightening — 3.3mm",unit:"stone",baseCost:8.25,sizeMm:3.3,noMarkup:true},
+  {id:"rst28",category:REPAIRS_CAT,group:"Stone Tightening",name:"Stone tightening — 3.4mm",unit:"stone",baseCost:8.50,sizeMm:3.4,noMarkup:true},
+  {id:"rst29",category:REPAIRS_CAT,group:"Stone Tightening",name:"Stone tightening — 3.5mm",unit:"stone",baseCost:8.75,sizeMm:3.5,noMarkup:true},
+  {id:"rst30",category:REPAIRS_CAT,group:"Stone Tightening",name:"Stone tightening — 3.6mm",unit:"stone",baseCost:9.00,sizeMm:3.6,noMarkup:true},
+  {id:"rst31",category:REPAIRS_CAT,group:"Stone Tightening",name:"Stone tightening — 3.7mm",unit:"stone",baseCost:9.25,sizeMm:3.7,noMarkup:true},
+  {id:"rst32",category:REPAIRS_CAT,group:"Stone Tightening",name:"Stone tightening — 3.8mm",unit:"stone",baseCost:9.50,sizeMm:3.8,noMarkup:true},
+  {id:"rst33",category:REPAIRS_CAT,group:"Stone Tightening",name:"Stone tightening — 3.9mm",unit:"stone",baseCost:9.75,sizeMm:3.9,noMarkup:true},
+  {id:"rst34",category:REPAIRS_CAT,group:"Stone Tightening",name:"Stone tightening — 4.0mm",unit:"stone",baseCost:10.00,sizeMm:4.0,noMarkup:true},
+  {id:"rmd01",category:REPAIRS_CAT,group:"Diamond Replacement",name:"Diamond replacement — 0.8mm",unit:"stone",baseCost:0.81,sizeMm:0.8,caratWeight:0.002,noMarkup:true},
+  {id:"rmd02",category:REPAIRS_CAT,group:"Diamond Replacement",name:"Diamond replacement — 0.9mm",unit:"stone",baseCost:0.92,sizeMm:0.9,caratWeight:0.003,noMarkup:true},
+  {id:"rmd03",category:REPAIRS_CAT,group:"Diamond Replacement",name:"Diamond replacement — 1.0mm",unit:"stone",baseCost:1.46,sizeMm:1.0,caratWeight:0.004,noMarkup:true},
+  {id:"rmd04",category:REPAIRS_CAT,group:"Diamond Replacement",name:"Diamond replacement — 1.1mm",unit:"stone",baseCost:1.32,sizeMm:1.1,caratWeight:0.005,noMarkup:true},
+  {id:"rmd05",category:REPAIRS_CAT,group:"Diamond Replacement",name:"Diamond replacement — 1.2mm",unit:"stone",baseCost:1.27,sizeMm:1.2,caratWeight:0.007,noMarkup:true},
+  {id:"rmd06",category:REPAIRS_CAT,group:"Diamond Replacement",name:"Diamond replacement — 1.3mm",unit:"stone",baseCost:1.37,sizeMm:1.3,caratWeight:0.009,noMarkup:true},
+  {id:"rmd07",category:REPAIRS_CAT,group:"Diamond Replacement",name:"Diamond replacement — 1.4mm",unit:"stone",baseCost:1.36,sizeMm:1.4,caratWeight:0.011,noMarkup:true},
+  {id:"rmd08",category:REPAIRS_CAT,group:"Diamond Replacement",name:"Diamond replacement — 1.5mm",unit:"stone",baseCost:2.18,sizeMm:1.5,caratWeight:0.013,noMarkup:true},
+  {id:"rmd09",category:REPAIRS_CAT,group:"Diamond Replacement",name:"Diamond replacement — 1.6mm",unit:"stone",baseCost:2.09,sizeMm:1.6,caratWeight:0.016,noMarkup:true},
+  {id:"rmd10",category:REPAIRS_CAT,group:"Diamond Replacement",name:"Diamond replacement — 1.7mm",unit:"stone",baseCost:2.45,sizeMm:1.7,caratWeight:0.019,noMarkup:true},
+  {id:"rmd11",category:REPAIRS_CAT,group:"Diamond Replacement",name:"Diamond replacement — 1.8mm",unit:"stone",baseCost:2.72,sizeMm:1.8,caratWeight:0.023,noMarkup:true},
+  {id:"rmd12",category:REPAIRS_CAT,group:"Diamond Replacement",name:"Diamond replacement — 1.9mm",unit:"stone",baseCost:2.52,sizeMm:1.9,caratWeight:0.027,noMarkup:true},
+  {id:"rmd13",category:REPAIRS_CAT,group:"Diamond Replacement",name:"Diamond replacement — 2.0mm",unit:"stone",baseCost:3.85,sizeMm:2.0,caratWeight:0.031,noMarkup:true},
+  {id:"rmd14",category:REPAIRS_CAT,group:"Diamond Replacement",name:"Diamond replacement — 2.1mm",unit:"stone",baseCost:2.89,sizeMm:2.1,caratWeight:0.036,noMarkup:true},
+  {id:"rmd15",category:REPAIRS_CAT,group:"Diamond Replacement",name:"Diamond replacement — 2.2mm",unit:"stone",baseCost:3.35,sizeMm:2.2,caratWeight:0.042,noMarkup:true},
+  {id:"rmd16",category:REPAIRS_CAT,group:"Diamond Replacement",name:"Diamond replacement — 2.3mm",unit:"stone",baseCost:3.88,sizeMm:2.3,caratWeight:0.047,noMarkup:true},
+  {id:"rmd17",category:REPAIRS_CAT,group:"Diamond Replacement",name:"Diamond replacement — 2.4mm",unit:"stone",baseCost:4.22,sizeMm:2.4,caratWeight:0.054,noMarkup:true},
+  {id:"rmd18",category:REPAIRS_CAT,group:"Diamond Replacement",name:"Diamond replacement — 2.5mm",unit:"stone",baseCost:4.49,sizeMm:2.5,caratWeight:0.061,noMarkup:true},
+  {id:"rmd19",category:REPAIRS_CAT,group:"Diamond Replacement",name:"Diamond replacement — 2.6mm",unit:"stone",baseCost:4.46,sizeMm:2.6,caratWeight:0.069,noMarkup:true},
+  {id:"rmd20",category:REPAIRS_CAT,group:"Diamond Replacement",name:"Diamond replacement — 2.7mm",unit:"stone",baseCost:5.43,sizeMm:2.7,caratWeight:0.077,noMarkup:true},
+  {id:"rmd21",category:REPAIRS_CAT,group:"Diamond Replacement",name:"Diamond replacement — 2.8mm",unit:"stone",baseCost:6.11,sizeMm:2.8,caratWeight:0.086,noMarkup:true},
+  {id:"rmd22",category:REPAIRS_CAT,group:"Diamond Replacement",name:"Diamond replacement — 2.9mm",unit:"stone",baseCost:6.72,sizeMm:2.9,caratWeight:0.095,noMarkup:true},
+  {id:"rmd23",category:REPAIRS_CAT,group:"Diamond Replacement",name:"Diamond replacement — 3.0mm",unit:"stone",baseCost:7.36,sizeMm:3.0,caratWeight:0.105,noMarkup:true},
+  {id:"rmd24",category:REPAIRS_CAT,group:"Diamond Replacement",name:"Diamond replacement — 3.1mm",unit:"stone",baseCost:11.36,sizeMm:3.1,caratWeight:0.116,noMarkup:true},
+  {id:"rmd25",category:REPAIRS_CAT,group:"Diamond Replacement",name:"Diamond replacement — 3.2mm",unit:"stone",baseCost:10.40,sizeMm:3.2,caratWeight:0.128,noMarkup:true},
+  {id:"rmd26",category:REPAIRS_CAT,group:"Diamond Replacement",name:"Diamond replacement — 3.3mm",unit:"stone",baseCost:10.00,sizeMm:3.3,caratWeight:0.140,noMarkup:true},
+  {id:"rmd27",category:REPAIRS_CAT,group:"Diamond Replacement",name:"Diamond replacement — 3.4mm",unit:"stone",baseCost:11.80,sizeMm:3.4,caratWeight:0.153,noMarkup:true},
+  {id:"rmd28",category:REPAIRS_CAT,group:"Diamond Replacement",name:"Diamond replacement — 3.5mm",unit:"stone",baseCost:16.00,sizeMm:3.5,caratWeight:0.167,noMarkup:true},
+  {id:"rmd29",category:REPAIRS_CAT,group:"Diamond Replacement",name:"Diamond replacement — 3.6mm",unit:"stone",baseCost:20.00,sizeMm:3.6,caratWeight:0.182,noMarkup:true},
+  {id:"rmd30",category:REPAIRS_CAT,group:"Diamond Replacement",name:"Diamond replacement — 3.7mm",unit:"stone",baseCost:22.00,sizeMm:3.7,caratWeight:0.198,noMarkup:true},
+  {id:"rmd31",category:REPAIRS_CAT,group:"Diamond Replacement",name:"Diamond replacement — 3.8mm",unit:"stone",baseCost:26.00,sizeMm:3.8,caratWeight:0.214,noMarkup:true},
+  {id:"rmd32",category:REPAIRS_CAT,group:"Diamond Replacement",name:"Diamond replacement — 3.9mm",unit:"stone",baseCost:28.00,sizeMm:3.9,caratWeight:0.231,noMarkup:true},
+  {id:"rmd33",category:REPAIRS_CAT,group:"Diamond Replacement",name:"Diamond replacement — 4.0mm",unit:"stone",baseCost:30.00,sizeMm:4.0,caratWeight:0.250,noMarkup:true},
 ];
 const SEED_CLIENTS=[
   {id:"c1",name:"Sarah Mitchell",email:"sarah@example.com",phone:"0412 345 678",ringSize:"N",metalPref:"18ct white gold",stonePref:"Diamond",budget:"8000",anniversary:"2019-03-14",notes:"Prefers modern minimal. Allergic to nickel.",createdAt:"2024-10-01"},
@@ -716,7 +898,7 @@ function MarkupSummary({baseLow,baseHigh,isRange,bracket,mult,markupFinalLow,mar
 }
 
 // ── Print CSS ─────────────────────────────────────────────────────────────
-const PCSS=`*{box-sizing:border-box;margin:0;padding:0}body{font-family:Georgia,serif;color:#1A1714;background:#fff;padding:48px 56px;max-width:820px;margin:0 auto}.hdr{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:36px;padding-bottom:20px;border-bottom:2.5px solid #C9A84C}.bname{font-size:22px;font-weight:700}.bsub{font-size:12px;color:#6B6560;margin-top:3px}.qlbl{font-size:10px;font-weight:700;color:#C9A84C;letter-spacing:.12em;text-transform:uppercase;text-align:right}.qnum{font-size:26px;font-weight:800;text-align:right}.to{margin-bottom:28px}.tolbl{font-size:10px;font-weight:700;color:#6B6560;letter-spacing:.08em;text-transform:uppercase;margin-bottom:4px}.toname{font-size:17px;font-weight:700}.todet{font-size:12px;color:#6B6560;margin-top:2px}.desc-box{font-size:13px;line-height:1.7;margin-bottom:26px;padding:13px 17px;background:#FAF7F2;border-left:3px solid #C9A84C;border-radius:0 8px 8px 0}table{width:100%;border-collapse:collapse;margin-bottom:20px}th{font-size:10px;font-weight:700;color:#6B6560;text-transform:uppercase;letter-spacing:.05em;padding:7px 0;border-bottom:2px solid #E8E2D9;text-align:left}td{padding:8px 0;font-size:12px;border-bottom:1px solid #E8E2D9}.right{text-align:right}.muted{color:#6B6560}.cost-summary{background:#FAF7F2;border:1px solid #E8E2D9;border-radius:10px;padding:16px 20px;margin-bottom:20px;display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:12px}.cs-item{}.cs-lbl{font-size:9px;font-weight:700;color:#6B6560;text-transform:uppercase;letter-spacing:.08em;margin-bottom:4px}.cs-val{font-size:15px;font-weight:800;color:#1A1714}.cs-val.gold{color:#8B6914}.cs-val.green{color:#2D7A4F}.notes{font-size:12px;color:#6B6560;font-style:italic;padding:13px 17px;background:#FAF7F2;border-radius:8px;margin-bottom:20px;line-height:1.6}.valid{font-size:11px;color:#6B6560;margin-bottom:32px}.approval{border:1px solid #E8E2D9;border-radius:10px;padding:18px 22px;margin-top:32px}.aplbl{font-size:10px;font-weight:700;color:#6B6560;text-transform:uppercase;letter-spacing:.08em;margin-bottom:12px}.apbody{font-size:12px;color:#6B6560;margin-bottom:16px;line-height:1.6}.sigrow{display:grid;grid-template-columns:1fr 1fr;gap:28px;margin-top:12px}.sigline{border-bottom:1px solid #1A1714;margin-top:26px;margin-bottom:4px}.siglbl{font-size:10px;color:#6B6560}.footer{margin-top:40px;padding-top:13px;border-top:1px solid #E8E2D9;font-size:10px;color:#6B6560;text-align:center}@media print{body{padding:28px 36px}}`;
+const PCSS=`@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;800&display=swap');*{box-sizing:border-box;margin:0;padding:0}body{font-family:'DM Sans',sans-serif;color:#1A1714;background:#fff;padding:48px 56px;max-width:820px;margin:0 auto}.hdr{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:36px;padding-bottom:20px;border-bottom:2.5px solid #C9A84C}.bname{font-size:22px;font-weight:700}.bsub{font-size:12px;color:#6B6560;margin-top:3px}.qlbl{font-size:10px;font-weight:700;color:#C9A84C;letter-spacing:.12em;text-transform:uppercase;text-align:right}.qnum{font-size:26px;font-weight:800;text-align:right}.to{margin-bottom:28px}.tolbl{font-size:10px;font-weight:700;color:#6B6560;letter-spacing:.08em;text-transform:uppercase;margin-bottom:4px}.toname{font-size:17px;font-weight:700}.todet{font-size:12px;color:#6B6560;margin-top:2px}.desc-box{font-size:13px;line-height:1.7;margin-bottom:26px;padding:13px 17px;background:#FAF7F2;border-left:3px solid #C9A84C;border-radius:0 8px 8px 0}table{width:100%;border-collapse:collapse;margin-bottom:20px}th{font-size:10px;font-weight:700;color:#6B6560;text-transform:uppercase;letter-spacing:.05em;padding:7px 0;border-bottom:2px solid #E8E2D9;text-align:left}td{padding:8px 0;font-size:12px;border-bottom:1px solid #E8E2D9}.right{text-align:right}.muted{color:#6B6560}.cost-summary{background:#FAF7F2;border:1px solid #E8E2D9;border-radius:10px;padding:16px 20px;margin-bottom:20px;display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:12px}.cs-item{}.cs-lbl{font-size:9px;font-weight:700;color:#6B6560;text-transform:uppercase;letter-spacing:.08em;margin-bottom:4px}.cs-val{font-size:15px;font-weight:800;color:#1A1714}.cs-val.gold{color:#8B6914}.cs-val.green{color:#2D7A4F}.notes{font-size:12px;color:#6B6560;font-style:italic;padding:13px 17px;background:#FAF7F2;border-radius:8px;margin-bottom:20px;line-height:1.6}.valid{font-size:11px;color:#6B6560;margin-bottom:32px}.approval{border:1px solid #E8E2D9;border-radius:10px;padding:18px 22px;margin-top:32px}.aplbl{font-size:10px;font-weight:700;color:#6B6560;text-transform:uppercase;letter-spacing:.08em;margin-bottom:12px}.apbody{font-size:12px;color:#6B6560;margin-bottom:16px;line-height:1.6}.sigrow{display:grid;grid-template-columns:1fr 1fr;gap:28px;margin-top:12px}.sigline{border-bottom:1px solid #1A1714;margin-top:26px;margin-bottom:4px}.siglbl{font-size:10px;color:#6B6560}.footer{margin-top:40px;padding-top:13px;border-top:1px solid #E8E2D9;font-size:10px;color:#6B6560;text-align:center}@media print{body{padding:28px 36px}}`;
 
 function printProposalDoc(biz,c,job,q,calc){console.log('Print proposal (disabled in preview)');return;
   const win=window.open("","_blank");
@@ -748,6 +930,39 @@ ${q.validUntil?`<div class="valid">This quote is valid until ${fmtDate(q.validUn
 <div class="approval">
   <div class="aplbl">Client approval</div>
   <div class="apbody">By signing below, I confirm I have reviewed and approve this quote and understand that a deposit is required to proceed with production.</div>
+  <div class="sigrow"><div><div class="sigline"></div><div class="siglbl">Client signature</div></div><div><div class="sigline"></div><div class="siglbl">Date</div></div></div>
+</div>
+<div class="footer">${biz.name||"Your Jewellery Studio"}${biz.abn?" · ABN "+biz.abn:""}</div>
+</body></html>`);
+  win.document.close();setTimeout(()=>win.print(),400);
+}
+
+function printRepairIntake(biz,c,job){
+  const win=window.open("","_blank");
+  const intake=job.intake||{};
+  const ref=job.id.slice(-6).toUpperCase();
+  win.document.write(`<!DOCTYPE html><html><head><title>Repair Intake — ${ref}</title><style>${PCSS}
+.field{margin-bottom:18px}.flbl{font-size:10px;font-weight:700;color:#6B6560;letter-spacing:.08em;text-transform:uppercase;margin-bottom:5px}.fval{font-size:13px;color:#1A1714;line-height:1.6;min-height:22px}.fval.empty{color:#aaa;font-style:italic}.disclaimer{font-size:11px;color:#6B6560;line-height:1.7;padding:14px 18px;background:#FAF7F2;border-left:3px solid #C9A84C;border-radius:0 8px 8px 0;margin-bottom:24px}.section-title{font-size:12px;font-weight:700;color:#C9A84C;text-transform:uppercase;letter-spacing:.1em;margin:24px 0 12px;padding-bottom:6px;border-bottom:1px solid #E8E2D9}
+</style></head><body>
+<div class="hdr">
+  <div>${biz.logo?`<img src="${biz.logo}" alt="${biz.name||"Logo"}" style="max-width:180px;max-height:64px;object-fit:contain;display:block;margin-bottom:6px"/>`:`<div class="bname">${biz.name||"Your Jewellery Studio"}</div>`}<div class="bsub">${[biz.email,biz.phone].filter(Boolean).join(" · ")}</div></div>
+  <div><div class="qlbl">Repair Intake</div><div class="qnum">#${ref}</div><div style="font-size:11px;color:#6B6560;text-align:right;margin-top:3px">${fmtDate(today())}</div></div>
+</div>
+<div class="to"><div class="tolbl">Client</div><div class="toname">${c?.name||"—"}</div><div class="todet">${[c?.email,c?.phone].filter(Boolean).join(" · ")}</div></div>
+<div class="section-title">Item Details</div>
+<div class="field"><div class="flbl">Item type</div><div class="fval${intake.itemType?"":" empty"}">${intake.itemType||"Not specified"}</div></div>
+<div class="field"><div class="flbl">Description of damage / issue</div><div class="fval${intake.damage?"":" empty"}">${(intake.damage||"Not specified").replace(/\n/g,"<br>")}</div></div>
+<div class="field"><div class="flbl">Condition on arrival</div><div class="fval${intake.condition?"":" empty"}">${(intake.condition||"Not specified").replace(/\n/g,"<br>")}</div></div>
+${intake.instructions?`<div class="field"><div class="flbl">Client instructions</div><div class="fval">${intake.instructions.replace(/\n/g,"<br>")}</div></div>`:""}
+<div class="field"><div class="flbl">Agreed turnaround date</div><div class="fval${intake.turnaround?"":" empty"}">${intake.turnaround?fmtDate(intake.turnaround):"Not specified"}</div></div>
+<div class="section-title">Terms & Disclaimer</div>
+<div class="disclaimer">
+  <strong>Gemstone &amp; Diamond Setting:</strong> When you provide gemstones or diamonds for setting into a piece of jewellery that we have not personally crafted or sourced, we cannot assume responsibility for any damage that may occur to the provided gemstones or diamonds during the setting or repair process. The quality, integrity, and condition of externally sourced stones are solely the responsibility of the client. We highly recommend consulting with a reputable gemologist or ensuring the durability and suitability of your stones before bringing them for repair. By submitting items for repair involving externally sourced stones, you acknowledge and accept that we cannot be held liable for any potential damage incurred.<br><br>
+  <strong>Repair Warranty:</strong> ${biz.name||"We"} provide repair services with the utmost care and craftsmanship. However, we do not provide a warranty on repaired pieces. While we endeavour to achieve the best possible outcome, the nature of jewellery repair means we cannot guarantee against further damage, wear, or failure of repaired areas after the piece leaves our care. All repairs are undertaken at the client's risk.
+</div>
+<div class="approval">
+  <div class="aplbl">Client acknowledgement</div>
+  <div class="apbody">By signing below, I confirm I have read and understood the above terms, and I authorise ${biz.name||"the studio"} to proceed with the described repair work.</div>
   <div class="sigrow"><div><div class="sigline"></div><div class="siglbl">Client signature</div></div><div><div class="sigline"></div><div class="siglbl">Date</div></div></div>
 </div>
 <div class="footer">${biz.name||"Your Jewellery Studio"}${biz.abn?" · ABN "+biz.abn:""}</div>
@@ -1184,6 +1399,45 @@ function JobImages({job,setJobs}){
   </Card>;
 }
 
+function RepairIntakeCard({job,setJobs,biz,clients}){
+  const c=clients.find(x=>x.id===job.clientId);
+  const intake=job.intake||{};
+  const[f,setF]=useState({itemType:intake.itemType||"",turnaround:intake.turnaround||"",damage:intake.damage||"",condition:intake.condition||"",instructions:intake.instructions||""});
+  const persist_=patch=>{setJobs(p=>{const n=p.map(j=>j.id===job.id?{...j,intake:{...j.intake,...patch}}:j);persist(K.jo,n);return n;});};
+  const blur=k=>e=>persist_({[k]:e.target.value});
+  return <Card>
+    <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:16}}>
+      <div style={{fontWeight:700,fontSize:15,color:INK}}>Repair Intake</div>
+      <Btn sm ghost onClick={()=>printRepairIntake(biz,c,{...job,intake:{...intake,...f}})}>Print / PDF</Btn>
+    </div>
+    <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:14,marginBottom:14}}>
+      <div>
+        <div style={SS.lbl}>Item type</div>
+        <input style={SS.inp} value={f.itemType} placeholder="e.g. Gold ring, silver bracelet…" onChange={e=>setF(p=>({...p,itemType:e.target.value}))} onBlur={blur("itemType")}/>
+      </div>
+      <div>
+        <div style={SS.lbl}>Agreed turnaround date</div>
+        <input type="date" style={SS.inp} value={f.turnaround} onChange={e=>{setF(p=>({...p,turnaround:e.target.value}));persist_({turnaround:e.target.value});}}/>
+      </div>
+    </div>
+    <div style={{marginBottom:14}}>
+      <div style={SS.lbl}>Description of damage / issue</div>
+      <textarea style={{...SS.inp,minHeight:72,resize:"vertical"}} value={f.damage} placeholder="Describe the damage or work required…" onChange={e=>setF(p=>({...p,damage:e.target.value}))} onBlur={blur("damage")}/>
+    </div>
+    <div style={{marginBottom:14}}>
+      <div style={SS.lbl}>Condition on arrival</div>
+      <textarea style={{...SS.inp,minHeight:56,resize:"vertical"}} value={f.condition} placeholder="Scratches, missing stones, broken clasp…" onChange={e=>setF(p=>({...p,condition:e.target.value}))} onBlur={blur("condition")}/>
+    </div>
+    <div style={{marginBottom:16}}>
+      <div style={SS.lbl}>Client instructions <span style={{fontWeight:400,color:WG}}>(optional)</span></div>
+      <textarea style={{...SS.inp,minHeight:56,resize:"vertical"}} value={f.instructions} placeholder="Any specific requests from the client…" onChange={e=>setF(p=>({...p,instructions:e.target.value}))} onBlur={blur("instructions")}/>
+    </div>
+    <div style={{fontSize:12,color:WG,lineHeight:1.7,padding:"12px 14px",background:PARCH,borderRadius:8,border:`1px solid ${BD}`}}>
+      <strong style={{color:INK}}>Disclaimer: </strong>We are not responsible for damage to client-supplied gemstones during repair. We do not provide a warranty on repaired pieces — all repairs are undertaken at the client's risk.
+    </div>
+  </Card>;
+}
+
 function JobDetail({jobId,jobs,setJobs,clients,quotes,setQuotes,payments,setPayments,notes,setNotes,invoices,setInvoices,biz,markupTable,setView}){
   const job=jobs.find(j=>j.id===jobId);
   if(!job)return null;
@@ -1242,6 +1496,7 @@ function JobDetail({jobId,jobs,setJobs,clients,quotes,setQuotes,payments,setPaym
       </div>
     </Card>}
     {job.description&&<Card><div style={{...SS.lbl,marginBottom:8}}>Description</div><div style={{fontSize:14,color:INK,lineHeight:1.7}}>{job.description}</div>{job.notes&&<div style={{marginTop:10,fontSize:13,color:WG,fontStyle:"italic",borderTop:`1px solid ${BD}`,paddingTop:10}}>Notes: {job.notes}</div>}</Card>}
+    {job.type==="Repair"&&<RepairIntakeCard job={job} setJobs={setJobs} biz={biz} clients={clients}/>}
     <JobImages job={job} setJobs={setJobs}/>
     <Card>
       <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:14}}>
@@ -1654,7 +1909,7 @@ function QuoteBuilder({jobId:jobIdProp,editQuoteId,jobs,clients,quotes,setQuotes
       :item.unit==="piece"?`${q} piece${q!==1?"s":""}`
       :item.unit==="stone"?`${q} stone${q!==1?"s":""}`
       :q>1?`× ${q}`:"";
-    setItems(p=>[...p,{id:uid(),description:desc,detail,costLow:String(totalCost),noMarkup:false}]);
+    setItems(p=>[...p,{id:uid(),description:desc,detail,costLow:String(totalCost),noMarkup:item.noMarkup||false}]);
     setPQty({});
     setPricingModal(false);
   };
@@ -1982,7 +2237,13 @@ function QuoteBuilder({jobId:jobIdProp,editQuoteId,jobs,clients,quotes,setQuotes
               </div>
               <Btn sm onClick={addCustomPrintCast}>Add to quote</Btn>
             </div>}
-            {fp.filter(item=>!(item.category==="CAD Design"&&item.cadTier)&&item.category!=="Accent Stones").map(item=>{
+            {(()=>{
+              const visibleItems=fp.filter(item=>!(item.category==="CAD Design"&&item.cadTier)&&item.category!=="Accent Stones");
+              const isRepairsView=pCat===REPAIRS_CAT;
+              let lastGroup=null;
+              return visibleItems.map(item=>{
+              const showGroupHeader=isRepairsView&&pSearch===""&&item.group&&item.group!==lastGroup;
+              if(showGroupHeader)lastGroup=item.group;
               const isDiamond=DIAMOND_CATS.includes(item.category);
               const isSetting=item.category==="Basic Setting"||item.category==="Complex Setting";
               const isPrintCast=item.category==="3D Print & Cast";
@@ -1994,7 +2255,7 @@ function QuoteBuilder({jobId:jobIdProp,editQuoteId,jobs,clients,quotes,setQuotes
               const qtyLabel=item.unit==="g"?"Grams":item.unit==="hr"?"Hours":item.unit==="pair"?"Pairs":item.unit==="item"?"Qty":isPrintCast?"Pieces":isCADRevision?"Hours":isDiamond||isSetting?"Stones":"Qty";
               const qtyPlaceholder=item.unit==="g"?"e.g. 4.5":item.unit==="hr"?"e.g. 2":isPrintCast?"e.g. 2":isCADRevision?"e.g. 1":"e.g. 1";
               const previewCost=needsQty&&qty&&Number(qty)>0?(item.baseCost*Number(qty)).toFixed(2):null;
-              return <div key={item.id} style={{borderBottom:`1px solid ${BD}`,padding:"12px 0"}}>
+              const row=<div key={item.id} style={{borderBottom:`1px solid ${BD}`,padding:"12px 0"}}>
                 <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",gap:12}}>
                   <div style={{flex:1}}>
                     <div style={{fontWeight:600,fontSize:13,color:INK}}>{(isDiamond||isSetting)?`${item.sizeMm}mm`:item.name}</div>
@@ -2045,7 +2306,15 @@ function QuoteBuilder({jobId:jobIdProp,editQuoteId,jobs,clients,quotes,setQuotes
                   </div>;
                 })()}
               </div>;
+              if(!showGroupHeader)return row;
+              return [
+                <div key={item.id+"_g"} style={{padding:"8px 0 4px",borderBottom:`1px solid ${BD}`}}>
+                  <span style={{fontSize:10,fontWeight:800,color:GOLD_D,textTransform:"uppercase",letterSpacing:"0.08em"}}>{item.group}</span>
+                </div>,
+                row
+              ];
             })}
+            )()}
             {fp.length===0&&<div style={{color:WG,fontSize:14,padding:"10px 0"}}>No items found.</div>}
           </div>
       }
@@ -3318,7 +3587,10 @@ function PricingDB({pricing,setPricing,spotPrices,setSpotPrices,markupTable,cent
 
   // Calc panel derived values
   const selEntries=Object.values(selections);
-  const baseCost=selEntries.reduce((s,{item,qty})=>s+(item.baseCost*qty),0);
+  const markupEntries=selEntries.filter(({item})=>!item.noMarkup);
+  const flatEntries=selEntries.filter(({item})=>item.noMarkup);
+  const baseCost=markupEntries.reduce((s,{item,qty})=>s+(item.baseCost*qty),0);
+  const flatCost=flatEntries.reduce((s,{item,qty})=>s+(item.baseCost*qty),0);
   const mt=markupTable||DEFAULT_MARKUP_TABLE;
   const bracket=mt.find(b=>baseCost>=b.low&&baseCost<=b.high)||null;
   const mult=bracket?.multiplier||null;
@@ -3332,7 +3604,7 @@ function PricingDB({pricing,setPricing,spotPrices,setSpotPrices,markupTable,cent
     </div>}
 
     <div style={{display:"flex",gap:6,flexWrap:"wrap",marginBottom:16}}>
-      {["All","Metals","Labour","CAD Design","Basic Setting","Complex Setting",CENTRE_SET_CAT,"3D Print & Cast",FINDINGS_CAT,PURCHASED_CAT,...DIAMOND_CATS].map(cat=>(
+      {["All","Metals","Labour","CAD Design","Basic Setting","Complex Setting",CENTRE_SET_CAT,"3D Print & Cast",FINDINGS_CAT,PURCHASED_CAT,...DIAMOND_CATS,REPAIRS_CAT].map(cat=>(
         <button key={cat} onClick={()=>setCf(cat)} style={{padding:"4px 11px",borderRadius:20,border:`1px solid ${cf===cat?(DCOLORS[cat]||GOLD):BD}`,background:cf===cat?(DCOLORS[cat]||GOLD):"transparent",color:cf===cat?WHITE:WG,fontSize:11,fontWeight:700,cursor:"pointer",fontFamily:"inherit"}}>{cat}</button>
       ))}
     </div>
@@ -3361,15 +3633,21 @@ function PricingDB({pricing,setPricing,spotPrices,setSpotPrices,markupTable,cent
       {hasSelections&&<>
         {/* Line items */}
         <div style={{marginBottom:14}}>
-          {selEntries.map(({item,qty})=>(
+          {markupEntries.map(({item,qty})=>(
             <div key={item.id} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"5px 0",borderBottom:"1px solid rgba(255,255,255,0.08)",fontSize:12}}>
               <span style={{color:"rgba(255,255,255,0.7)"}}>{item.name}{qty>1&&<span style={{color:"rgba(255,255,255,0.35)"}}> × {qty}</span>}</span>
               <span style={{fontWeight:700,color:WHITE}}>{fmt(item.baseCost*qty)}</span>
             </div>
           ))}
+          {flatEntries.map(({item,qty})=>(
+            <div key={item.id} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"5px 0",borderBottom:"1px solid rgba(255,255,255,0.08)",fontSize:12}}>
+              <span style={{color:"rgba(255,255,255,0.7)"}}>{item.name}{qty>1&&<span style={{color:"rgba(255,255,255,0.35)"}}> × {qty}</span>}<span style={{marginLeft:6,background:"#7B5EA7",color:WHITE,fontSize:9,fontWeight:700,padding:"1px 5px",borderRadius:3,letterSpacing:"0.04em"}}>FLAT</span></span>
+              <span style={{fontWeight:700,color:"#C9A8FF"}}>{fmt(item.baseCost*qty)}</span>
+            </div>
+          ))}
         </div>
         {/* Summary row */}
-        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr 1fr",gap:0,background:"rgba(255,255,255,0.06)",borderRadius:10,overflow:"hidden",border:"1px solid rgba(255,255,255,0.1)"}}>
+        {markupEntries.length>0&&<div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr 1fr",gap:0,background:"rgba(255,255,255,0.06)",borderRadius:10,overflow:"hidden",border:"1px solid rgba(255,255,255,0.1)",marginBottom:flatEntries.length>0?8:0}}>
           {[
             ["Base cost",fmt(baseCost),"rgba(255,255,255,0.5)",WHITE],
             ["Bracket",bracket?`${fmt(bracket.low)} – ${fmt(bracket.high)}`:"—","rgba(255,255,255,0.5)","rgba(255,255,255,0.7)"],
@@ -3381,7 +3659,11 @@ function PricingDB({pricing,setPricing,spotPrices,setSpotPrices,markupTable,cent
               <div style={{fontSize:i===3?22:16,fontWeight:800,color:vc}}>{v}</div>
             </div>
           ))}
-        </div>
+        </div>}
+        {flatEntries.length>0&&<div style={{display:"flex",justifyContent:"space-between",alignItems:"center",background:"rgba(123,94,167,0.15)",border:"1px solid rgba(123,94,167,0.3)",borderRadius:10,padding:"10px 16px"}}>
+          <div style={{fontSize:11,fontWeight:700,color:"rgba(201,168,255,0.8)",textTransform:"uppercase",letterSpacing:"0.08em"}}>Flat fee total (no markup)</div>
+          <div style={{fontSize:20,fontWeight:800,color:"#C9A8FF"}}>{fmtR(flatCost)}</div>
+        </div>}
         {!bracket&&baseCost>0&&<div style={{marginTop:10,fontSize:12,color:WARN}}>Base cost is outside your markup table range — check Settings.</div>}
       </>}
     </div>
@@ -3547,35 +3829,47 @@ function PricingDB({pricing,setPricing,spotPrices,setSpotPrices,markupTable,cent
         <div style={{display:"grid",gridTemplateColumns:"2fr 1fr 60px 110px 90px 90px 60px",padding:"9px 16px",background:PARCH,borderBottom:`1px solid ${BD}`}}>
           {["Item","Category","Unit","Your cost","Qty","Total",""].map(h=><div key={h} style={{fontSize:10,fontWeight:700,color:WG,textTransform:"uppercase",letterSpacing:"0.05em"}}>{h}</div>)}
         </div>
-        {filteredRegular.map((item,i)=>{
-          const qty=regQtys[item.id]||"";
-          const cost=regularEditing?(Number(regularEditPrices[item.id])||0):item.baseCost;
-          const total=!regularEditing&&qty&&Number(qty)>0?item.baseCost*Number(qty):null;
-          return <div key={item.id} style={{display:"grid",gridTemplateColumns:"2fr 1fr 60px 110px 90px 90px 60px",padding:"10px 16px",borderBottom:i<filteredRegular.length-1?`1px solid ${BD}`:"none",alignItems:"center"}}>
-            <div style={{fontWeight:600,fontSize:13,color:INK}}>{item.name}</div>
-            <div><Badge label={item.category} color={WG}/></div>
-            <div style={{fontSize:12,color:WG}}>/{item.unit}</div>
-            <div>
-              {regularEditing
-                ?<input type="number" value={regularEditPrices[item.id]||""} min="0" step="0.01" autoFocus={i===0}
-                    onChange={e=>setRegularEditPrices(p=>({...p,[item.id]:e.target.value}))}
-                    style={{width:"90px",padding:"5px 8px",borderRadius:7,border:`1px solid ${GOLD}`,fontSize:13,fontFamily:"inherit",color:GOLD_D,fontWeight:700,background:GOLD_L,outline:"none",textAlign:"right"}}/>
-                :<span style={{fontSize:13,fontWeight:700,color:INK}}>{fmt(item.baseCost)}</span>}
-            </div>
-            <input type="number" value={qty} min="0" step={item.unit==="g"?"0.1":"1"} placeholder="0"
-              disabled={regularEditing}
-              onChange={e=>{
-                const v=e.target.value;
-                setRegQtys(p=>({...p,[item.id]:v}));
-                handleQtyChange(item.id,v,{...item,name:`${item.name} (${v} ${item.unit})`});
-              }}
-              style={{width:"72px",padding:"5px 8px",borderRadius:7,border:`1px solid ${qty&&!regularEditing?GOLD:BD}`,fontSize:13,fontFamily:"inherit",color:INK,background:regularEditing?"#f5f5f5":WHITE,outline:"none",textAlign:"right",opacity:regularEditing?0.4:1}}/>
-            <div style={{fontSize:13,fontWeight:800,color:total?OK:WG,textAlign:"right",paddingRight:4}}>{total?fmt(total):"—"}</div>
-            <div style={{display:"flex",gap:4,justifyContent:"flex-end"}}>
-              {!regularEditing&&<Btn sm danger onClick={()=>del(item.id)}>×</Btn>}
-            </div>
-          </div>;
-        })}
+        {(()=>{
+          const isRepairsView=cf===REPAIRS_CAT;
+          let lastGroup=null;
+          return filteredRegular.map((item,i)=>{
+            const qty=regQtys[item.id]||"";
+            const total=!regularEditing&&qty&&Number(qty)>0?item.baseCost*Number(qty):null;
+            const showGroupHeader=isRepairsView&&item.group&&item.group!==lastGroup;
+            if(showGroupHeader)lastGroup=item.group;
+            const row=<div key={item.id} style={{display:"grid",gridTemplateColumns:"2fr 1fr 60px 110px 90px 90px 60px",padding:"10px 16px",borderBottom:i<filteredRegular.length-1?`1px solid ${BD}`:"none",alignItems:"center"}}>
+                <div style={{fontWeight:600,fontSize:13,color:INK}}>{item.name}</div>
+                <div><Badge label={item.category} color={WG}/></div>
+                <div style={{fontSize:12,color:WG}}>/{item.unit}</div>
+                <div>
+                  {regularEditing
+                    ?<input type="number" value={regularEditPrices[item.id]||""} min="0" step="0.01" autoFocus={i===0}
+                        onChange={e=>setRegularEditPrices(p=>({...p,[item.id]:e.target.value}))}
+                        style={{width:"90px",padding:"5px 8px",borderRadius:7,border:`1px solid ${GOLD}`,fontSize:13,fontFamily:"inherit",color:GOLD_D,fontWeight:700,background:GOLD_L,outline:"none",textAlign:"right"}}/>
+                    :<span style={{fontSize:13,fontWeight:700,color:INK}}>{fmt(item.baseCost)}</span>}
+                </div>
+                <input type="number" value={qty} min="0" step={item.unit==="g"?"0.1":"1"} placeholder="0"
+                  disabled={regularEditing}
+                  onChange={e=>{
+                    const v=e.target.value;
+                    setRegQtys(p=>({...p,[item.id]:v}));
+                    handleQtyChange(item.id,v,{...item,name:`${item.name} (${v} ${item.unit})`});
+                  }}
+                  style={{width:"72px",padding:"5px 8px",borderRadius:7,border:`1px solid ${qty&&!regularEditing?GOLD:BD}`,fontSize:13,fontFamily:"inherit",color:INK,background:regularEditing?"#f5f5f5":WHITE,outline:"none",textAlign:"right",opacity:regularEditing?0.4:1}}/>
+                <div style={{fontSize:13,fontWeight:800,color:total?OK:WG,textAlign:"right",paddingRight:4}}>{total?fmt(total):"—"}</div>
+                <div style={{display:"flex",gap:4,justifyContent:"flex-end"}}>
+                  {!regularEditing&&<Btn sm danger onClick={()=>del(item.id)}>×</Btn>}
+                </div>
+              </div>;
+            if(!showGroupHeader)return row;
+            return [
+              <div key={item.id+"_g"} style={{display:"grid",gridTemplateColumns:"2fr 1fr 60px 110px 90px 90px 60px",padding:"7px 16px",background:PARCH,borderTop:i>0?`1px solid ${BD}`:"none",borderBottom:`1px solid ${BD}`}}>
+                <div style={{gridColumn:"1/-1",fontSize:10,fontWeight:800,color:GOLD_D,textTransform:"uppercase",letterSpacing:"0.08em"}}>{item.group}</div>
+              </div>,
+              row
+            ];
+          });
+        })()}
       </div>}
       {isAllView&&<div style={{marginTop:4}}>
         <div style={{fontSize:11,fontWeight:700,color:WG,textTransform:"uppercase",letterSpacing:"0.06em",marginBottom:10}}>Setting &amp; diamond price tables</div>
@@ -3645,14 +3939,16 @@ function PricingDB({pricing,setPricing,spotPrices,setSpotPrices,markupTable,cent
 }
 
 function PricingItemForm({initial={},onSave,onCancel}){
-  const[f,setF]=useState({category:PCAT[0],name:"",unit:"stone",baseCost:"",detail:"",...initial});
+  const[f,setF]=useState({category:PCAT[0],name:"",unit:"stone",baseCost:"",detail:"",group:"",...initial});
   const set=k=>v=>setF(p=>({...p,[k]:v}));
   const isAccent=f.category==="Accent Stones";
+  const isRepair=f.category===REPAIRS_CAT;
   return <div>
     <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"0 16px"}}>
-      <Input label="Category" value={f.category} onChange={set("category")} as="select" options={PCAT.filter(c=>c!=="Accent Stones"||f.category==="Accent Stones")}/>
+      <Input label="Category" value={f.category} onChange={v=>{setF(p=>({...p,category:v,group:""}));}} as="select" options={PCAT.filter(c=>c!=="Accent Stones"||f.category==="Accent Stones")}/>
       {!isAccent&&<Input label="Unit" value={f.unit} onChange={set("unit")} as="select" options={["job","g","stone","ct","item","pair","hr","piece","set"]}/>}
     </div>
+    {isRepair&&<Input label="Group" value={f.group||""} onChange={set("group")} as="select" options={["(no group)",...REPAIR_GROUPS]}/>}
     <Input label="Item name / description" value={f.name} onChange={set("name")} placeholder={isAccent?"e.g. 2mm blue sapphires":"e.g. 9ct white gold"}/>
     {isAccent
       ?<>
@@ -3665,7 +3961,13 @@ function PricingItemForm({initial={},onSave,onCancel}){
     }
     <div style={{display:"flex",gap:10,justifyContent:"flex-end"}}>
       <Btn ghost onClick={onCancel}>Cancel</Btn>
-      <Btn onClick={()=>{if(!f.name.trim())return alert("Name required");if(!isAccent&&!f.baseCost)return alert("Cost required");onSave(f);}}>Save item</Btn>
+      <Btn onClick={()=>{
+        if(!f.name.trim())return alert("Name required");
+        if(!isAccent&&!f.baseCost)return alert("Cost required");
+        const saved={...f,noMarkup:isRepair?true:f.noMarkup};
+        if(isRepair&&saved.group==="(no group)")saved.group="";
+        onSave(saved);
+      }}>Save item</Btn>
     </div>
   </div>;
 }
@@ -4059,6 +4361,9 @@ export default function App(){
       if(v===null||v===undefined)return;
       if(k===K.pr&&Array.isArray(v)){
         v=v.map(it=>it&&it.category==="Findings / Components / Purchased Parts"?{...it,category:FINDINGS_CAT}:it);
+        const savedIds=new Set(v.map(x=>x.id));
+        const missing=SEED_PRICING.filter(x=>!savedIds.has(x.id));
+        if(missing.length>0)v=[...v,...missing];
       }
       setter(v);
     };
