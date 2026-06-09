@@ -1186,9 +1186,11 @@ function Clients({clients,setClients,jobs,payments,setView,setSelClient}){
   </div>;
 }
 
-function ClientDetail({clientId,clients,jobs,quotes,payments,markupTable,setView,setSelJob}){
+function ClientDetail({clientId,clients,jobs,setJobs,quotes,payments,markupTable,setView,setSelJob}){
   const c=clients.find(x=>x.id===clientId);
+  const[jobModal,setJobModal]=useState(false);
   if(!c)return null;
+  const addJob=f=>{const id=uid();setJobs(p=>{const n=[...p,{...f,id,createdAt:today()}];persist(K.jo,n);return n;});setJobModal(false);setSelJob(id);setView("jobDetail");};
   const cj=jobs.filter(j=>j.clientId===clientId);
   const spent=cj.flatMap(j=>payments.filter(p=>p.jobId===j.id&&p.status==="Received")).reduce((s,p)=>s+Number(p.amount),0);
   const charged=cj.reduce((s,j)=>s+jobChargeTotal(j,quotes,markupTable),0);
@@ -1222,7 +1224,10 @@ function ClientDetail({clientId,clients,jobs,quotes,payments,markupTable,setView
     </div>
     {c.notes&&<Card><div style={{...SS.lbl,marginBottom:8}}>Notes</div><div style={{fontSize:14,color:INK,lineHeight:1.7}}>{c.notes}</div></Card>}
     <Card>
-      <div style={{...SS.lbl,marginBottom:14}}>Jobs ({cj.length})</div>
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:14}}>
+        <div style={SS.lbl}>Jobs ({cj.length})</div>
+        <Btn sm onClick={()=>setJobModal(true)}>+ New job</Btn>
+      </div>
       {cj.length===0&&<div style={{color:WG,fontSize:14}}>No jobs yet.</div>}
       {cj.map(j=>(
         <div key={j.id} onClick={()=>{setSelJob(j.id);setView("jobDetail");}} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"10px 0",borderBottom:`1px solid ${BD}`,cursor:"pointer"}}
@@ -1232,6 +1237,9 @@ function ClientDetail({clientId,clients,jobs,quotes,payments,markupTable,setView
         </div>
       ))}
     </Card>
+    {jobModal&&<Modal title={`New job for ${c.name}`} onClose={()=>setJobModal(false)}>
+      <JobForm clients={clients} initial={{clientId}} onSave={addJob} onCancel={()=>setJobModal(false)}/>
+    </Modal>}
   </div>;
 }
 
@@ -4744,7 +4752,7 @@ export default function App(){
     if(view==="dashboard")return <Dashboard clients={clients} jobs={jobs} quotes={quotes} payments={payments} invoices={invoices} appointments={appointments} markupTable={markupTable} setView={setView} setSelClient={setSelClient}/>;
     if(view==="appointments")return <Appointments appointments={appointments} setAppointments={setAppointments} clients={clients} setClients={setClients} jobs={jobs} setJobs={setJobs} setView={setView} setSelClient={setSelClient} setSelJob={setSelJob}/>;
     if(view==="clients")return <Clients clients={clients} setClients={setClients} jobs={jobs} payments={payments} setView={setView} setSelClient={setSelClient}/>;
-    if(view==="clientDetail")return <ClientDetail clientId={selClient} clients={clients} jobs={jobs} quotes={quotes} payments={payments} markupTable={markupTable} setView={setView} setSelJob={setSelJob}/>;
+    if(view==="clientDetail")return <ClientDetail clientId={selClient} clients={clients} jobs={jobs} setJobs={setJobs} quotes={quotes} payments={payments} markupTable={markupTable} setView={setView} setSelJob={setSelJob}/>;
     if(view==="jobs")return <Jobs clients={clients} jobs={jobs} setJobs={setJobs} quotes={quotes} setQuotes={setQuotes} payments={payments} setPayments={setPayments} notes={notes} setNotes={setNotes} invoices={invoices} setInvoices={setInvoices} markupTable={markupTable} setView={setView} setSelJob={setSelJob}/>;
     if(view==="jobDetail")return <JobDetail jobId={selJob} jobs={jobs} setJobs={setJobs} clients={clients} quotes={quotes} setQuotes={setQuotes} payments={payments} setPayments={setPayments} notes={notes} setNotes={setNotes} invoices={invoices} setInvoices={setInvoices} biz={biz} markupTable={markupTable} setView={setView}/>;
     if(view==="quotes")return <QuotesList quotes={quotes} jobs={jobs} clients={clients} markupTable={markupTable} setView={setView}/>;
