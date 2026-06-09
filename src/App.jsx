@@ -48,6 +48,7 @@ const TINTS={
 
 // ── Constants ─────────────────────────────────────────────────────────────
 const JOB_TYPES=["Engagement ring","Wedding band","Custom pendant","Earrings","Bracelet","Repair","Remodelling","Grillz","Chain","Other"];
+const JOB_TYPE_ICONS={"Engagement ring":"◇","Wedding band":"○","Custom pendant":"✦","Earrings":"❖","Bracelet":"∞","Repair":"◆","Remodelling":"⟳","Grillz":"▦","Chain":"◈","Other":"◦"};
 const JOB_STAGES=["Enquiry","Consultation","Quoted","Approved","Design / CAD","Render approval","Wax / Cast","Stone setting","Polishing / Finish","QC check","Ready for collection","Collected"];
 const SC={"Enquiry":"#A0845C","Consultation":"#7A6C5D","Quoted":"#5B7FA6","Approved":"#3B6E8F","Design / CAD":"#7B5EA7","Render approval":"#9B4F96","Wax / Cast":"#B05C3A","Stone setting":"#C47A2E","Polishing / Finish":"#8B9E3A","QC check":"#4A8E6A","Ready for collection":"#2D7A4F","Collected":"#1A5C3A"};
 const PAY_TYPES=["Deposit","CAD / Design stage","Production deposit","Progress payment","Final balance","Lay-by payment","Other"];
@@ -1269,7 +1270,21 @@ function JobForm({clients,initial={},onSave,onCancel}){
 function Jobs({clients,jobs,setJobs,quotes,setQuotes,payments,setPayments,notes,setNotes,invoices,setInvoices,markupTable,setView,setSelJob}){
   const[modal,setModal]=useState(null);
   const[sf,setSf]=useState("All");
-  const filtered=sf==="All"?jobs:jobs.filter(j=>j.stage===sf);
+  const[tf,setTf]=useState("All");
+  const[search,setSearch]=useState("");
+  const typeCounts=useMemo(()=>{const m={};jobs.forEach(j=>{m[j.type]=(m[j.type]||0)+1;});return m;},[jobs]);
+  const typesByCount=useMemo(()=>Object.keys(typeCounts).sort((a,b)=>typeCounts[b]-typeCounts[a]),[typeCounts]);
+  const q=search.trim().toLowerCase();
+  const filtered=jobs.filter(j=>{
+    if(sf!=="All"&&j.stage!==sf)return false;
+    if(tf!=="All"&&j.type!==tf)return false;
+    if(q){
+      const c=clients.find(x=>x.id===j.clientId);
+      const hay=`${j.type} ${c?.name||""} ${j.description||""} ${j.stage} ${j.supplier||""}`.toLowerCase();
+      if(!hay.includes(q))return false;
+    }
+    return true;
+  });
   const add=f=>{setJobs(p=>{const n=[...p,{...f,id:uid(),createdAt:today()}];persist(K.jo,n);return n;});setModal(null);};
   const delJob=(id,e)=>{
     e.stopPropagation();
@@ -1282,10 +1297,25 @@ function Jobs({clients,jobs,setJobs,quotes,setQuotes,payments,setPayments,notes,
   };
   return <div>
     <SectionHeader title="Jobs" action={clients.length>0?<Btn onClick={()=>setModal("add")}>+ Add job</Btn>:<span style={{fontSize:13,color:WG}}>Add a client first</span>}/>
-    <div style={{display:"flex",gap:6,flexWrap:"wrap",marginBottom:16}}>
+    <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Search jobs by client, type or description…" style={{...SS.inp,marginBottom:14,marginTop:0}}/>
+    {typesByCount.length>0&&<div style={{marginBottom:16}}>
+      <div style={{...SS.lbl,marginBottom:10}}>Job types</div>
+      <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(150px,1fr))",gap:12}}>
+        <div style={{borderRadius:RADIUS,boxShadow:tf==="All"?`0 0 0 2px ${GOLD}`:"none"}}>
+          <Stat tint="blue" icon="◎" value={jobs.length} label="All jobs" onClick={()=>setTf("All")}/>
+        </div>
+        {typesByCount.map(t=>(
+          <div key={t} style={{borderRadius:RADIUS,boxShadow:tf===t?`0 0 0 2px ${GOLD}`:"none"}}>
+            <Stat tint="blue" icon={JOB_TYPE_ICONS[t]||"◎"} value={typeCounts[t]} label={t} onClick={()=>setTf(tf===t?"All":t)}/>
+          </div>
+        ))}
+      </div>
+    </div>}
+    <div style={{display:"flex",gap:6,flexWrap:"wrap",marginBottom:14}}>
       {["All",...JOB_STAGES].map(s=><button key={s} onClick={()=>setSf(s)} style={{padding:"4px 11px",borderRadius:20,border:`1px solid ${sf===s?GOLD:BD}`,background:sf===s?GOLD:"transparent",color:sf===s?WHITE:WG,fontSize:11,fontWeight:700,cursor:"pointer",fontFamily:"inherit"}}>{s}</button>)}
     </div>
-    {filtered.length===0&&<Card><div style={{color:WG,fontSize:14,textAlign:"center",padding:"14px 0"}}>No jobs{sf!=="All"?` at "${sf}"`:""}.</div></Card>}
+    {(q||tf!=="All"||sf!=="All")&&<div style={{fontSize:12,color:WG,marginBottom:12}}>Showing <b style={{color:INK}}>{filtered.length}</b> of {jobs.length} job{jobs.length!==1?"s":""}{tf!=="All"?` · ${tf}`:""}{sf!=="All"?` · ${sf}`:""}{q?` · “${search.trim()}”`:""}{(q||tf!=="All"||sf!=="All")&&<button onClick={()=>{setSearch("");setTf("All");setSf("All");}} style={{background:"none",border:"none",color:GOLD,fontWeight:700,fontSize:12,cursor:"pointer",fontFamily:"inherit",marginLeft:8,padding:0}}>Clear</button>}</div>}
+    {filtered.length===0&&<Card><div style={{color:WG,fontSize:14,textAlign:"center",padding:"14px 0"}}>No jobs found{q?` for “${search.trim()}”`:""}.</div></Card>}
     {filtered.map(j=>{
       const c=clients.find(x=>x.id===j.clientId);
       const od=j.deadline&&j.deadline<today()&&j.stage!=="Collected";
