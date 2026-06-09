@@ -47,8 +47,8 @@ const TINTS={
 };
 
 // ── Constants ─────────────────────────────────────────────────────────────
-const JOB_TYPES=["Engagement ring","Wedding band","Custom pendant","Earrings","Bracelet","Repair","Remodelling","Grillz","Chain","Other"];
-const JOB_TYPE_ICONS={"Engagement ring":"◇","Wedding band":"○","Custom pendant":"✦","Earrings":"❖","Bracelet":"∞","Repair":"◆","Remodelling":"⟳","Grillz":"▦","Chain":"◈","Other":"◦"};
+const JOB_TYPES=["Engagement ring","Wedding band","Eternity ring","Dress ring","Custom pendant","Earrings","Bracelet","Repair","Remodelling","Grillz","Chain","Custom","Other"];
+const JOB_TYPE_ICONS={"Engagement ring":"◇","Wedding band":"○","Eternity ring":"◉","Dress ring":"✧","Custom pendant":"✦","Earrings":"❖","Bracelet":"∞","Repair":"◆","Remodelling":"⟳","Grillz":"▦","Chain":"◈","Custom":"✶","Other":"◦"};
 const JOB_STAGES=["Enquiry","Consultation","Quoted","Approved","Design / CAD","Render approval","Wax / Cast","Stone setting","Polishing / Finish","QC check","Ready for collection","Collected"];
 const SC={"Enquiry":"#A0845C","Consultation":"#7A6C5D","Quoted":"#5B7FA6","Approved":"#3B6E8F","Design / CAD":"#7B5EA7","Render approval":"#9B4F96","Wax / Cast":"#B05C3A","Stone setting":"#C47A2E","Polishing / Finish":"#8B9E3A","QC check":"#4A8E6A","Ready for collection":"#2D7A4F","Collected":"#1A5C3A"};
 const PAY_TYPES=["Deposit","CAD / Design stage","Production deposit","Progress payment","Final balance","Lay-by payment","Other"];
@@ -612,8 +612,8 @@ const fmtTime=t=>{if(!t)return"";const[h,m]=String(t).split(":").map(Number);if(
 const fmtDayShort=s=>parseISO(s).toLocaleDateString("en-AU",{weekday:"short",day:"numeric",month:"short"});
 const monthLabel=s=>parseISO(s).toLocaleDateString("en-AU",{month:"long",year:"numeric"});
 const addMin=(t,min)=>{if(!t||!min)return"";const[h,m]=String(t).split(":").map(Number);if(isNaN(h))return"";const tot=h*60+m+Number(min);const hh=Math.floor((tot%1440)/60),mm=tot%60;return`${pad2(hh)}:${pad2(mm)}`;};
-const APPT_TYPES=["Consultation","Engagement Ring","Custom Design","Remodelling","Repair","Wedding Rings"];
-const APPT_COLORS={"Consultation":"#5B7FA6","Engagement Ring":"#9B4F96","Custom Design":"#7B5EA7","Remodelling":"#B05C3A","Repair":"#C47A2E","Wedding Rings":"#2D7A4F"};
+const APPT_TYPES=["Consultation","Engagement Ring","Wedding Ring","Custom Design","Jewellery Repair","Laser Engraving","Other"];
+const APPT_COLORS={"Consultation":"#5B7FA6","Engagement Ring":"#9B4F96","Wedding Ring":"#2D7A4F","Custom Design":"#7B5EA7","Jewellery Repair":"#C47A2E","Laser Engraving":"#5E6B7A","Other":"#7A6C5D"};
 const APPT_STATUSES=["Scheduled","Completed","No-show","Cancelled"];
 const APPT_STATUS_COLORS={"Scheduled":WG,"Completed":OK,"No-show":DANGER,"Cancelled":WARN};
 const DURATION_OPTS=[{value:"",label:"— No set length —"},{value:15,label:"15 min"},{value:30,label:"30 min"},{value:45,label:"45 min"},{value:60,label:"1 hour"},{value:90,label:"1.5 hours"},{value:120,label:"2 hours"}];
@@ -4484,7 +4484,7 @@ function Appointments({appointments,setAppointments,clients,setClients,jobs=[],s
                   {!isLiveAppt(a)&&<MiniBtn label="↺ Reschedule" color={WG} onClick={()=>setStatus(a.id,"Scheduled")}/>}
                   {!a.clientId&&a.clientName&&<MiniBtn label="+ Create client" color={GOLD} onClick={()=>convertToClient(a)}/>}
                   {job&&job.type==="Repair"&&<MiniBtn label="🛠 Repair intake" color={APPT_COLORS["Repair"]} onClick={()=>goToIntake(a.jobId)}/>}
-                  {a.type==="Repair"&&!a.jobId&&<MiniBtn label="🛠 Start repair intake" color={APPT_COLORS["Repair"]} onClick={()=>startRepairIntake(a)}/>}
+                  {a.type==="Jewellery Repair"&&!a.jobId&&<MiniBtn label="🛠 Start repair intake" color={APPT_COLORS["Jewellery Repair"]} onClick={()=>startRepairIntake(a)}/>}
                 </div>
               </div>
               <div style={{display:"flex",gap:6,flexShrink:0}}>
