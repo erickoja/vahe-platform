@@ -957,14 +957,13 @@ ${q.validUntil?`<div class="valid">This quote is valid until ${fmtDate(q.validUn
   win.document.close();setTimeout(()=>win.print(),400);
 }
 
-function printRepairIntake(biz,c,job,mode="print"){
+function printRepairIntake(biz,c,job){
   const win=window.open("","_blank");
   const intake=job.intake||{};
   const ref=job.id.slice(-6).toUpperCase();
   win.document.write(`<!DOCTYPE html><html><head><title>Repair Intake — ${ref}</title><style>${PCSS}
-.field{margin-bottom:18px}.flbl{font-size:10px;font-weight:700;color:#6B6560;letter-spacing:.08em;text-transform:uppercase;margin-bottom:5px}.fval{font-size:13px;color:#1A1714;line-height:1.6;min-height:22px}.fval.empty{color:#aaa;font-style:italic}.disclaimer{font-size:11px;color:#6B6560;line-height:1.7;padding:14px 18px;background:#FAF7F2;border-left:3px solid #C9A84C;border-radius:0 8px 8px 0;margin-bottom:24px}.section-title{font-size:12px;font-weight:700;color:#C9A84C;text-transform:uppercase;letter-spacing:.1em;margin:24px 0 12px;padding-bottom:6px;border-bottom:1px solid #E8E2D9}@media print{.noprint{display:none!important}}
+.field{margin-bottom:18px}.flbl{font-size:10px;font-weight:700;color:#6B6560;letter-spacing:.08em;text-transform:uppercase;margin-bottom:5px}.fval{font-size:13px;color:#1A1714;line-height:1.6;min-height:22px}.fval.empty{color:#aaa;font-style:italic}.disclaimer{font-size:11px;color:#6B6560;line-height:1.7;padding:14px 18px;background:#FAF7F2;border-left:3px solid #C9A84C;border-radius:0 8px 8px 0;margin-bottom:24px}.section-title{font-size:12px;font-weight:700;color:#C9A84C;text-transform:uppercase;letter-spacing:.1em;margin:24px 0 12px;padding-bottom:6px;border-bottom:1px solid #E8E2D9}
 </style></head><body>
-${mode==="pdf"?`<div class="noprint" style="background:#FAF7F2;border:1px solid #C9A84C;border-radius:8px;padding:10px 14px;margin-bottom:18px;font-size:12px;color:#6B6560">📄 To download, set the print destination to <strong>“Save as PDF”</strong>, then click Save.</div>`:""}
 <div class="hdr">
   <div>${biz.logo?`<img src="${biz.logo}" alt="${biz.name||"Logo"}" style="max-width:180px;max-height:64px;object-fit:contain;display:block;margin-bottom:6px"/>`:`<div class="bname">${biz.name||"Your Jewellery Studio"}</div>`}<div class="bsub">${[biz.email,biz.phone].filter(Boolean).join(" · ")}</div></div>
   <div><div class="qlbl">Repair Intake</div><div class="qnum">#${ref}</div><div style="font-size:11px;color:#6B6560;text-align:right;margin-top:3px">${fmtDate(today())}</div></div>
@@ -1450,10 +1449,7 @@ function RepairIntakeCard({job,setJobs,biz,clients}){
   return <Card id="repair-intake">
     <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:16}}>
       <div style={{fontWeight:700,fontSize:15,color:INK}}>Repair Intake</div>
-      <div style={{display:"flex",gap:8}}>
-        <Btn sm ghost onClick={()=>printRepairIntake(biz,c,{...job,intake:{...intake,...f}},"pdf")}>↓ Download PDF</Btn>
-        <Btn sm ghost onClick={()=>printRepairIntake(biz,c,{...job,intake:{...intake,...f}},"print")}>🖨 Print</Btn>
-      </div>
+      <Btn sm ghost onClick={()=>printRepairIntake(biz,c,{...job,intake:{...intake,...f}})}>Print / Save PDF</Btn>
     </div>
     <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:14,marginBottom:14}}>
       <div>
@@ -2380,19 +2376,6 @@ function QuoteBuilder({jobId:jobIdProp,editQuoteId,jobs,clients,quotes,setQuotes
 }
 
 // ── Quote Proposal Preview ────────────────────────────────────────────────
-// On-screen-only hint shown when the user clicks "Download PDF" (hidden when printing)
-function PdfHintBanner({show}){
-  if(!show)return null;
-  return <div className="noprint" style={{maxWidth:740,margin:"0 auto 16px",background:"#FAF7F2",border:`1px solid ${GOLD}`,borderRadius:8,padding:"10px 14px",fontSize:12,color:"#6B6560",fontFamily:"'DM Sans',sans-serif",textAlign:"center"}}>📄 In the print dialog, set the destination to <strong>“Save as PDF”</strong>, then click Save to download.</div>;
-}
-// Two-button print/download control reused by the proposal + invoice print views
-function PrintDownloadBtns({onPrint,onDownload}){
-  const base={border:"none",borderRadius:8,padding:"6px 16px",fontSize:12,fontWeight:700,cursor:"pointer",fontFamily:"inherit",letterSpacing:"0.02em"};
-  return <>
-    <button onClick={onDownload} style={{...base,background:"rgba(255,255,255,0.1)",color:WHITE,border:"1px solid rgba(255,255,255,0.25)"}}>↓ Download PDF</button>
-    <button onClick={onPrint} style={{...base,background:WHITE,color:INK}}>🖨 Print</button>
-  </>;
-}
 function ProposalPreview({quote,job,clients=[],biz,calc,onClose}){
   const client=clients.find(x=>x.id===job?.clientId)||null;
   const quoteNum="QT-"+quote.id.slice(-6).toUpperCase();
@@ -2443,9 +2426,6 @@ function ProposalPreview({quote,job,clients=[],biz,calc,onClose}){
   };
 
   const[copied,setCopied]=useState(false);
-  const[pdfHint,setPdfHint]=useState(false);
-  const doPrint=()=>{setPdfHint(false);setTimeout(()=>window.print(),20);};
-  const doDownload=()=>{setPdfHint(true);setTimeout(()=>window.print(),60);};
   const clientName=client?.name||"";
 
   // Pull the job's uploaded images into the proposal (secure signed URLs)
@@ -2477,13 +2457,14 @@ function ProposalPreview({quote,job,clients=[],biz,calc,onClose}){
         <button onClick={copyEmailText} style={{background:copied?"#2D7A4F22":"rgba(255,255,255,0.06)",border:`1px solid ${copied?"#2D7A4F":"rgba(255,255,255,0.15)"}`,borderRadius:8,padding:"6px 16px",color:copied?"#4CAF84":"rgba(255,255,255,0.7)",fontSize:12,fontWeight:700,cursor:"pointer",fontFamily:"inherit",transition:"all 0.2s"}}>
           {copied?"✓ Copied":"✉ Copy email text"}
         </button>
-        <PrintDownloadBtns onPrint={doPrint} onDownload={doDownload}/>
+        <button onClick={()=>window.print()} style={{background:WHITE,border:"none",borderRadius:8,padding:"6px 18px",color:INK,fontSize:12,fontWeight:700,cursor:"pointer",fontFamily:"inherit",letterSpacing:"0.02em"}}>
+          Print / Save PDF
+        </button>
       </div>
     </div>
 
     {/* ── Scroll area ── */}
     <div id="proposal-scroll" style={{flex:1,overflowY:"auto",overflowX:"hidden",padding:"40px 20px 60px",background:"#111"}}>
-      <PdfHintBanner show={pdfHint}/>
       <div id="proposal-document" style={{width:"100%",maxWidth:740,margin:"0 auto",background:WHITE,borderRadius:4,boxShadow:"0 20px 80px rgba(0,0,0,0.6)",fontFamily:"Georgia,serif",color:INK}}>
 
         {/* ── HEADER ── */}
@@ -2841,9 +2822,6 @@ function InvoicePrintView({inv,job,client,biz,payments,onClose}){
   const paidTotal=(payments||[]).filter(p=>p.jobId===inv.jobId&&p.status==="Received").reduce((s,p)=>s+Number(p.amount),0);
   const balance=Math.max(0,inv.totalIncGST-paidTotal);
   const[copied,setCopied]=useState(false);
-  const[pdfHint,setPdfHint]=useState(false);
-  const doPrint=()=>{setPdfHint(false);setTimeout(()=>window.print(),20);};
-  const doDownload=()=>{setPdfHint(true);setTimeout(()=>window.print(),60);};
   const copyBank=()=>{
     const txt=[`Bank: ${biz.bankName||""}`,`Account name: ${biz.bankAccountName||biz.name||""}`,`BSB: ${biz.bankBSB||""}`,`Account: ${biz.bankAccount||""}`,`Reference: ${inv.number}`].join("\n");
     navigator.clipboard?.writeText(txt).catch(()=>{});
@@ -2858,12 +2836,11 @@ function InvoicePrintView({inv,job,client,biz,payments,onClose}){
       </div>
       <div style={{display:"flex",gap:10}}>
         <button onClick={copyBank} style={{background:copied?"#2D7A4F":"rgba(255,255,255,0.08)",border:`1px solid ${copied?"#2D7A4F":"rgba(255,255,255,0.2)"}`,borderRadius:8,padding:"7px 16px",color:copied?WHITE:"rgba(255,255,255,0.8)",fontSize:11,fontWeight:700,cursor:"pointer",fontFamily:"inherit",letterSpacing:"0.06em",textTransform:"uppercase",transition:"all 0.2s"}}>{copied?"✓ Copied":"Copy bank details"}</button>
-        <PrintDownloadBtns onPrint={doPrint} onDownload={doDownload}/>
+        <button onClick={()=>window.print()} style={{background:WHITE,border:"none",borderRadius:8,padding:"7px 20px",color:INK,fontSize:11,fontWeight:700,cursor:"pointer",fontFamily:"inherit",letterSpacing:"0.06em",textTransform:"uppercase"}}>Print / Save PDF</button>
       </div>
     </div>
     {/* page */}
-    <div id="invoice-scroll" style={{flex:1,overflow:"auto",padding:"32px 24px",display:"flex",flexDirection:"column",justifyContent:"flex-start",alignItems:"center"}}>
-      <PdfHintBanner show={pdfHint}/>
+    <div id="invoice-scroll" style={{flex:1,overflow:"auto",padding:"32px 24px",display:"flex",justifyContent:"center",alignItems:"flex-start"}}>
       <div id="invoice-document" style={{width:"100%",maxWidth:700,minHeight:990,background:WHITE,fontFamily:"'DM Sans',sans-serif",boxShadow:"0 8px 48px rgba(0,0,0,0.5)",display:"flex",flexDirection:"column"}}>
         {/* header */}
         <div style={{padding:"52px 56px 40px",display:"flex",justifyContent:"space-between",alignItems:"flex-start"}}>
