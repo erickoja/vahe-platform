@@ -974,7 +974,7 @@ function printRepairIntake(biz,c,job){
 <div class="field"><div class="flbl">Description of damage / issue</div><div class="fval${intake.damage?"":" empty"}">${(intake.damage||"Not specified").replace(/\n/g,"<br>")}</div></div>
 <div class="field"><div class="flbl">Condition on arrival</div><div class="fval${intake.condition?"":" empty"}">${(intake.condition||"Not specified").replace(/\n/g,"<br>")}</div></div>
 ${intake.instructions?`<div class="field"><div class="flbl">Client instructions</div><div class="fval">${intake.instructions.replace(/\n/g,"<br>")}</div></div>`:""}
-<div class="field"><div class="flbl">Agreed turnaround date</div><div class="fval${intake.turnaround?"":" empty"}">${intake.turnaround?fmtDate(intake.turnaround):"Not specified"}</div></div>
+<div class="field" style="display:flex;gap:24px"><div style="flex:1"><div class="flbl">Date taken in</div><div class="fval${job.dateIn?"":" empty"}">${job.dateIn?fmtDate(job.dateIn):"Not specified"}</div></div><div style="flex:1"><div class="flbl">Date of pickup / collection</div><div class="fval${job.dateOut?"":" empty"}">${job.dateOut?fmtDate(job.dateOut):"Not specified"}</div></div></div>
 <div class="section-title">Terms & Disclaimer</div>
 <div class="disclaimer">
   <strong>Gemstone &amp; Diamond Setting:</strong> When you provide gemstones or diamonds for setting into a piece of jewellery that we have not personally crafted or sourced, we cannot assume responsibility for any damage that may occur to the provided gemstones or diamonds during the setting or repair process. The quality, integrity, and condition of externally sourced stones are solely the responsibility of the client. We highly recommend consulting with a reputable gemologist or ensuring the durability and suitability of your stones before bringing them for repair. By submitting items for repair involving externally sourced stones, you acknowledge and accept that we cannot be held liable for any potential damage incurred.<br><br>
@@ -1236,7 +1236,7 @@ function ClientDetail({clientId,clients,jobs,quotes,payments,markupTable,setView
 
 // ── Jobs ──────────────────────────────────────────────────────────────────
 function JobForm({clients,initial={},onSave,onCancel}){
-  const[f,setF]=useState({clientId:"",type:JOB_TYPES[0],stage:JOB_STAGES[0],description:"",deadline:"",notes:"",supplier:"",supplierRef:"",totalOverride:"",...initial});
+  const[f,setF]=useState({clientId:"",type:JOB_TYPES[0],stage:JOB_STAGES[0],description:"",deadline:"",dateIn:"",dateOut:"",notes:"",supplier:"",supplierRef:"",totalOverride:"",...initial});
   const set=k=>v=>setF(p=>({...p,[k]:v}));
   return <div>
     <Input label="Client" value={f.clientId} onChange={set("clientId")} as="select" options={[{value:"",label:"— Select a client —"},...clients.map(c=>({value:c.id,label:c.name}))]}/>
@@ -1244,6 +1244,10 @@ function JobForm({clients,initial={},onSave,onCancel}){
       <Input label="Job type" value={f.type} onChange={set("type")} as="select" options={JOB_TYPES}/>
       <Input label="Stage" value={f.stage} onChange={set("stage")} as="select" options={JOB_STAGES}/>
       <Input label="Due date" value={f.deadline} onChange={set("deadline")} type="date"/>
+    </div>
+    <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"0 16px"}}>
+      <Input label="Date taken in" value={f.dateIn} onChange={set("dateIn")} type="date"/>
+      <Input label="Date of pickup / collection" value={f.dateOut} onChange={set("dateOut")} type="date"/>
     </div>
     <div style={{borderTop:`1px solid ${BD}`,margin:"6px 0 16px"}}/>
     <div style={{background:GOLD_L,border:`1px solid ${GOLD}55`,borderRadius:10,padding:"12px 16px",marginBottom:16}}>
@@ -1443,22 +1447,29 @@ function JobImages({job,setJobs}){
 function RepairIntakeCard({job,setJobs,biz,clients}){
   const c=clients.find(x=>x.id===job.clientId);
   const intake=job.intake||{};
-  const[f,setF]=useState({itemType:intake.itemType||"",turnaround:intake.turnaround||"",damage:intake.damage||"",condition:intake.condition||"",instructions:intake.instructions||""});
+  const[f,setF]=useState({itemType:intake.itemType||"",damage:intake.damage||"",condition:intake.condition||"",instructions:intake.instructions||""});
+  const[dIn,setDIn]=useState(job.dateIn||"");
+  const[dOut,setDOut]=useState(job.dateOut||"");
   const persist_=patch=>{setJobs(p=>{const n=p.map(j=>j.id===job.id?{...j,intake:{...j.intake,...patch}}:j);persist(K.jo,n);return n;});};
+  const persistJob=patch=>{setJobs(p=>{const n=p.map(j=>j.id===job.id?{...j,...patch}:j);persist(K.jo,n);return n;});};
   const blur=k=>e=>persist_({[k]:e.target.value});
   return <Card id="repair-intake">
     <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:16}}>
       <div style={{fontWeight:700,fontSize:15,color:INK}}>Repair Intake</div>
-      <Btn sm ghost onClick={()=>printRepairIntake(biz,c,{...job,intake:{...intake,...f}})}>Print / Save PDF</Btn>
+      <Btn sm ghost onClick={()=>printRepairIntake(biz,c,{...job,dateIn:dIn,dateOut:dOut,intake:{...intake,...f}})}>Print / Save PDF</Btn>
     </div>
-    <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:14,marginBottom:14}}>
+    <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:14,marginBottom:14}}>
       <div>
         <div style={SS.lbl}>Item type</div>
         <input style={SS.inp} value={f.itemType} placeholder="e.g. Gold ring, silver bracelet…" onChange={e=>setF(p=>({...p,itemType:e.target.value}))} onBlur={blur("itemType")}/>
       </div>
       <div>
-        <div style={SS.lbl}>Agreed turnaround date</div>
-        <input type="date" style={SS.inp} value={f.turnaround} onChange={e=>{setF(p=>({...p,turnaround:e.target.value}));persist_({turnaround:e.target.value});}}/>
+        <div style={SS.lbl}>Date taken in</div>
+        <input type="date" style={SS.inp} value={dIn} onChange={e=>{setDIn(e.target.value);persistJob({dateIn:e.target.value});}}/>
+      </div>
+      <div>
+        <div style={SS.lbl}>Date of pickup / collection</div>
+        <input type="date" style={SS.inp} value={dOut} onChange={e=>{setDOut(e.target.value);persistJob({dateOut:e.target.value});}}/>
       </div>
     </div>
     <div style={{marginBottom:14}}>
@@ -1522,6 +1533,7 @@ function JobDetail({jobId,jobs,setJobs,clients,quotes,setQuotes,payments,setPaym
     <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:20}}>
       <div><h1 style={{margin:0,fontSize:24,fontWeight:800,color:INK,letterSpacing:"-0.02em"}}>{job.type}</h1>
       <div style={{color:WG,fontSize:13,marginTop:3}}>{c?.name} · Due {fmtDate(job.deadline)}</div>
+      {(job.dateIn||job.dateOut)&&<div style={{fontSize:12,color:WG,marginTop:2}}>Taken in: <b style={{color:INK}}>{job.dateIn?fmtDate(job.dateIn):"—"}</b> · Pickup: <b style={{color:INK}}>{job.dateOut?fmtDate(job.dateOut):"—"}</b></div>}
       {job.supplier&&<div style={{fontSize:12,color:WG,marginTop:2}}>Supplier: {job.supplier}{job.supplierRef?` · ${job.supplierRef}`:""}</div>}</div>
       <div style={{display:"flex",gap:8,alignItems:"center"}}>
         <Badge label={job.stage} color={SC[job.stage]||WG} size="lg"/>
@@ -2507,6 +2519,10 @@ function ProposalPreview({quote,job,clients=[],biz,calc,onClose}){
               ?<div style={{fontSize:13,color:"#444",lineHeight:1.75,fontFamily:"Georgia,serif"}}>{description}</div>
               :<div style={{fontSize:12,color:WG,fontStyle:"italic",fontFamily:"'DM Sans',sans-serif"}}>No description added — edit quote to add one.</div>
             }
+            {(job?.dateIn||job?.dateOut)&&<div style={{marginTop:16,display:"flex",gap:28}}>
+              <div><div style={{fontSize:9,fontWeight:700,color:WG,letterSpacing:"0.16em",textTransform:"uppercase",marginBottom:4,fontFamily:"'DM Sans',sans-serif"}}>Taken in</div><div style={{fontSize:13,fontWeight:600,color:INK,fontFamily:"'DM Sans',sans-serif"}}>{job?.dateIn?fmtDate(job.dateIn):"—"}</div></div>
+              <div><div style={{fontSize:9,fontWeight:700,color:WG,letterSpacing:"0.16em",textTransform:"uppercase",marginBottom:4,fontFamily:"'DM Sans',sans-serif"}}>Pickup / collection</div><div style={{fontSize:13,fontWeight:600,color:INK,fontFamily:"'DM Sans',sans-serif"}}>{job?.dateOut?fmtDate(job.dateOut):"—"}</div></div>
+            </div>}
           </div>
         </div>
 
@@ -2656,7 +2672,8 @@ function QuoteDetail({quoteId,quotes,setQuotes,jobs,clients,biz,markupTable,natu
     <button onClick={()=>setView("jobDetail_"+q.jobId)} style={{background:"none",border:"none",cursor:"pointer",color:GOLD,fontSize:13,fontWeight:700,fontFamily:"inherit",marginBottom:18,padding:0}}>← Back to job</button>
     <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:20}}>
       <div><h1 style={{margin:0,fontSize:24,fontWeight:800,color:INK,letterSpacing:"-0.02em"}}>Quote #{q.id.slice(-4).toUpperCase()}</h1>
-      <div style={{color:WG,fontSize:13,marginTop:3}}>{job?.type} · {c?.name} · {fmtDate(q.createdAt)}</div></div>
+      <div style={{color:WG,fontSize:13,marginTop:3}}>{job?.type} · {c?.name} · {fmtDate(q.createdAt)}</div>
+      {(job?.dateIn||job?.dateOut)&&<div style={{color:WG,fontSize:12,marginTop:2}}>Taken in: <b style={{color:INK}}>{job?.dateIn?fmtDate(job.dateIn):"—"}</b> · Pickup: <b style={{color:INK}}>{job?.dateOut?fmtDate(job.dateOut):"—"}</b></div>}</div>
       <div style={{display:"flex",gap:10,alignItems:"center"}}>
         <Badge label={q.status} color={q.status==="Approved"?OK:q.status==="Draft"?WG:GOLD_D}/>
         <Btn sm ghost onClick={()=>setView("editQuote_"+q.id)}>✏ Edit quote</Btn>
@@ -4377,7 +4394,7 @@ function Appointments({appointments,setAppointments,clients,setClients,jobs=[],s
       newClient={id:uid(),name,email:"",phone:"",street:"",city:"",state:"",postcode:"",notes:`Added from ${a.type} appointment on ${fmtDate(a.date)}.`,createdAt:today()};
       clientId=newClient.id;
     }else if(!confirm("Create a Repair job for this client and open the intake form?"))return;
-    const job={id:uid(),clientId,type:"Repair",stage:"Enquiry",description:a.notes||"",deadline:"",notes:"",supplier:"",supplierRef:"",totalOverride:"",createdAt:today()};
+    const job={id:uid(),clientId,type:"Repair",stage:"Enquiry",description:a.notes||"",deadline:"",dateIn:a.date||today(),dateOut:"",notes:"",supplier:"",supplierRef:"",totalOverride:"",createdAt:today()};
     if(newClient)setClients(p=>{const n=[...p,newClient];persist(K.cl,n);return n;});
     if(setJobs)setJobs(p=>{const n=[...p,job];persist(K.jo,n);return n;});
     setAppointments(p=>{const n=p.map(x=>x.id===a.id?{...x,clientId,clientName:newClient?"":x.clientName,jobId:job.id}:x);persist(K.ap,n);return n;});
