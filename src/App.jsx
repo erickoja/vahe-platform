@@ -633,6 +633,8 @@ const lineCostHigh=li=>Number(li.costHigh)||0;
 const lineIsRange=li=>lineCostHigh(li)>lineCostLow(li);
 
 const calcQuote=(items,table)=>{
+  // Accent stones set to follow the stone (centre-stone) markup are priced separately, not as jewellery.
+  items=(items||[]).filter(i=>i.markupMode!=="natural"&&i.markupMode!=="lab");
   const mItems=items.filter(i=>!i.noMarkup);
   const fItems=items.filter(i=>i.noMarkup);
   const base=mItems.reduce((s,li)=>s+lineCost(li),0);
@@ -654,7 +656,7 @@ const jobChargeTotal=(job,quotes,markupTable)=>{
   const ov=Number(job?.totalOverride);
   if(ov>0)return ov;
   const aq=(quotes||[]).filter(q=>q.jobId===job.id&&q.status==="Approved");
-  return aq.reduce((s,q)=>{const c=calcQuote(q.lineItems,markupTable);return s+(c.isRange?c.finalHigh:c.finalLow)+(q.stoneClientTotal||0);},0);
+  return aq.reduce((s,q)=>{const c=calcQuote(q.lineItems,markupTable);return s+(c.isRange?c.finalHigh:c.finalLow)+(q.stoneClientTotal||0)+(q.accentStoneTotal||0);},0);
 };
 // True if the job has any agreed charge (override or approved quote)
 const jobHasCharge=(job,quotes)=>Number(job?.totalOverride)>0||(quotes||[]).some(q=>q.jobId===job.id&&q.status==="Approved");
@@ -1559,7 +1561,7 @@ function JobDetail({jobId,jobs,setJobs,clients,quotes,setQuotes,payments,setPaym
     const calc=calcQuote(q.lineItems,markupTable);
     // GST-inclusive model: the quoted price already includes GST. Total = quoted price;
     // the GST component is total ÷ 11 (disclosed on the invoice, never added on top).
-    const totalIncGST=calc.finalLow+(q.stoneClientTotal||0);
+    const totalIncGST=calc.finalLow+(q.stoneClientTotal||0)+(q.accentStoneTotal||0);
     const gst=totalIncGST-totalIncGST/(1+GST_RATE);
     const exGST=totalIncGST-gst;
     const num=nextInvoiceNumber(invoices);
@@ -1639,7 +1641,7 @@ function JobDetail({jobId,jobs,setJobs,clients,quotes,setQuotes,payments,setPaym
       {jq.map(q=>{
         const calc=calcQuote(q.lineItems,markupTable);
         const hasInv=invoices.some(i=>i.quoteId===q.id);
-        const stoneTotal=q.stoneClientTotal||0;
+        const stoneTotal=(q.stoneClientTotal||0)+(q.accentStoneTotal||0);
         const priceStr=(calc.base>0&&!calc.bracket)?"—":fmtR(calc.finalLow+stoneTotal);
         return <div key={q.id} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"10px 0",borderBottom:`1px solid ${BD}`}}>
           <div style={{cursor:"pointer",flex:1}} onClick={()=>setView("quoteDetail_"+q.id)}>
@@ -2045,7 +2047,10 @@ function QuoteBuilder({jobId:jobIdProp,editQuoteId,jobs,clients,quotes,setQuotes
   const activeStoneMarkup=stoneType==="lab"?labStoneMarkup:naturalStoneMarkup;
   const stoneCalc=stoneMode==="sourcing"&&stoneType&&validStoneItems.length>0?calcStoneQuote(validStoneItems,activeStoneMarkup):null;
   const stoneClientTotal=stoneCalc?.clientTotal||0;
-  const grandTotal=calc.finalLow+stoneClientTotal;
+  // Accent/fancy stones set to follow the stone markup — each priced like the centre stone (cost × stone tier + 10% GST)
+  const accentStoneItems=validAccentItems.filter(i=>i.markupMode==="natural"||i.markupMode==="lab");
+  const accentStoneTotal=accentStoneItems.reduce((s,i)=>{const sc=calcStoneQuote([{cost:i.costLow}],i.markupMode==="lab"?labStoneMarkup:naturalStoneMarkup);return s+(sc?.clientTotal||0);},0);
+  const grandTotal=calc.finalLow+stoneClientTotal+accentStoneTotal;
 
   const save_=status=>{
     const baseValidItems=items.filter(i=>i.description.trim()&&Number(i.costLow)>0);
@@ -2055,12 +2060,12 @@ function QuoteBuilder({jobId:jobIdProp,editQuoteId,jobs,clients,quotes,setQuotes
       // Update existing quote — preserve id, jobId, createdAt
       const updated={...existingQuote,status,validUntil,notes,lineItems:validItems,
         stoneMode,stoneType:stoneMode==="sourcing"?stoneType:"",stoneItems:stoneMode==="sourcing"?validStoneItems:[],
-        stoneNotes,stoneClientTotal:stoneCalc?.clientTotal||0,clientDescription,updatedAt:today()};
+        stoneNotes,stoneClientTotal:stoneCalc?.clientTotal||0,accentStoneTotal,clientDescription,updatedAt:today()};
       setQuotes(p=>{const n=p.map(q=>q.id===editQuoteId?updated:q);persist(K.qu,n);return n;});
     }else{
       const q={id:uid(),jobId,status,createdAt:today(),validUntil,notes,lineItems:validItems,
         stoneMode,stoneType:stoneMode==="sourcing"?stoneType:"",stoneItems:stoneMode==="sourcing"?validStoneItems:[],
-        stoneNotes,stoneClientTotal:stoneCalc?.clientTotal||0,clientDescription};
+        stoneNotes,stoneClientTotal:stoneCalc?.clientTotal||0,accentStoneTotal,clientDescription};
       setQuotes(p=>{const n=[...p,q];persist(K.qu,n);return n;});
     }
     setView("jobDetail_"+jobId);
@@ -2133,7 +2138,7 @@ function QuoteBuilder({jobId:jobIdProp,editQuoteId,jobs,clients,quotes,setQuotes
         <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:12}}>
           <div>
             <div style={{fontSize:11,fontWeight:700,color:WG,textTransform:"uppercase",letterSpacing:"0.08em"}}>Accent &amp; fancy stones</div>
-            <div style={{fontSize:11,color:WG,marginTop:3}}>Coloured gemstones, fancy-cut diamonds &amp; non-standard accents. Included in manufacturing markup.</div>
+            <div style={{fontSize:11,color:WG,marginTop:3}}>Coloured gemstones, fancy-cut diamonds &amp; non-standard accents. Default to manufacturing markup; switch a pricey stone to stone markup.</div>
           </div>
           <button onClick={()=>setAccentModal(true)}
             style={{background:"#EEF4FB",border:"1px solid #8EB5D4",borderRadius:6,padding:"7px 16px",color:"#3B6E8F",fontSize:12,fontWeight:700,cursor:"pointer",fontFamily:"inherit",whiteSpace:"nowrap",flexShrink:0}}>
@@ -2142,18 +2147,28 @@ function QuoteBuilder({jobId:jobIdProp,editQuoteId,jobs,clients,quotes,setQuotes
         </div>
         {accentItems.length===0&&<div style={{fontSize:13,color:WG,fontStyle:"italic",padding:"10px 0"}}>No accent stones added to this quote.</div>}
         {accentItems.length>0&&<>
-          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 110px 36px",gap:8,marginBottom:6,padding:"0 2px"}}>
-            {["Stone","Notes / detail","Your cost",""].map(h=><div key={h} style={{fontSize:10,fontWeight:700,color:WG,textTransform:"uppercase",letterSpacing:"0.04em"}}>{h}</div>)}
+          <div style={{display:"grid",gridTemplateColumns:"1.3fr 1fr 150px 110px 36px",gap:8,marginBottom:6,padding:"0 2px"}}>
+            {["Stone","Notes / detail","Markup","Your cost",""].map(h=><div key={h} style={{fontSize:10,fontWeight:700,color:WG,textTransform:"uppercase",letterSpacing:"0.04em"}}>{h}</div>)}
           </div>
           {accentItems.map(li=>{
             const cost=Number(li.costLow)||0;
-            return <div key={li.id} style={{display:"grid",gridTemplateColumns:"1fr 1fr 110px 36px",gap:8,marginBottom:8,alignItems:"center"}}>
-              <div style={{fontSize:13,fontWeight:600,color:INK,padding:"7px 0"}}>{li.description||<span style={{color:WG,fontStyle:"italic"}}>—</span>}</div>
+            const mode=li.markupMode||"mfg";
+            const stoneMU=mode==="natural"||mode==="lab";
+            const sc=stoneMU&&cost>0?calcStoneQuote([{cost:li.costLow}],mode==="lab"?labStoneMarkup:naturalStoneMarkup):null;
+            return <div key={li.id} style={{display:"grid",gridTemplateColumns:"1.3fr 1fr 150px 110px 36px",gap:8,marginBottom:8,alignItems:"center"}}>
+              <div style={{fontSize:13,fontWeight:600,color:INK,padding:"7px 0"}}>{li.description||<span style={{color:WG,fontStyle:"italic"}}>—</span>}
+                {stoneMU&&<div style={{fontSize:10,color:sc?(sc.bracket?"#7B5EA7":WARN):WG,marginTop:1}}>{sc?(sc.bracket?`→ ${fmtR(sc.clientTotal)} to client (×${sc.mult} + GST)`:"cost outside stone table"):""}</div>}
+              </div>
               <div style={{fontSize:12,color:WG,padding:"7px 0"}}>{li.detail||"—"}</div>
+              <select value={mode} onChange={e=>setAccentItem(li.id,"markupMode",e.target.value)} style={{...SS.inp,marginTop:0,fontSize:12,padding:"7px 8px"}}>
+                <option value="mfg">Manufacturing</option>
+                <option value="natural">Natural stone</option>
+                <option value="lab">Lab stone</option>
+              </select>
               <div style={{position:"relative"}}>
                 <span style={{position:"absolute",left:10,top:"50%",transform:"translateY(-50%)",fontSize:12,color:WG,pointerEvents:"none"}}>$</span>
                 <input type="number" value={li.costLow} onChange={e=>setAccentItem(li.id,"costLow",e.target.value)} placeholder="0.00" min="0" step="0.01"
-                  style={{...SS.inp,marginTop:0,fontSize:13,padding:"7px 8px 7px 22px",textAlign:"right",borderColor:cost>0?"#8EB5D4":BD,fontWeight:cost>0?700:400}}/>
+                  style={{...SS.inp,marginTop:0,fontSize:13,padding:"7px 8px 7px 22px",textAlign:"right",borderColor:cost>0?(stoneMU?"#C4A8F0":"#8EB5D4"):BD,fontWeight:cost>0?700:400}}/>
               </div>
               <button onClick={()=>removeAccentItem(li.id)} style={{background:"none",border:"none",cursor:"pointer",color:DANGER,fontSize:17,padding:0,lineHeight:1,textAlign:"center"}}>×</button>
             </div>;
@@ -2280,6 +2295,7 @@ function QuoteBuilder({jobId:jobIdProp,editQuoteId,jobs,clients,quotes,setQuotes
             <div style={{display:"flex",gap:0,borderRadius:4,overflow:"hidden",border:`1px solid ${BD}`}}>
               {[
                 ["Jewellery piece",calc.bracket?fmtR(calc.finalLow):"—",GOLD,""],
+                ...(accentStoneTotal>0?[["Accent stones",fmtR(accentStoneTotal),"#7B5EA7","+ "]]:[]),
                 ...(stoneMode==="sourcing"&&stoneCalc?[["Stone",fmtR(stoneCalc.clientTotal),stoneType==="lab"?"#7B5EA7":"#3B6E8F","+ "]]:
                    stoneMode==="client"?[["Stone","Client supplying",WG,"+ "]]:
                    []),
@@ -2417,7 +2433,7 @@ function QuoteBuilder({jobId:jobIdProp,editQuoteId,jobs,clients,quotes,setQuotes
 
     {accentModal&&<AccentStoneModal
       pricing={pricing} setPricing={setPricing}
-      onAdd={item=>{setAccentItems(p=>[...p,{...item,id:uid(),accentStone:true,noMarkup:false}]);setAccentModal(false);}}
+      onAdd={item=>{setAccentItems(p=>[...p,{...item,id:uid(),accentStone:true,noMarkup:false,markupMode:"mfg"}]);setAccentModal(false);}}
       onClose={()=>setAccentModal(false)}
     />}
 
@@ -2442,7 +2458,7 @@ function ProposalPreview({quote,job,clients=[],biz,calc,onClose}){
   const stoneTotal=quote.stoneClientTotal||0;
   const markupUndef=calc.base>0&&!calc.bracket;   // jewellery costs present but no markup tier
   const settingTotal=markupUndef?0:calc.finalLow;
-  const grandProposalTotal=settingTotal+stoneTotal;
+  const grandProposalTotal=settingTotal+stoneTotal+(quote.accentStoneTotal||0);
   const priceDisplay=markupUndef?"Quote pending":fmtR(grandProposalTotal);
   const depositAmt=markupUndef?null:fmtR(grandProposalTotal*deposit/100);
   // Client-facing description — manual field takes priority over job description
@@ -2692,7 +2708,8 @@ function QuoteDetail({quoteId,quotes,setQuotes,jobs,clients,biz,markupTable,natu
   const activeStoneMarkup=q.stoneType==="lab"?(labStoneMarkup||[]):(naturalStoneMarkup||[]);
   const stoneCalc=q.stoneMode==="sourcing"&&q.stoneItems?.length?calcStoneQuote(q.stoneItems,activeStoneMarkup):null;
   const stoneClientTotal=stoneCalc?.clientTotal||0;
-  const grandTotal=calc.finalLow+stoneClientTotal;
+  const accentStoneTotal=q.accentStoneTotal||0;
+  const grandTotal=calc.finalLow+stoneClientTotal+accentStoneTotal;
   // "—" only when there ARE jewellery costs but no markup tier matches; a stones-only
   // quote (no line items → base 0) is a valid total, not an undefined one.
   const markupUndef=calc.base>0&&!calc.bracket;
@@ -2736,11 +2753,12 @@ function QuoteDetail({quoteId,quotes,setQuotes,jobs,clients,biz,markupTable,natu
       </div>
       {q.lineItems.map(li=>{
         const cost=lineCost(li);
+        const stoneMU=li.markupMode==="natural"||li.markupMode==="lab";
         return <div key={li.id} style={{display:"grid",gridTemplateColumns:"180px 1fr 44px 110px",gap:6,padding:"9px 0",borderBottom:`1px solid ${BD}`,fontSize:13,alignItems:"center"}}>
           <span style={{fontWeight:600,color:INK}}>{li.description}</span>
           <span style={{color:WG,fontSize:12}}>{li.detail}</span>
-          <span>{li.noMarkup&&<span style={{background:"#7B5EA7",color:WHITE,fontSize:9,fontWeight:700,padding:"2px 6px",borderRadius:2,letterSpacing:"0.04em",whiteSpace:"nowrap"}}>NO MU</span>}</span>
-          <span style={{fontWeight:700,color:li.noMarkup?"#7B5EA7":INK,textAlign:"right"}}>{fmt(cost)}</span>
+          <span>{stoneMU?<span style={{background:"#C4A8F0",color:"#3A2A6A",fontSize:9,fontWeight:700,padding:"2px 6px",borderRadius:2,letterSpacing:"0.04em",whiteSpace:"nowrap"}}>STONE MU</span>:li.noMarkup&&<span style={{background:"#7B5EA7",color:WHITE,fontSize:9,fontWeight:700,padding:"2px 6px",borderRadius:2,letterSpacing:"0.04em",whiteSpace:"nowrap"}}>NO MU</span>}</span>
+          <span style={{fontWeight:700,color:stoneMU?"#7B5EA7":li.noMarkup?"#7B5EA7":INK,textAlign:"right"}}>{fmt(cost)}</span>
         </div>;
       })}
 
@@ -2781,19 +2799,23 @@ function QuoteDetail({quoteId,quotes,setQuotes,jobs,clients,biz,markupTable,natu
         {q.stoneNotes&&<div style={{marginTop:10,fontSize:12,color:WG,fontStyle:"italic"}}>{q.stoneNotes}</div>}
       </div>}
 
-      {/* Grand total bar */}
-      {q.stoneMode==="sourcing"&&stoneCalc&&<div style={{background:INK,borderRadius:4,padding:"14px 20px",marginBottom:16,display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:1}}>
-        {[
+      {/* Grand total bar — shown when there's a centre stone and/or accent stones on stone markup */}
+      {(stoneCalc||accentStoneTotal>0)&&(()=>{
+        const cells=[
           ["Jewellery piece",markupUndef?"—":fmtR(calc.finalLow),GOLD],
-          ["Stone",fmtR(stoneCalc.clientTotal),q.stoneType==="lab"?"#C4A8F0":"#8EB5D4"],
+          ...(accentStoneTotal>0?[["Accent stones",fmtR(accentStoneTotal),"#C4A8F0"]]:[]),
+          ...(stoneCalc?[["Stone",fmtR(stoneCalc.clientTotal),q.stoneType==="lab"?"#C4A8F0":"#8EB5D4"]]:[]),
           ["Combined total",grandStr,OK],
-        ].map(([l,v,col])=>(
-          <div key={l} style={{padding:"8px 14px"}}>
-            <div style={{fontSize:9,fontWeight:700,color:"rgba(255,255,255,0.4)",textTransform:"uppercase",letterSpacing:"0.08em",marginBottom:4}}>{l}</div>
-            <div style={{fontSize:18,fontWeight:800,color:col}}>{v}</div>
-          </div>
-        ))}
-      </div>}
+        ];
+        return <div style={{background:INK,borderRadius:4,padding:"14px 20px",marginBottom:16,display:"grid",gridTemplateColumns:`repeat(${cells.length},1fr)`,gap:1}}>
+          {cells.map(([l,v,col])=>(
+            <div key={l} style={{padding:"8px 14px"}}>
+              <div style={{fontSize:9,fontWeight:700,color:"rgba(255,255,255,0.4)",textTransform:"uppercase",letterSpacing:"0.08em",marginBottom:4}}>{l}</div>
+              <div style={{fontSize:18,fontWeight:800,color:col}}>{v}</div>
+            </div>
+          ))}
+        </div>;
+      })()}
 
       {q.notes&&<div style={{marginTop:4,fontSize:13,color:WG,fontStyle:"italic",borderTop:`1px solid ${BD}`,paddingTop:12}}>{q.notes}</div>}
       {q.validUntil&&<div style={{fontSize:12,color:WG,marginTop:8}}>Valid until {fmtDate(q.validUntil)}</div>}
@@ -2825,7 +2847,7 @@ function QuotesList({quotes,jobs,clients,markupTable,setView}){
       const job=jobs.find(j=>j.id===q.jobId);
       const cl=job?clients.find(x=>x.id===job.clientId):null;
       const calc=calcQuote(q.lineItems,markupTable);
-      const stoneTotal=q.stoneClientTotal||0;
+      const stoneTotal=(q.stoneClientTotal||0)+(q.accentStoneTotal||0);
       const priceStr=(calc.base>0&&!calc.bracket)?"—":fmtR(calc.finalLow+stoneTotal);
       return <Card key={q.id} onClick={()=>setView("quoteDetail_"+q.id)}>
         <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
@@ -3120,14 +3142,15 @@ function InvoicesList({invoices,jobs,clients,quotes,payments,setInvoices,markupT
     const calc=calcQuote(q.lineItems,markupTable);
     const jb=jobs.find(j=>j.id===selJob);
     const jewel=calc.isRange?calc.finalHigh:calc.finalLow;   // GST-inclusive customer price
-    const stoneInc=q.stoneClientTotal||0;                    // GST-inclusive customer price
+    const stoneInc=(q.stoneClientTotal||0)+(q.accentStoneTotal||0);   // centre stone + accent stones on stone markup
     const totalIncGST=jewel+stoneInc;
     const gst=totalIncGST-totalIncGST/(1+GST_RATE);          // GST component (= total ÷ 11)
     const exGST=totalIncGST-gst;
     const num=nextInvoiceNumber(invoices);
     const descriptionOverride=q.clientDescription||jb?.description||"";
-    const lineItems=[...q.lineItems];
-    if(stoneInc>0)lineItems.push({id:uid(),description:(q.stoneType==="lab"?"Lab-grown":"Natural")+" diamond / gemstone",detail:"Supplied & set",costLow:stoneInc.toFixed(2),noMarkup:true});
+    const lineItems=[...q.lineItems];   // accent stones already live in lineItems; only the centre stone needs adding
+    const centreInc=q.stoneClientTotal||0;
+    if(centreInc>0)lineItems.push({id:uid(),description:(q.stoneType==="lab"?"Lab-grown":"Natural")+" diamond / gemstone",detail:"Supplied & set",costLow:centreInc.toFixed(2),noMarkup:true});
     const inv={id:uid(),jobId:selJob,quoteId:selQuote,number:num,date:today(),status:"Unpaid",exGST,gst,totalIncGST,lineItems,notes:q.notes||"",descriptionOverride,calc};
     setInvoices(p=>{const n=[...p,inv];persist(K.inv,n);return n;});
     setModal(false);
@@ -3194,13 +3217,13 @@ function InvoicesList({invoices,jobs,clients,quotes,payments,setInvoices,markupT
         {jobQuotes.length===0?<div style={{background:"#FFF8E1",border:"1px solid #F0C040",borderRadius:4,padding:"10px 14px",fontSize:13,color:WARN,marginTop:6}}>No approved quotes without an invoice. Go to the job and approve a quote first.</div>
         :<select value={selQuote} onChange={e=>setSelQuote(e.target.value)} style={{...SS.inp,marginTop:4}}>
           <option value="">— Select quote —</option>
-          {jobQuotes.map(q=>{const calc=calcQuote(q.lineItems,markupTable);const stoneInc=q.stoneClientTotal||0;const price=(calc.base>0&&!calc.bracket)?"?":fmtR((calc.isRange?calc.finalHigh:calc.finalLow)+stoneInc);return <option key={q.id} value={q.id}>Quote #{q.id.slice(-4).toUpperCase()} · {price} inc GST</option>;})}
+          {jobQuotes.map(q=>{const calc=calcQuote(q.lineItems,markupTable);const stoneInc=(q.stoneClientTotal||0)+(q.accentStoneTotal||0);const price=(calc.base>0&&!calc.bracket)?"?":fmtR((calc.isRange?calc.finalHigh:calc.finalLow)+stoneInc);return <option key={q.id} value={q.id}>Quote #{q.id.slice(-4).toUpperCase()} · {price} inc GST</option>;})}
         </select>}
       </div>}
       {selQuote&&(()=>{const q=quotes.find(x=>x.id===selQuote);const calc=q?calcQuote(q.lineItems,markupTable):null;return calc&&<div style={{background:OK+"11",border:`1px solid ${OK}44`,borderRadius:4,padding:"12px 16px",marginBottom:18,fontSize:13}}>
         <div style={{fontWeight:700,color:INK,marginBottom:4}}>Invoice summary</div>
         <div style={{color:WG}}>Next invoice number: <strong style={{color:INK}}>{nextInvoiceNumber(invoices)}</strong></div>
-        <div style={{color:WG,marginTop:2}}>Amount: <strong style={{color:OK,fontSize:15}}>{fmtR((calc.isRange?calc.finalHigh:calc.finalLow)+(q.stoneClientTotal||0))}</strong> inc GST</div>
+        <div style={{color:WG,marginTop:2}}>Amount: <strong style={{color:OK,fontSize:15}}>{fmtR((calc.isRange?calc.finalHigh:calc.finalLow)+(q.stoneClientTotal||0)+(q.accentStoneTotal||0))}</strong> inc GST</div>
       </div>;})()}
       <div style={{display:"flex",gap:10,justifyContent:"flex-end"}}>
         <Btn ghost onClick={()=>setModal(false)}>Cancel</Btn>
