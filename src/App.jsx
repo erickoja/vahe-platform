@@ -591,6 +591,7 @@ const SEED_NOTES=[
   {id:"n1",jobId:"j1",type:"Client call",text:"Confirmed oval shape, white gold, 4-claw. Happy with design direction.",date:"2024-10-06",createdAt:"2024-10-06T10:30:00"},
   {id:"n2",jobId:"j1",type:"Approval received",text:"Client approved CAD render via email. Proceeding to wax print.",date:"2024-11-02",createdAt:"2024-11-02T14:15:00"},
 ];
+const SEED_APPOINTMENTS=[];
 
 // ── Utils ─────────────────────────────────────────────────────────────────
 const uid=()=>Math.random().toString(36).slice(2,9);
@@ -598,6 +599,25 @@ const fmt=n=>`$${Number(n||0).toLocaleString("en-AU",{minimumFractionDigits:2,ma
 const fmtR=n=>`$${Math.round(Number(n||0)).toLocaleString("en-AU")}`;
 const today=()=>new Date().toISOString().slice(0,10);
 const fmtDate=d=>d?new Date(d).toLocaleDateString("en-AU",{day:"numeric",month:"short",year:"numeric"}):"—";
+// ── Calendar helpers (local-time based, so "today" is correct in AU) ───────
+const pad2=n=>String(n).padStart(2,"0");
+const toISO=d=>`${d.getFullYear()}-${pad2(d.getMonth()+1)}-${pad2(d.getDate())}`;
+const localToday=()=>toISO(new Date());
+const parseISO=s=>{const[y,m,d]=String(s||"").split("-").map(Number);return new Date(y,(m||1)-1,d||1);};
+const addDays=(s,n)=>{const d=parseISO(s);d.setDate(d.getDate()+n);return toISO(d);};
+const addMonths=(s,n)=>{const d=parseISO(s);d.setMonth(d.getMonth()+n);return toISO(d);};
+const startOfWeek=s=>{const d=parseISO(s);const dow=(d.getDay()+6)%7;d.setDate(d.getDate()-dow);return toISO(d);}; // Monday
+const fmtTime=t=>{if(!t)return"";const[h,m]=String(t).split(":").map(Number);if(isNaN(h))return"";const ap=h<12?"am":"pm";return`${h%12||12}:${pad2(m||0)}${ap}`;};
+const fmtDayShort=s=>parseISO(s).toLocaleDateString("en-AU",{weekday:"short",day:"numeric",month:"short"});
+const monthLabel=s=>parseISO(s).toLocaleDateString("en-AU",{month:"long",year:"numeric"});
+const addMin=(t,min)=>{if(!t||!min)return"";const[h,m]=String(t).split(":").map(Number);if(isNaN(h))return"";const tot=h*60+m+Number(min);const hh=Math.floor((tot%1440)/60),mm=tot%60;return`${pad2(hh)}:${pad2(mm)}`;};
+const APPT_TYPES=["Consultation","Engagement Ring","Custom Design","Remodelling","Repair","Wedding Rings"];
+const APPT_COLORS={"Consultation":"#5B7FA6","Engagement Ring":"#9B4F96","Custom Design":"#7B5EA7","Remodelling":"#B05C3A","Repair":"#C47A2E","Wedding Rings":"#2D7A4F"};
+const APPT_STATUSES=["Scheduled","Completed","No-show","Cancelled"];
+const APPT_STATUS_COLORS={"Scheduled":WG,"Completed":OK,"No-show":DANGER,"Cancelled":WARN};
+const DURATION_OPTS=[{value:"",label:"— No set length —"},{value:15,label:"15 min"},{value:30,label:"30 min"},{value:45,label:"45 min"},{value:60,label:"1 hour"},{value:90,label:"1.5 hours"},{value:120,label:"2 hours"}];
+// "Live" appointments = still on the books (not resolved/cancelled)
+const isLiveAppt=a=>!a.status||a.status==="Scheduled";
 
 // ── Markup logic ──────────────────────────────────────────────────────────
 const getMultiplier=(cost,table)=>{
@@ -652,7 +672,7 @@ const calcStoneQuote=(items,table)=>{
   return{totalCost,bracket,mult,markedUp,gst,clientTotal};
 };
 
-const K={cl:"jlr4_clients",jo:"jlr4_jobs",qu:"jlr4_quotes",pa:"jlr4_payments",pr:"jlr4_pricing_v9",biz:"jlr4_biz",no:"jlr4_notes",inv:"jlr4_invoices",spot:"jlr4_spot",mt:"jlr4_markup",smn:"jlr4_stone_nat",sml:"jlr4_stone_lab",csr:"jlr4_centre_rates"};
+const K={cl:"jlr4_clients",jo:"jlr4_jobs",qu:"jlr4_quotes",pa:"jlr4_payments",pr:"jlr4_pricing_v9",biz:"jlr4_biz",no:"jlr4_notes",inv:"jlr4_invoices",spot:"jlr4_spot",mt:"jlr4_markup",smn:"jlr4_stone_nat",sml:"jlr4_stone_lab",csr:"jlr4_centre_rates",ap:"jlr4_appointments"};
 
 // ── Storage layer ───────────────────────────────────────────────────────────
 // Three backends, chosen at runtime:
@@ -999,8 +1019,11 @@ ${inv.notes?`<div class="notes">${inv.notes}</div>`:""}
 }
 
 // ── Dashboard ─────────────────────────────────────────────────────────────
-function Dashboard({clients,jobs,quotes,payments,invoices,markupTable,setView}){
+function Dashboard({clients,jobs,quotes,payments,invoices,appointments=[],markupTable,setView,setSelClient}){
   const active=jobs.filter(j=>j.stage!=="Collected");
+  const tISO=localToday();
+  const upcomingAppts=[...appointments].filter(a=>(!a.status||a.status==="Scheduled")&&a.date>=tISO).sort((a,b)=>String(a.date+(a.time||"")).localeCompare(String(b.date+(b.time||"")))).slice(0,6);
+  const todaysAppts=appointments.filter(a=>a.date===tISO&&(!a.status||a.status==="Scheduled"));
   const ready=jobs.filter(j=>j.stage==="Ready for collection");
   const overdue=active.filter(j=>j.deadline&&j.deadline<today());
   const thisMonth=new Date().toISOString().slice(0,7);
@@ -1023,6 +1046,7 @@ function Dashboard({clients,jobs,quotes,payments,invoices,markupTable,setView}){
       <div style={{color:WG,fontSize:14,marginTop:4}}>{fmtDate(today())}</div>
     </div>
     <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(150px,1fr))",gap:14,marginBottom:24}}>
+      <Stat label="Today's appts" value={todaysAppts.length} sub={todaysAppts.length>0?fmtTime(todaysAppts.slice().sort((a,b)=>String(a.time||"").localeCompare(String(b.time||"")))[0].time)+" first":"none today"} tint="blue" icon="◷" onClick={()=>setView("appointments")}/>
       <Stat label="Clients" value={clients.length} tint="blue" icon="♦" onClick={()=>setView("clients")}/>
       <Stat label="Active jobs" value={active.length} tint="lilac" icon="✦" onClick={()=>setView("jobs")}/>
       <Stat label="This month" value={fmt(monthReceived)} sub="payments received" tint="mint" icon="↑"/>
@@ -1048,6 +1072,23 @@ function Dashboard({clients,jobs,quotes,payments,invoices,markupTable,setView}){
         })}
       </Card>
       <div style={{display:"flex",flexDirection:"column",gap:16}}>
+        <Card style={{marginBottom:0}}>
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:14}}>
+            <span style={{fontWeight:700,fontSize:15,color:INK}}>Upcoming appointments</span>
+            <Btn sm ghost onClick={()=>setView("appointments")}>View all</Btn>
+          </div>
+          {upcomingAppts.length===0&&<div style={{color:WG,fontSize:14}}>None scheduled.</div>}
+          {upcomingAppts.map(a=>{
+            const col=APPT_COLORS[a.type]||GOLD;const c=a.clientId&&clients.find(x=>x.id===a.clientId);
+            return <div key={a.id} onClick={c?()=>{setSelClient&&setSelClient(a.clientId);setView("clientDetail");}:()=>setView("appointments")} style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"9px 0",borderBottom:`1px solid ${BD}`,cursor:"pointer"}}>
+              <div style={{minWidth:0}}>
+                <div style={{fontWeight:600,fontSize:13,color:INK,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{apptName(a,clients)} <span style={{color:WG,fontWeight:400}}>· {a.type}</span></div>
+                <div style={{fontSize:12,color:a.date===tISO?GOLD:WG,marginTop:1}}>{a.date===tISO?"Today":fmtDayShort(a.date)}{a.time?` · ${fmtTime(a.time)}`:""}</div>
+              </div>
+              <span style={{width:8,height:8,borderRadius:"50%",background:col,flexShrink:0,marginLeft:10}}/>
+            </div>;
+          })}
+        </Card>
         {balanceOwing.length>0&&<Card style={{marginBottom:0}}>
           <div style={{fontWeight:700,fontSize:15,color:INK,marginBottom:14}}>Balance owing by job</div>
           {balanceOwing.map(({job,balance})=>{
@@ -4253,9 +4294,210 @@ function Settings({biz,setBiz,markupTable,setMarkupTable,naturalStoneMarkup,setN
   </div>;
 }
 
+// ── Appointments ───────────────────────────────────────────────────────────
+const apptName=(a,clients)=>{const c=a.clientId&&clients.find(x=>x.id===a.clientId);return c?c.name:(a.clientName||"—");};
+function MiniBtn({label,color,onClick}){
+  return <button onClick={e=>{e.stopPropagation();onClick();}} style={{background:color+"14",border:`1px solid ${color}44`,borderRadius:20,padding:"3px 10px",fontSize:11,fontWeight:700,color,cursor:"pointer",fontFamily:"inherit"}}>{label}</button>;
+}
+function ApptLegend(){
+  return <div style={{display:"flex",gap:14,flexWrap:"wrap",alignItems:"center",marginBottom:14}}>
+    {APPT_TYPES.map(t=><span key={t} style={{display:"flex",alignItems:"center",gap:6,fontSize:11,color:WG,fontWeight:600}}><span style={{width:9,height:9,borderRadius:"50%",background:APPT_COLORS[t]}}/>{t}</span>)}
+  </div>;
+}
+
+function AppointmentForm({clients,jobs=[],initial={},onSave,onCancel}){
+  const[f,setF]=useState({clientId:"",clientName:"",jobId:"",type:APPT_TYPES[0],date:localToday(),time:"10:00",durationMin:"",status:"Scheduled",notes:"",...initial});
+  const set=k=>v=>setF(p=>({...p,[k]:v}));
+  const setClient=v=>setF(p=>({...p,clientId:v,jobId:""}));   // reset related job when client changes
+  const clientJobs=jobs.filter(j=>j.clientId===f.clientId);
+  const end=addMin(f.time,f.durationMin);
+  return <div>
+    <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:"0 16px"}}>
+      <Input label="Date" value={f.date} onChange={set("date")} type="date"/>
+      <Input label="Time" value={f.time} onChange={set("time")} type="time"/>
+      <Input label="Length" value={f.durationMin} onChange={set("durationMin")} as="select" options={DURATION_OPTS}/>
+    </div>
+    {end&&<div style={{fontSize:11,color:WG,marginTop:-8,marginBottom:12}}>Ends about {fmtTime(end)}</div>}
+    <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"0 16px"}}>
+      <Input label="Appointment type" value={f.type} onChange={set("type")} as="select" options={APPT_TYPES}/>
+      <Input label="Status" value={f.status} onChange={set("status")} as="select" options={APPT_STATUSES}/>
+    </div>
+    <Input label="Existing client" value={f.clientId} onChange={setClient} as="select" options={[{value:"",label:"— New enquiry / not a client yet —"},...clients.map(c=>({value:c.id,label:c.name}))]}/>
+    {!f.clientId&&<Input label="Name" value={f.clientName} onChange={set("clientName")} placeholder="Who is the appointment with?"/>}
+    {f.clientId&&clientJobs.length>0&&<Input label="Related job (optional)" value={f.jobId} onChange={set("jobId")} as="select" options={[{value:"",label:"— Not tied to a job —"},...clientJobs.map(j=>({value:j.id,label:`${j.type} · ${j.stage}`}))]}/>}
+    <Input label="Notes / purpose" value={f.notes} onChange={set("notes")} as="textarea" rows={3} placeholder="What's the appointment about? (ring details, budget, etc.)"/>
+    <div style={{display:"flex",gap:10,justifyContent:"flex-end"}}>
+      <Btn ghost onClick={onCancel}>Cancel</Btn>
+      <Btn onClick={()=>{if(!f.date)return alert("Pick a date");if(!f.clientId&&!f.clientName.trim())return alert("Select a client or enter a name");onSave(f);}}>Save appointment</Btn>
+    </div>
+  </div>;
+}
+
+// Small clickable chip used in week + month calendar cells
+function ApptChip({a,clients,onClick}){
+  const col=APPT_COLORS[a.type]||GOLD;
+  const cancelled=a.status==="Cancelled",dim=cancelled||a.status==="No-show",done=a.status==="Completed";
+  const range=a.durationMin?`${fmtTime(a.time)}–${fmtTime(addMin(a.time,a.durationMin))}`:fmtTime(a.time);
+  return <div onClick={e=>{e.stopPropagation();onClick();}} title={`${range||"(no time)"} · ${a.type} · ${apptName(a,clients)}${a.status&&a.status!=="Scheduled"?` · ${a.status}`:""}`}
+    style={{background:col+(dim?"0D":"1A"),borderLeft:`3px solid ${dim?WG:col}`,borderRadius:6,padding:"3px 6px",fontSize:11,lineHeight:1.3,cursor:"pointer",marginBottom:3,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",opacity:dim?0.6:1,textDecoration:cancelled?"line-through":"none"}}>
+    {a.time&&<b style={{color:dim?WG:col}}>{fmtTime(a.time)}</b>} <span style={{color:INK}}>{apptName(a,clients)}</span>{done&&<span style={{color:OK,fontWeight:700}}> ✓</span>}
+  </div>;
+}
+
+function Appointments({appointments,setAppointments,clients,setClients,jobs=[],setView,setSelClient,setSelJob}){
+  const[modal,setModal]=useState(null);     // "add" | {prefillDate} | appointment(edit)
+  const[mode,setMode]=useState("list");     // list | week | month
+  const[anchor,setAnchor]=useState(localToday());
+  const[showPast,setShowPast]=useState(false);
+
+  const save=(form,id)=>{
+    // Double-booking guard: warn if another live appointment shares the same date + time
+    const clash=appointments.find(a=>a.id!==id&&a.date===form.date&&a.time&&a.time===form.time&&isLiveAppt(a)&&isLiveAppt(form));
+    if(clash&&!confirm(`Heads up — you already have ${apptName(clash,clients)} (${clash.type}) booked at ${fmtTime(form.time)} on ${fmtDayShort(form.date)}. Book anyway?`))return;
+    setAppointments(p=>{const n=id?p.map(a=>a.id===id?{...a,...form}:a):[...p,{...form,id:uid(),createdAt:today()}];persist(K.ap,n);return n;});
+    setModal(null);
+  };
+  const del=id=>{if(!confirm("Delete this appointment?"))return;setAppointments(p=>{const n=p.filter(a=>a.id!==id);persist(K.ap,n);return n;});setModal(null);};
+  const setStatus=(id,status)=>{setAppointments(p=>{const n=p.map(a=>a.id===id?{...a,status}:a);persist(K.ap,n);return n;});};
+  const convertToClient=a=>{
+    const name=(a.clientName||"").trim();if(!name)return;
+    if(!confirm(`Create a client record for "${name}" and link this appointment to it?`))return;
+    const nc={id:uid(),name,email:"",phone:"",street:"",city:"",state:"",postcode:"",notes:`Added from ${a.type} appointment on ${fmtDate(a.date)}.`,createdAt:today()};
+    setClients(p=>{const n=[...p,nc];persist(K.cl,n);return n;});
+    setAppointments(p=>{const n=p.map(x=>x.id===a.id?{...x,clientId:nc.id,clientName:""}:x);persist(K.ap,n);return n;});
+  };
+
+  const byDay=useMemo(()=>{const m={};appointments.forEach(a=>{(m[a.date]=m[a.date]||[]).push(a);});Object.values(m).forEach(arr=>arr.sort((x,y)=>String(x.time||"").localeCompare(String(y.time||""))));return m;},[appointments]);
+  const sorted=useMemo(()=>[...appointments].sort((a,b)=>String(a.date+(a.time||"")).localeCompare(String(b.date+(b.time||"")))),[appointments]);
+  const tISO=localToday();
+
+  const isEdit=modal&&modal.id;
+  const modalInitial=modal==="add"?{}:(modal&&modal.prefillDate?{date:modal.prefillDate}:(isEdit?modal:{}));
+
+  // ── Toolbar ──
+  const pill=(val,label)=><button key={val} onClick={()=>setMode(val)} style={{padding:"5px 14px",borderRadius:20,border:`1px solid ${mode===val?GOLD:BD}`,background:mode===val?GOLD:"transparent",color:mode===val?WHITE:WG,fontSize:12,fontWeight:700,cursor:"pointer",fontFamily:"inherit"}}>{label}</button>;
+  const navBtn=(label,onClick)=><button onClick={onClick} style={{background:WHITE,border:`1px solid ${BD}`,borderRadius:8,padding:"6px 12px",fontSize:13,fontWeight:700,color:INK,cursor:"pointer",fontFamily:"inherit"}}>{label}</button>;
+
+  const renderList=()=>{
+    const upcoming=sorted.filter(a=>isLiveAppt(a)&&a.date>=tISO);
+    const past=sorted.filter(a=>!(isLiveAppt(a)&&a.date>=tISO)).reverse();
+    const list=showPast?past:upcoming;
+    const days=[...new Set(list.map(a=>a.date))];
+    return <div>
+      <div style={{display:"flex",gap:6,marginBottom:16}}>
+        <button onClick={()=>setShowPast(false)} style={{padding:"5px 14px",borderRadius:20,border:`1px solid ${!showPast?GOLD:BD}`,background:!showPast?GOLD:"transparent",color:!showPast?WHITE:WG,fontSize:12,fontWeight:700,cursor:"pointer",fontFamily:"inherit"}}>Upcoming ({upcoming.length})</button>
+        <button onClick={()=>setShowPast(true)} style={{padding:"5px 14px",borderRadius:20,border:`1px solid ${showPast?GOLD:BD}`,background:showPast?GOLD:"transparent",color:showPast?WHITE:WG,fontSize:12,fontWeight:700,cursor:"pointer",fontFamily:"inherit"}}>Past &amp; resolved ({past.length})</button>
+      </div>
+      {list.length===0&&<Card><div style={{color:WG,fontSize:14,textAlign:"center",padding:"14px 0"}}>No {showPast?"past or resolved":"upcoming"} appointments.</div></Card>}
+      {days.map(d=>(
+        <Card key={d}>
+          <div style={{...SS.lbl,marginBottom:10,color:d===tISO?GOLD:WG}}>{d===tISO?"Today · ":""}{fmtDayShort(d)}</div>
+          {byDay[d].filter(a=>list.includes(a)).map(a=>{
+            const col=APPT_COLORS[a.type]||GOLD;
+            const c=a.clientId&&clients.find(x=>x.id===a.clientId);
+            const job=a.jobId&&jobs.find(j=>j.id===a.jobId);
+            const cancelled=a.status==="Cancelled";
+            return <div key={a.id} style={{display:"flex",alignItems:"flex-start",gap:14,padding:"12px 0",borderBottom:`1px solid ${BD}`,opacity:cancelled?0.6:1}}>
+              <div style={{width:78,flexShrink:0}}>
+                <div style={{fontSize:13,fontWeight:700,color:INK,textDecoration:cancelled?"line-through":"none"}}>{fmtTime(a.time)||"—"}</div>
+                {a.durationMin?<div style={{fontSize:11,color:WG,marginTop:1}}>to {fmtTime(addMin(a.time,a.durationMin))}</div>:null}
+              </div>
+              <div style={{flex:1,minWidth:0}}>
+                <div style={{display:"flex",alignItems:"center",gap:8,flexWrap:"wrap"}}>
+                  <Badge label={a.type} color={col}/>
+                  <span onClick={c?()=>{setSelClient(a.clientId);setView("clientDetail");}:undefined} style={{fontWeight:700,fontSize:14,color:INK,cursor:c?"pointer":"default",textDecoration:c?"underline":"none",textDecorationColor:BD}}>{apptName(a,clients)}</span>
+                  {!c&&a.clientName&&<span style={{fontSize:11,color:WG,fontStyle:"italic"}}>new enquiry</span>}
+                  {a.status&&a.status!=="Scheduled"&&<Badge label={a.status} color={APPT_STATUS_COLORS[a.status]||WG}/>}
+                </div>
+                {job&&<div onClick={()=>{setSelJob&&setSelJob(a.jobId);setView("jobDetail");}} style={{fontSize:12,color:GOLD,marginTop:4,cursor:"pointer",fontWeight:600}}>↳ {job.type} · {job.stage}</div>}
+                {a.notes&&<div style={{fontSize:13,color:WG,marginTop:4,lineHeight:1.5}}>{a.notes}</div>}
+                <div style={{display:"flex",gap:6,marginTop:8,flexWrap:"wrap"}}>
+                  {isLiveAppt(a)&&<>
+                    <MiniBtn label="✓ Done" color={OK} onClick={()=>setStatus(a.id,"Completed")}/>
+                    <MiniBtn label="No-show" color={DANGER} onClick={()=>setStatus(a.id,"No-show")}/>
+                    <MiniBtn label="Cancel" color={WARN} onClick={()=>setStatus(a.id,"Cancelled")}/>
+                  </>}
+                  {!isLiveAppt(a)&&<MiniBtn label="↺ Reschedule" color={WG} onClick={()=>setStatus(a.id,"Scheduled")}/>}
+                  {!a.clientId&&a.clientName&&<MiniBtn label="+ Create client" color={GOLD} onClick={()=>convertToClient(a)}/>}
+                </div>
+              </div>
+              <div style={{display:"flex",gap:6,flexShrink:0}}>
+                <Btn sm ghost onClick={()=>setModal(a)}>Edit</Btn>
+                <Btn sm danger onClick={()=>del(a.id)}>×</Btn>
+              </div>
+            </div>;
+          })}
+        </Card>
+      ))}
+    </div>;
+  };
+
+  const renderWeek=()=>{
+    const ws=startOfWeek(anchor);
+    const days=Array.from({length:7},(_,i)=>addDays(ws,i));
+    return <div>
+      <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:14}}>
+        {navBtn("‹",()=>setAnchor(addDays(anchor,-7)))}
+        {navBtn("Today",()=>setAnchor(localToday()))}
+        {navBtn("›",()=>setAnchor(addDays(anchor,7)))}
+        <div style={{fontSize:15,fontWeight:800,color:INK,marginLeft:6}}>{fmtDayShort(ws)} – {fmtDayShort(days[6])}</div>
+      </div>
+      <ApptLegend/>
+      <div style={{display:"grid",gridTemplateColumns:"repeat(7,1fr)",gap:8,alignItems:"start"}}>
+        {days.map(d=>{
+          const isT=d===tISO;const list=byDay[d]||[];
+          return <div key={d} onClick={()=>setModal({prefillDate:d})} style={{background:WHITE,border:`1px solid ${isT?GOLD:BD_SOFT}`,borderRadius:12,minHeight:160,padding:"10px 9px",cursor:"pointer"}}>
+            <div style={{fontSize:11,fontWeight:700,textTransform:"uppercase",letterSpacing:"0.04em",color:isT?GOLD:WG,marginBottom:8}}>{parseISO(d).toLocaleDateString("en-AU",{weekday:"short"})} {parseISO(d).getDate()}</div>
+            {list.map(a=><ApptChip key={a.id} a={a} clients={clients} onClick={()=>setModal(a)}/>)}
+          </div>;
+        })}
+      </div>
+      <div style={{fontSize:12,color:WG,marginTop:12}}>Tip: click any day to add an appointment.</div>
+    </div>;
+  };
+
+  const renderMonth=()=>{
+    const first=anchor.slice(0,8)+"01";
+    const gridStart=startOfWeek(first);
+    const cells=Array.from({length:42},(_,i)=>addDays(gridStart,i));
+    const curMonth=first.slice(0,7);
+    const dow=["Mon","Tue","Wed","Thu","Fri","Sat","Sun"];
+    return <div>
+      <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:14}}>
+        {navBtn("‹",()=>setAnchor(addMonths(anchor,-1)))}
+        {navBtn("Today",()=>setAnchor(localToday()))}
+        {navBtn("›",()=>setAnchor(addMonths(anchor,1)))}
+        <div style={{fontSize:15,fontWeight:800,color:INK,marginLeft:6}}>{monthLabel(first)}</div>
+      </div>
+      <ApptLegend/>
+      <div style={{display:"grid",gridTemplateColumns:"repeat(7,1fr)",gap:1,background:BD,border:`1px solid ${BD}`,borderRadius:12,overflow:"hidden"}}>
+        {dow.map(d=><div key={d} style={{background:PARCH,padding:"7px 0",textAlign:"center",fontSize:10,fontWeight:700,textTransform:"uppercase",letterSpacing:"0.06em",color:WG}}>{d}</div>)}
+        {cells.map(d=>{
+          const isT=d===tISO;const inMonth=d.slice(0,7)===curMonth;const list=byDay[d]||[];
+          return <div key={d} onClick={()=>setModal({prefillDate:d})} style={{background:WHITE,minHeight:104,padding:"5px 6px",cursor:"pointer",opacity:inMonth?1:0.4}}>
+            <div style={{fontSize:12,fontWeight:isT?800:600,color:isT?GOLD:INK,textAlign:"right",marginBottom:3}}>{isT?<span style={{background:GOLD,color:WHITE,borderRadius:"50%",width:20,height:20,display:"inline-flex",alignItems:"center",justifyContent:"center",fontSize:11}}>{parseISO(d).getDate()}</span>:parseISO(d).getDate()}</div>
+            {list.slice(0,3).map(a=><ApptChip key={a.id} a={a} clients={clients} onClick={()=>setModal(a)}/>)}
+            {list.length>3&&<div onClick={e=>{e.stopPropagation();setAnchor(d);setMode("week");}} style={{fontSize:10,fontWeight:700,color:GOLD,cursor:"pointer",paddingLeft:2}}>+{list.length-3} more</div>}
+          </div>;
+        })}
+      </div>
+    </div>;
+  };
+
+  return <div>
+    <SectionHeader title="Appointments" action={<Btn onClick={()=>setModal("add")}>+ New appointment</Btn>}/>
+    <div style={{display:"flex",gap:6,marginBottom:18}}>{pill("list","List")}{pill("week","Week")}{pill("month","Month")}</div>
+    {mode==="list"?renderList():mode==="week"?renderWeek():renderMonth()}
+    {modal&&<Modal title={isEdit?"Edit appointment":"New appointment"} onClose={()=>setModal(null)}>
+      <AppointmentForm clients={clients} jobs={jobs} initial={modalInitial} onSave={f=>save(f,isEdit?modal.id:null)} onCancel={()=>setModal(null)}/>
+    </Modal>}
+  </div>;
+}
+
 // ── Nav + App shell ───────────────────────────────────────────────────────
 const NAV=[
   {id:"dashboard",label:"Dashboard",icon:"⬡"},
+  {id:"appointments",label:"Appointments",icon:"◷"},
   {id:"clients",label:"Clients",icon:"◈"},
   {id:"jobs",label:"Jobs",icon:"◎"},
   {id:"quotes",label:"Quotes",icon:"◇"},
@@ -4309,6 +4551,7 @@ export default function App(){
   const[biz,setBiz]=useState({});
   const[notes,setNotes]=useState(SEED_NOTES);
   const[invoices,setInvoices]=useState([]);
+  const[appointments,setAppointments]=useState(SEED_APPOINTMENTS);
   const[spotPrices,setSpotPrices]=useState(SEED_SPOT);
   const[markupTable,setMarkupTable]=useState(DEFAULT_MARKUP_TABLE);
   const[naturalStoneMarkup,setNaturalStoneMarkup]=useState(DEFAULT_NATURAL_STONE_MARKUP);
@@ -4355,6 +4598,7 @@ export default function App(){
       [K.cl]:setClients,[K.jo]:setJobs,[K.qu]:setQuotes,[K.pa]:setPayments,
       [K.pr]:setPricing,[K.biz]:setBiz,[K.no]:setNotes,[K.inv]:setInvoices,
       [K.mt]:setMarkupTable,[K.smn]:setNaturalStoneMarkup,[K.sml]:setLabStoneMarkup,[K.csr]:setCentreRates,
+      [K.ap]:setAppointments,
     };
     // Normalise legacy values before applying to state
     const applyLoaded=(k,v,setter)=>{
@@ -4431,7 +4675,8 @@ export default function App(){
   },[view]);
 
   const render=()=>{
-    if(view==="dashboard")return <Dashboard clients={clients} jobs={jobs} quotes={quotes} payments={payments} invoices={invoices} markupTable={markupTable} setView={setView}/>;
+    if(view==="dashboard")return <Dashboard clients={clients} jobs={jobs} quotes={quotes} payments={payments} invoices={invoices} appointments={appointments} markupTable={markupTable} setView={setView} setSelClient={setSelClient}/>;
+    if(view==="appointments")return <Appointments appointments={appointments} setAppointments={setAppointments} clients={clients} setClients={setClients} jobs={jobs} setView={setView} setSelClient={setSelClient} setSelJob={setSelJob}/>;
     if(view==="clients")return <Clients clients={clients} setClients={setClients} jobs={jobs} payments={payments} setView={setView} setSelClient={setSelClient}/>;
     if(view==="clientDetail")return <ClientDetail clientId={selClient} clients={clients} jobs={jobs} quotes={quotes} payments={payments} markupTable={markupTable} setView={setView} setSelJob={setSelJob}/>;
     if(view==="jobs")return <Jobs clients={clients} jobs={jobs} setJobs={setJobs} quotes={quotes} setQuotes={setQuotes} payments={payments} setPayments={setPayments} notes={notes} setNotes={setNotes} invoices={invoices} setInvoices={setInvoices} markupTable={markupTable} setView={setView} setSelJob={setSelJob}/>;
