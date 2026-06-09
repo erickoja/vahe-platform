@@ -1557,12 +1557,15 @@ function JobDetail({jobId,jobs,setJobs,clients,quotes,setQuotes,payments,setPaym
   const createInvoice=qid=>{
     const q=quotes.find(x=>x.id===qid);if(!q)return;
     const calc=calcQuote(q.lineItems,markupTable);
-    const exGST=calc.finalLow+(q.stoneClientTotal||0);
-    const gst=exGST*GST_RATE;
+    // GST-inclusive model: the quoted price already includes GST. Total = quoted price;
+    // the GST component is total ÷ 11 (disclosed on the invoice, never added on top).
+    const totalIncGST=calc.finalLow+(q.stoneClientTotal||0);
+    const gst=totalIncGST-totalIncGST/(1+GST_RATE);
+    const exGST=totalIncGST-gst;
     const num=nextInvoiceNumber(invoices);
     // Pre-fill the customer-facing description from the quote (or job) so it's ready to edit
     const descriptionOverride=q.clientDescription||job?.description||"";
-    const inv={id:uid(),jobId,quoteId:qid,number:num,date:today(),status:"Unpaid",exGST,gst,totalIncGST:exGST+gst,lineItems:q.lineItems,notes:q.notes||"",descriptionOverride,calc};
+    const inv={id:uid(),jobId,quoteId:qid,number:num,date:today(),status:"Unpaid",exGST,gst,totalIncGST,lineItems:q.lineItems,notes:q.notes||"",descriptionOverride,calc};
     setInvoices(p=>{const n=[...p,inv];persist(K.inv,n);return n;});
     setView("invoiceDetail_"+inv.id);
   };
@@ -1637,7 +1640,7 @@ function JobDetail({jobId,jobs,setJobs,clients,quotes,setQuotes,payments,setPaym
         const calc=calcQuote(q.lineItems,markupTable);
         const hasInv=invoices.some(i=>i.quoteId===q.id);
         const stoneTotal=q.stoneClientTotal||0;
-        const priceStr=calc.bracket?fmtR(calc.finalLow+stoneTotal):"—";
+        const priceStr=(calc.base>0&&!calc.bracket)?"—":fmtR(calc.finalLow+stoneTotal);
         return <div key={q.id} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"10px 0",borderBottom:`1px solid ${BD}`}}>
           <div style={{cursor:"pointer",flex:1}} onClick={()=>setView("quoteDetail_"+q.id)}>
             <div style={{fontWeight:600,fontSize:14,color:INK}}>Quote #{q.id.slice(-4).toUpperCase()}</div>
@@ -2046,7 +2049,8 @@ function QuoteBuilder({jobId:jobIdProp,editQuoteId,jobs,clients,quotes,setQuotes
 
   const save_=status=>{
     const baseValidItems=items.filter(i=>i.description.trim()&&Number(i.costLow)>0);
-    if(!baseValidItems.length&&!validAccentItems.length&&!validFindingItems.length)return alert("Add at least one cost item.");
+    const hasSourcedStones=stoneMode==="sourcing"&&validStoneItems.length>0;
+    if(!baseValidItems.length&&!validAccentItems.length&&!validFindingItems.length&&!hasSourcedStones)return alert("Add at least one cost item — a line item or a sourced stone.");
     if(isEditing){
       // Update existing quote — preserve id, jobId, createdAt
       const updated={...existingQuote,status,validUntil,notes,lineItems:validItems,
@@ -2436,10 +2440,11 @@ function ProposalPreview({quote,job,clients=[],biz,calc,onClose}){
   const terms=biz.quoteTerms||"All custom jewellery requires a deposit before work commences. The final balance is due prior to collection. Quoted prices are valid for the period stated above. Price variations may apply if material costs change significantly. All pieces are handcrafted to order and cannot be returned unless faulty. Estimated completion times are indicative only.";
   // Grand total = setting final + stone client total (inc GST)
   const stoneTotal=quote.stoneClientTotal||0;
-  const settingTotal=calc.bracket?calc.finalLow:0;
+  const markupUndef=calc.base>0&&!calc.bracket;   // jewellery costs present but no markup tier
+  const settingTotal=markupUndef?0:calc.finalLow;
   const grandProposalTotal=settingTotal+stoneTotal;
-  const priceDisplay=calc.bracket?fmtR(grandProposalTotal):"Quote pending";
-  const depositAmt=calc.bracket?fmtR(grandProposalTotal*deposit/100):null;
+  const priceDisplay=markupUndef?"Quote pending":fmtR(grandProposalTotal);
+  const depositAmt=markupUndef?null:fmtR(grandProposalTotal*deposit/100);
   // Client-facing description — manual field takes priority over job description
   const description=quote.clientDescription||job?.description||"";
 
@@ -2688,7 +2693,10 @@ function QuoteDetail({quoteId,quotes,setQuotes,jobs,clients,biz,markupTable,natu
   const stoneCalc=q.stoneMode==="sourcing"&&q.stoneItems?.length?calcStoneQuote(q.stoneItems,activeStoneMarkup):null;
   const stoneClientTotal=stoneCalc?.clientTotal||0;
   const grandTotal=calc.finalLow+stoneClientTotal;
-  const grandStr=calc.bracket?fmtR(grandTotal):"—";
+  // "—" only when there ARE jewellery costs but no markup tier matches; a stones-only
+  // quote (no line items → base 0) is a valid total, not an undefined one.
+  const markupUndef=calc.base>0&&!calc.bracket;
+  const grandStr=markupUndef?"—":fmtR(grandTotal);
   const setStatus=s=>setQuotes(p=>{
     // Only one approved quote per job: demote any other currently-approved quote on this job
     const n=p.map(x=>{
@@ -2776,8 +2784,8 @@ function QuoteDetail({quoteId,quotes,setQuotes,jobs,clients,biz,markupTable,natu
       {/* Grand total bar */}
       {q.stoneMode==="sourcing"&&stoneCalc&&<div style={{background:INK,borderRadius:4,padding:"14px 20px",marginBottom:16,display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:1}}>
         {[
-          ["Jewellery piece (ex GST)",calc.bracket?fmtR(calc.finalLow):"—",GOLD],
-          ["Stone (inc GST)",fmtR(stoneCalc.clientTotal),q.stoneType==="lab"?"#C4A8F0":"#8EB5D4"],
+          ["Jewellery piece",markupUndef?"—":fmtR(calc.finalLow),GOLD],
+          ["Stone",fmtR(stoneCalc.clientTotal),q.stoneType==="lab"?"#C4A8F0":"#8EB5D4"],
           ["Combined total",grandStr,OK],
         ].map(([l,v,col])=>(
           <div key={l} style={{padding:"8px 14px"}}>
@@ -2818,7 +2826,7 @@ function QuotesList({quotes,jobs,clients,markupTable,setView}){
       const cl=job?clients.find(x=>x.id===job.clientId):null;
       const calc=calcQuote(q.lineItems,markupTable);
       const stoneTotal=q.stoneClientTotal||0;
-      const priceStr=calc.bracket?fmtR(calc.finalLow+stoneTotal):"—";
+      const priceStr=(calc.base>0&&!calc.bracket)?"—":fmtR(calc.finalLow+stoneTotal);
       return <Card key={q.id} onClick={()=>setView("quoteDetail_"+q.id)}>
         <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
           <div>
@@ -2963,7 +2971,7 @@ function InvoicePrintView({inv,job,client,biz,payments,onClose}){
         {/* totals */}
         <div style={{padding:"28px 56px 40px",display:"flex",justifyContent:"flex-end"}}>
           <div style={{minWidth:300}}>
-            {[["Subtotal (ex GST)",fmt(inv.exGST)],["GST (10%)",fmt(inv.gst)],["Total (inc GST)",fmt(inv.totalIncGST)],["Paid to date",fmt(paidTotal)]].map(([l,v])=>(
+            {[["Total (incl. GST)",fmt(inv.totalIncGST)],["Includes GST",fmt(inv.gst)],["Paid to date",fmt(paidTotal)]].map(([l,v])=>(
               <div key={l} style={{display:"flex",justifyContent:"space-between",fontSize:13,padding:"8px 0",borderBottom:`1px solid ${BD_SOFT}`}}>
                 <span style={{color:WG}}>{l}</span><span style={{fontWeight:600,color:INK}}>{v}</span>
               </div>
@@ -3082,10 +3090,10 @@ function InvoiceDetail({invoiceId,invoices,setInvoices,jobs,clients,payments,biz
       ))}
       <div style={{display:"flex",justifyContent:"flex-end",marginTop:16}}>
         <div style={{minWidth:280}}>
-          {[["Subtotal (ex GST)",fmt(inv.exGST)],["GST (10%)",fmt(inv.gst)]].map(([l,v])=>(
+          {[["Includes GST",fmt(inv.gst)]].map(([l,v])=>(
             <div key={l} style={{display:"flex",justifyContent:"space-between",fontSize:13,padding:"4px 0",color:WG}}><span>{l}</span><span>{v}</span></div>
           ))}
-          <div style={{display:"flex",justifyContent:"space-between",fontSize:17,fontWeight:800,color:INK,borderTop:`2px solid ${INK}`,marginTop:8,paddingTop:10}}><span>Total inc GST</span><span>{fmt(inv.totalIncGST)}</span></div>
+          <div style={{display:"flex",justifyContent:"space-between",fontSize:17,fontWeight:800,color:INK,borderTop:`2px solid ${INK}`,marginTop:8,paddingTop:10}}><span>Total (incl. GST)</span><span>{fmt(inv.totalIncGST)}</span></div>
         </div>
       </div>
       {inv.notes&&<div style={{marginTop:14,fontSize:13,color:WG,fontStyle:"italic",borderTop:`1px solid ${BD}`,paddingTop:10}}>{inv.notes}</div>}
@@ -3110,10 +3118,17 @@ function InvoicesList({invoices,jobs,clients,quotes,payments,setInvoices,markupT
     const q=quotes.find(x=>x.id===selQuote);
     if(!q)return;
     const calc=calcQuote(q.lineItems,markupTable);
-    const exGST=calc.isRange?calc.finalHigh:calc.finalLow;
-    const gst=exGST*GST_RATE;
+    const jb=jobs.find(j=>j.id===selJob);
+    const jewel=calc.isRange?calc.finalHigh:calc.finalLow;   // GST-inclusive customer price
+    const stoneInc=q.stoneClientTotal||0;                    // GST-inclusive customer price
+    const totalIncGST=jewel+stoneInc;
+    const gst=totalIncGST-totalIncGST/(1+GST_RATE);          // GST component (= total ÷ 11)
+    const exGST=totalIncGST-gst;
     const num=nextInvoiceNumber(invoices);
-    const inv={id:uid(),jobId:selJob,quoteId:selQuote,number:num,date:today(),status:"Unpaid",exGST,gst,totalIncGST:exGST+gst,lineItems:q.lineItems,notes:q.notes||"",calc};
+    const descriptionOverride=q.clientDescription||jb?.description||"";
+    const lineItems=[...q.lineItems];
+    if(stoneInc>0)lineItems.push({id:uid(),description:(q.stoneType==="lab"?"Lab-grown":"Natural")+" diamond / gemstone",detail:"Supplied & set",costLow:stoneInc.toFixed(2),noMarkup:true});
+    const inv={id:uid(),jobId:selJob,quoteId:selQuote,number:num,date:today(),status:"Unpaid",exGST,gst,totalIncGST,lineItems,notes:q.notes||"",descriptionOverride,calc};
     setInvoices(p=>{const n=[...p,inv];persist(K.inv,n);return n;});
     setModal(false);
     setView("invoiceDetail_"+inv.id);
@@ -3179,13 +3194,13 @@ function InvoicesList({invoices,jobs,clients,quotes,payments,setInvoices,markupT
         {jobQuotes.length===0?<div style={{background:"#FFF8E1",border:"1px solid #F0C040",borderRadius:4,padding:"10px 14px",fontSize:13,color:WARN,marginTop:6}}>No approved quotes without an invoice. Go to the job and approve a quote first.</div>
         :<select value={selQuote} onChange={e=>setSelQuote(e.target.value)} style={{...SS.inp,marginTop:4}}>
           <option value="">— Select quote —</option>
-          {jobQuotes.map(q=>{const calc=calcQuote(q.lineItems,markupTable);const price=calc.bracket?(calc.isRange?`${fmtR(calc.finalLow)}–${fmtR(calc.finalHigh)}`:fmtR(calc.finalLow)):"?";return <option key={q.id} value={q.id}>Quote #{q.id.slice(-4).toUpperCase()} · {price} inc GST</option>;})}
+          {jobQuotes.map(q=>{const calc=calcQuote(q.lineItems,markupTable);const stoneInc=q.stoneClientTotal||0;const price=(calc.base>0&&!calc.bracket)?"?":fmtR((calc.isRange?calc.finalHigh:calc.finalLow)+stoneInc);return <option key={q.id} value={q.id}>Quote #{q.id.slice(-4).toUpperCase()} · {price} inc GST</option>;})}
         </select>}
       </div>}
       {selQuote&&(()=>{const q=quotes.find(x=>x.id===selQuote);const calc=q?calcQuote(q.lineItems,markupTable):null;return calc&&<div style={{background:OK+"11",border:`1px solid ${OK}44`,borderRadius:4,padding:"12px 16px",marginBottom:18,fontSize:13}}>
         <div style={{fontWeight:700,color:INK,marginBottom:4}}>Invoice summary</div>
         <div style={{color:WG}}>Next invoice number: <strong style={{color:INK}}>{nextInvoiceNumber(invoices)}</strong></div>
-        <div style={{color:WG,marginTop:2}}>Amount: <strong style={{color:OK,fontSize:15}}>{calc.isRange?`${fmtR(calc.finalLow)}–${fmtR(calc.finalHigh)}`:fmtR(calc.finalLow)}</strong> inc GST</div>
+        <div style={{color:WG,marginTop:2}}>Amount: <strong style={{color:OK,fontSize:15}}>{fmtR((calc.isRange?calc.finalHigh:calc.finalLow)+(q.stoneClientTotal||0))}</strong> inc GST</div>
       </div>;})()}
       <div style={{display:"flex",gap:10,justifyContent:"flex-end"}}>
         <Btn ghost onClick={()=>setModal(false)}>Cancel</Btn>
