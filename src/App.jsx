@@ -3667,6 +3667,8 @@ function PricingDB({pricing,setPricing,spotPrices,setSpotPrices,markupTable,cent
   const[regQtys,setRegQtys]=useState({});
   const[editingCostId,setEditingCostId]=useState(null);
   const[editingCostVal,setEditingCostVal]=useState("");
+  const[dragId,setDragId]=useState(null);
+  const[dragOverId,setDragOverId]=useState(null);
   const[savedToast,setSavedToast]=useState(false);
   const[regularEditing,setRegularEditing]=useState(false);
   const[regularEditPrices,setRegularEditPrices]=useState({});
@@ -3720,6 +3722,21 @@ function PricingDB({pricing,setPricing,spotPrices,setSpotPrices,markupTable,cent
 
   const saveItem=(f,id)=>{setPricing(p=>{const n=id?p.map(x=>x.id===id?{...x,...f}:x):[...p,{...f,id:uid()}];persist(K.pr,n);return n;});setModal(null);};
   const del=id=>{if(!confirm("Delete?"))return;setPricing(p=>{const n=p.filter(x=>x.id!==id);persist(K.pr,n);return n;});};
+  // Drag-reorder regular items: reorder within the currently-shown filtered set, keeping
+  // every other item in its original slot in the flat pricing array.
+  const reorderRegular=(draggedId,targetId)=>{
+    if(!draggedId||!targetId||draggedId===targetId)return;
+    const list=filteredRegular.slice();
+    const from=list.findIndex(x=>x.id===draggedId);
+    const to=list.findIndex(x=>x.id===targetId);
+    if(from<0||to<0)return;
+    const[moved]=list.splice(from,1);
+    list.splice(to,0,moved);
+    const ids=new Set(filteredRegular.map(x=>x.id));
+    let k=0;
+    const next=pricing.map(x=>ids.has(x.id)?list[k++]:x);
+    setPricing(next);persist(K.pr,next);showSaved();
+  };
   const saveSettingPrices=updatedItems=>{
     const ids=new Set(updatedItems.map(x=>x.id));
     const merged=pricing.map(x=>ids.has(x.id)?updatedItems.find(u=>u.id===x.id):x);
@@ -3978,7 +3995,7 @@ function PricingDB({pricing,setPricing,spotPrices,setSpotPrices,markupTable,cent
         {/* Table header bar with edit button */}
         <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"10px 16px",background:regularEditing?GOLD_L:PARCH,borderBottom:`1px solid ${regularEditing?GOLD+"55":BD}`}}>
           <div style={{fontSize:11,fontWeight:700,color:regularEditing?GOLD_D:WG,textTransform:"uppercase",letterSpacing:"0.06em"}}>
-            {regularEditing?"Editing prices — update then save":"Click ✎ to update your cost prices"}
+            {regularEditing?"Editing prices — update then save":"Drag ⠿ to reorder · click ✎ to update cost prices"}
           </div>
           <div style={{display:"flex",gap:8}}>
             {regularEditing
@@ -4004,8 +4021,17 @@ function PricingDB({pricing,setPricing,spotPrices,setSpotPrices,markupTable,cent
             const total=!regularEditing&&qty&&Number(qty)>0?item.baseCost*Number(qty):null;
             const showGroupHeader=isRepairsView&&item.group&&item.group!==lastGroup;
             if(showGroupHeader)lastGroup=item.group;
-            const row=<div key={item.id} style={{display:"grid",gridTemplateColumns:"2fr 1fr 60px 110px 90px 90px 60px",padding:"10px 16px",borderBottom:i<filteredRegular.length-1?`1px solid ${BD}`:"none",alignItems:"center"}}>
-                <div style={{fontWeight:600,fontSize:13,color:INK}}>{item.name}</div>
+            const canDrag=!regularEditing;
+            const isDragTarget=dragOverId===item.id&&dragId&&dragId!==item.id;
+            const row=<div key={item.id}
+                draggable={canDrag}
+                onDragStart={canDrag?(e=>{setDragId(item.id);e.dataTransfer.effectAllowed="move";}):undefined}
+                onDragOver={canDrag?(e=>{e.preventDefault();if(dragOverId!==item.id)setDragOverId(item.id);}):undefined}
+                onDragLeave={canDrag?(()=>setDragOverId(o=>o===item.id?null:o)):undefined}
+                onDrop={canDrag?(e=>{e.preventDefault();reorderRegular(dragId,item.id);setDragId(null);setDragOverId(null);}):undefined}
+                onDragEnd={()=>{setDragId(null);setDragOverId(null);}}
+                style={{display:"grid",gridTemplateColumns:"2fr 1fr 60px 110px 90px 90px 60px",padding:"10px 16px",borderBottom:i<filteredRegular.length-1?`1px solid ${BD}`:"none",borderTop:isDragTarget?`2px solid ${GOLD}`:"2px solid transparent",alignItems:"center",opacity:dragId===item.id?0.4:1,background:isDragTarget?GOLD_L+"66":"transparent",transition:"background 0.1s"}}>
+                <div style={{fontWeight:600,fontSize:13,color:INK,display:"flex",alignItems:"center",gap:8}}>{canDrag&&<span title="Drag to reorder" style={{cursor:"grab",color:WG,fontSize:14,lineHeight:1,flexShrink:0}}>⠿</span>}{item.name}</div>
                 <div><Badge label={item.category} color={WG}/></div>
                 <div style={{fontSize:12,color:WG}}>/{item.unit}</div>
                 <div>
