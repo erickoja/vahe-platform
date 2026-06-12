@@ -3095,6 +3095,11 @@ function InvoiceDetail({invoiceId,invoices,setInvoices,jobs,clients,payments,biz
   const c=job?clients.find(x=>x.id===job.clientId):null;
   const[showPrint,setShowPrint]=useState(false);
   const setStatus=s=>setInvoices(p=>{const n=p.map(x=>x.id===invoiceId?{...x,status:s}:x);persist(K.inv,n);return n;});
+  const del=()=>{
+    if(!confirm(`Delete invoice ${inv.number}? This can't be undone. Payments recorded against the job are not affected, and the quote stays so you can re-invoice it.`))return;
+    setInvoices(p=>{const n=p.filter(x=>x.id!==invoiceId);persist(K.inv,n);return n;});
+    setView("invoices");
+  };
   const setDescOverride=v=>setInvoices(p=>{const n=p.map(x=>x.id===invoiceId?{...x,descriptionOverride:v}:x);persist(K.inv,n);return n;});
   const paidTotal=(payments||[]).filter(p=>p.jobId===inv.jobId&&p.status==="Received").reduce((s,p)=>s+Number(p.amount),0);
   const balance=Math.max(0,inv.totalIncGST-paidTotal);
@@ -3112,6 +3117,7 @@ function InvoiceDetail({invoiceId,invoices,setInvoices,jobs,clients,payments,biz
       <div style={{display:"flex",gap:10,alignItems:"center"}}>
         <Badge label={inv.status} color={inv.status==="Paid"?OK:inv.status==="Overdue"?DANGER:WARN} size="lg"/>
         <Btn sm onClick={()=>setShowPrint(true)}>🖨 Preview &amp; Print</Btn>
+        <Btn sm danger onClick={del}>Delete</Btn>
       </div>
     </div>
     <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:12,marginBottom:18}}>
@@ -3189,6 +3195,7 @@ function InvoicesList({invoices,jobs,clients,quotes,payments,setInvoices,markupT
     setModal(false);
     setView("invoiceDetail_"+inv.id);
   };
+  const delInv=(id,e)=>{e.stopPropagation();const iv=invoices.find(x=>x.id===id);if(!confirm(`Delete invoice ${iv?.number||""}? This can't be undone. Payments and the quote are not affected.`))return;setInvoices(p=>{const n=p.filter(x=>x.id!==id);persist(K.inv,n);return n;});};
   const totalOut=invoices.filter(i=>i.status!=="Paid").reduce((s,i)=>s+i.totalIncGST,0);
   const totalPaid=invoices.filter(i=>i.status==="Paid").reduce((s,i)=>s+i.totalIncGST,0);
   return <div>
@@ -3224,6 +3231,7 @@ function InvoicesList({invoices,jobs,clients,quotes,payments,setInvoices,markupT
             <div style={{fontWeight:800,fontSize:17,color:INK,textAlign:"right"}}>
               {fmt(inv.totalIncGST)}<div style={{fontSize:11,color:WG,fontWeight:400}}>inc GST</div>
             </div>
+            <Btn sm danger onClick={e=>delInv(inv.id,e)}>×</Btn>
           </div>
         </div>
       </Card>;
