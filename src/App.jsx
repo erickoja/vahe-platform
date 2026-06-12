@@ -1708,12 +1708,26 @@ function PaymentForm({onSave,onCancel,suggestedAmount}){
 const CAD_TIER_COLORS={"None (no charge)":WG,"Simple Design":"#5B7FA6","Standard Design":GOLD_D,"Complex Design":"#7B5EA7"};
 
 // ── Accent Stone Modal ────────────────────────────────────────────────────
+const STONE_SHAPES=["Round","Marquise","Pear","Oval","Princess","Emerald","Cushion","Baguette","Trillion","Asscher","Radiant","Heart","Other"];
 function AccentStoneModal({pricing,setPricing,onAdd,onClose}){
   const accentDB=pricing.filter(p=>p.category==="Accent Stones");
   const[costs,setCosts]=useState({});
   const[adding,setAdding]=useState(false);
   const[newName,setNewName]=useState("");
   const[newDetail,setNewDetail]=useState("");
+  // Quick structured fancy / cut stone entry
+  const[shape,setShape]=useState("Round");
+  const[size,setSize]=useState("");
+  const[qty,setQty]=useState("");
+  const[perCost,setPerCost]=useState("");
+  const[qMarkup,setQMarkup]=useState("mfg");
+  const qn=Number(qty)||0,cn=Number(perCost)||0,qTotal=qn>0&&cn>0?qn*cn:0;
+  const quickDesc=`${qn>1?qn+" × ":""}${shape}${size?` ${size}`:""}`.trim();
+  const addQuick=()=>{
+    if(qn<=0)return alert("Enter a quantity");
+    if(cn<=0)return alert("Enter your cost per stone");
+    onAdd({description:quickDesc,detail:`${qn} stone${qn!==1?"s":""} × ${fmt(cn)}/stone`,costLow:qTotal.toFixed(2),markupMode:qMarkup});
+  };
   const saveAndAdd=()=>{
     if(!newName.trim())return alert("Enter a stone name");
     const item={id:uid(),category:"Accent Stones",name:newName.trim(),detail:newDetail.trim(),unit:"stone",baseCost:0};
@@ -1722,12 +1736,36 @@ function AccentStoneModal({pricing,setPricing,onAdd,onClose}){
   };
   return <Modal title="Add accent & fancy stone" onClose={onClose}>
     {!adding&&<>
+      {/* Quick structured cut/fancy stone entry */}
+      <div style={{background:PARCH,border:`1px solid ${BD}`,borderRadius:10,padding:"14px 16px",marginBottom:18}}>
+        <div style={{fontSize:11,fontWeight:700,color:WG,textTransform:"uppercase",letterSpacing:"0.06em",marginBottom:10}}>Quick add — cut / fancy stone</div>
+        <div style={{display:"grid",gridTemplateColumns:"1.1fr 1fr 0.6fr 0.9fr",gap:"0 12px"}}>
+          <Input label="Cut / shape" value={shape} onChange={setShape} as="select" options={STONE_SHAPES}/>
+          <Input label="Size / dimensions" value={size} onChange={setSize} placeholder="e.g. 4×2mm"/>
+          <Input label="Qty" value={qty} onChange={setQty} type="number" min="1" placeholder="2"/>
+          <Input label="Cost / stone" value={perCost} onChange={setPerCost} type="number" min="0" step="0.01" placeholder="0.00"/>
+        </div>
+        <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:12,flexWrap:"wrap"}}>
+          <div style={{display:"flex",alignItems:"center",gap:8}}>
+            <span style={{fontSize:12,color:WG,fontWeight:700}}>Markup</span>
+            <select value={qMarkup} onChange={e=>setQMarkup(e.target.value)} style={{...SS.inp,marginTop:0,width:160,fontSize:12,padding:"7px 8px"}}>
+              <option value="mfg">Manufacturing</option>
+              <option value="natural">Natural stone</option>
+              <option value="lab">Lab stone</option>
+            </select>
+          </div>
+          <div style={{display:"flex",alignItems:"center",gap:12}}>
+            {qTotal>0&&<span style={{fontSize:13,color:WG}}>Cost total <b style={{color:INK}}>{fmt(qTotal)}</b></span>}
+            <Btn sm onClick={addQuick}>Add to quote</Btn>
+          </div>
+        </div>
+        {quickDesc&&qn>0&&<div style={{fontSize:11,color:WG,marginTop:8}}>Adds: <strong style={{color:INK}}>{quickDesc}</strong></div>}
+      </div>
+      <div style={{fontSize:10,fontWeight:700,color:WG,letterSpacing:"0.08em",textTransform:"uppercase",marginBottom:10}}>Or pick from your saved catalog</div>
       {accentDB.length===0
-        ?<div style={{textAlign:"center",padding:"24px 0 16px"}}>
-          <div style={{fontSize:28,marginBottom:12}}>💎</div>
-          <div style={{fontSize:14,fontWeight:600,color:INK,marginBottom:6}}>No stones in your catalog yet</div>
-          <div style={{fontSize:13,color:WG,marginBottom:20,lineHeight:1.6}}>Save your commonly used stone types once — then pick them from your catalog in any quote.</div>
-          <Btn onClick={()=>setAdding(true)}>+ Add your first stone type</Btn>
+        ?<div style={{textAlign:"center",padding:"8px 0 4px"}}>
+          <div style={{fontSize:13,color:WG,marginBottom:14,lineHeight:1.6}}>No saved stone types yet. Save your commonly used stones to pick them quickly in future quotes.</div>
+          <Btn sm ghost onClick={()=>setAdding(true)}>+ Add a stone type to catalog</Btn>
         </div>
         :<>
           <div style={{fontSize:13,color:WG,marginBottom:16,lineHeight:1.6}}>Pick a stone and enter your cost for this job.</div>
@@ -1971,6 +2009,8 @@ function QuoteBuilder({jobId:jobIdProp,editQuoteId,jobs,clients,quotes,setQuotes
   const[selCAD,setSelCAD]=useState(null);
   const[pcOverride,setPcOverride]=useState("");
   const[pMode,setPMode]=useState({});   // per-item: "qty" (default) or "amt" (manual figure)
+  const[manLabel,setManLabel]=useState("");
+  const[manAmt,setManAmt]=useState("");
   const[accentModal,setAccentModal]=useState(false);
   const[findingModal,setFindingModal]=useState(false);
   // Centre stone section
@@ -2043,6 +2083,14 @@ function QuoteBuilder({jobId:jobIdProp,editQuoteId,jobs,clients,quotes,setQuotes
     setItems(p=>[...p,{id:uid(),description:"3D Print & Cast",detail:"Manual price",costLow:price.toFixed(2),noMarkup:false}]);
     setPcOverride("");
     setPricingModal(false);
+  };
+
+  // Quick manual line from inside the pricing-DB popup (keeps the popup open so you can keep adding)
+  const addManual=()=>{
+    const amt=Number(manAmt)||0;
+    if(amt<=0)return alert("Enter an amount.");
+    setItems(p=>[...p,{id:uid(),description:manLabel.trim()||"Manual amount",detail:"Manual amount",costLow:amt.toFixed(2),noMarkup:false}]);
+    setManLabel("");setManAmt("");
   };
 
   const addManualAmount=(item,amount)=>{
@@ -2358,6 +2406,16 @@ function QuoteBuilder({jobId:jobIdProp,editQuoteId,jobs,clients,quotes,setQuotes
     </Card>
 
     {pricingModal&&<Modal title="Add from pricing DB" onClose={()=>{setPricingModal(false);setSelCAD(null);}} wide>
+      {/* Quick manual amount — add a custom labelled line without leaving the popup */}
+      <div style={{display:"flex",alignItems:"center",gap:10,background:PARCH,border:`1px solid ${BD}`,borderRadius:8,padding:"10px 12px",marginBottom:12}}>
+        <span style={{background:"#3B6E8F",color:WHITE,fontSize:10,fontWeight:700,padding:"4px 9px",borderRadius:5,letterSpacing:"0.06em",whiteSpace:"nowrap"}}>ADD MANUAL AMOUNT</span>
+        <input value={manLabel} onChange={e=>setManLabel(e.target.value)} placeholder="Label (e.g. Labour)" onKeyDown={e=>{if(e.key==="Enter")addManual();}} style={{...SS.inp,marginTop:0,flex:1}}/>
+        <div style={{position:"relative",width:120,flexShrink:0}}>
+          <span style={{position:"absolute",left:10,top:"50%",transform:"translateY(-50%)",fontSize:13,color:WG,pointerEvents:"none"}}>$</span>
+          <input type="number" value={manAmt} onChange={e=>setManAmt(e.target.value)} min="0" step="0.01" placeholder="0.00" onKeyDown={e=>{if(e.key==="Enter")addManual();}} style={{...SS.inp,marginTop:0,padding:"10px 10px 10px 22px",textAlign:"right",width:"100%"}}/>
+        </div>
+        <Btn onClick={addManual}>Add</Btn>
+      </div>
       <div style={{display:"flex",gap:8,marginBottom:12,flexWrap:"wrap"}}>
         <input value={pSearch} onChange={e=>setPSearch(e.target.value)} placeholder="Search items…" style={{...SS.inp,marginTop:0,flex:1,minWidth:200}}/>
         {["All",...PCAT.filter(c=>c!=="Accent Stones")].map(cat=><button key={cat} onClick={()=>{setPCat(cat);setSelCAD(null);}} style={{padding:"6px 12px",borderRadius:20,border:`1px solid ${pCat===cat?GOLD:BD}`,background:pCat===cat?GOLD:"transparent",color:pCat===cat?WHITE:WG,fontSize:11,fontWeight:700,cursor:"pointer",fontFamily:"inherit"}}>{cat}</button>)}
@@ -2466,7 +2524,7 @@ function QuoteBuilder({jobId:jobIdProp,editQuoteId,jobs,clients,quotes,setQuotes
 
     {accentModal&&<AccentStoneModal
       pricing={pricing} setPricing={setPricing}
-      onAdd={item=>{setAccentItems(p=>[...p,{...item,id:uid(),accentStone:true,noMarkup:false,markupMode:"mfg"}]);setAccentModal(false);}}
+      onAdd={item=>{setAccentItems(p=>[...p,{...item,id:uid(),accentStone:true,noMarkup:false,markupMode:item.markupMode||"mfg"}]);setAccentModal(false);}}
       onClose={()=>setAccentModal(false)}
     />}
 
