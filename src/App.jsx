@@ -2033,6 +2033,19 @@ function QuoteBuilder({jobId:jobIdProp,editQuoteId,jobs,clients,quotes,setQuotes
   const[pMode,setPMode]=useState({});   // per-item: "qty" (default) or "amt" (manual figure)
   const[manLabel,setManLabel]=useState("");
   const[manAmt,setManAmt]=useState("");
+  // Pricing-DB popup: multi-add session — the popup stays open while adding items
+  const[addedIds,setAddedIds]=useState({});       // pricing item id → times added this visit
+  const[pFlash,setPFlash]=useState(null);         // row currently flashing "✓ added"
+  const[sessionAdds,setSessionAdds]=useState([]); // costs added this visit (for the footer tally)
+  const markAdded=(id,cost)=>{setAddedIds(p=>({...p,[id]:(p[id]||0)+1}));setSessionAdds(p=>[...p,Number(cost)||0]);setPFlash(id);setTimeout(()=>setPFlash(f=>f===id?null:f),1400);};
+  const openPricing=()=>{setAddedIds({});setSessionAdds([]);setPricingModal(true);};
+  const closePricing=()=>{setPricingModal(false);setSelCAD(null);};
+  useEffect(()=>{
+    if(!pricingModal)return;
+    const h=e=>{if(e.key==="Escape"){setPricingModal(false);setSelCAD(null);}};
+    window.addEventListener("keydown",h);
+    return()=>window.removeEventListener("keydown",h);
+  },[pricingModal]);
   const[accentModal,setAccentModal]=useState(false);
   const[findingModal,setFindingModal]=useState(false);
   // Centre stone section
@@ -2087,8 +2100,8 @@ function QuoteBuilder({jobId:jobIdProp,editQuoteId,jobs,clients,quotes,setQuotes
       :item.unit==="stone"?`${q} stone${q!==1?"s":""}`
       :q>1?`× ${q}`:"";
     setItems(p=>[...p,{id:uid(),description:desc,detail,costLow:String(totalCost),noMarkup:item.noMarkup||false}]);
-    setPQty({});
-    setPricingModal(false);
+    setPQty(p=>({...p,[item.id]:""}));   // clear this row's qty; popup stays open for more adds
+    markAdded(item.id,totalCost);
   };
 
   const addCentreSetting=(ct,complex,fee)=>{
@@ -2096,7 +2109,7 @@ function QuoteBuilder({jobId:jobIdProp,editQuoteId,jobs,clients,quotes,setQuotes
     const desc=`Centre stone setting — ${complex?"complex":"basic"}`;
     const detail=`${ct}ct centre stone · ${complex?"complex":"basic"} setting (${fmt(perCt)}/ct)`;
     setItems(p=>[...p,{id:uid(),description:desc,detail,costLow:fee.toFixed(2),noMarkup:false}]);
-    setPricingModal(false);
+    markAdded("centre-setting",fee);
   };
 
   const addCustomPrintCast=()=>{
@@ -2104,7 +2117,7 @@ function QuoteBuilder({jobId:jobIdProp,editQuoteId,jobs,clients,quotes,setQuotes
     if(price<=0)return alert("Enter a price.");
     setItems(p=>[...p,{id:uid(),description:"3D Print & Cast",detail:"Manual price",costLow:price.toFixed(2),noMarkup:false}]);
     setPcOverride("");
-    setPricingModal(false);
+    markAdded("printcast-manual",price);
   };
 
   // Quick manual line from inside the pricing-DB popup (keeps the popup open so you can keep adding)
@@ -2113,6 +2126,7 @@ function QuoteBuilder({jobId:jobIdProp,editQuoteId,jobs,clients,quotes,setQuotes
     if(amt<=0)return alert("Enter an amount.");
     setItems(p=>[...p,{id:uid(),description:manLabel.trim()||"Manual amount",detail:"Manual amount",costLow:amt.toFixed(2),noMarkup:false}]);
     setManLabel("");setManAmt("");
+    markAdded("manual-line",amt);
   };
 
   const addManualAmount=(item,amount)=>{
@@ -2124,8 +2138,8 @@ function QuoteBuilder({jobId:jobIdProp,editQuoteId,jobs,clients,quotes,setQuotes
       :isS?(item.category==="Complex Setting"?`Complex setting ${item.sizeMm}mm`:`Basic setting ${item.sizeMm}mm`)
       :item.name;
     setItems(p=>[...p,{id:uid(),description:desc,detail:"Manual amount",costLow:amt.toFixed(2),noMarkup:false}]);
-    setPQty({});setPMode({});
-    setPricingModal(false);
+    setPQty(p=>({...p,[item.id]:""}));   // clear this row only; popup stays open for more adds
+    markAdded(item.id,amt);
   };
 
   const validAccentItems=accentItems.filter(i=>i.description.trim()&&Number(i.costLow)>0);
@@ -2161,7 +2175,11 @@ function QuoteBuilder({jobId:jobIdProp,editQuoteId,jobs,clients,quotes,setQuotes
     setView("jobDetail_"+jobId);
   };
 
-  const fp=pricing.filter(p=>(pCat==="All"||p.category===pCat)&&p.name.toLowerCase().includes(pSearch.toLowerCase()));
+  // Typing in the search box searches the WHOLE pricing DB (ignores the selected category)
+  const pSearching=pSearch.trim()!=="";
+  const fp=pSearching
+    ?pricing.filter(p=>p.name.toLowerCase().includes(pSearch.toLowerCase()))
+    :pricing.filter(p=>pCat==="All"||p.category===pCat);
 
   return <div>
     <button onClick={()=>setView("jobDetail_"+jobId)} style={{background:"none",border:"none",cursor:"pointer",color:GOLD,fontSize:13,fontWeight:700,fontFamily:"inherit",marginBottom:18,padding:0}}>← Back to job</button>
@@ -2217,7 +2235,7 @@ function QuoteBuilder({jobId:jobIdProp,editQuoteId,jobs,clients,quotes,setQuotes
         </div>;})}
       <div style={{display:"flex",gap:10,marginTop:8,marginBottom:validItems.length>0?20:28}}>
         <button onClick={()=>setItems(p=>[...p,blankItem()])} style={{background:"none",border:`1px dashed ${GOLD}`,borderRadius:4,padding:"6px 14px",color:GOLD,fontSize:12,fontWeight:700,cursor:"pointer",fontFamily:"inherit"}}>+ Add item</button>
-        <button onClick={()=>setPricingModal(true)} style={{background:GOLD_L,border:`1px solid ${GOLD}`,borderRadius:4,padding:"6px 14px",color:GOLD_D,fontSize:12,fontWeight:700,cursor:"pointer",fontFamily:"inherit"}}>⊕ Pricing DB</button>
+        <button onClick={openPricing} style={{background:GOLD_L,border:`1px solid ${GOLD}`,borderRadius:4,padding:"6px 14px",color:GOLD_D,fontSize:12,fontWeight:700,cursor:"pointer",fontFamily:"inherit"}}>⊕ Pricing DB</button>
       </div>
       {validItems.length>0&&<div style={{marginBottom:28}}>
         <div style={{fontSize:11,fontWeight:700,color:WG,textTransform:"uppercase",letterSpacing:"0.06em",marginBottom:10}}>Markup preview</div>
@@ -2447,122 +2465,152 @@ function QuoteBuilder({jobId:jobIdProp,editQuoteId,jobs,clients,quotes,setQuotes
       </div>
     </Card>
 
-    {pricingModal&&<Modal title="Add from pricing DB" onClose={()=>{setPricingModal(false);setSelCAD(null);}} wide>
-      {/* Quick manual amount — add a custom labelled line without leaving the popup */}
-      <div style={{display:"flex",alignItems:"center",gap:10,background:PARCH,border:`1px solid ${BD}`,borderRadius:8,padding:"10px 12px",marginBottom:12}}>
-        <span style={{background:"#3B6E8F",color:WHITE,fontSize:10,fontWeight:700,padding:"4px 9px",borderRadius:5,letterSpacing:"0.06em",whiteSpace:"nowrap"}}>ADD MANUAL AMOUNT</span>
-        <input value={manLabel} onChange={e=>setManLabel(e.target.value)} placeholder="Label (e.g. Labour)" onKeyDown={e=>{if(e.key==="Enter")addManual();}} style={{...SS.inp,marginTop:0,flex:1}}/>
-        <div style={{position:"relative",width:120,flexShrink:0}}>
-          <span style={{position:"absolute",left:10,top:"50%",transform:"translateY(-50%)",fontSize:13,color:WG,pointerEvents:"none"}}>$</span>
-          <input type="number" value={manAmt} onChange={e=>setManAmt(e.target.value)} min="0" step="0.01" placeholder="0.00" onKeyDown={e=>{if(e.key==="Enter")addManual();}} style={{...SS.inp,marginTop:0,padding:"10px 10px 10px 22px",textAlign:"right",width:"100%"}}/>
-        </div>
-        <Btn onClick={addManual}>Add</Btn>
-      </div>
-      <div style={{display:"flex",gap:8,marginBottom:12,flexWrap:"wrap"}}>
-        <input value={pSearch} onChange={e=>setPSearch(e.target.value)} placeholder="Search items…" style={{...SS.inp,marginTop:0,flex:1,minWidth:200}}/>
-        {["All",...PCAT.filter(c=>c!=="Accent Stones")].map(cat=><button key={cat} onClick={()=>{setPCat(cat);setSelCAD(null);}} style={{padding:"6px 12px",borderRadius:20,border:`1px solid ${pCat===cat?GOLD:BD}`,background:pCat===cat?GOLD:"transparent",color:pCat===cat?WHITE:WG,fontSize:11,fontWeight:700,cursor:"pointer",fontFamily:"inherit"}}>{cat}</button>)}
-      </div>
+    {pricingModal&&<div onClick={e=>{if(e.target===e.currentTarget)closePricing();}}
+      style={{position:"fixed",inset:0,background:"rgba(26,23,20,0.6)",display:"flex",alignItems:"center",justifyContent:"center",zIndex:200,backdropFilter:"blur(3px)",padding:16}}>
+      <div style={{background:WHITE,borderRadius:8,width:"min(1240px,97vw)",height:"min(880px,94vh)",display:"flex",flexDirection:"column",border:`1px solid ${BD}`,boxShadow:"0 24px 64px rgba(0,0,0,0.25)",overflow:"hidden"}}>
 
-      {pCat===CENTRE_SET_CAT
-        ? <CentreStonePicker onAdd={addCentreSetting} centreRates={centreRates}/>
-        : pCat==="CAD Design"&&pSearch===""
-        ? <CADQuotePicker pricing={pricing} selCAD={selCAD} setSelCAD={setSelCAD} pQty={pQty} setPQty={setPQty} addFromDB={addFromDB}/>
-        : <div style={{maxHeight:440,overflowY:"auto"}}>
-            {pCat==="3D Print & Cast"&&<div style={{display:"flex",alignItems:"center",gap:12,padding:"12px 14px",marginBottom:8,background:GOLD_L+"66",border:`1px solid ${GOLD}55`,borderRadius:10,flexWrap:"wrap"}}>
-              <div style={{flex:1,minWidth:180}}>
-                <div style={{fontSize:12,fontWeight:700,color:GOLD_D}}>Manual override price</div>
-                <div style={{fontSize:11,color:WG,marginTop:2}}>Add your own 3D print &amp; cast total instead of the per-piece figures.</div>
-              </div>
-              <div style={{position:"relative"}}>
-                <span style={{position:"absolute",left:10,top:"50%",transform:"translateY(-50%)",fontSize:13,color:WG,pointerEvents:"none"}}>$</span>
-                <input type="number" value={pcOverride} min="0" step="0.01" placeholder="0.00"
-                  onChange={e=>setPcOverride(e.target.value)}
-                  style={{...SS.inp,marginTop:0,width:130,padding:"8px 10px 8px 22px",fontSize:14,fontWeight:700,textAlign:"right"}}/>
-              </div>
-              <Btn sm onClick={addCustomPrintCast}>Add to quote</Btn>
-            </div>}
-            {(()=>{
-              const visibleItems=fp.filter(item=>!(item.category==="CAD Design"&&item.cadTier)&&item.category!=="Accent Stones");
-              const isRepairsView=pCat===REPAIRS_CAT;
-              let lastGroup=null;
-              return visibleItems.map(item=>{
-              const showGroupHeader=isRepairsView&&pSearch===""&&item.group&&item.group!==lastGroup;
-              if(showGroupHeader)lastGroup=item.group;
-              const isDiamond=DIAMOND_CATS.includes(item.category);
-              const isSetting=item.category==="Basic Setting"||item.category==="Complex Setting";
-              const isPrintCast=item.category==="3D Print & Cast";
-              const isCADRevision=item.cadRevision;
-              const isFixedJob=item.unit==="job"&&!isCADRevision;
-              const needsQty=!isFixedJob&&!item.cadTier;
-              const qty=pQty[item.id]||"";
-              const qtyStep=item.unit==="g"?"0.1":"1";
-              const qtyLabel=item.unit==="g"?"Grams":item.unit==="hr"?"Hours":item.unit==="pair"?"Pairs":item.unit==="item"?"Qty":isPrintCast?"Pieces":isCADRevision?"Hours":isDiamond||isSetting?"Stones":"Qty";
-              const qtyPlaceholder=item.unit==="g"?"e.g. 4.5":item.unit==="hr"?"e.g. 2":isPrintCast?"e.g. 2":isCADRevision?"e.g. 1":"e.g. 1";
-              const previewCost=needsQty&&qty&&Number(qty)>0?(item.baseCost*Number(qty)).toFixed(2):null;
-              const row=<div key={item.id} style={{borderBottom:`1px solid ${BD}`,padding:"12px 0"}}>
-                <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",gap:12}}>
-                  <div style={{flex:1}}>
-                    <div style={{fontWeight:600,fontSize:13,color:INK}}>{(isDiamond||isSetting)?`${item.sizeMm}mm`:item.name}</div>
-                    <div style={{fontSize:12,color:WG,marginTop:2}}>
-                      {item.category}
-                      {isDiamond?<> · <strong style={{color:INK}}>{item.caratWeight}ct</strong> · <strong style={{color:INK}}>{fmt(item.baseCost)}</strong>/stone · {fmt(item.pricePerCarat)}/ct</>
-                      :isSetting?<> · stone fits <strong style={{color:INK}}>{item.caratWeight}ct</strong> · setting cost <strong style={{color:INK}}>{fmt(item.baseCost)}</strong>/stone</>
-                      :isPrintCast?<> · <strong style={{color:INK}}>{fmt(item.baseCost)}</strong>/piece</>
-                      :isCADRevision?<> · <strong style={{color:INK}}>{fmt(item.baseCost)}</strong>/hr · additional major revisions</>
-                      :<> · <strong style={{color:INK}}>{fmt(item.baseCost)}</strong> per {item.unit}</>}
-                    </div>
-                  </div>
-                  {isFixedJob&&<Btn sm onClick={()=>addFromDB(item,1)}>Add</Btn>}
-                </div>
-                {needsQty&&(()=>{
-                  const allowManual=true;
-                  const mode=pMode[item.id]||"qty";
-                  const amtMode=allowManual&&mode==="amt";
-                  return <div style={{marginTop:10,background:PARCH,borderRadius:6,padding:"10px 12px"}}>
-                    {allowManual&&<div style={{display:"flex",gap:6,marginBottom:8}}>
-                      {[["qty",`By ${qtyLabel.toLowerCase()}`],["amt","Manual $"]].map(([m,label])=>(
-                        <button key={m} onClick={()=>setPMode(p=>({...p,[item.id]:m}))}
-                          style={{padding:"3px 11px",borderRadius:20,border:`1px solid ${mode===m?INK:BD}`,background:mode===m?INK:"transparent",color:mode===m?WHITE:WG,fontSize:10,fontWeight:700,cursor:"pointer",fontFamily:"inherit"}}>{label}</button>
-                      ))}
-                    </div>}
-                    <div style={{display:"flex",alignItems:"center",gap:10}}>
-                      {amtMode
-                        ?<>
-                          <label style={{fontSize:12,fontWeight:700,color:WG,whiteSpace:"nowrap"}}>Amount</label>
-                          <div style={{position:"relative",flex:1}}>
-                            <span style={{position:"absolute",left:10,top:"50%",transform:"translateY(-50%)",fontSize:12,color:WG,pointerEvents:"none"}}>$</span>
-                            <input type="number" value={qty} min="0" step="0.01" placeholder="0.00"
-                              onChange={e=>setPQty(p=>({...p,[item.id]:e.target.value}))}
-                              style={{...SS.inp,marginTop:0,width:"100%",padding:"7px 10px 7px 22px",fontSize:14,textAlign:"right"}}/>
-                          </div>
-                          <Btn sm onClick={()=>addManualAmount(item,qty)}>Add</Btn>
-                        </>
-                        :<>
-                          <label style={{fontSize:12,fontWeight:700,color:WG,whiteSpace:"nowrap"}}>{qtyLabel}</label>
-                          <input type="number" value={qty} min="0" step={qtyStep}
-                            onChange={e=>setPQty(p=>({...p,[item.id]:e.target.value}))}
-                            placeholder={qtyPlaceholder}
-                            style={{...SS.inp,marginTop:0,flex:1,padding:"7px 10px",fontSize:14,textAlign:"right"}}/>
-                          {previewCost&&<div style={{fontSize:13,fontWeight:800,color:OK,whiteSpace:"nowrap"}}>= {fmt(previewCost)}</div>}
-                          <Btn sm onClick={()=>addFromDB(item,qty||1)}>Add</Btn>
-                        </>}
-                    </div>
-                  </div>;
-                })()}
-              </div>;
-              if(!showGroupHeader)return row;
-              return [
-                <div key={item.id+"_g"} style={{padding:"8px 0 4px",borderBottom:`1px solid ${BD}`}}>
-                  <span style={{fontSize:10,fontWeight:800,color:GOLD_D,textTransform:"uppercase",letterSpacing:"0.08em"}}>{item.group}</span>
-                </div>,
-                row
-              ];
-            })}
-            )()}
-            {fp.length===0&&<div style={{color:WG,fontSize:14,padding:"10px 0"}}>No items found.</div>}
+        {/* ── Header: title + global search (fixed) ── */}
+        <div style={{flexShrink:0,padding:"16px 24px 14px",borderBottom:`1px solid ${BD}`}}>
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12}}>
+            <h2 style={{margin:0,fontSize:18,fontWeight:800,color:INK}}>Add from pricing DB</h2>
+            <button onClick={closePricing} style={{background:"none",border:"none",fontSize:24,cursor:"pointer",color:WG,lineHeight:1,padding:0}}>×</button>
           </div>
-      }
-    </Modal>}
+          <input autoFocus value={pSearch} onChange={e=>setPSearch(e.target.value)} placeholder="Search the whole pricing DB…  (Esc closes)" style={{...SS.inp,marginTop:0}}/>
+        </div>
+
+        {/* ── Body: category sidebar + item list ── */}
+        <div style={{flex:1,display:"flex",minHeight:0}}>
+          <div style={{width:188,flexShrink:0,borderRight:`1px solid ${BD}`,overflowY:"auto",padding:"10px 8px",background:PARCH}}>
+            {["All",...PCAT.filter(c=>c!=="Accent Stones")].map(cat=>{
+              const n=cat==="All"?pricing.filter(p=>p.category!=="Accent Stones").length:pricing.filter(p=>p.category===cat).length;
+              const active=!pSearching&&pCat===cat;
+              return <button key={cat} onClick={()=>{setPCat(cat);setSelCAD(null);setPSearch("");}}
+                style={{display:"flex",justifyContent:"space-between",alignItems:"center",gap:8,width:"100%",textAlign:"left",padding:"8px 12px",borderRadius:6,border:"none",background:active?GOLD:"transparent",color:active?WHITE:INK,fontSize:12,fontWeight:700,cursor:"pointer",fontFamily:"inherit",marginBottom:2}}>
+                <span>{cat}</span>
+                {n>0&&<span style={{fontSize:10,fontWeight:700,color:active?"rgba(255,255,255,0.75)":WG}}>{n}</span>}
+              </button>;
+            })}
+          </div>
+
+          <div style={{flex:1,display:"flex",flexDirection:"column",minHeight:0,padding:"0 24px"}}>
+            {/* Quick manual amount — add a custom labelled line */}
+            <div style={{flexShrink:0,display:"flex",alignItems:"center",gap:10,background:PARCH,border:`1px solid ${BD}`,borderRadius:8,padding:"8px 12px",margin:"12px 0 10px"}}>
+              <span style={{background:"#3B6E8F",color:WHITE,fontSize:10,fontWeight:700,padding:"4px 9px",borderRadius:5,letterSpacing:"0.06em",whiteSpace:"nowrap"}}>MANUAL AMOUNT</span>
+              <input value={manLabel} onChange={e=>setManLabel(e.target.value)} placeholder="Label (e.g. Labour)" onKeyDown={e=>{if(e.key==="Enter")addManual();}} style={{...SS.inp,marginTop:0,flex:1}}/>
+              <div style={{position:"relative",width:110,flexShrink:0}}>
+                <span style={{position:"absolute",left:10,top:"50%",transform:"translateY(-50%)",fontSize:13,color:WG,pointerEvents:"none"}}>$</span>
+                <input type="number" value={manAmt} onChange={e=>setManAmt(e.target.value)} min="0" step="0.01" placeholder="0.00" onKeyDown={e=>{if(e.key==="Enter")addManual();}} style={{...SS.inp,marginTop:0,padding:"9px 10px 9px 22px",textAlign:"right",width:"100%"}}/>
+              </div>
+              <Btn sm onClick={addManual}>Add</Btn>
+            </div>
+
+            {!pSearching&&pCat===CENTRE_SET_CAT
+              ? <div style={{flex:1,overflowY:"auto",paddingBottom:14}}><CentreStonePicker onAdd={addCentreSetting} centreRates={centreRates}/></div>
+              : !pSearching&&pCat==="CAD Design"
+              ? <div style={{flex:1,overflowY:"auto",paddingBottom:14}}><CADQuotePicker pricing={pricing} selCAD={selCAD} setSelCAD={setSelCAD} pQty={pQty} setPQty={setPQty} addFromDB={addFromDB}/></div>
+              : <div style={{flex:1,overflowY:"auto",paddingBottom:14}}>
+                  {!pSearching&&pCat==="3D Print & Cast"&&<div style={{display:"flex",alignItems:"center",gap:12,padding:"10px 14px",marginBottom:8,background:GOLD_L+"66",border:`1px solid ${GOLD}55`,borderRadius:10,flexWrap:"wrap"}}>
+                    <div style={{flex:1,minWidth:180}}>
+                      <div style={{fontSize:12,fontWeight:700,color:GOLD_D}}>Manual override price</div>
+                      <div style={{fontSize:11,color:WG,marginTop:2}}>Add your own 3D print &amp; cast total instead of the per-piece figures.</div>
+                    </div>
+                    <div style={{position:"relative"}}>
+                      <span style={{position:"absolute",left:10,top:"50%",transform:"translateY(-50%)",fontSize:13,color:WG,pointerEvents:"none"}}>$</span>
+                      <input type="number" value={pcOverride} min="0" step="0.01" placeholder="0.00"
+                        onChange={e=>setPcOverride(e.target.value)}
+                        style={{...SS.inp,marginTop:0,width:130,padding:"8px 10px 8px 22px",fontSize:14,fontWeight:700,textAlign:"right"}}/>
+                    </div>
+                    <Btn sm onClick={addCustomPrintCast}>Add to quote</Btn>
+                  </div>}
+                  {(()=>{
+                    const visibleItems=fp.filter(item=>!(item.category==="CAD Design"&&item.cadTier)&&item.category!=="Accent Stones");
+                    const isRepairsView=!pSearching&&pCat===REPAIRS_CAT;
+                    const showCat=pSearching||pCat==="All";
+                    let lastGroup=null;
+                    return visibleItems.map(item=>{
+                    const showGroupHeader=isRepairsView&&item.group&&item.group!==lastGroup;
+                    if(showGroupHeader)lastGroup=item.group;
+                    const isDiamond=DIAMOND_CATS.includes(item.category);
+                    const isSetting=item.category==="Basic Setting"||item.category==="Complex Setting";
+                    const isPrintCast=item.category==="3D Print & Cast";
+                    const isCADRevision=item.cadRevision;
+                    const isFixedJob=item.unit==="job"&&!isCADRevision;
+                    const needsQty=!isFixedJob&&!item.cadTier;
+                    const qty=pQty[item.id]||"";
+                    const qtyStep=item.unit==="g"?"0.1":"1";
+                    const qtyLabel=item.unit==="g"?"Grams":item.unit==="hr"?"Hours":item.unit==="pair"?"Pairs":item.unit==="item"?"Qty":isPrintCast?"Pieces":isCADRevision?"Hours":isDiamond||isSetting?"Stones":"Qty";
+                    const previewCost=needsQty&&qty&&Number(qty)>0?(item.baseCost*Number(qty)).toFixed(2):null;
+                    const mode=pMode[item.id]||"qty";
+                    const amtMode=mode==="amt";
+                    const addNow=()=>amtMode?addManualAmount(item,qty):addFromDB(item,qty||1);
+                    const timesAdded=addedIds[item.id]||0;
+                    const flashing=pFlash===item.id;
+                    const row=<div key={item.id} style={{display:"flex",alignItems:"center",gap:10,padding:"8px 0",borderBottom:`1px solid ${BD}`}}>
+                      <div style={{flex:1,minWidth:0}}>
+                        <div style={{display:"flex",alignItems:"center",gap:8,minWidth:0}}>
+                          <span style={{fontWeight:600,fontSize:13,color:INK,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{(isDiamond||isSetting)?`${item.sizeMm}mm`:item.name}</span>
+                          {timesAdded>0&&<span style={{background:flashing?OK:OK+"1A",color:flashing?WHITE:OK,fontSize:9,fontWeight:800,padding:"2px 8px",borderRadius:10,letterSpacing:"0.05em",whiteSpace:"nowrap",flexShrink:0,transition:"all 0.25s"}}>✓ {timesAdded>1?`ON QUOTE ×${timesAdded}`:"ON QUOTE"}</span>}
+                        </div>
+                        <div style={{fontSize:11,color:WG,marginTop:1,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>
+                          {showCat?`${item.category} · `:""}
+                          {isDiamond?`${item.caratWeight}ct · ${fmt(item.baseCost)}/stone · ${fmt(item.pricePerCarat)}/ct`
+                          :isSetting?`stone fits ${item.caratWeight}ct · ${fmt(item.baseCost)}/stone setting`
+                          :isPrintCast?`${fmt(item.baseCost)}/piece`
+                          :isCADRevision?`${fmt(item.baseCost)}/hr · additional major revisions`
+                          :`${fmt(item.baseCost)} per ${item.unit}`}
+                        </div>
+                      </div>
+                      {isFixedJob
+                        ?<>
+                          <span style={{fontSize:13,fontWeight:700,color:INK,whiteSpace:"nowrap"}}>{fmt(item.baseCost)}</span>
+                          <Btn sm onClick={()=>addFromDB(item,1)}>Add</Btn>
+                        </>
+                        :needsQty&&<>
+                          <div title={amtMode?"Entering a manual $ amount — click # to enter "+qtyLabel.toLowerCase():"Entering "+qtyLabel.toLowerCase()+" — click $ to enter a manual amount"}
+                            style={{display:"flex",borderRadius:6,overflow:"hidden",border:`1px solid ${BD}`,flexShrink:0}}>
+                            {[["qty","#"],["amt","$"]].map(([m,lab])=>(
+                              <button key={m} onClick={()=>setPMode(p=>({...p,[item.id]:m}))}
+                                style={{padding:"4px 9px",border:"none",background:mode===m?INK:"transparent",color:mode===m?WHITE:WG,fontSize:11,fontWeight:800,cursor:"pointer",fontFamily:"inherit",lineHeight:"16px"}}>{lab}</button>
+                            ))}
+                          </div>
+                          <input type="number" value={qty} min="0" step={amtMode?"0.01":qtyStep}
+                            onChange={e=>setPQty(p=>({...p,[item.id]:e.target.value}))}
+                            onKeyDown={e=>{if(e.key==="Enter")addNow();}}
+                            placeholder={amtMode?"$ amount":qtyLabel}
+                            style={{...SS.inp,marginTop:0,width:96,padding:"6px 9px",fontSize:13,textAlign:"right",flexShrink:0}}/>
+                          <span style={{fontSize:12,fontWeight:800,color:OK,whiteSpace:"nowrap",width:84,textAlign:"right",flexShrink:0}}>{amtMode?(Number(qty)>0?`= ${fmt(qty)}`:""):previewCost?`= ${fmt(previewCost)}`:""}</span>
+                          <Btn sm onClick={addNow}>Add</Btn>
+                        </>}
+                    </div>;
+                    if(!showGroupHeader)return row;
+                    return [
+                      <div key={item.id+"_g"} style={{padding:"10px 0 2px"}}>
+                        <span style={{fontSize:10,fontWeight:800,color:GOLD_D,textTransform:"uppercase",letterSpacing:"0.08em"}}>{item.group}</span>
+                      </div>,
+                      row
+                    ];
+                  });
+                  })()}
+                  {fp.length===0&&<div style={{color:WG,fontSize:14,padding:"10px 0"}}>No items found.</div>}
+                </div>
+            }
+          </div>
+        </div>
+
+        {/* ── Footer: session tally + live quote total + Done ── */}
+        <div style={{flexShrink:0,borderTop:`1px solid ${BD}`,padding:"12px 24px",display:"flex",alignItems:"center",justifyContent:"space-between",gap:14,background:PARCH}}>
+          <div style={{fontSize:12,color:WG}}>
+            {sessionAdds.length>0
+              ?<span><strong style={{color:OK}}>✓ {sessionAdds.length} item{sessionAdds.length!==1?"s":""} added</strong> · {fmt(sessionAdds.reduce((a,b)=>a+b,0))} cost this visit</span>
+              :<span>The popup stays open — add as many items as you need, then hit Done.</span>}
+          </div>
+          <div style={{display:"flex",alignItems:"center",gap:16}}>
+            <span style={{fontSize:12,color:WG}}>Quote total: <strong style={{color:OK,fontSize:15}}>{fmtR(manualOn?Number(manualTotal):grandTotal)}</strong> inc GST</span>
+            <Btn onClick={closePricing}>Done</Btn>
+          </div>
+        </div>
+      </div>
+    </div>}
 
     {accentModal&&<AccentStoneModal
       pricing={pricing} setPricing={setPricing}
