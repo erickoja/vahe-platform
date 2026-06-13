@@ -3021,11 +3021,61 @@ function QuoteDetail({quoteId,quotes,setQuotes,jobs,clients,biz,markupTable,natu
   </div>;
 }
 
-function QuotesList({quotes,jobs,clients,markupTable,setView}){
+function QuotesList({quotes,jobs,clients,markupTable,biz,setView}){
   const[modal,setModal]=useState(false);
   const[selClient,setSelClient]=useState("");
   const[selJob,setSelJob]=useState("");
+  const[filter,setFilter]=useState("Active");   // Active = Draft + Sent (the actionable ones)
+  const[search,setSearch]=useState("");
   const clientJobs=selClient?jobs.filter(j=>j.clientId===selClient):[];
+  const validityDays=biz?.quoteValidityDays||30;
+
+  // Per-quote derived facts: price, the client it's for, expiry + follow-up state
+  const todayISO=localToday();
+  const rows=quotes.map(q=>{
+    const job=jobs.find(j=>j.id===q.jobId);
+    const cl=job?clients.find(x=>x.id===job.clientId):null;
+    const price=quoteGrandTotal(q,markupTable);
+    const calc=calcQuote(q.lineItems,markupTable,q.markupOverride);
+    const priceKnown=quoteIsManual(q)||!(calc.base>0&&!calc.bracket&&!calc.overridden);
+    // Expiry: explicit validUntil if set, else createdAt + business validity window
+    const expiryISO=q.validUntil||(q.createdAt?addDays(String(q.createdAt).slice(0,10),validityDays):"");
+    const isLive=q.status==="Draft"||q.status==="Sent";
+    const expired=isLive&&expiryISO&&expiryISO<todayISO;
+    const daysSent=q.status==="Sent"&&q.createdAt?Math.floor((parseISO(todayISO)-parseISO(String(q.createdAt).slice(0,10)))/86400000):0;
+    const followUp=q.status==="Sent"&&daysSent>=5&&!expired;   // going stale, worth chasing
+    return{q,job,cl,price,priceKnown,expiryISO,expired,daysSent,followUp};
+  });
+
+  // Summary strip — pipeline pulse
+  const sentRows=rows.filter(r=>r.q.status==="Sent");
+  const apprRows=rows.filter(r=>r.q.status==="Approved");
+  const awaitingVal=sentRows.reduce((s,r)=>s+(r.priceKnown?r.price:0),0);
+  const wonVal=apprRows.reduce((s,r)=>s+(r.priceKnown?r.price:0),0);
+  const decided=rows.filter(r=>r.q.status==="Approved"||r.q.status==="Declined").length;
+  const convRate=decided>0?Math.round(apprRows.length/decided*100):null;
+
+  const counts={All:rows.length,Active:rows.filter(r=>r.q.status==="Draft"||r.q.status==="Sent").length,
+    Draft:rows.filter(r=>r.q.status==="Draft").length,Sent:sentRows.length,Approved:apprRows.length,
+    Declined:rows.filter(r=>r.q.status==="Declined").length};
+  const TABS=["Active","All","Draft","Sent","Approved","Declined"];
+
+  const s=search.trim().toLowerCase();
+  const shown=rows.filter(r=>{
+    const inTab=filter==="All"?true:filter==="Active"?(r.q.status==="Draft"||r.q.status==="Sent"):r.q.status===filter;
+    if(!inTab)return false;
+    if(!s)return true;
+    return[quoteLabel(r.q),quoteRef(r.q),r.job?.type,r.cl?.name].filter(Boolean).some(x=>String(x).toLowerCase().includes(s));
+  }).sort((a,b)=>String(b.q.createdAt||"").localeCompare(String(a.q.createdAt||"")));
+
+  const stat=(label,val,sub,col)=>(
+    <div style={{background:WHITE,border:`1px solid ${BD}`,borderRadius:4,padding:"14px 16px"}}>
+      <div style={{fontSize:10,color:WG,fontWeight:700,textTransform:"uppercase",letterSpacing:"0.08em"}}>{label}</div>
+      <div style={{fontSize:20,fontWeight:800,color:col,marginTop:4}}>{val}</div>
+      {sub&&<div style={{fontSize:11,color:WG,marginTop:2}}>{sub}</div>}
+    </div>
+  );
+
   return <div>
     <SectionHeader title="Quotes" action={<Btn onClick={()=>{setSelClient("");setSelJob("");setModal(true);}}>+ New Quote</Btn>}/>
     {quotes.length===0&&<Card>
@@ -3036,13 +3086,37 @@ function QuotesList({quotes,jobs,clients,markupTable,setView}){
         <Btn onClick={()=>{setSelClient("");setSelJob("");setModal(true);}}>+ New Quote</Btn>
       </div>
     </Card>}
-    {quotes.slice().reverse().map(q=>{
-      const job=jobs.find(j=>j.id===q.jobId);
-      const cl=job?clients.find(x=>x.id===job.clientId):null;
-      const calc=calcQuote(q.lineItems,markupTable,q.markupOverride);
+
+    {quotes.length>0&&<>
+      {/* ── Summary strip ── */}
+      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:12,marginBottom:16}}>
+        {stat("Awaiting response",fmtR(awaitingVal),`${sentRows.length} quote${sentRows.length!==1?"s":""} sent`,sentRows.length?GOLD_D:WG)}
+        {stat("Approved",fmtR(wonVal),`${apprRows.length} won`,apprRows.length?OK:WG)}
+        {stat("Conversion",convRate==null?"—":`${convRate}%`,decided>0?`${apprRows.length} of ${decided} decided`:"No decisions yet",INK)}
+      </div>
+
+      {/* ── Filter tabs ── */}
+      <div style={{display:"flex",gap:6,marginBottom:12,flexWrap:"wrap"}}>
+        {TABS.map(t=>{
+          const active=filter===t;
+          const n=counts[t];
+          return <button key={t} onClick={()=>setFilter(t)}
+            style={{display:"flex",alignItems:"center",gap:7,padding:"6px 13px",borderRadius:20,border:`1px solid ${active?INK:BD}`,background:active?INK:"transparent",color:active?WHITE:WG,fontSize:12,fontWeight:700,cursor:"pointer",fontFamily:"inherit"}}>
+            {t}<span style={{fontSize:11,fontWeight:700,color:active?"rgba(255,255,255,0.6)":WG}}>{n}</span>
+          </button>;
+        })}
+      </div>
+
+      {/* ── Search ── */}
+      <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Search by client, job type or quote title…" style={{...SS.inp,marginTop:0,marginBottom:16}}/>
+
+      {shown.length===0&&<Card><div style={{color:WG,fontSize:14,textAlign:"center",padding:"18px 0"}}>No quotes match.</div></Card>}
+    </>}
+
+    {shown.map(({q,job,cl,price,priceKnown,expired,daysSent,followUp,expiryISO})=>{
       const manual=quoteIsManual(q);
-      const stoneTotal=(q.stoneClientTotal||0)+(q.accentStoneTotal||0);
-      const priceStr=manual?fmtR(Number(q.manualTotal)):(calc.base>0&&!calc.bracket&&!calc.overridden)?"—":fmtR(calc.finalLow+stoneTotal);
+      const calc=calcQuote(q.lineItems,markupTable,q.markupOverride);
+      const priceStr=priceKnown?fmtR(price):"—";
       return <Card key={q.id} onClick={()=>setView("quoteDetail_"+q.id)}>
         <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
           <div>
@@ -3053,9 +3127,14 @@ function QuotesList({quotes,jobs,clients,markupTable,setView}){
               {q.stoneMode==="sourcing"&&<span style={{color:"#7B5EA7"}}>+ {q.stoneType==="lab"?"Lab-Grown":"Natural"} stone (separate markup)</span>}
               {q.stoneMode==="client"&&<span style={{color:"#7B5EA7"}}>+ Client supplying stone</span>}
             </div>
+            {/* Follow-up + expiry flags */}
+            {(followUp||expired)&&<div style={{display:"flex",gap:8,marginTop:6,flexWrap:"wrap"}}>
+              {followUp&&<span style={{background:GOLD_L,color:GOLD_D,border:`1px solid ${GOLD}55`,borderRadius:20,padding:"2px 10px",fontSize:11,fontWeight:700}}>🔔 Sent {daysSent} days ago — follow up?</span>}
+              {expired&&<span style={{background:DANGER+"14",color:DANGER,border:`1px solid ${DANGER}44`,borderRadius:20,padding:"2px 10px",fontSize:11,fontWeight:700}}>⚠ Expired {fmtDate(expiryISO)}</span>}
+            </div>}
           </div>
           <div style={{display:"flex",gap:14,alignItems:"center"}}>
-            <Badge label={q.status} color={q.status==="Approved"?OK:q.status==="Draft"?WG:GOLD_D}/>
+            <Badge label={q.status} color={q.status==="Approved"?OK:q.status==="Draft"?WG:q.status==="Declined"?DANGER:GOLD_D}/>
             <div style={{fontWeight:800,fontSize:17,color:OK,textAlign:"right"}}>{priceStr}</div>
           </div>
         </div>
@@ -5059,7 +5138,7 @@ export default function App(){
     if(view==="clientDetail")return <ClientDetail clientId={selClient} clients={clients} jobs={jobs} setJobs={setJobs} quotes={quotes} payments={payments} markupTable={markupTable} setView={setView} setSelJob={setSelJob}/>;
     if(view==="jobs")return <Jobs clients={clients} jobs={jobs} setJobs={setJobs} quotes={quotes} setQuotes={setQuotes} payments={payments} setPayments={setPayments} notes={notes} setNotes={setNotes} invoices={invoices} setInvoices={setInvoices} markupTable={markupTable} setView={setView} setSelJob={setSelJob}/>;
     if(view==="jobDetail")return <JobDetail jobId={selJob} jobs={jobs} setJobs={setJobs} clients={clients} quotes={quotes} setQuotes={setQuotes} payments={payments} setPayments={setPayments} notes={notes} setNotes={setNotes} invoices={invoices} setInvoices={setInvoices} biz={biz} markupTable={markupTable} setView={setView}/>;
-    if(view==="quotes")return <QuotesList quotes={quotes} jobs={jobs} clients={clients} markupTable={markupTable} setView={setView}/>;
+    if(view==="quotes")return <QuotesList quotes={quotes} jobs={jobs} clients={clients} markupTable={markupTable} biz={biz} setView={setView}/>;
     if(view.startsWith("quoteDetail_"))return <QuoteDetail quoteId={view.split("_")[1]} quotes={quotes} setQuotes={setQuotes} jobs={jobs} clients={clients} biz={biz} markupTable={markupTable} naturalStoneMarkup={naturalStoneMarkup} labStoneMarkup={labStoneMarkup} setView={setView}/>;
     if(view.startsWith("newQuote_"))return <QuoteBuilder jobId={view.split("_")[1]} jobs={jobs} clients={clients} quotes={quotes} setQuotes={setQuotes} pricing={pricing} setPricing={setPricing} markupTable={markupTable} naturalStoneMarkup={naturalStoneMarkup} labStoneMarkup={labStoneMarkup} centreRates={centreRates} setView={setView}/>;
     if(view.startsWith("editQuote_"))return <QuoteBuilder editQuoteId={view.split("_")[1]} jobs={jobs} clients={clients} quotes={quotes} setQuotes={setQuotes} pricing={pricing} setPricing={setPricing} markupTable={markupTable} naturalStoneMarkup={naturalStoneMarkup} labStoneMarkup={labStoneMarkup} centreRates={centreRates} setView={setView}/>;
