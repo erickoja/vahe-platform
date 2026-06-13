@@ -626,6 +626,12 @@ const isLiveAppt=a=>!a.status||a.status==="Scheduled";
 // (cheaper-tier) multiplier. Set from business settings on load.
 let _markupBuffer=0;
 const setMarkupBuffer=v=>{_markupBuffer=Number(v)||0;};
+// Quote price rounding (global): customer-facing quote prices are rounded to the
+// nearest $_quoteRounding so totals don't land on odd figures like $4,587.
+// 0 = off. Set from business settings on load. Manual quoted prices are never rounded.
+let _quoteRounding=0;
+const setQuoteRounding=v=>{_quoteRounding=Number(v)||0;};
+const roundQ=n=>_quoteRounding>0?Math.round(n/_quoteRounding)*_quoteRounding:n;
 const getMultiplier=(cost,table)=>{
   if(!cost||cost<=0)return null;
   return table.find(b=>cost>=b.low&&cost<=b.high)||null;
@@ -656,20 +662,30 @@ const calcQuote=(items,table,overrideMult)=>{
   const markupFinal=base*mult;
   const flatTotal=fItems.reduce((s,li)=>s+lineCost(li),0);
   const hasFlatItems=fItems.length>0;
-  const finalLow=markupFinal+flatTotal;
+  // Round the customer-facing price (global rounding setting) — internals stay exact
+  const finalLow=roundQ(markupFinal+flatTotal);
   const finalHigh=finalLow;
   const baseLow=base;const baseHigh=base;const isRange=false;
   const markupFinalLow=markupFinal;const markupFinalHigh=markupFinal;const flatHigh=flatTotal;
   return {base,baseLow,baseHigh,isRange,bracket,mult,autoMult,overridden,markupFinal,markupFinalLow,markupFinalHigh,flatTotal,flatHigh,hasFlatItems,finalLow,finalHigh};
 };
 
+// Manual quoted price (verbal phone / in-person quotes): when q.manualTotal is set (>0)
+// it IS the customer price (inc GST) and replaces the calculated grand total everywhere.
+const quoteIsManual=q=>Number(q?.manualTotal)>0;
+// Grand total for a quote, inc GST — manual price wins; else jewellery + centre stone + stone-markup accents.
+const quoteGrandTotal=(q,markupTable)=>{
+  if(quoteIsManual(q))return Number(q.manualTotal);
+  const c=calcQuote(q.lineItems,markupTable,q.markupOverride);
+  return (c.isRange?c.finalHigh:c.finalLow)+(q.stoneClientTotal||0)+(q.accentStoneTotal||0);
+};
 // Total agreed charge for a job, used by every financial view.
 // Uses the manual Total Charge Override when set; otherwise sums approved quotes.
 const jobChargeTotal=(job,quotes,markupTable)=>{
   const ov=Number(job?.totalOverride);
   if(ov>0)return ov;
   const aq=(quotes||[]).filter(q=>q.jobId===job.id&&q.status==="Approved");
-  return aq.reduce((s,q)=>{const c=calcQuote(q.lineItems,markupTable,q.markupOverride);return s+(c.isRange?c.finalHigh:c.finalLow)+(q.stoneClientTotal||0)+(q.accentStoneTotal||0);},0);
+  return aq.reduce((s,q)=>s+quoteGrandTotal(q,markupTable),0);
 };
 // True if the job has any agreed charge (override or approved quote)
 const jobHasCharge=(job,quotes)=>Number(job?.totalOverride)>0||(quotes||[]).some(q=>q.jobId===job.id&&q.status==="Approved");
@@ -685,9 +701,11 @@ const calcStoneQuote=(items,table)=>{
   const totalCost=stones.reduce((s,i)=>s+Number(i.cost||i.costLow||0),0);
   const bracket=(table||[]).find(b=>totalCost>=b.low&&totalCost<=b.high)||null;
   const mult=bracket?.multiplier||1;
-  const markedUp=totalCost*mult;
-  const gst=markedUp*GST_RATE;
-  const clientTotal=markedUp+gst;
+  // Round the final inclusive price (global rounding setting), then back out the GST
+  // component so markedUp + gst still sum exactly to what the client pays.
+  const clientTotal=roundQ(totalCost*mult*(1+GST_RATE));
+  const gst=clientTotal-clientTotal/(1+GST_RATE);
+  const markedUp=clientTotal-gst;
   return{totalCost,bracket,mult,markedUp,gst,clientTotal};
 };
 
@@ -1578,13 +1596,15 @@ function JobDetail({jobId,jobs,setJobs,clients,quotes,setQuotes,payments,setPaym
     const calc=calcQuote(q.lineItems,markupTable,q.markupOverride);
     // GST-inclusive model: the quoted price already includes GST. Total = quoted price;
     // the GST component is total ÷ 11 (disclosed on the invoice, never added on top).
-    const totalIncGST=calc.finalLow+(q.stoneClientTotal||0)+(q.accentStoneTotal||0);
+    const totalIncGST=quoteGrandTotal(q,markupTable);
     const gst=totalIncGST-totalIncGST/(1+GST_RATE);
     const exGST=totalIncGST-gst;
     const num=nextInvoiceNumber(invoices);
     // Pre-fill the customer-facing description from the quote (or job) so it's ready to edit
     const descriptionOverride=q.clientDescription||job?.description||"";
-    const inv={id:uid(),jobId,quoteId:qid,number:num,date:today(),status:"Unpaid",exGST,gst,totalIncGST,lineItems:q.lineItems,notes:q.notes||"",descriptionOverride,calc};
+    // A manual-price quote may have no line items — give the invoice one so it isn't blank
+    const lineItems=q.lineItems.length?q.lineItems:[{id:uid(),description:quoteLabel(q),detail:"As quoted",costLow:totalIncGST.toFixed(2),noMarkup:true}];
+    const inv={id:uid(),jobId,quoteId:qid,number:num,date:today(),status:"Unpaid",exGST,gst,totalIncGST,lineItems,notes:q.notes||"",descriptionOverride,calc};
     setInvoices(p=>{const n=[...p,inv];persist(K.inv,n);return n;});
     setView("invoiceDetail_"+inv.id);
   };
@@ -1658,12 +1678,13 @@ function JobDetail({jobId,jobs,setJobs,clients,quotes,setQuotes,payments,setPaym
       {jq.map(q=>{
         const calc=calcQuote(q.lineItems,markupTable,q.markupOverride);
         const hasInv=invoices.some(i=>i.quoteId===q.id);
+        const manual=quoteIsManual(q);
         const stoneTotal=(q.stoneClientTotal||0)+(q.accentStoneTotal||0);
-        const priceStr=(calc.base>0&&!calc.bracket&&!calc.overridden)?"—":fmtR(calc.finalLow+stoneTotal);
+        const priceStr=manual?fmtR(Number(q.manualTotal)):(calc.base>0&&!calc.bracket&&!calc.overridden)?"—":fmtR(calc.finalLow+stoneTotal);
         return <div key={q.id} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"10px 0",borderBottom:`1px solid ${BD}`}}>
           <div style={{cursor:"pointer",flex:1}} onClick={()=>setView("quoteDetail_"+q.id)}>
             <div style={{fontWeight:600,fontSize:14,color:INK}}>{quoteLabel(q)} <span style={{fontWeight:400,color:WG,fontSize:12}}>{q.title?.trim()?quoteRef(q):""}</span></div>
-            <div style={{fontSize:12,color:WG,marginTop:1}}>Base: {fmt(calc.baseLow)} → {calc.mult}× → <strong style={{color:OK}}>{priceStr}</strong></div>
+            <div style={{fontSize:12,color:WG,marginTop:1}}>{manual?<>Manual quoted price → </>:<>Base: {fmt(calc.baseLow)} → {calc.mult}× → </>}<strong style={{color:OK}}>{priceStr}</strong></div>
           </div>
           <div style={{display:"flex",gap:10,alignItems:"center"}}>
             <Badge label={q.status} color={q.status==="Approved"?OK:q.status==="Draft"?WG:GOLD_D}/>
@@ -2001,6 +2022,7 @@ function QuoteBuilder({jobId:jobIdProp,editQuoteId,jobs,clients,quotes,setQuotes
   const[clientDescription,setClientDescription]=useState(existingQuote?.clientDescription||"");
   const[title,setTitle]=useState(existingQuote?.title??(job?.type||""));   // prefill new quotes with the job type
   const[markupOverride,setMarkupOverride]=useState(existingQuote?.markupOverride?String(existingQuote.markupOverride):"");
+  const[manualTotal,setManualTotal]=useState(existingQuote?.manualTotal?String(existingQuote.manualTotal):"");
   const[validUntil,setValidUntil]=useState(existingQuote?.validUntil||"");
   const[pricingModal,setPricingModal]=useState(false);
   const[pSearch,setPSearch]=useState("");
@@ -2118,19 +2140,20 @@ function QuoteBuilder({jobId:jobIdProp,editQuoteId,jobs,clients,quotes,setQuotes
   const accentStoneItems=validAccentItems.filter(i=>i.markupMode==="natural"||i.markupMode==="lab");
   const accentStoneTotal=accentStoneItems.reduce((s,i)=>{const sc=calcStoneQuote([{cost:i.costLow}],i.markupMode==="lab"?labStoneMarkup:naturalStoneMarkup);return s+(sc?.clientTotal||0);},0);
   const grandTotal=calc.finalLow+stoneClientTotal+accentStoneTotal;
+  const manualOn=Number(manualTotal)>0;
 
   const save_=status=>{
     const baseValidItems=items.filter(i=>i.description.trim()&&Number(i.costLow)>0);
     const hasSourcedStones=stoneMode==="sourcing"&&validStoneItems.length>0;
-    if(!baseValidItems.length&&!validAccentItems.length&&!validFindingItems.length&&!hasSourcedStones)return alert("Add at least one cost item — a line item or a sourced stone.");
+    if(!baseValidItems.length&&!validAccentItems.length&&!validFindingItems.length&&!hasSourcedStones&&!manualOn)return alert("Add at least one cost item — a line item, a sourced stone, or a manual quoted price.");
     if(isEditing){
       // Update existing quote — preserve id, jobId, createdAt
-      const updated={...existingQuote,status,title:title.trim(),markupOverride:Number(markupOverride)||0,validUntil,notes,lineItems:validItems,
+      const updated={...existingQuote,status,title:title.trim(),markupOverride:Number(markupOverride)||0,manualTotal:Number(manualTotal)||0,validUntil,notes,lineItems:validItems,
         stoneMode,stoneType:stoneMode==="sourcing"?stoneType:"",stoneItems:stoneMode==="sourcing"?validStoneItems:[],
         stoneNotes,stoneClientTotal:stoneCalc?.clientTotal||0,accentStoneTotal,clientDescription,updatedAt:today()};
       setQuotes(p=>{const n=p.map(q=>q.id===editQuoteId?updated:q);persist(K.qu,n);return n;});
     }else{
-      const q={id:uid(),jobId,status,title:title.trim(),markupOverride:Number(markupOverride)||0,createdAt:today(),validUntil,notes,lineItems:validItems,
+      const q={id:uid(),jobId,status,title:title.trim(),markupOverride:Number(markupOverride)||0,manualTotal:Number(manualTotal)||0,createdAt:today(),validUntil,notes,lineItems:validItems,
         stoneMode,stoneType:stoneMode==="sourcing"?stoneType:"",stoneItems:stoneMode==="sourcing"?validStoneItems:[],
         stoneNotes,stoneClientTotal:stoneCalc?.clientTotal||0,accentStoneTotal,clientDescription};
       setQuotes(p=>{const n=[...p,q];persist(K.qu,n);return n;});
@@ -2369,18 +2392,20 @@ function QuoteBuilder({jobId:jobIdProp,editQuoteId,jobs,clients,quotes,setQuotes
       </div>}
 
       {/* ── Grand total ── */}
-      {validItems.length>0&&<div style={{borderTop:`1px solid ${BD}`,marginTop:24,paddingTop:20,marginBottom:8}}>
+      {(validItems.length>0||manualOn)&&<div style={{borderTop:`1px solid ${BD}`,marginTop:24,paddingTop:20,marginBottom:8}}>
         <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:16,flexWrap:"wrap"}}>
           <div style={{flex:1}}>
             <div style={{fontSize:11,fontWeight:700,color:WG,textTransform:"uppercase",letterSpacing:"0.08em",marginBottom:10}}>Quote total</div>
             <div style={{display:"flex",gap:0,borderRadius:4,overflow:"hidden",border:`1px solid ${BD}`}}>
               {[
-                ["Jewellery piece",(calc.bracket||calc.overridden)?fmtR(calc.finalLow):"—",GOLD,""],
-                ...(accentStoneTotal>0?[["Accent stones",fmtR(accentStoneTotal),"#7B5EA7","+ "]]:[]),
+                ...(validItems.length>0?[
+                  ["Jewellery piece",(calc.bracket||calc.overridden)?fmtR(calc.finalLow):"—",GOLD,""],
+                  ...(accentStoneTotal>0?[["Accent stones",fmtR(accentStoneTotal),"#7B5EA7","+ "]]:[]),
+                ]:[]),
                 ...(stoneMode==="sourcing"&&stoneCalc?[["Stone",fmtR(stoneCalc.clientTotal),stoneType==="lab"?"#7B5EA7":"#3B6E8F","+ "]]:
                    stoneMode==="client"?[["Stone","Client supplying",WG,"+ "]]:
                    []),
-                ["Total",fmtR(grandTotal),OK,"= "],
+                [manualOn?"Total — manual price":"Total",fmtR(manualOn?Number(manualTotal):grandTotal),OK,"= "],
               ].map(([label,val,col,prefix],i,arr)=>(
                 <div key={label} style={{flex:1,padding:"12px 16px",background:i===arr.length-1?INK:PARCH,borderRight:i<arr.length-1?`1px solid ${BD}`:"none"}}>
                   <div style={{fontSize:10,fontWeight:700,color:i===arr.length-1?"rgba(255,255,255,0.5)":WG,textTransform:"uppercase",letterSpacing:"0.06em",marginBottom:4}}>{label}</div>
@@ -2391,6 +2416,23 @@ function QuoteBuilder({jobId:jobIdProp,editQuoteId,jobs,clients,quotes,setQuotes
           </div>
         </div>
       </div>}
+
+      {/* ── Manual quoted price — for verbal phone / in-person quotes ── */}
+      <div style={{borderTop:`1px solid ${BD}`,marginTop:16,paddingTop:18,marginBottom:8}}>
+        <div style={{display:"flex",alignItems:"center",gap:14,flexWrap:"wrap"}}>
+          <div style={{flex:1,minWidth:240}}>
+            <div style={{fontSize:11,fontWeight:700,color:WG,textTransform:"uppercase",letterSpacing:"0.08em"}}>Manual quoted price</div>
+            <div style={{fontSize:11,color:WG,marginTop:3,lineHeight:1.5}}>Quoted verbally over the phone or in person? Enter the final price (inc GST) — it becomes the quote total everywhere, no line items needed.</div>
+          </div>
+          <div style={{position:"relative",width:150,flexShrink:0}}>
+            <span style={{position:"absolute",left:10,top:"50%",transform:"translateY(-50%)",fontSize:13,color:WG,pointerEvents:"none"}}>$</span>
+            <input type="number" value={manualTotal} onChange={e=>setManualTotal(e.target.value)} placeholder="0.00" min="0" step="0.01"
+              style={{...SS.inp,marginTop:0,fontSize:14,padding:"8px 10px 8px 24px",textAlign:"right",fontWeight:manualOn?800:400,borderColor:manualOn?OK:BD}}/>
+          </div>
+          {manualOn&&<><span style={{fontSize:12,color:OK,fontWeight:700}}>Manual price on{validItems.length>0||stoneCalc?` · calculated total is ${fmtR(grandTotal)}`:""}</span>
+            <button onClick={()=>setManualTotal("")} style={{background:"none",border:`1px solid ${BD}`,borderRadius:6,padding:"4px 10px",fontSize:11,fontWeight:700,color:WG,cursor:"pointer",fontFamily:"inherit"}}>Clear</button></>}
+        </div>
+      </div>
 
       {/* ── Internal notes ── */}
       <div style={{borderTop:`1px solid ${BD}`,marginTop:8,paddingTop:16,marginBottom:14}}>
@@ -2545,11 +2587,12 @@ function ProposalPreview({quote,job,clients=[],biz,calc,onClose}){
   const validUntil=new Date(new Date(quote.createdAt).getTime()+validDays*86400000).toLocaleDateString("en-AU",{day:"numeric",month:"long",year:"numeric"});
   const deposit=biz.depositPercent||50;
   const terms=biz.quoteTerms||"All custom jewellery requires a deposit before work commences. The final balance is due prior to collection. Quoted prices are valid for the period stated above. Price variations may apply if material costs change significantly. All pieces are handcrafted to order and cannot be returned unless faulty. Estimated completion times are indicative only.";
-  // Grand total = setting final + stone client total (inc GST)
+  // Grand total = setting final + stone client total (inc GST); a manual quoted price wins over everything
+  const manual=quoteIsManual(quote);
   const stoneTotal=quote.stoneClientTotal||0;
-  const markupUndef=calc.base>0&&!calc.bracket&&!calc.overridden;   // jewellery costs present but no markup tier
+  const markupUndef=!manual&&calc.base>0&&!calc.bracket&&!calc.overridden;   // jewellery costs present but no markup tier
   const settingTotal=markupUndef?0:calc.finalLow;
-  const grandProposalTotal=settingTotal+stoneTotal+(quote.accentStoneTotal||0);
+  const grandProposalTotal=manual?Number(quote.manualTotal):settingTotal+stoneTotal+(quote.accentStoneTotal||0);
   const priceDisplay=markupUndef?"Quote pending":fmtR(grandProposalTotal);
   const depositAmt=markupUndef?null:fmtR(grandProposalTotal*deposit/100);
   // Client-facing description — manual field takes priority over job description
@@ -2702,7 +2745,7 @@ function ProposalPreview({quote,job,clients=[],biz,calc,onClose}){
               <div style={{fontSize:13,fontWeight:600,color:INK,fontFamily:"'DM Sans',sans-serif"}}>{job?.type||"Jewellery piece"}</div>
               <div style={{fontSize:11,color:WG,marginTop:3,lineHeight:1.6,fontFamily:"Georgia,serif"}}>{description||"Design, materials & craftsmanship"}</div>
             </div>
-            <div style={{fontSize:16,fontWeight:700,color:INK,fontFamily:"'DM Sans',sans-serif",whiteSpace:"nowrap"}}>{calc.bracket?fmtR(settingTotal):"—"}</div>
+            <div style={{fontSize:16,fontWeight:700,color:INK,fontFamily:"'DM Sans',sans-serif",whiteSpace:"nowrap"}}>{manual?<span style={{fontSize:12,fontWeight:400,fontStyle:"italic",color:WG}}>Included</span>:calc.bracket?fmtR(settingTotal):"—"}</div>
           </div>
 
           {/* Stone row — studio sourcing */}
@@ -2711,7 +2754,7 @@ function ProposalPreview({quote,job,clients=[],biz,calc,onClose}){
               <div style={{fontSize:13,fontWeight:600,color:INK,fontFamily:"'DM Sans',sans-serif"}}>Centre / feature stone</div>
               <div style={{fontSize:11,color:WG,marginTop:2,fontFamily:"'DM Sans',sans-serif"}}>{quote.stoneType==="lab"?"Lab-grown diamond / gemstone":"Natural diamond / gemstone"} · inc. GST</div>
             </div>
-            <div style={{fontSize:16,fontWeight:700,color:INK,fontFamily:"'DM Sans',sans-serif"}}>{fmtR(stoneTotal)}</div>
+            <div style={{fontSize:16,fontWeight:700,color:INK,fontFamily:"'DM Sans',sans-serif"}}>{manual?<span style={{fontSize:12,fontWeight:400,fontStyle:"italic",color:WG}}>Included</span>:fmtR(stoneTotal)}</div>
           </div>}
 
           {/* Client stone row */}
@@ -2800,10 +2843,11 @@ function QuoteDetail({quoteId,quotes,setQuotes,jobs,clients,biz,markupTable,natu
   const stoneCalc=q.stoneMode==="sourcing"&&q.stoneItems?.length?calcStoneQuote(q.stoneItems,activeStoneMarkup):null;
   const stoneClientTotal=stoneCalc?.clientTotal||0;
   const accentStoneTotal=q.accentStoneTotal||0;
-  const grandTotal=calc.finalLow+stoneClientTotal+accentStoneTotal;
+  const manual=quoteIsManual(q);
+  const grandTotal=manual?Number(q.manualTotal):calc.finalLow+stoneClientTotal+accentStoneTotal;
   // "—" only when there ARE jewellery costs but no markup tier matches; a stones-only
   // quote (no line items → base 0) is a valid total, not an undefined one.
-  const markupUndef=calc.base>0&&!calc.bracket&&!calc.overridden;
+  const markupUndef=!manual&&calc.base>0&&!calc.bracket&&!calc.overridden;
   const grandStr=markupUndef?"—":fmtR(grandTotal);
   const setStatus=s=>setQuotes(p=>{
     // Only one approved quote per job: demote any other currently-approved quote on this job
@@ -2842,6 +2886,7 @@ function QuoteDetail({quoteId,quotes,setQuotes,jobs,clients,biz,markupTable,natu
       <div style={{display:"grid",gridTemplateColumns:"180px 1fr 130px",gap:6,marginBottom:8}}>
         {["Item","Detail","Cost"].map(h=><div key={h} style={{fontSize:10,fontWeight:700,color:WG,textTransform:"uppercase",letterSpacing:"0.05em"}}>{h}</div>)}
       </div>
+      {q.lineItems.length===0&&<div style={{fontSize:13,color:WG,fontStyle:"italic",padding:"10px 0"}}>No itemised costs — this quote uses a manual quoted price.</div>}
       {q.lineItems.map(li=>{
         const cost=lineCost(li);
         const stoneMU=li.markupMode==="natural"||li.markupMode==="lab";
@@ -2853,11 +2898,11 @@ function QuoteDetail({quoteId,quotes,setQuotes,jobs,clients,biz,markupTable,natu
         </div>;
       })}
 
-      {/* Markup summary */}
-      <div style={{marginTop:20,marginBottom:q.stoneMode&&q.stoneMode!=="none"?24:0}}>
+      {/* Markup summary — hidden for a pure manual-price quote (nothing to mark up) */}
+      {q.lineItems.length>0&&<div style={{marginTop:20,marginBottom:q.stoneMode&&q.stoneMode!=="none"?24:0}}>
         <div style={{fontSize:11,fontWeight:700,color:WG,textTransform:"uppercase",letterSpacing:"0.06em",marginBottom:10}}>Jewellery costs</div>
         <MarkupSummary {...calc} large/>
-      </div>
+      </div>}
 
       {/* Client supplying stone note */}
       {q.stoneMode==="client"&&<div style={{background:"#EEF4FB",border:"1px solid #B8D4EC",borderRadius:4,padding:"12px 16px",marginBottom:16}}>
@@ -2890,13 +2935,13 @@ function QuoteDetail({quoteId,quotes,setQuotes,jobs,clients,biz,markupTable,natu
         {q.stoneNotes&&<div style={{marginTop:10,fontSize:12,color:WG,fontStyle:"italic"}}>{q.stoneNotes}</div>}
       </div>}
 
-      {/* Grand total bar — shown when there's a centre stone and/or accent stones on stone markup */}
-      {(stoneCalc||accentStoneTotal>0)&&(()=>{
+      {/* Grand total bar — shown when there's a centre stone, accent stones on stone markup, or a manual price */}
+      {(stoneCalc||accentStoneTotal>0||manual)&&(()=>{
         const cells=[
-          ["Jewellery piece",markupUndef?"—":fmtR(calc.finalLow),GOLD],
+          ...(manual&&!q.lineItems.length?[]:[["Jewellery piece",(manual&&calc.base>0&&!calc.bracket&&!calc.overridden)?"—":fmtR(calc.finalLow),GOLD]]),
           ...(accentStoneTotal>0?[["Accent stones",fmtR(accentStoneTotal),"#C4A8F0"]]:[]),
           ...(stoneCalc?[["Stone",fmtR(stoneCalc.clientTotal),q.stoneType==="lab"?"#C4A8F0":"#8EB5D4"]]:[]),
-          ["Combined total",grandStr,OK],
+          [manual?"Quoted price — manual":"Combined total",grandStr,OK],
         ];
         return <div style={{background:INK,borderRadius:4,padding:"14px 20px",marginBottom:16,display:"grid",gridTemplateColumns:`repeat(${cells.length},1fr)`,gap:1}}>
           {cells.map(([l,v,col])=>(
@@ -2938,15 +2983,16 @@ function QuotesList({quotes,jobs,clients,markupTable,setView}){
       const job=jobs.find(j=>j.id===q.jobId);
       const cl=job?clients.find(x=>x.id===job.clientId):null;
       const calc=calcQuote(q.lineItems,markupTable,q.markupOverride);
+      const manual=quoteIsManual(q);
       const stoneTotal=(q.stoneClientTotal||0)+(q.accentStoneTotal||0);
-      const priceStr=(calc.base>0&&!calc.bracket&&!calc.overridden)?"—":fmtR(calc.finalLow+stoneTotal);
+      const priceStr=manual?fmtR(Number(q.manualTotal)):(calc.base>0&&!calc.bracket&&!calc.overridden)?"—":fmtR(calc.finalLow+stoneTotal);
       return <Card key={q.id} onClick={()=>setView("quoteDetail_"+q.id)}>
         <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
           <div>
             <div style={{fontWeight:700,fontSize:15,color:INK}}>{quoteLabel(q)} {q.title?.trim()&&<span style={{fontWeight:400,color:WG,fontSize:12}}>· {quoteRef(q)}</span>}</div>
             <div style={{fontSize:13,color:WG,marginTop:3}}>{job?.type} · {cl?.name} · {fmtDate(q.createdAt)}</div>
             <div style={{display:"flex",gap:10,fontSize:12,color:WG,marginTop:2,flexWrap:"wrap"}}>
-              <span>Setting: {calc.mult||"—"}× markup</span>
+              {manual?<span style={{color:GOLD_D,fontWeight:700}}>Manual quoted price</span>:<span>Setting: {calc.mult||"—"}× markup</span>}
               {q.stoneMode==="sourcing"&&<span style={{color:"#7B5EA7"}}>+ {q.stoneType==="lab"?"Lab-Grown":"Natural"} stone (separate markup)</span>}
               {q.stoneMode==="client"&&<span style={{color:"#7B5EA7"}}>+ Client supplying stone</span>}
             </div>
@@ -3238,9 +3284,7 @@ function InvoicesList({invoices,jobs,clients,quotes,payments,setInvoices,markupT
     if(!q)return;
     const calc=calcQuote(q.lineItems,markupTable,q.markupOverride);
     const jb=jobs.find(j=>j.id===selJob);
-    const jewel=calc.isRange?calc.finalHigh:calc.finalLow;   // GST-inclusive customer price
-    const stoneInc=(q.stoneClientTotal||0)+(q.accentStoneTotal||0);   // centre stone + accent stones on stone markup
-    const totalIncGST=jewel+stoneInc;
+    const totalIncGST=quoteGrandTotal(q,markupTable);        // manual quoted price wins when set
     const gst=totalIncGST-totalIncGST/(1+GST_RATE);          // GST component (= total ÷ 11)
     const exGST=totalIncGST-gst;
     const num=nextInvoiceNumber(invoices);
@@ -3248,6 +3292,8 @@ function InvoicesList({invoices,jobs,clients,quotes,payments,setInvoices,markupT
     const lineItems=[...q.lineItems];   // accent stones already live in lineItems; only the centre stone needs adding
     const centreInc=q.stoneClientTotal||0;
     if(centreInc>0)lineItems.push({id:uid(),description:(q.stoneType==="lab"?"Lab-grown":"Natural")+" diamond / gemstone",detail:"Supplied & set",costLow:centreInc.toFixed(2),noMarkup:true});
+    // A manual-price quote may have no line items — give the invoice one so it isn't blank
+    if(!lineItems.length)lineItems.push({id:uid(),description:quoteLabel(q),detail:"As quoted",costLow:totalIncGST.toFixed(2),noMarkup:true});
     const inv={id:uid(),jobId:selJob,quoteId:selQuote,number:num,date:today(),status:"Unpaid",exGST,gst,totalIncGST,lineItems,notes:q.notes||"",descriptionOverride,calc};
     setInvoices(p=>{const n=[...p,inv];persist(K.inv,n);return n;});
     setModal(false);
@@ -3316,13 +3362,13 @@ function InvoicesList({invoices,jobs,clients,quotes,payments,setInvoices,markupT
         {jobQuotes.length===0?<div style={{background:"#FFF8E1",border:"1px solid #F0C040",borderRadius:4,padding:"10px 14px",fontSize:13,color:WARN,marginTop:6}}>No approved quotes without an invoice. Go to the job and approve a quote first.</div>
         :<select value={selQuote} onChange={e=>setSelQuote(e.target.value)} style={{...SS.inp,marginTop:4}}>
           <option value="">— Select quote —</option>
-          {jobQuotes.map(q=>{const calc=calcQuote(q.lineItems,markupTable,q.markupOverride);const stoneInc=(q.stoneClientTotal||0)+(q.accentStoneTotal||0);const price=(calc.base>0&&!calc.bracket&&!calc.overridden)?"?":fmtR((calc.isRange?calc.finalHigh:calc.finalLow)+stoneInc);return <option key={q.id} value={q.id}>{quoteLabel(q)} · {price} inc GST</option>;})}
+          {jobQuotes.map(q=>{const calc=calcQuote(q.lineItems,markupTable,q.markupOverride);const price=quoteIsManual(q)||calc.bracket||calc.overridden||!(calc.base>0)?fmtR(quoteGrandTotal(q,markupTable)):"?";return <option key={q.id} value={q.id}>{quoteLabel(q)} · {price} inc GST</option>;})}
         </select>}
       </div>}
       {selQuote&&(()=>{const q=quotes.find(x=>x.id===selQuote);const calc=q?calcQuote(q.lineItems,markupTable,q.markupOverride):null;return calc&&<div style={{background:OK+"11",border:`1px solid ${OK}44`,borderRadius:4,padding:"12px 16px",marginBottom:18,fontSize:13}}>
         <div style={{fontWeight:700,color:INK,marginBottom:4}}>Invoice summary</div>
         <div style={{color:WG}}>Next invoice number: <strong style={{color:INK}}>{nextInvoiceNumber(invoices)}</strong></div>
-        <div style={{color:WG,marginTop:2}}>Amount: <strong style={{color:OK,fontSize:15}}>{fmtR((calc.isRange?calc.finalHigh:calc.finalLow)+(q.stoneClientTotal||0)+(q.accentStoneTotal||0))}</strong> inc GST</div>
+        <div style={{color:WG,marginTop:2}}>Amount: <strong style={{color:OK,fontSize:15}}>{fmtR(quoteGrandTotal(q,markupTable))}</strong> inc GST{quoteIsManual(q)&&<span style={{color:GOLD_D,fontWeight:700}}> · manual quoted price</span>}</div>
       </div>;})()}
       <div style={{display:"flex",gap:10,justifyContent:"flex-end"}}>
         <Btn ghost onClick={()=>setModal(false)}>Cancel</Btn>
@@ -4275,7 +4321,7 @@ function Reports({jobs,clients,quotes,payments,invoices,markupTable}){
   const appQ=quotes.filter(q=>q.status==="Approved").length;
   const conv=totalQ>0?Math.round(appQ/totalQ*100):0;
   const avgBase=totalQ>0?quotes.reduce((s,q)=>s+calcQuote(q.lineItems,markupTable,q.markupOverride).baseLow,0)/totalQ:0;
-  const avgFinal=totalQ>0?quotes.reduce((s,q)=>{const c=calcQuote(q.lineItems,markupTable,q.markupOverride);return s+(c.bracket?(c.isRange?c.finalHigh:c.finalLow):0);},0)/totalQ:0;
+  const avgFinal=totalQ>0?quotes.reduce((s,q)=>{if(quoteIsManual(q))return s+Number(q.manualTotal);const c=calcQuote(q.lineItems,markupTable,q.markupOverride);return s+(c.bracket?(c.isRange?c.finalHigh:c.finalLow):0);},0)/totalQ:0;
   const totalPaid=payments.filter(p=>p.status==="Received").reduce((s,p)=>s+Number(p.amount),0);
   // Sales = agreed charge across all jobs (override or approved quotes)
   const totalSales=jobs.reduce((s,j)=>s+jobChargeTotal(j,quotes,markupTable),0);
@@ -4339,6 +4385,7 @@ function Settings({biz,setBiz,markupTable,setMarkupTable,naturalStoneMarkup,setN
   const setBF=k=>v=>setBForm(p=>({...p,[k]:v}));
   const[mt,setMt]=useState(markupTable.map(b=>({...b})));
   const[buffer,setBuffer]=useState(String(biz.markupBuffer||0));
+  const[rounding,setRounding]=useState(String(biz.quoteRounding||0));
   const setMtRow=(id,k,v)=>setMt(p=>p.map(b=>b.id===id?{...b,[k]:v}:b));
   const[smn,setSmn]=useState((naturalStoneMarkup||[]).map(b=>({...b})));
   const setSmNRow=(id,k,v)=>setSmn(p=>p.map(b=>b.id===id?{...b,[k]:v}:b));
@@ -4351,7 +4398,7 @@ function Settings({biz,setBiz,markupTable,setMarkupTable,naturalStoneMarkup,setN
   const[toast,setToast]=useState(null);
   const showToast=msg=>{setToast(msg);setTimeout(()=>setToast(null),2400);};
   const saveBiz=()=>{setBiz(bForm);persist(K.biz,bForm);showToast("Business details saved");};
-  const saveMt=()=>{setMarkupTable(mt);persist(K.mt,mt);const nb={...biz,markupBuffer:Number(buffer)||0};setBiz(nb);persist(K.biz,nb);setMarkupBuffer(Number(buffer)||0);showToast("Markup table saved");};
+  const saveMt=()=>{setMarkupTable(mt);persist(K.mt,mt);const nb={...biz,markupBuffer:Number(buffer)||0,quoteRounding:Number(rounding)||0};setBiz(nb);persist(K.biz,nb);setMarkupBuffer(Number(buffer)||0);setQuoteRounding(Number(rounding)||0);showToast("Markup table saved");};
   const saveSmNTable=()=>{setNaturalStoneMarkup(smn);persist(K.smn,smn);showToast("Natural stone markup saved");};
   const saveSmLTable=()=>{setLabStoneMarkup(sml);persist(K.sml,sml);showToast("Lab-grown stone markup saved");};
 
@@ -4445,6 +4492,24 @@ function Settings({biz,setBiz,markupTable,setMarkupTable,naturalStoneMarkup,setN
           </div>
           <div style={{flex:1,minWidth:220,fontSize:12,color:GOLD_D,lineHeight:1.6}}>
             If a cost is within this much of the next bracket, it's bumped up to that bracket's (lower) multiplier — so a cost just under a threshold doesn't get charged the higher markup. Set to <strong>0</strong> to disable. Example: a $100 buffer means a $920 cost is priced as if it were in the $1,000+ bracket.
+          </div>
+        </div>
+      </div>
+      <div style={{background:GOLD_L,border:`1px solid ${GOLD}55`,borderRadius:10,padding:"14px 16px",marginBottom:16}}>
+        <div style={{display:"flex",alignItems:"flex-start",gap:14,flexWrap:"wrap"}}>
+          <div style={{flexShrink:0}}>
+            <label style={SS.lbl}>Round quote prices</label>
+            <select value={rounding} onChange={e=>setRounding(e.target.value)} style={{...SS.inp,marginTop:4,width:170,fontWeight:700}}>
+              <option value="0">Off — exact figures</option>
+              <option value="5">Nearest $5</option>
+              <option value="10">Nearest $10</option>
+              <option value="25">Nearest $25</option>
+              <option value="50">Nearest $50</option>
+              <option value="100">Nearest $100</option>
+            </select>
+          </div>
+          <div style={{flex:1,minWidth:220,fontSize:12,color:GOLD_D,lineHeight:1.6}}>
+            Rounds every calculated quote price — jewellery, stones and totals — so quotes don't land on odd figures. Example: nearest $10 turns <strong>$4,587</strong> into <strong>$4,590</strong>; nearest $50 makes it <strong>$4,600</strong>. Manual quoted prices are never rounded. Applies everywhere prices are recalculated, including existing quotes.
           </div>
         </div>
       </div>
@@ -4834,6 +4899,7 @@ export default function App(){
 
   // Keep the markup threshold buffer (used inside pure calc helpers) in sync with business settings
   useEffect(()=>{setMarkupBuffer(biz?.markupBuffer||0);},[biz?.markupBuffer]);
+  useEffect(()=>{setQuoteRounding(biz?.quoteRounding||0);},[biz?.quoteRounding]);
 
   // Load all persisted data on mount
   useEffect(()=>{
