@@ -1747,7 +1747,7 @@ function AccentStoneModal({pricing,setPricing,onAdd,onClose}){
   const addQuick=()=>{
     if(qn<=0)return alert("Enter a quantity");
     if(cn<=0)return alert("Enter your cost per stone");
-    onAdd({description:quickDesc,detail:`${qn} stone${qn!==1?"s":""} × ${fmt(cn)}/stone`,costLow:qTotal.toFixed(2),markupMode:qMarkup});
+    onAdd({description:quickDesc,detail:`${qn} stone${qn!==1?"s":""} × ${fmt(cn)}/stone`,costLow:qTotal.toFixed(2),markupMode:qMarkup,qty:qn});
   };
   const saveAndAdd=()=>{
     if(!newName.trim())return alert("Enter a stone name");
@@ -2061,6 +2061,15 @@ function QuoteBuilder({jobId:jobIdProp,editQuoteId,jobs,clients,quotes,setQuotes
   const setItem=(id,k,v)=>setItems(p=>p.map(i=>i.id===id?{...i,[k]:v}:i));
   const removeItem=id=>setItems(p=>p.filter(i=>i.id!==id));
   const setAccentItem=(id,k,v)=>setAccentItems(p=>p.map(i=>i.id===id?{...i,[k]:v}:i));
+  // Editing "Your cost" changes the row TOTAL — for quick-add stones (with a known qty)
+  // recompute the per-stone figure in the detail so "4 stones × $X/stone" never goes stale.
+  const setAccentCost=(id,v)=>setAccentItems(p=>p.map(i=>{
+    if(i.id!==id)return i;
+    const next={...i,costLow:v};
+    const q=Number(i.qty)||0,tot=Number(v)||0;
+    if(q>0)next.detail=`${q} stone${q!==1?"s":""} × ${fmt(tot/q)}/stone`;
+    return next;
+  }));
   const removeAccentItem=id=>setAccentItems(p=>p.filter(i=>i.id!==id));
   const setFindingItem=(id,k,v)=>setFindingItems(p=>p.map(i=>i.id===id?{...i,[k]:v}:i));
   const removeFindingItem=id=>setFindingItems(p=>p.filter(i=>i.id!==id));
@@ -2289,7 +2298,7 @@ function QuoteBuilder({jobId:jobIdProp,editQuoteId,jobs,clients,quotes,setQuotes
               </select>
               <div style={{position:"relative"}}>
                 <span style={{position:"absolute",left:10,top:"50%",transform:"translateY(-50%)",fontSize:12,color:WG,pointerEvents:"none"}}>$</span>
-                <input type="number" value={li.costLow} onChange={e=>setAccentItem(li.id,"costLow",e.target.value)} placeholder="0.00" min="0" step="0.01"
+                <input type="number" value={li.costLow} onChange={e=>setAccentCost(li.id,e.target.value)} placeholder="0.00" min="0" step="0.01"
                   style={{...SS.inp,marginTop:0,fontSize:13,padding:"7px 8px 7px 22px",textAlign:"right",borderColor:cost>0?(stoneMU?"#C4A8F0":"#8EB5D4"):BD,fontWeight:cost>0?700:400}}/>
               </div>
               <button onClick={()=>removeAccentItem(li.id)} style={{background:"none",border:"none",cursor:"pointer",color:DANGER,fontSize:17,padding:0,lineHeight:1,textAlign:"center"}}>×</button>
