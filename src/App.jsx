@@ -596,6 +596,8 @@ const SEED_APPOINTMENTS=[];
 
 // ── Utils ─────────────────────────────────────────────────────────────────
 const uid=()=>Math.random().toString(36).slice(2,9);
+// Longer, hard-to-guess token for public proposal share links (~20 chars)
+const proposalToken=()=>(uid()+uid()+Date.now().toString(36)).replace(/[^a-z0-9]/gi,"").slice(0,20);
 const fmt=n=>`$${Number(n||0).toLocaleString("en-AU",{minimumFractionDigits:2,maximumFractionDigits:2})}`;
 const fmtR=n=>`$${Math.round(Number(n||0)).toLocaleString("en-AU")}`;
 const today=()=>new Date().toISOString().slice(0,10);
@@ -709,7 +711,40 @@ const calcStoneQuote=(items,table)=>{
   return{totalCost,bracket,mult,markedUp,gst,clientTotal};
 };
 
-const K={cl:"jlr4_clients",jo:"jlr4_jobs",qu:"jlr4_quotes",pa:"jlr4_payments",pr:"jlr4_pricing_v9",biz:"jlr4_biz",no:"jlr4_notes",inv:"jlr4_invoices",spot:"jlr4_spot",mt:"jlr4_markup",smn:"jlr4_stone_nat",sml:"jlr4_stone_lab",csr:"jlr4_centre_rates",ap:"jlr4_appointments"};
+const K={cl:"jlr4_clients",jo:"jlr4_jobs",qu:"jlr4_quotes",pa:"jlr4_payments",pr:"jlr4_pricing_v9",biz:"jlr4_biz",no:"jlr4_notes",inv:"jlr4_invoices",spot:"jlr4_spot",mt:"jlr4_markup",smn:"jlr4_stone_nat",sml:"jlr4_stone_lab",csr:"jlr4_centre_rates",ap:"jlr4_appointments",pp:"jlr4_proposals"};
+
+// Name of the public, anon-readable table holding immutable proposal snapshots for client links.
+const PUBLIC_PROPOSALS_TABLE="public_proposals";
+// Build the frozen client-facing snapshot from the chosen option quotes. Stored in the
+// cloud at publish time so the client always sees exactly what was sent (no live data access).
+const buildProposalSnapshot=({proposal,job,client,biz,quotes,markupTable})=>{
+  const validityDays=biz?.quoteValidityDays||30;
+  const created=proposal.createdAt||today();
+  const options=(proposal.optionIds||[]).map(qid=>{
+    const q=quotes.find(x=>x.id===qid);
+    if(!q)return null;
+    const calc=calcQuote(q.lineItems,markupTable,q.markupOverride);
+    const priceKnown=quoteIsManual(q)||!(calc.base>0&&!calc.bracket&&!calc.overridden);
+    return{
+      id:q.id,
+      label:quoteLabel(q),
+      price:priceKnown?quoteGrandTotal(q,markupTable):null,
+      description:q.clientDescription||job?.description||"",
+      recommended:proposal.recommendedId===q.id,
+    };
+  }).filter(Boolean);
+  return{
+    biz:{name:biz?.name||"",logo:biz?.logo||"",phone:biz?.phone||"",email:biz?.email||"",abn:biz?.abn||"",address:biz?.address||""},
+    clientName:client?.name||"",
+    jobType:job?.type||"Custom Jewellery",
+    intro:proposal.intro||"",
+    options,
+    depositPercent:biz?.depositPercent||50,
+    validUntil:addDays(String(created).slice(0,10),validityDays),
+    terms:biz?.quoteTerms||"All custom jewellery requires a deposit before work commences. The final balance is due prior to collection. Quoted prices are valid for the period stated above. Price variations may apply if material costs change significantly. All pieces are handcrafted to order and cannot be returned unless faulty. Estimated completion times are indicative only.",
+    createdAt:created,
+  };
+};
 
 // ── Storage layer ───────────────────────────────────────────────────────────
 // Three backends, chosen at runtime:
@@ -1565,7 +1600,7 @@ function RepairIntakeCard({job,setJobs,biz,clients}){
   </Card>;
 }
 
-function JobDetail({jobId,jobs,setJobs,clients,quotes,setQuotes,payments,setPayments,notes,setNotes,invoices,setInvoices,biz,markupTable,setView}){
+function JobDetail({jobId,jobs,setJobs,clients,quotes,setQuotes,payments,setPayments,notes,setNotes,invoices,setInvoices,proposals,setProposals,biz,markupTable,setView}){
   const job=jobs.find(j=>j.id===jobId);
   if(!job)return null;
   const c=clients.find(x=>x.id===job.clientId);
@@ -1693,6 +1728,7 @@ function JobDetail({jobId,jobs,setJobs,clients,quotes,setQuotes,payments,setPaym
         </div>;
       })}
     </Card>
+    <JobProposals job={job} client={c} quotes={jq} proposals={proposals} setProposals={setProposals} setQuotes={setQuotes} biz={biz} markupTable={markupTable}/>
     <ActivityLog jobId={jobId} notes={notes} setNotes={setNotes}/>
     {payModal&&<Modal title="Record payment" onClose={()=>setPayModal(false)}>
       <PaymentForm onSave={addPay} onCancel={()=>setPayModal(false)} suggestedAmount={balance>0?balance:""}/>
@@ -2633,6 +2669,265 @@ function QuoteBuilder({jobId:jobIdProp,editQuoteId,jobs,clients,quotes,setQuotes
       onClose={()=>setFindingModal(false)}
     />}
   </div>;
+}
+
+// ── Multi-option proposals (staff side) ───────────────────────────────────
+// A proposal bundles several quotes as "options" for one job and produces a public
+// link the client opens to pick one and accept online. See PublicProposalPage below.
+function JobProposals({job,client,quotes,proposals,setProposals,setQuotes,biz,markupTable}){
+  const jobProposals=(proposals||[]).filter(p=>p.jobId===job?.id).slice().reverse();
+  const [builder,setBuilder]=useState(false);
+  const [sel,setSel]=useState([]);            // chosen option quote ids
+  const [recommended,setRecommended]=useState("");
+  const [intro,setIntro]=useState("");
+  const [busy,setBusy]=useState(false);
+  const [copied,setCopied]=useState("");
+  const [checking,setChecking]=useState("");
+
+  // Only quotes with a resolvable price can be sent as options
+  const optionable=(quotes||[]).filter(q=>{
+    const calc=calcQuote(q.lineItems,markupTable,q.markupOverride);
+    return quoteIsManual(q)||!(calc.base>0&&!calc.bracket&&!calc.overridden);
+  });
+  const linkFor=p=>`${window.location.origin}/?p=${p.token}`;
+  const save=next=>{setProposals(next);persist(K.pp,next);};
+
+  const toggle=id=>setSel(p=>p.includes(id)?p.filter(x=>x!==id):[...p,id]);
+  const openBuilder=()=>{setSel([]);setRecommended("");setIntro("");setBuilder(true);};
+
+  const createAndShare=async()=>{
+    if(!sel.length)return alert("Pick at least one quote to include as an option.");
+    if(!supabaseEnabled)return alert("Online proposals need the cloud — you appear to be in local-only mode.");
+    setBusy(true);
+    const id=uid(),token=proposalToken();
+    const orderedIds=optionable.filter(q=>sel.includes(q.id)).map(q=>q.id);
+    const proposal={id,jobId:job.id,token,optionIds:orderedIds,recommendedId:recommended||"",intro:intro.trim(),createdAt:today(),status:"sent",acceptedQuoteId:null,acceptedName:"",acceptedAt:null};
+    const snapshot=buildProposalSnapshot({proposal,job,client,biz,quotes,markupTable});
+    const{error}=await supabase.from(PUBLIC_PROPOSALS_TABLE).insert({token,data:snapshot,status:"sent",created_at:new Date().toISOString()});
+    setBusy(false);
+    if(error){alert("Couldn't publish the proposal: "+error.message+"\n\nIf this mentions a missing table, the one-time Supabase setup hasn't been run yet.");return;}
+    save([...proposals,proposal]);
+    setBuilder(false);
+    // surface the link immediately
+    copyLink(proposal);
+  };
+
+  const copyLink=p=>{navigator.clipboard?.writeText(linkFor(p)).catch(()=>{});setCopied(p.id);setTimeout(()=>setCopied(c=>c===p.id?"":c),2000);};
+
+  // Pull acceptance status back from the cloud and reflect it locally (+ approve the chosen quote)
+  const checkAcceptance=async(p,silent)=>{
+    if(!supabaseEnabled)return;
+    if(!silent)setChecking(p.id);
+    const{data,error}=await supabase.from(PUBLIC_PROPOSALS_TABLE).select("status,accepted_option,accepted_name,accepted_at").eq("token",p.token).maybeSingle();
+    if(!silent)setChecking("");
+    if(error||!data)return;
+    if(data.status==="accepted"&&p.status!=="accepted"){
+      const acceptedQuoteId=data.accepted_option;
+      setProposals(prev=>{const n=prev.map(x=>x.id===p.id?{...x,status:"accepted",acceptedQuoteId,acceptedName:data.accepted_name||"",acceptedAt:data.accepted_at||today()}:x);persist(K.pp,n);return n;});
+      setQuotes(prev=>{const n=prev.map(q=>q.id===acceptedQuoteId?{...q,status:"Approved"}:(q.jobId===job.id&&q.status==="Approved"?{...q,status:"Declined"}:q));persist(K.qu,n);return n;});
+    }else if(!silent&&data.status!=="accepted"){
+      alert("No acceptance yet — the client hasn't accepted this proposal.");
+    }
+  };
+
+  // Auto-check sent proposals for acceptance when the job is opened
+  useEffect(()=>{jobProposals.filter(p=>p.status==="sent").forEach(p=>checkAcceptance(p,true));},[job?.id]);   // eslint-disable-line
+
+  const delProposal=async p=>{
+    if(!confirm("Delete this proposal? The client's link will stop working."))return;
+    if(supabaseEnabled)try{await supabase.from(PUBLIC_PROPOSALS_TABLE).delete().eq("token",p.token);}catch(e){}
+    save(proposals.filter(x=>x.id!==p.id));
+  };
+
+  const optLabel=qid=>{const q=quotes.find(x=>x.id===qid);return q?quoteLabel(q):"—";};
+
+  return <Card>
+    <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:jobProposals.length?14:0}}>
+      <div>
+        <div style={{fontWeight:700,fontSize:15,color:INK}}>Online proposals ({jobProposals.length})</div>
+        <div style={{fontSize:12,color:WG,marginTop:2}}>Send the client a link with one or more price options they can accept online.</div>
+      </div>
+      <Btn sm onClick={openBuilder} disabled={optionable.length===0}>+ New proposal</Btn>
+    </div>
+    {optionable.length===0&&jobProposals.length===0&&<div style={{fontSize:13,color:WG,fontStyle:"italic",marginTop:10}}>Create a quote first — proposals are built from quotes.</div>}
+
+    {jobProposals.map(p=>{
+      const accepted=p.status==="accepted";
+      return <div key={p.id} style={{border:`1px solid ${accepted?OK+"66":BD}`,borderRadius:10,padding:"12px 14px",marginBottom:10,background:accepted?OK+"08":WHITE}}>
+        <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:12,flexWrap:"wrap"}}>
+          <div style={{flex:1,minWidth:200}}>
+            <div style={{display:"flex",alignItems:"center",gap:10}}>
+              <span style={{fontWeight:700,fontSize:14,color:INK}}>{(p.optionIds||[]).length} option{(p.optionIds||[]).length!==1?"s":""}</span>
+              <Badge label={accepted?"Accepted":p.status==="sent"?"Sent":"Draft"} color={accepted?OK:p.status==="sent"?GOLD_D:WG}/>
+              <span style={{fontSize:12,color:WG}}>{fmtDate(p.createdAt)}</span>
+            </div>
+            <div style={{fontSize:12,color:WG,marginTop:4}}>{(p.optionIds||[]).map(optLabel).join(" · ")}</div>
+            {accepted&&<div style={{fontSize:13,color:OK,fontWeight:700,marginTop:6}}>✓ {p.acceptedName||"Client"} accepted “{optLabel(p.acceptedQuoteId)}”{p.acceptedAt?` on ${fmtDate(p.acceptedAt)}`:""} — quote approved.</div>}
+          </div>
+          <div style={{display:"flex",gap:8,alignItems:"center",flexWrap:"wrap"}}>
+            {!accepted&&<>
+              <button onClick={()=>copyLink(p)} style={{background:copied===p.id?OK:GOLD_L,border:`1px solid ${copied===p.id?OK:GOLD}`,borderRadius:6,padding:"5px 12px",fontSize:12,fontWeight:700,color:copied===p.id?WHITE:GOLD_D,cursor:"pointer",fontFamily:"inherit"}}>{copied===p.id?"✓ Copied":"Copy link"}</button>
+              <button onClick={()=>window.open(linkFor(p),"_blank")} style={{background:"none",border:`1px solid ${BD}`,borderRadius:6,padding:"5px 12px",fontSize:12,fontWeight:700,color:WG,cursor:"pointer",fontFamily:"inherit"}}>Preview</button>
+              <button onClick={()=>checkAcceptance(p,false)} style={{background:"none",border:`1px solid ${BD}`,borderRadius:6,padding:"5px 12px",fontSize:12,fontWeight:700,color:WG,cursor:"pointer",fontFamily:"inherit"}}>{checking===p.id?"Checking…":"Check for acceptance"}</button>
+            </>}
+            <button onClick={()=>delProposal(p)} style={{background:"none",border:"none",cursor:"pointer",color:DANGER,fontSize:17,padding:0,lineHeight:1}}>×</button>
+          </div>
+        </div>
+      </div>;
+    })}
+
+    {builder&&<Modal title="New proposal" onClose={()=>setBuilder(false)} wide>
+      <div style={{fontSize:13,color:WG,marginBottom:16,lineHeight:1.6}}>Pick the quote(s) to offer as options. The client sees them side by side and accepts one online. Star the one you'd recommend.</div>
+      <div style={{fontSize:10,fontWeight:700,color:WG,textTransform:"uppercase",letterSpacing:"0.06em",marginBottom:8}}>Options</div>
+      {optionable.map(q=>{
+        const on=sel.includes(q.id);
+        return <div key={q.id} style={{display:"flex",alignItems:"center",gap:12,padding:"10px 12px",border:`1px solid ${on?GOLD:BD}`,borderRadius:8,marginBottom:8,background:on?GOLD_L+"55":WHITE}}>
+          <input type="checkbox" checked={on} onChange={()=>toggle(q.id)} style={{width:16,height:16,cursor:"pointer",accentColor:GOLD}}/>
+          <div style={{flex:1,cursor:"pointer"}} onClick={()=>toggle(q.id)}>
+            <div style={{fontWeight:700,fontSize:14,color:INK}}>{quoteLabel(q)}</div>
+            <div style={{fontSize:12,color:WG,marginTop:1}}>{fmtR(quoteGrandTotal(q,markupTable))} inc GST · {q.status}</div>
+          </div>
+          <button onClick={()=>setRecommended(r=>r===q.id?"":q.id)} disabled={!on}
+            title="Mark as recommended"
+            style={{background:recommended===q.id?GOLD:"none",border:`1px solid ${recommended===q.id?GOLD:BD}`,borderRadius:6,padding:"5px 11px",fontSize:12,fontWeight:700,color:recommended===q.id?WHITE:(on?GOLD_D:WG),cursor:on?"pointer":"not-allowed",fontFamily:"inherit",opacity:on?1:0.5}}>★ Recommend</button>
+        </div>;
+      })}
+      <div style={{marginTop:14}}>
+        <label style={{...SS.lbl,marginBottom:6}}>Intro message <span style={{fontWeight:400,color:WG,textTransform:"none",letterSpacing:0}}>(optional — shown at the top of the proposal)</span></label>
+        <textarea value={intro} onChange={e=>setIntro(e.target.value)} rows={3} placeholder={`Dear ${client?.name||"…"}, thank you for your enquiry. Please find your options below.`} style={{...SS.inp,marginTop:0,resize:"vertical",lineHeight:1.6}}/>
+      </div>
+      <div style={{display:"flex",gap:10,justifyContent:"flex-end",marginTop:18,alignItems:"center"}}>
+        <span style={{fontSize:12,color:WG,marginRight:"auto"}}>{sel.length} option{sel.length!==1?"s":""} selected</span>
+        <Btn ghost onClick={()=>setBuilder(false)}>Cancel</Btn>
+        <Btn onClick={createAndShare} disabled={busy||!sel.length}>{busy?"Publishing…":"Publish & copy link"}</Btn>
+      </div>
+    </Modal>}
+  </Card>;
+}
+
+// ── Public client-facing proposal page (no login) ─────────────────────────
+// Rendered standalone when the app is opened at /?p=<token>. Reads an immutable
+// snapshot from the public_proposals table via RPC and lets the client accept one option.
+function PublicProposalPage({token}){
+  const [state,setState]=useState("loading");   // loading | ready | accepted | error | notfound
+  const [snap,setSnap]=useState(null);
+  const [sel,setSel]=useState("");
+  const [name,setName]=useState("");
+  const [acceptedOption,setAcceptedOption]=useState("");
+  const [acceptedName,setAcceptedName]=useState("");
+  const [busy,setBusy]=useState(false);
+
+  useEffect(()=>{
+    (async()=>{
+      if(!supabaseEnabled){setState("error");return;}
+      try{
+        const{data,error}=await supabase.rpc("get_proposal",{p_token:token});
+        if(error)throw error;
+        const row=Array.isArray(data)?data[0]:data;
+        if(!row){setState("notfound");return;}
+        setSnap(row.data);
+        if(row.status==="accepted"){setAcceptedOption(row.accepted_option||"");setAcceptedName(row.accepted_name||"");setState("accepted");}
+        else{const opts=row.data?.options||[];const rec=opts.find(o=>o.recommended);setSel(rec?rec.id:(opts[0]?.id||""));setState("ready");}
+      }catch(e){setState("error");}
+    })();
+  },[token]);
+
+  const accept=async()=>{
+    if(!sel||!name.trim())return;
+    setBusy(true);
+    try{
+      const{data,error}=await supabase.rpc("accept_proposal",{p_token:token,p_option:sel,p_name:name.trim()});
+      if(error)throw error;
+      if(data===false){/* already accepted in the meantime */ }
+      setAcceptedOption(sel);setAcceptedName(name.trim());setState("accepted");
+    }catch(e){alert("Sorry — we couldn't record your acceptance. Please try again or contact the studio.");}
+    setBusy(false);
+  };
+
+  const wrap=(inner)=><div style={{minHeight:"100vh",background:CREAM,fontFamily:"'DM Sans',sans-serif",padding:"24px 16px",boxSizing:"border-box"}}>{inner}</div>;
+  if(state==="loading")return wrap(<div style={{textAlign:"center",color:WG,fontSize:14,marginTop:80}}>Loading your proposal…</div>);
+  if(state==="error")return wrap(<div style={{maxWidth:440,margin:"80px auto 0",textAlign:"center",background:WHITE,border:`1px solid ${BD}`,borderRadius:RADIUS,padding:"32px 28px",boxShadow:SHADOW}}><div style={{fontSize:30,marginBottom:10}}>⚠️</div><div style={{fontSize:16,fontWeight:800,color:INK,marginBottom:6}}>Couldn't load this proposal</div><div style={{fontSize:13,color:WG,lineHeight:1.6}}>Please check the link, or get in touch with the studio.</div></div>);
+  if(state==="notfound")return wrap(<div style={{maxWidth:440,margin:"80px auto 0",textAlign:"center",background:WHITE,border:`1px solid ${BD}`,borderRadius:RADIUS,padding:"32px 28px",boxShadow:SHADOW}}><div style={{fontSize:30,marginBottom:10}}>🔍</div><div style={{fontSize:16,fontWeight:800,color:INK,marginBottom:6}}>Proposal not found</div><div style={{fontSize:13,color:WG,lineHeight:1.6}}>This link may have expired or been withdrawn. Please contact the studio for an up-to-date quote.</div></div>);
+
+  const b=snap.biz||{};
+  const opts=snap.options||[];
+  const accepted=state==="accepted";
+  const chosen=opts.find(o=>o.id===(accepted?acceptedOption:sel));
+  const depositOf=price=>price!=null?fmtR(price*(snap.depositPercent||50)/100):"—";
+
+  return wrap(<div style={{maxWidth:680,margin:"0 auto"}}>
+    {/* Header */}
+    <div style={{background:INK,borderRadius:`${RADIUS}px ${RADIUS}px 0 0`,padding:"32px 32px 26px",color:WHITE}}>
+      <div style={{fontSize:10,fontWeight:700,color:"rgba(255,255,255,0.5)",letterSpacing:"0.2em",textTransform:"uppercase",marginBottom:12}}>Quote Proposal</div>
+      {b.logo
+        ?<div style={{background:WHITE,borderRadius:10,padding:"8px 14px",display:"inline-block"}}><img src={b.logo} alt={b.name||"Logo"} style={{maxWidth:200,maxHeight:54,objectFit:"contain",display:"block"}}/></div>
+        :<div style={{fontSize:24,fontWeight:800}}>{b.name||"Our Studio"}</div>}
+      <div style={{marginTop:12,fontSize:12,color:"rgba(255,255,255,0.5)",lineHeight:1.7}}>
+        {b.address&&<div>{b.address}</div>}
+        {(b.phone||b.email)&&<div>{[b.phone,b.email].filter(Boolean).join("  ·  ")}</div>}
+        {b.abn&&<div style={{color:"rgba(255,255,255,0.32)"}}>ABN {b.abn}</div>}
+      </div>
+    </div>
+
+    <div style={{background:WHITE,borderRadius:`0 0 ${RADIUS}px ${RADIUS}px`,border:`1px solid ${BD}`,borderTop:"none",padding:"28px 32px 32px",boxShadow:SHADOW}}>
+      <div style={{fontSize:9,fontWeight:700,color:WG,letterSpacing:"0.16em",textTransform:"uppercase",marginBottom:6}}>Prepared for</div>
+      <div style={{fontSize:20,fontWeight:700,color:INK,marginBottom:4}}>{snap.clientName||"—"}</div>
+      <div style={{fontSize:13,color:WG}}>{snap.jobType} · Valid until {fmtDate(snap.validUntil)}</div>
+      {snap.intro&&<div style={{fontSize:14,color:"#444",lineHeight:1.7,marginTop:16,fontFamily:"Georgia,serif"}}>{snap.intro}</div>}
+
+      {accepted&&<div style={{background:OK+"12",border:`1px solid ${OK}55`,borderRadius:10,padding:"16px 18px",margin:"20px 0 4px"}}>
+        <div style={{fontSize:15,fontWeight:800,color:OK,marginBottom:3}}>✓ Thank you, {acceptedName||"and welcome"}!</div>
+        <div style={{fontSize:13,color:INK,lineHeight:1.6}}>You've accepted <strong>{chosen?.label||"your option"}</strong>{chosen?.price!=null?` at ${fmtR(chosen.price)} (inc GST)`:""}. The studio has been notified and will be in touch about your deposit and next steps.</div>
+      </div>}
+
+      {/* Options */}
+      <div style={{fontSize:9,fontWeight:700,color:WG,letterSpacing:"0.16em",textTransform:"uppercase",margin:"24px 0 12px"}}>{accepted?"Your selection":opts.length>1?"Choose an option":"Your quote"}</div>
+      <div style={{display:"flex",flexDirection:"column",gap:12}}>
+        {opts.map(o=>{
+          const isSel=(accepted?acceptedOption:sel)===o.id;
+          const dim=accepted&&!isSel;
+          return <div key={o.id} onClick={()=>{if(!accepted)setSel(o.id);}}
+            style={{border:`2px solid ${isSel?GOLD:BD}`,borderRadius:12,padding:"16px 18px",cursor:accepted?"default":"pointer",background:isSel?GOLD_L+"44":WHITE,opacity:dim?0.5:1,transition:"all 0.15s",position:"relative"}}>
+            {o.recommended&&<div style={{position:"absolute",top:-9,left:16,background:GOLD,color:WHITE,fontSize:9,fontWeight:800,letterSpacing:"0.08em",textTransform:"uppercase",padding:"2px 10px",borderRadius:20}}>Recommended</div>}
+            <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:16}}>
+              <div style={{flex:1,minWidth:0}}>
+                <div style={{display:"flex",alignItems:"center",gap:10}}>
+                  {!accepted&&<div style={{width:18,height:18,borderRadius:"50%",border:`2px solid ${isSel?GOLD:BD}`,flexShrink:0,display:"flex",alignItems:"center",justifyContent:"center"}}>{isSel&&<div style={{width:9,height:9,borderRadius:"50%",background:GOLD}}/>}</div>}
+                  <div style={{fontSize:16,fontWeight:700,color:INK}}>{o.label}</div>
+                </div>
+                {o.description&&<div style={{fontSize:13,color:WG,lineHeight:1.6,marginTop:6,fontFamily:"Georgia,serif"}}>{o.description}</div>}
+              </div>
+              <div style={{textAlign:"right",flexShrink:0}}>
+                <div style={{fontSize:22,fontWeight:800,color:INK}}>{o.price!=null?fmtR(o.price):"—"}</div>
+                <div style={{fontSize:10,color:WG}}>inc GST</div>
+              </div>
+            </div>
+          </div>;
+        })}
+      </div>
+
+      {/* Deposit note */}
+      {chosen&&chosen.price!=null&&<div style={{fontSize:12,color:WG,marginTop:14}}>To proceed, a {snap.depositPercent||50}% deposit of <strong style={{color:INK}}>{depositOf(chosen.price)}</strong> is required.</div>}
+
+      {/* Accept box */}
+      {!accepted&&<div style={{borderTop:`1px solid ${BD}`,marginTop:22,paddingTop:20}}>
+        <div style={{fontSize:13,fontWeight:700,color:INK,marginBottom:10}}>Accept this proposal</div>
+        <input value={name} onChange={e=>setName(e.target.value)} placeholder="Type your full name to confirm" style={{...SS.inp,marginTop:0,marginBottom:12}}/>
+        <button onClick={accept} disabled={!sel||!name.trim()||busy}
+          style={{width:"100%",background:(!sel||!name.trim()||busy)?BD:INK,color:WHITE,border:"none",borderRadius:10,padding:"14px",fontSize:15,fontWeight:800,cursor:(!sel||!name.trim()||busy)?"not-allowed":"pointer",fontFamily:"inherit",letterSpacing:"0.02em"}}>
+          {busy?"Submitting…":`Accept${chosen?` — ${chosen.label}`:""}`}
+        </button>
+        <div style={{fontSize:11,color:WG,marginTop:10,lineHeight:1.5}}>By accepting you agree to the terms below. This records your selection and notifies the studio — it is not a payment.</div>
+      </div>}
+
+      {/* Terms */}
+      {snap.terms&&<div style={{borderTop:`1px solid ${BD}`,marginTop:22,paddingTop:18}}>
+        <div style={{fontSize:9,fontWeight:700,color:WG,letterSpacing:"0.16em",textTransform:"uppercase",marginBottom:10}}>Terms &amp; conditions</div>
+        <div style={{fontSize:11,color:WG,lineHeight:1.7,whiteSpace:"pre-wrap"}}>{snap.terms}</div>
+      </div>}
+      <div style={{textAlign:"center",fontSize:10,color:WG,marginTop:24}}>All prices inclusive of GST · Quoted in AUD</div>
+    </div>
+  </div>);
 }
 
 // ── Quote Proposal Preview ────────────────────────────────────────────────
@@ -4996,6 +5291,11 @@ function Login(){
 }
 
 export default function App(){
+  // Public client-facing proposal link (?p=<token>) — render the standalone proposal page,
+  // outside the auth gate and the studio shell. Derived from the URL (constant per page load).
+  const _publicToken=typeof window!=="undefined"?new URLSearchParams(window.location.search).get("p"):null;
+  if(_publicToken)return <PublicProposalPage token={_publicToken}/>;
+
   const[clients,setClients]=useState(SEED_CLIENTS);
   const[jobs,setJobs]=useState(SEED_JOBS);
   const[quotes,setQuotes]=useState(SEED_QUOTES);
@@ -5004,6 +5304,7 @@ export default function App(){
   const[biz,setBiz]=useState({});
   const[notes,setNotes]=useState(SEED_NOTES);
   const[invoices,setInvoices]=useState([]);
+  const[proposals,setProposals]=useState([]);
   const[appointments,setAppointments]=useState(SEED_APPOINTMENTS);
   const[spotPrices,setSpotPrices]=useState(SEED_SPOT);
   const[markupTable,setMarkupTable]=useState(DEFAULT_MARKUP_TABLE);
@@ -5055,7 +5356,7 @@ export default function App(){
       [K.cl]:setClients,[K.jo]:setJobs,[K.qu]:setQuotes,[K.pa]:setPayments,
       [K.pr]:setPricing,[K.biz]:setBiz,[K.no]:setNotes,[K.inv]:setInvoices,
       [K.mt]:setMarkupTable,[K.smn]:setNaturalStoneMarkup,[K.sml]:setLabStoneMarkup,[K.csr]:setCentreRates,
-      [K.ap]:setAppointments,
+      [K.ap]:setAppointments,[K.pp]:setProposals,
     };
     // Normalise legacy values before applying to state
     const applyLoaded=(k,v,setter)=>{
@@ -5137,7 +5438,7 @@ export default function App(){
     if(view==="clients")return <Clients clients={clients} setClients={setClients} jobs={jobs} payments={payments} setView={setView} setSelClient={setSelClient}/>;
     if(view==="clientDetail")return <ClientDetail clientId={selClient} clients={clients} jobs={jobs} setJobs={setJobs} quotes={quotes} payments={payments} markupTable={markupTable} setView={setView} setSelJob={setSelJob}/>;
     if(view==="jobs")return <Jobs clients={clients} jobs={jobs} setJobs={setJobs} quotes={quotes} setQuotes={setQuotes} payments={payments} setPayments={setPayments} notes={notes} setNotes={setNotes} invoices={invoices} setInvoices={setInvoices} markupTable={markupTable} setView={setView} setSelJob={setSelJob}/>;
-    if(view==="jobDetail")return <JobDetail jobId={selJob} jobs={jobs} setJobs={setJobs} clients={clients} quotes={quotes} setQuotes={setQuotes} payments={payments} setPayments={setPayments} notes={notes} setNotes={setNotes} invoices={invoices} setInvoices={setInvoices} biz={biz} markupTable={markupTable} setView={setView}/>;
+    if(view==="jobDetail")return <JobDetail jobId={selJob} jobs={jobs} setJobs={setJobs} clients={clients} quotes={quotes} setQuotes={setQuotes} payments={payments} setPayments={setPayments} notes={notes} setNotes={setNotes} invoices={invoices} setInvoices={setInvoices} proposals={proposals} setProposals={setProposals} biz={biz} markupTable={markupTable} setView={setView}/>;
     if(view==="quotes")return <QuotesList quotes={quotes} jobs={jobs} clients={clients} markupTable={markupTable} biz={biz} setView={setView}/>;
     if(view.startsWith("quoteDetail_"))return <QuoteDetail quoteId={view.split("_")[1]} quotes={quotes} setQuotes={setQuotes} jobs={jobs} clients={clients} biz={biz} markupTable={markupTable} naturalStoneMarkup={naturalStoneMarkup} labStoneMarkup={labStoneMarkup} setView={setView}/>;
     if(view.startsWith("newQuote_"))return <QuoteBuilder jobId={view.split("_")[1]} jobs={jobs} clients={clients} quotes={quotes} setQuotes={setQuotes} pricing={pricing} setPricing={setPricing} markupTable={markupTable} naturalStoneMarkup={naturalStoneMarkup} labStoneMarkup={labStoneMarkup} centreRates={centreRates} setView={setView}/>;
