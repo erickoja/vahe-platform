@@ -1,4 +1,4 @@
-import { useState, useCallback, useMemo, useEffect } from "react";
+import { useState, useCallback, useMemo, useEffect, useRef } from "react";
 import { supabase, supabaseEnabled, STATE_TABLE } from "./supabaseClient";
 // Iframe-safe overrides
 // Only suppress alert/confirm inside Claude artifact iframes, not standalone
@@ -1092,7 +1092,9 @@ ${inv.notes?`<div class="notes">${inv.notes}</div>`:""}
 }
 
 // ── Dashboard ─────────────────────────────────────────────────────────────
-function Dashboard({clients,jobs,quotes,payments,invoices,appointments=[],markupTable,setView,setSelClient}){
+function Dashboard({clients,jobs,quotes,payments,invoices,appointments=[],proposals=[],markProposalSeen,markupTable,setView,setSelClient}){
+  // Proposals a client accepted that haven't been acknowledged yet → dashboard alert
+  const acceptedUnseen=proposals.filter(p=>p.status==="accepted"&&p.seen===false);
   const active=jobs.filter(j=>j.stage!=="Collected");
   const tISO=localToday();
   const upcomingAppts=[...appointments].filter(a=>(!a.status||a.status==="Scheduled")&&a.date>=tISO).sort((a,b)=>String(a.date+(a.time||"")).localeCompare(String(b.date+(b.time||"")))).slice(0,6);
@@ -1113,6 +1115,21 @@ function Dashboard({clients,jobs,quotes,payments,invoices,appointments=[],markup
   const outstanding=balanceOwing.reduce((s,b)=>s+b.balance,0);
 
   return <div>
+    {/* Accepted-proposal alerts */}
+    {acceptedUnseen.map(p=>{
+      const job=jobs.find(j=>j.id===p.jobId);
+      const cl=job?clients.find(x=>x.id===job.clientId):null;
+      const q=quotes.find(x=>x.id===p.acceptedQuoteId);
+      return <div key={p.id} style={{display:"flex",alignItems:"center",gap:14,background:OK+"10",border:`1px solid ${OK}55`,borderRadius:12,padding:"14px 18px",marginBottom:14}}>
+        <div style={{fontSize:24,lineHeight:1}}>🎉</div>
+        <div style={{flex:1}}>
+          <div style={{fontSize:14,fontWeight:800,color:INK}}>Proposal accepted{cl?.name?` — ${cl.name}`:""}</div>
+          <div style={{fontSize:13,color:WG,marginTop:2}}><strong style={{color:OK}}>{p.acceptedName||"Client"}</strong> accepted “{q?quoteLabel(q):"an option"}”{job?` for ${job.type}`:""}{p.acceptedAt?` on ${fmtDate(p.acceptedAt)}`:""} — quote approved.</div>
+        </div>
+        <Btn sm onClick={()=>{markProposalSeen&&markProposalSeen(p.id);if(job)setView("jobDetail_"+job.id);}}>Review</Btn>
+        <button onClick={()=>markProposalSeen&&markProposalSeen(p.id)} title="Dismiss" style={{background:"none",border:"none",cursor:"pointer",color:WG,fontSize:18,padding:0,lineHeight:1}}>×</button>
+      </div>;
+    })}
     <div style={{marginBottom:28}}>
       <div style={{fontSize:11,fontWeight:700,color:WG,letterSpacing:"0.14em",textTransform:"uppercase",marginBottom:5}}>Workshop overview</div>
       <h1 style={{margin:0,fontSize:32,fontWeight:500,color:INK,letterSpacing:"-0.01em",fontFamily:"'DM Sans',sans-serif"}}>{(()=>{const h=new Date().getHours();return h<12?"Good morning":h<17?"Good afternoon":"Good evening";})()}</h1>
@@ -5424,6 +5441,56 @@ export default function App(){
     else setViewRaw(v);
   },[]);
 
+  // ── Proposal acceptance notifications ──────────────────────────────────
+  // Live refs so the realtime callback always sees current data (avoids stale closures).
+  const proposalsRef=useRef(proposals);proposalsRef.current=proposals;
+  const quotesRef=useRef(quotes);quotesRef.current=quotes;
+  const [acceptToast,setAcceptToast]=useState(null);   // {name,label,jobId} for the live pop-up
+
+  // Reconcile a cloud acceptance into local state: flag the proposal accepted (unseen → drives
+  // the dashboard banner), approve the chosen quote, demote other approved quotes, pop a toast.
+  const reconcileAccept=useCallback((row)=>{
+    if(!row||row.status!=="accepted")return;
+    const p=(proposalsRef.current||[]).find(x=>x.token===row.token);
+    if(!p||p.status==="accepted")return;   // unknown here, or already handled
+    const np=proposalsRef.current.map(x=>x.token===row.token?{...x,status:"accepted",acceptedQuoteId:row.accepted_option,acceptedName:row.accepted_name||"",acceptedAt:row.accepted_at||today(),seen:false}:x);
+    setProposals(np);persist(K.pp,np);
+    const nq=quotesRef.current.map(q=>q.id===row.accepted_option?{...q,status:"Approved"}:(q.jobId===p.jobId&&q.status==="Approved"?{...q,status:"Declined"}:q));
+    setQuotes(nq);persist(K.qu,nq);
+    const acceptedQuote=quotesRef.current.find(q=>q.id===row.accepted_option);
+    setAcceptToast({name:row.accepted_name||"A client",label:acceptedQuote?quoteLabel(acceptedQuote):"a proposal",jobId:p.jobId});
+  },[]);
+
+  // Mark a dashboard alert as acknowledged
+  const markProposalSeen=useCallback(id=>{
+    const np=(proposalsRef.current||[]).map(p=>p.id===id?{...p,seen:true}:p);
+    setProposals(np);persist(K.pp,np);
+  },[]);
+
+  // Auto-dismiss the live toast
+  useEffect(()=>{if(!acceptToast)return;const t=setTimeout(()=>setAcceptToast(null),9000);return()=>clearTimeout(t);},[acceptToast]);
+
+  // On load (once data is ready) batch-check every sent proposal for a cloud acceptance,
+  // and subscribe to realtime so acceptances pop instantly while the app is open.
+  useEffect(()=>{
+    if(!storageReady||!supabaseEnabled||!supabase)return;
+    let cancelled=false;
+    (async()=>{
+      const sent=(proposalsRef.current||[]).filter(p=>p.status==="sent"&&p.token);
+      if(sent.length){
+        try{
+          const{data}=await supabase.from(PUBLIC_PROPOSALS_TABLE).select("token,status,accepted_option,accepted_name,accepted_at").in("token",sent.map(p=>p.token));
+          if(!cancelled&&data)data.forEach(reconcileAccept);
+        }catch(e){}
+      }
+    })();
+    const ch=supabase.channel("public_proposals_accepts")
+      .on("postgres_changes",{event:"UPDATE",schema:"public",table:PUBLIC_PROPOSALS_TABLE},payload=>{
+        if(payload.new)reconcileAccept(payload.new);
+      }).subscribe();
+    return()=>{cancelled=true;try{supabase.removeChannel(ch);}catch(e){}};
+  },[storageReady,reconcileAccept]);
+
   const activeNav=useMemo(()=>{
     if(view.startsWith("quoteDetail")||view==="quotes")return "quotes";
     if(view.startsWith("invoiceDetail")||view==="invoices")return "invoices";
@@ -5433,7 +5500,7 @@ export default function App(){
   },[view]);
 
   const render=()=>{
-    if(view==="dashboard")return <Dashboard clients={clients} jobs={jobs} quotes={quotes} payments={payments} invoices={invoices} appointments={appointments} markupTable={markupTable} setView={setView} setSelClient={setSelClient}/>;
+    if(view==="dashboard")return <Dashboard clients={clients} jobs={jobs} quotes={quotes} payments={payments} invoices={invoices} appointments={appointments} proposals={proposals} markProposalSeen={markProposalSeen} markupTable={markupTable} setView={setView} setSelClient={setSelClient}/>;
     if(view==="appointments")return <Appointments appointments={appointments} setAppointments={setAppointments} clients={clients} setClients={setClients} jobs={jobs} setJobs={setJobs} setView={setView} setSelClient={setSelClient} setSelJob={setSelJob}/>;
     if(view==="clients")return <Clients clients={clients} setClients={setClients} jobs={jobs} payments={payments} setView={setView} setSelClient={setSelClient}/>;
     if(view==="clientDetail")return <ClientDetail clientId={selClient} clients={clients} jobs={jobs} setJobs={setJobs} quotes={quotes} payments={payments} markupTable={markupTable} setView={setView} setSelJob={setSelJob}/>;
@@ -5501,5 +5568,17 @@ export default function App(){
           </div>
         :render()}
     </div>
+    {/* Live proposal-acceptance pop-up (any view) */}
+    {acceptToast&&<div onClick={()=>{const j=acceptToast.jobId;setAcceptToast(null);if(j)setView("jobDetail_"+j);}}
+      style={{position:"fixed",bottom:24,right:24,maxWidth:340,background:INK,color:WHITE,borderRadius:12,padding:"16px 18px",boxShadow:"0 12px 40px rgba(0,0,0,0.35)",zIndex:9999,cursor:"pointer",border:`1px solid ${OK}66`}}>
+      <div style={{display:"flex",alignItems:"flex-start",gap:12}}>
+        <div style={{fontSize:22,lineHeight:1}}>🎉</div>
+        <div style={{flex:1}}>
+          <div style={{fontSize:14,fontWeight:800,color:OK,marginBottom:2}}>Proposal accepted</div>
+          <div style={{fontSize:13,color:"rgba(255,255,255,0.85)",lineHeight:1.5}}><strong>{acceptToast.name}</strong> accepted “{acceptToast.label}”. Click to open the job.</div>
+        </div>
+        <button onClick={e=>{e.stopPropagation();setAcceptToast(null);}} style={{background:"none",border:"none",color:"rgba(255,255,255,0.5)",fontSize:18,cursor:"pointer",padding:0,lineHeight:1}}>×</button>
+      </div>
+    </div>}
   </div>;
 }
