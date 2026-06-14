@@ -1808,7 +1808,7 @@ const CAD_TIER_COLORS={"None (no charge)":WG,"Simple Design":"#5B7FA6","Standard
 
 // ── Accent Stone Modal ────────────────────────────────────────────────────
 const STONE_SHAPES=["Round","Marquise","Pear","Oval","Princess","Emerald","Cushion","Baguette","Trillion","Asscher","Radiant","Heart","Other"];
-function AccentStoneModal({pricing,setPricing,onAdd,onClose}){
+function AccentStoneModal({pricing,setPricing,naturalStoneMarkup,labStoneMarkup,onAdd,onClose}){
   const accentDB=pricing.filter(p=>p.category==="Accent Stones");
   const[costs,setCosts]=useState({});
   const[adding,setAdding]=useState(false);
@@ -1818,14 +1818,18 @@ function AccentStoneModal({pricing,setPricing,onAdd,onClose}){
   const[shape,setShape]=useState("Round");
   const[size,setSize]=useState("");
   const[qty,setQty]=useState("");
-  const[perCost,setPerCost]=useState("");
+  const[cost,setCost]=useState("");
   const[qMarkup,setQMarkup]=useState("mfg");
-  const qn=Number(qty)||0,cn=Number(perCost)||0,qTotal=qn>0&&cn>0?qn*cn:0;
+  const qn=Math.max(1,Number(qty)||1);            // descriptive count (defaults to 1)
+  const cn=Number(cost)||0;                        // single TOTAL cost for the stone(s)
+  const canAdd=cn>0;
   const quickDesc=`${qn>1?qn+" × ":""}${shape}${size?` ${size}`:""}`.trim();
+  // When priced on the stone (natural/lab) markup, show the resulting client price
+  const stoneMU=qMarkup==="natural"||qMarkup==="lab";
+  const stonePreview=stoneMU&&cn>0?calcStoneQuote([{cost:cn}],qMarkup==="lab"?labStoneMarkup:naturalStoneMarkup):null;
   const addQuick=()=>{
-    if(qn<=0)return alert("Enter a quantity");
-    if(cn<=0)return alert("Enter your cost per stone");
-    onAdd({description:quickDesc,detail:`${qn} stone${qn!==1?"s":""} × ${fmt(cn)}/stone`,costLow:qTotal.toFixed(2),markupMode:qMarkup,qty:qn});
+    if(cn<=0)return alert("Enter the cost.");
+    onAdd({description:quickDesc,detail:qn>1?`${qn} stones`:"",costLow:cn.toFixed(2),markupMode:qMarkup});
   };
   const saveAndAdd=()=>{
     if(!newName.trim())return alert("Enter a stone name");
@@ -1841,9 +1845,10 @@ function AccentStoneModal({pricing,setPricing,onAdd,onClose}){
         <div style={{display:"grid",gridTemplateColumns:"1.1fr 1fr 0.6fr 0.9fr",gap:"0 12px"}}>
           <Input label="Cut / shape" value={shape} onChange={setShape} as="select" options={STONE_SHAPES}/>
           <Input label="Size / dimensions" value={size} onChange={setSize} placeholder="e.g. 4×2mm"/>
-          <Input label="Qty" value={qty} onChange={setQty} type="number" min="1" placeholder="2"/>
-          <Input label="Cost / stone" value={perCost} onChange={setPerCost} type="number" min="0" step="0.01" placeholder="0.00"/>
+          <Input label="Qty" value={qty} onChange={setQty} type="number" min="1" placeholder="1"/>
+          <Input label="Cost" value={cost} onChange={setCost} type="number" min="0" step="0.01" placeholder="0.00"/>
         </div>
+        <div style={{fontSize:10,color:WG,marginTop:-2,marginBottom:10,fontStyle:"italic"}}>Shape, size &amp; qty are for the description only — they don't affect the price. Cost is the total you paid for the stone(s).</div>
         <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:12,flexWrap:"wrap"}}>
           <div style={{display:"flex",alignItems:"center",gap:8}}>
             <span style={{fontSize:12,color:WG,fontWeight:700}}>Markup</span>
@@ -1853,12 +1858,16 @@ function AccentStoneModal({pricing,setPricing,onAdd,onClose}){
               <option value="lab">Lab stone</option>
             </select>
           </div>
-          <div style={{display:"flex",alignItems:"center",gap:12}}>
-            {qTotal>0&&<span style={{fontSize:13,color:WG}}>Cost total <b style={{color:INK}}>{fmt(qTotal)}</b></span>}
-            <Btn sm onClick={addQuick}>Add to quote</Btn>
-          </div>
+          <Btn sm onClick={addQuick} disabled={!canAdd}>Add to quote</Btn>
         </div>
-        {quickDesc&&qn>0&&<div style={{fontSize:11,color:WG,marginTop:8}}>Adds: <strong style={{color:INK}}>{quickDesc}</strong></div>}
+        {/* Markup hint — when on the stone markup, show the resulting client price */}
+        {stoneMU&&<div style={{fontSize:11,marginTop:8,color:stonePreview?(stonePreview.bracket?"#7B5EA7":WARN):WG}}>
+          {stonePreview
+            ?(stonePreview.bracket?<>→ <strong>{fmtR(stonePreview.clientTotal)}</strong> to client (×{stonePreview.mult} + GST)</>:"Cost is outside your stone markup table — check the rates in Pricing DB.")
+            :"Priced on the "+(qMarkup==="lab"?"lab-grown":"natural")+" stone markup (cost × tier + GST). Enter a cost to preview."}
+        </div>}
+        {!stoneMU&&<div style={{fontSize:11,marginTop:8,color:WG}}>Priced with the jewellery piece on the manufacturing markup.</div>}
+        {quickDesc&&<div style={{fontSize:11,color:WG,marginTop:8}}>Adds: <strong style={{color:INK}}>{quickDesc}</strong>{cn>0?<> · cost {fmt(cn)}</>:""}</div>}
       </div>
       <div style={{fontSize:10,fontWeight:700,color:WG,letterSpacing:"0.08em",textTransform:"uppercase",marginBottom:10}}>Or pick from your saved catalog</div>
       {accentDB.length===0
@@ -2065,15 +2074,6 @@ function QuoteBuilder({jobId:jobIdProp,editQuoteId,jobs,clients,quotes,setQuotes
   const setItem=(id,k,v)=>setItems(p=>p.map(i=>i.id===id?{...i,[k]:v}:i));
   const removeItem=id=>setItems(p=>p.filter(i=>i.id!==id));
   const setAccentItem=(id,k,v)=>setAccentItems(p=>p.map(i=>i.id===id?{...i,[k]:v}:i));
-  // Editing "Your cost" changes the row TOTAL — for quick-add stones (with a known qty)
-  // recompute the per-stone figure in the detail so "4 stones × $X/stone" never goes stale.
-  const setAccentCost=(id,v)=>setAccentItems(p=>p.map(i=>{
-    if(i.id!==id)return i;
-    const next={...i,costLow:v};
-    const q=Number(i.qty)||0,tot=Number(v)||0;
-    if(q>0)next.detail=`${q} stone${q!==1?"s":""} × ${fmt(tot/q)}/stone`;
-    return next;
-  }));
   const removeAccentItem=id=>setAccentItems(p=>p.filter(i=>i.id!==id));
   const moveItem=(id,dir)=>{
     setItems(p=>{const i=p.findIndex(x=>x.id===id);if(i<0)return p;const n=[...p];const t=n[i+dir];if(!t)return p;n[i+dir]=n[i];n[i]=t;return n;});
@@ -2299,7 +2299,7 @@ function QuoteBuilder({jobId:jobIdProp,editQuoteId,jobs,clients,quotes,setQuotes
               </select>
               <div style={{position:"relative"}}>
                 <span style={{position:"absolute",left:10,top:"50%",transform:"translateY(-50%)",fontSize:12,color:WG,pointerEvents:"none"}}>$</span>
-                <input type="number" value={li.costLow} onChange={e=>setAccentCost(li.id,e.target.value)} placeholder="0.00" min="0" step="0.01"
+                <input type="number" value={li.costLow} onChange={e=>setAccentItem(li.id,"costLow",e.target.value)} placeholder="0.00" min="0" step="0.01"
                   style={{...SS.inp,marginTop:0,fontSize:13,padding:"7px 8px 7px 22px",textAlign:"right",borderColor:cost>0?(stoneMU?"#C4A8F0":"#8EB5D4"):BD,fontWeight:cost>0?700:400}}/>
               </div>
               <button onClick={()=>removeAccentItem(li.id)} style={{background:"none",border:"none",cursor:"pointer",color:DANGER,fontSize:17,padding:0,lineHeight:1,textAlign:"center"}}>×</button>
@@ -2590,7 +2590,7 @@ function QuoteBuilder({jobId:jobIdProp,editQuoteId,jobs,clients,quotes,setQuotes
     </div>}
 
     {accentModal&&<AccentStoneModal
-      pricing={pricing} setPricing={setPricing}
+      pricing={pricing} setPricing={setPricing} naturalStoneMarkup={naturalStoneMarkup} labStoneMarkup={labStoneMarkup}
       onAdd={item=>{setAccentItems(p=>[...p,{...item,id:uid(),accentStone:true,noMarkup:false,markupMode:item.markupMode||"mfg"}]);setAccentModal(false);}}
       onClose={()=>setAccentModal(false)}
     />}
