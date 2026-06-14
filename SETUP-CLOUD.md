@@ -58,6 +58,24 @@ create policy "job-images delete" on storage.objects for delete to authenticated
 The bucket is private — images are only viewable through the app via temporary
 secure links. Free tier includes ~1GB of storage.
 
+## 2c. Create the online-proposals table (for client-facing proposal links)
+
+This powers the **Online proposals** feature — the login-free links clients open
+to compare options and accept online. It lives in its own public-facing table so
+no studio data is ever exposed. In **SQL Editor** → **New query**, run the
+contents of [`supabase-public-proposals.sql`](supabase-public-proposals.sql) (in
+the project root). It creates the `public_proposals` table plus two locked-down
+functions (`get_proposal` / `accept_proposal`) that logged-out clients use to
+read a single proposal and record their acceptance.
+
+> If publishing a proposal later errors with *"Could not find the table
+> 'public.public_proposals' in the schema cache"*, the API just hasn't picked up
+> the new table yet — run `NOTIFY pgrst, 'reload schema';` in the SQL editor, or
+> restart the project (Project Settings → General → Restart project), then retry.
+> Also double-check you ran it in the **same project** the app's `.env.local`
+> points to (`VITE_SUPABASE_URL`) — running it in a different project is the most
+> common cause.
+
 ## 3. Create your two user logins
 
 1. In the dashboard go to **Authentication** → **Users** → **Add user** →
