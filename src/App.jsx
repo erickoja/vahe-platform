@@ -1960,80 +1960,6 @@ function CentreStonePicker({onAdd,centreRates=DEFAULT_CENTRE_RATES}){
   </div>;
 }
 
-function FindingsModal({pricing,setPricing,onAdd,onClose}){
-  const findingDB=pricing.filter(p=>p.category===FINDINGS_CAT);
-  const[qtys,setQtys]=useState({});
-  const[adding,setAdding]=useState(false);
-  const[newName,setNewName]=useState("");
-  const[newDetail,setNewDetail]=useState("");
-  const[newUnit,setNewUnit]=useState("item");
-  const[newCost,setNewCost]=useState("");
-  const addToQuote=(item,qty)=>{
-    const q=Math.max(1,Number(qty)||1);
-    const total=(Number(item.baseCost)*q).toFixed(2);
-    const detail=q>1?`${q} × ${fmt(item.baseCost)}/${item.unit||"item"}${item.detail?` · ${item.detail}`:""}`:(item.detail||"");
-    onAdd({description:item.name,detail,costLow:String(total)});
-  };
-  const saveAndAdd=()=>{
-    if(!newName.trim())return alert("Enter a component name");
-    if(!newCost||Number(newCost)<=0)return alert("Enter your cost");
-    const item={id:uid(),category:FINDINGS_CAT,name:newName.trim(),detail:newDetail.trim(),unit:newUnit,baseCost:Number(newCost)};
-    setPricing(p=>{const n=[...p,item];persist(K.pr,n);return n;});
-    onAdd({description:item.name,detail:item.detail,costLow:String(Number(newCost).toFixed(2))});
-  };
-  return <Modal title="Add finding / component" onClose={onClose}>
-    {!adding&&<>
-      {findingDB.length===0
-        ?<div style={{textAlign:"center",padding:"24px 0 16px"}}>
-          <div style={{fontSize:28,marginBottom:12}}>🔗</div>
-          <div style={{fontSize:14,fontWeight:600,color:INK,marginBottom:6}}>No findings in your catalog yet</div>
-          <div style={{fontSize:13,color:WG,marginBottom:20,lineHeight:1.6}}>Save the chains, clasps, posts &amp; parts you use — with your cost — then pick them in any quote.</div>
-          <Btn onClick={()=>setAdding(true)}>+ Add your first component</Btn>
-        </div>
-        :<>
-          <div style={{fontSize:13,color:WG,marginBottom:16,lineHeight:1.6}}>Pick a component, set the quantity, and add it to the quote. You can adjust the cost on the quote afterwards.</div>
-          {findingDB.map(item=>{
-            const qty=qtys[item.id]||"";
-            const q=Math.max(1,Number(qty)||1);
-            const total=Number(item.baseCost)*q;
-            return <div key={item.id} style={{display:"flex",alignItems:"center",gap:12,padding:"12px 0",borderBottom:`1px solid ${BD}`}}>
-              <div style={{flex:1}}>
-                <div style={{fontWeight:600,fontSize:14,color:INK}}>{item.name}</div>
-                <div style={{fontSize:12,color:WG,marginTop:2}}><strong style={{color:INK}}>{fmt(item.baseCost)}</strong>/{item.unit||"item"}{item.detail?` · ${item.detail}`:""}</div>
-              </div>
-              <div style={{display:"flex",alignItems:"center",gap:6,flexShrink:0}}>
-                <label style={{fontSize:11,fontWeight:700,color:WG}}>Qty</label>
-                <input type="number" value={qty} min="1" step="1" placeholder="1"
-                  onChange={e=>setQtys(p=>({...p,[item.id]:e.target.value}))}
-                  style={{...SS.inp,marginTop:0,width:56,padding:"7px 8px",fontSize:13,textAlign:"center"}}/>
-              </div>
-              {qty&&q>0&&<div style={{fontSize:13,fontWeight:800,color:OK,whiteSpace:"nowrap",width:64,textAlign:"right"}}>{fmt(total)}</div>}
-              <Btn sm onClick={()=>addToQuote(item,qty)}>Add</Btn>
-            </div>;
-          })}
-          <div style={{marginTop:18,paddingTop:14,borderTop:`1px solid ${BD}`}}>
-            <button onClick={()=>setAdding(true)} style={{background:"none",border:"none",cursor:"pointer",color:GOLD,fontSize:13,fontWeight:700,fontFamily:"inherit",padding:0}}>
-              + Save &amp; add a new component
-            </button>
-          </div>
-        </>}
-    </>}
-    {adding&&<>
-      <div style={{fontSize:13,color:WG,marginBottom:16,lineHeight:1.6}}>This component will be saved to your catalog for use in future quotes.</div>
-      <Input label="Component name" value={newName} onChange={setNewName} placeholder="e.g. Box chain 18ct yellow 45cm"/>
-      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"0 16px"}}>
-        <Input label="Your cost ($)" value={newCost} onChange={setNewCost} type="number" min="0" step="0.01"/>
-        <Input label="Unit" value={newUnit} onChange={setNewUnit} as="select" options={["item","pair","set","g","cm","piece"]}/>
-      </div>
-      <Input label="Notes / detail (optional)" value={newDetail} onChange={setNewDetail} placeholder="e.g. 1.2mm gauge, lobster clasp"/>
-      <div style={{display:"flex",gap:10,justifyContent:"flex-end",marginTop:8}}>
-        <Btn ghost onClick={()=>setAdding(false)}>Back</Btn>
-        <Btn onClick={saveAndAdd}>Save &amp; add to quote</Btn>
-      </div>
-    </>}
-  </Modal>;
-}
-
 function CADQuotePicker({pricing,selCAD,setSelCAD,pQty,setPQty,addFromDB}){
   const cadTiers=pricing.filter(p=>p.category==="CAD Design"&&p.cadTier);
   const cadRev=pricing.find(p=>p.category==="CAD Design"&&p.cadRevision);
@@ -2093,9 +2019,10 @@ function QuoteBuilder({jobId:jobIdProp,editQuoteId,jobs,clients,quotes,setQuotes
   const c=job?clients.find(x=>x.id===job.clientId):null;
   const isEditing=!!existingQuote;
   const blankItem=()=>({id:uid(),description:"",detail:"",costLow:"",noMarkup:false});
-  const[items,setItems]=useState(()=>existingQuote?.lineItems?.length?existingQuote.lineItems.filter(i=>!i.accentStone&&!i.finding).map(i=>({...i})):[]);
+  // Findings are no longer a separate section — fold any legacy finding:true items back
+  // into the main line items (stripping the flag) so old quotes keep them, editable as normal.
+  const[items,setItems]=useState(()=>existingQuote?.lineItems?.length?existingQuote.lineItems.filter(i=>!i.accentStone).map(({finding,...i})=>({...i})):[]);
   const[accentItems,setAccentItems]=useState(()=>existingQuote?.lineItems?.length?existingQuote.lineItems.filter(i=>i.accentStone).map(i=>({...i})):[]);
-  const[findingItems,setFindingItems]=useState(()=>existingQuote?.lineItems?.length?existingQuote.lineItems.filter(i=>i.finding).map(i=>({...i})):[]);
   const[notes,setNotes]=useState(existingQuote?.notes||"");
   const[clientDescription,setClientDescription]=useState(existingQuote?.clientDescription||"");
   const[title,setTitle]=useState(existingQuote?.title??(job?.type||""));   // prefill new quotes with the job type
@@ -2125,7 +2052,6 @@ function QuoteBuilder({jobId:jobIdProp,editQuoteId,jobs,clients,quotes,setQuotes
     return()=>window.removeEventListener("keydown",h);
   },[pricingModal]);
   const[accentModal,setAccentModal]=useState(false);
-  const[findingModal,setFindingModal]=useState(false);
   // Centre stone section
   const[stoneMode,setStoneMode]=useState(existingQuote?.stoneMode||"none");
   const[stoneType,setStoneType]=useState(existingQuote?.stoneType||"");
@@ -2149,8 +2075,6 @@ function QuoteBuilder({jobId:jobIdProp,editQuoteId,jobs,clients,quotes,setQuotes
     return next;
   }));
   const removeAccentItem=id=>setAccentItems(p=>p.filter(i=>i.id!==id));
-  const setFindingItem=(id,k,v)=>setFindingItems(p=>p.map(i=>i.id===id?{...i,[k]:v}:i));
-  const removeFindingItem=id=>setFindingItems(p=>p.filter(i=>i.id!==id));
   const moveItem=(id,dir)=>{
     setItems(p=>{const i=p.findIndex(x=>x.id===id);if(i<0)return p;const n=[...p];const t=n[i+dir];if(!t)return p;n[i+dir]=n[i];n[i]=t;return n;});
   };
@@ -2230,8 +2154,7 @@ function QuoteBuilder({jobId:jobIdProp,editQuoteId,jobs,clients,quotes,setQuotes
   };
 
   const validAccentItems=accentItems.filter(i=>i.description.trim()&&Number(i.costLow)>0);
-  const validFindingItems=findingItems.filter(i=>i.description.trim()&&Number(i.costLow)>0);
-  const validItems=[...items.filter(i=>i.description.trim()&&Number(i.costLow)>0),...validAccentItems,...validFindingItems];
+  const validItems=[...items.filter(i=>i.description.trim()&&Number(i.costLow)>0),...validAccentItems];
   const calc=calcQuote(validItems.length?validItems:items,markupTable,markupOverride);
   const validStoneItems=stoneItems.filter(i=>(Number(i.cost)||Number(i.costLow))>0);
   const activeStoneMarkup=stoneType==="lab"?labStoneMarkup:naturalStoneMarkup;
@@ -2246,7 +2169,7 @@ function QuoteBuilder({jobId:jobIdProp,editQuoteId,jobs,clients,quotes,setQuotes
   const save_=status=>{
     const baseValidItems=items.filter(i=>i.description.trim()&&Number(i.costLow)>0);
     const hasSourcedStones=stoneMode==="sourcing"&&validStoneItems.length>0;
-    if(!baseValidItems.length&&!validAccentItems.length&&!validFindingItems.length&&!hasSourcedStones&&!manualOn)return alert("Add at least one cost item — a line item, a sourced stone, or a manual quoted price.");
+    if(!baseValidItems.length&&!validAccentItems.length&&!hasSourcedStones&&!manualOn)return alert("Add at least one cost item — a line item, a sourced stone, or a manual quoted price.");
     if(isEditing){
       // Update existing quote — preserve id, jobId, createdAt
       const updated={...existingQuote,status,title:title.trim(),markupOverride:Number(markupOverride)||0,manualTotal:Number(manualTotal)||0,validUntil,notes,lineItems:validItems,
@@ -2380,39 +2303,6 @@ function QuoteBuilder({jobId:jobIdProp,editQuoteId,jobs,clients,quotes,setQuotes
                   style={{...SS.inp,marginTop:0,fontSize:13,padding:"7px 8px 7px 22px",textAlign:"right",borderColor:cost>0?(stoneMU?"#C4A8F0":"#8EB5D4"):BD,fontWeight:cost>0?700:400}}/>
               </div>
               <button onClick={()=>removeAccentItem(li.id)} style={{background:"none",border:"none",cursor:"pointer",color:DANGER,fontSize:17,padding:0,lineHeight:1,textAlign:"center"}}>×</button>
-            </div>;
-          })}
-        </>}
-      </div>
-
-      {/* ── Findings & components ── */}
-      <div style={{borderTop:`1px solid ${BD}`,margin:"8px 0 20px",paddingTop:20}}>
-        <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:12}}>
-          <div>
-            <div style={{fontSize:11,fontWeight:700,color:WG,textTransform:"uppercase",letterSpacing:"0.08em"}}>Findings &amp; components</div>
-            <div style={{fontSize:11,color:WG,marginTop:3}}>Chains, clasps, jump rings, earring backs, posts &amp; purchased parts. Included in manufacturing markup.</div>
-          </div>
-          <button onClick={()=>setFindingModal(true)}
-            style={{background:"#EAF5EF",border:`1px solid ${OK}`,borderRadius:6,padding:"7px 16px",color:OK,fontSize:12,fontWeight:700,cursor:"pointer",fontFamily:"inherit",whiteSpace:"nowrap",flexShrink:0}}>
-            + Add finding / component
-          </button>
-        </div>
-        {findingItems.length===0&&<div style={{fontSize:13,color:WG,fontStyle:"italic",padding:"10px 0"}}>No findings added to this quote.</div>}
-        {findingItems.length>0&&<>
-          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 110px 36px",gap:8,marginBottom:6,padding:"0 2px"}}>
-            {["Component","Notes / detail","Your cost",""].map(h=><div key={h} style={{fontSize:10,fontWeight:700,color:WG,textTransform:"uppercase",letterSpacing:"0.04em"}}>{h}</div>)}
-          </div>
-          {findingItems.map(li=>{
-            const cost=Number(li.costLow)||0;
-            return <div key={li.id} style={{display:"grid",gridTemplateColumns:"1fr 1fr 110px 36px",gap:8,marginBottom:8,alignItems:"center"}}>
-              <div style={{fontSize:13,fontWeight:600,color:INK,padding:"7px 0"}}>{li.description||<span style={{color:WG,fontStyle:"italic"}}>—</span>}</div>
-              <div style={{fontSize:12,color:WG,padding:"7px 0"}}>{li.detail||"—"}</div>
-              <div style={{position:"relative"}}>
-                <span style={{position:"absolute",left:10,top:"50%",transform:"translateY(-50%)",fontSize:12,color:WG,pointerEvents:"none"}}>$</span>
-                <input type="number" value={li.costLow} onChange={e=>setFindingItem(li.id,"costLow",e.target.value)} placeholder="0.00" min="0" step="0.01"
-                  style={{...SS.inp,marginTop:0,fontSize:13,padding:"7px 8px 7px 22px",textAlign:"right",borderColor:cost>0?OK:BD,fontWeight:cost>0?700:400}}/>
-              </div>
-              <button onClick={()=>removeFindingItem(li.id)} style={{background:"none",border:"none",cursor:"pointer",color:DANGER,fontSize:17,padding:0,lineHeight:1,textAlign:"center"}}>×</button>
             </div>;
           })}
         </>}
@@ -2703,12 +2593,6 @@ function QuoteBuilder({jobId:jobIdProp,editQuoteId,jobs,clients,quotes,setQuotes
       pricing={pricing} setPricing={setPricing}
       onAdd={item=>{setAccentItems(p=>[...p,{...item,id:uid(),accentStone:true,noMarkup:false,markupMode:item.markupMode||"mfg"}]);setAccentModal(false);}}
       onClose={()=>setAccentModal(false)}
-    />}
-
-    {findingModal&&<FindingsModal
-      pricing={pricing} setPricing={setPricing}
-      onAdd={item=>{setFindingItems(p=>[...p,{...item,id:uid(),finding:true,noMarkup:false}]);setFindingModal(false);}}
-      onClose={()=>setFindingModal(false)}
     />}
   </div>;
 }
