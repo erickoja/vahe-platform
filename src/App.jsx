@@ -2270,7 +2270,7 @@ function QuoteBuilder({jobId:jobIdProp,editQuoteId,jobs,clients,quotes,setQuotes
         <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:12}}>
           <div>
             <div style={{fontSize:11,fontWeight:700,color:WG,textTransform:"uppercase",letterSpacing:"0.08em"}}>Accent &amp; fancy stones</div>
-            <div style={{fontSize:11,color:WG,marginTop:3}}>Coloured gemstones, fancy-cut diamonds &amp; non-standard accents. Default to manufacturing markup; switch a pricey stone to stone markup.</div>
+            <div style={{fontSize:11,color:WG,marginTop:3,lineHeight:1.55}}>The pricing database is kept deliberately simple — there are thousands of possible shape, colour and gemstone combinations, so they can't all be catalogued. Add those custom stones here instead. Each stone defaults to the jewellery (manufacturing) markup; for a pricier stone you can switch it to be marked up separately on the natural or lab-grown stone rates.</div>
           </div>
           <button onClick={()=>setAccentModal(true)}
             style={{background:"#EEF4FB",border:"1px solid #8EB5D4",borderRadius:6,padding:"7px 16px",color:"#3B6E8F",fontSize:12,fontWeight:700,cursor:"pointer",fontFamily:"inherit",whiteSpace:"nowrap",flexShrink:0}}>
