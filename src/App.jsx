@@ -734,6 +734,7 @@ const buildProposalSnapshot=({proposal,job,client,biz,quotes,markupTable})=>{
     };
   }).filter(Boolean);
   return{
+    kind:"proposal",
     biz:{name:biz?.name||"",logo:biz?.logo||"",phone:biz?.phone||"",email:biz?.email||"",abn:biz?.abn||"",address:biz?.address||""},
     clientName:client?.name||"",
     jobType:job?.type||"Custom Jewellery",
@@ -743,6 +744,30 @@ const buildProposalSnapshot=({proposal,job,client,biz,quotes,markupTable})=>{
     validUntil:addDays(String(created).slice(0,10),validityDays),
     terms:biz?.quoteTerms||"All custom jewellery requires a deposit before work commences. The final balance is due prior to collection. Quoted prices are valid for the period stated above. Price variations may apply if material costs change significantly. All pieces are handcrafted to order and cannot be returned unless faulty. Estimated completion times are indicative only.",
     createdAt:created,
+  };
+};
+
+// Frozen client-facing snapshot of a tax invoice, stored alongside proposals in the
+// same public table (kind:"invoice"). Re-written each time the link is shared so it
+// reflects the invoice's current totals/balance.
+const buildInvoiceSnapshot=({inv,job,client,biz,payments})=>{
+  const paidTotal=(payments||[]).filter(p=>p.jobId===inv.jobId&&p.status==="Received").reduce((s,p)=>s+Number(p.amount),0);
+  const balance=Math.max(0,inv.totalIncGST-paidTotal);
+  return{
+    kind:"invoice",
+    biz:{name:biz?.name||"",logo:biz?.logo||"",phone:biz?.phone||"",email:biz?.email||"",abn:biz?.abn||"",address:biz?.address||"",
+      bankName:biz?.bankName||"",bankAccountName:biz?.bankAccountName||biz?.name||"",bankBSB:biz?.bankBSB||"",bankAccount:biz?.bankAccount||""},
+    clientName:client?.name||"",
+    number:inv.number,
+    date:inv.date,
+    jobType:job?.type||"",
+    descriptionOverride:inv.descriptionOverride||"",
+    lineItems:(inv.lineItems||[]).map(li=>({description:li.description,detail:li.detail||"",amount:lineCostLow(li)})),
+    gst:inv.gst,
+    totalIncGST:inv.totalIncGST,
+    paidTotal,
+    balance,
+    asAt:today(),
   };
 };
 
@@ -2822,9 +2847,80 @@ function JobProposals({job,client,quotes,proposals,setProposals,setQuotes,biz,ma
   </Card>;
 }
 
+// Client-facing tax invoice (rendered inside PublicProposalPage when kind==="invoice").
+function PublicInvoiceBody({snap}){
+  const b=snap.biz||{};
+  const itemised=!snap.descriptionOverride?.trim();
+  const bank=[["Bank",b.bankName],["Account name",b.bankAccountName],["BSB",b.bankBSB],["Account",b.bankAccount],["Reference",snap.number]].filter(([,v])=>v);
+  return <div style={{maxWidth:680,margin:"0 auto"}}>
+    {/* Header */}
+    <div style={{background:INK,borderRadius:`${RADIUS}px ${RADIUS}px 0 0`,padding:"32px 32px 26px",color:WHITE,display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:16,flexWrap:"wrap"}}>
+      <div>
+        <div style={{fontSize:10,fontWeight:700,color:"rgba(255,255,255,0.5)",letterSpacing:"0.2em",textTransform:"uppercase",marginBottom:12}}>Tax Invoice</div>
+        {b.logo
+          ?<div style={{background:WHITE,borderRadius:10,padding:"8px 14px",display:"inline-block"}}><img src={b.logo} alt={b.name||"Logo"} style={{maxWidth:200,maxHeight:54,objectFit:"contain",display:"block"}}/></div>
+          :<div style={{fontSize:24,fontWeight:800}}>{b.name||"Our Studio"}</div>}
+        <div style={{marginTop:12,fontSize:12,color:"rgba(255,255,255,0.5)",lineHeight:1.7}}>
+          {b.address&&<div>{b.address}</div>}
+          {(b.phone||b.email)&&<div>{[b.phone,b.email].filter(Boolean).join("  ·  ")}</div>}
+          {b.abn&&<div style={{color:"rgba(255,255,255,0.32)"}}>ABN {b.abn}</div>}
+        </div>
+      </div>
+      <div style={{textAlign:"right"}}>
+        <div style={{fontSize:18,fontWeight:800,letterSpacing:"0.04em"}}>{snap.number}</div>
+        <div style={{fontSize:11,color:"rgba(255,255,255,0.5)",marginTop:8}}>Issued {fmtDate(snap.date)}</div>
+      </div>
+    </div>
+
+    <div style={{background:WHITE,borderRadius:`0 0 ${RADIUS}px ${RADIUS}px`,border:`1px solid ${BD}`,borderTop:"none",padding:"28px 32px 32px",boxShadow:SHADOW}}>
+      <div style={{fontSize:9,fontWeight:700,color:WG,letterSpacing:"0.16em",textTransform:"uppercase",marginBottom:6}}>Billed to</div>
+      <div style={{fontSize:18,fontWeight:700,color:INK}}>{snap.clientName||"—"}</div>
+      {snap.jobType&&<div style={{fontSize:13,color:WG,marginTop:2}}>{snap.jobType}</div>}
+
+      {/* Lines */}
+      <div style={{marginTop:22,borderTop:`1px solid ${BD}`}}>
+        {itemised
+          ?(snap.lineItems||[]).map((li,i)=>(
+            <div key={i} style={{display:"flex",justifyContent:"space-between",gap:16,padding:"12px 0",borderBottom:`1px solid ${BD}`}}>
+              <div style={{flex:1}}><div style={{fontSize:14,fontWeight:600,color:INK}}>{li.description}</div>{li.detail&&<div style={{fontSize:12,color:WG,marginTop:2}}>{li.detail}</div>}</div>
+              <div style={{fontSize:14,fontWeight:700,color:INK,whiteSpace:"nowrap"}}>{fmt(li.amount)}</div>
+            </div>))
+          :<div style={{display:"flex",justifyContent:"space-between",gap:16,padding:"12px 0",borderBottom:`1px solid ${BD}`}}>
+            <div style={{flex:1,fontSize:14,color:INK,lineHeight:1.6}}>{snap.descriptionOverride}</div>
+            <div style={{fontSize:14,fontWeight:700,color:INK,whiteSpace:"nowrap"}}>{fmt(snap.totalIncGST)}</div>
+          </div>}
+      </div>
+
+      {/* Totals */}
+      <div style={{display:"flex",justifyContent:"flex-end",marginTop:16}}>
+        <div style={{minWidth:240}}>
+          <div style={{display:"flex",justifyContent:"space-between",fontSize:13,color:WG,padding:"3px 0"}}><span>Includes GST</span><span>{fmt(snap.gst)}</span></div>
+          <div style={{display:"flex",justifyContent:"space-between",fontSize:17,fontWeight:800,color:INK,borderTop:`2px solid ${INK}`,marginTop:8,paddingTop:10}}><span>Total (inc GST)</span><span>{fmt(snap.totalIncGST)}</span></div>
+          {snap.paidTotal>0&&<>
+            <div style={{display:"flex",justifyContent:"space-between",fontSize:13,color:OK,padding:"6px 0 3px"}}><span>Paid</span><span>−{fmt(snap.paidTotal)}</span></div>
+            <div style={{display:"flex",justifyContent:"space-between",fontSize:16,fontWeight:800,color:snap.balance>0?WARN:OK}}><span>Balance due</span><span>{fmt(snap.balance)}</span></div>
+          </>}
+        </div>
+      </div>
+      {snap.paidTotal>0&&<div style={{textAlign:"right",fontSize:11,color:WG,marginTop:4}}>as at {fmtDate(snap.asAt)}</div>}
+
+      {/* Payment details */}
+      {bank.length>0&&<div style={{marginTop:24,background:PARCH,border:`1px solid ${BD}`,borderRadius:12,padding:"18px 20px"}}>
+        <div style={{fontSize:9,fontWeight:700,color:WG,letterSpacing:"0.16em",textTransform:"uppercase",marginBottom:12}}>Payment — direct deposit</div>
+        <div style={{fontSize:14}}>
+          {bank.map(([k,v])=><div key={k} style={{display:"flex",gap:16,padding:"3px 0"}}><div style={{color:WG,width:110,flexShrink:0}}>{k}</div><div style={{fontWeight:k==="Reference"?800:600,color:INK}}>{v}</div></div>)}
+        </div>
+        <div style={{fontSize:12,color:WG,marginTop:12,lineHeight:1.5}}>Please use <strong style={{color:INK}}>{snap.number}</strong> as the payment reference so we can match your payment.</div>
+      </div>}
+      <div style={{textAlign:"center",fontSize:10,color:WG,marginTop:24}}>All amounts in AUD · GST inclusive</div>
+    </div>
+  </div>;
+}
+
 // ── Public client-facing proposal page (no login) ─────────────────────────
 // Rendered standalone when the app is opened at /?p=<token>. Reads an immutable
-// snapshot from the public_proposals table via RPC and lets the client accept one option.
+// snapshot from the public_proposals table via RPC. Handles proposals (accept one
+// option) and, when kind==="invoice", renders a read-only tax invoice instead.
 function PublicProposalPage({token}){
   const [state,setState]=useState("loading");   // loading | ready | accepted | error | notfound
   const [snap,setSnap]=useState(null);
@@ -2865,6 +2961,9 @@ function PublicProposalPage({token}){
   if(state==="loading")return wrap(<div style={{textAlign:"center",color:WG,fontSize:14,marginTop:80}}>Loading your proposal…</div>);
   if(state==="error")return wrap(<div style={{maxWidth:440,margin:"80px auto 0",textAlign:"center",background:WHITE,border:`1px solid ${BD}`,borderRadius:RADIUS,padding:"32px 28px",boxShadow:SHADOW}}><div style={{fontSize:30,marginBottom:10}}>⚠️</div><div style={{fontSize:16,fontWeight:800,color:INK,marginBottom:6}}>Couldn't load this proposal</div><div style={{fontSize:13,color:WG,lineHeight:1.6}}>Please check the link, or get in touch with the studio.</div></div>);
   if(state==="notfound")return wrap(<div style={{maxWidth:440,margin:"80px auto 0",textAlign:"center",background:WHITE,border:`1px solid ${BD}`,borderRadius:RADIUS,padding:"32px 28px",boxShadow:SHADOW}}><div style={{fontSize:30,marginBottom:10}}>🔍</div><div style={{fontSize:16,fontWeight:800,color:INK,marginBottom:6}}>Proposal not found</div><div style={{fontSize:13,color:WG,lineHeight:1.6}}>This link may have expired or been withdrawn. Please contact the studio for an up-to-date quote.</div></div>);
+
+  // Invoices ride on the same public table/link — render the invoice layout instead.
+  if(snap.kind==="invoice")return wrap(<PublicInvoiceBody snap={snap}/>);
 
   const b=snap.biz||{};
   const opts=snap.options||[];
@@ -3655,6 +3754,23 @@ function InvoiceDetail({invoiceId,invoices,setInvoices,jobs,clients,payments,biz
   const setDescOverride=v=>setInvoices(p=>{const n=p.map(x=>x.id===invoiceId?{...x,descriptionOverride:v}:x);persist(K.inv,n);return n;});
   const paidTotal=(payments||[]).filter(p=>p.jobId===inv.jobId&&p.status==="Received").reduce((s,p)=>s+Number(p.amount),0);
   const balance=Math.max(0,inv.totalIncGST-paidTotal);
+  // Shareable client link — same public table/link mechanism as proposals. Re-snapshots
+  // the invoice each time so the link always reflects current totals & balance.
+  const[linkBusy,setLinkBusy]=useState(false);
+  const[linkCopied,setLinkCopied]=useState(false);
+  const invLink=inv.publicToken?`${window.location.origin}/?p=${inv.publicToken}`:"";
+  const shareInvoice=async()=>{
+    if(!supabaseEnabled)return alert("Online invoice links need the cloud — you appear to be in local-only mode.");
+    setLinkBusy(true);
+    let token=inv.publicToken;
+    if(!token){token=proposalToken();setInvoices(p=>{const n=p.map(x=>x.id===invoiceId?{...x,publicToken:token}:x);persist(K.inv,n);return n;});}
+    const snapshot=buildInvoiceSnapshot({inv,job,client:c,biz,payments});
+    const{error}=await supabase.from(PUBLIC_PROPOSALS_TABLE).upsert({token,data:snapshot,status:"sent",created_at:new Date().toISOString()},{onConflict:"token"});
+    setLinkBusy(false);
+    if(error){alert("Couldn't create the link: "+error.message+"\n\nIf it mentions a missing table, the proposals Supabase setup (supabase-public-proposals.sql) hasn't been run.");return;}
+    navigator.clipboard?.writeText(`${window.location.origin}/?p=${token}`).catch(()=>{});
+    setLinkCopied(true);setTimeout(()=>setLinkCopied(false),2200);
+  };
   return <div>
     {showPrint&&<InvoicePrintView inv={inv} job={job} client={c} biz={biz} payments={payments} onClose={()=>setShowPrint(false)}/>}
     <div style={{display:"flex",gap:12,marginBottom:18,alignItems:"center"}}>
@@ -3668,10 +3784,17 @@ function InvoiceDetail({invoiceId,invoices,setInvoices,jobs,clients,payments,biz
       </div>
       <div style={{display:"flex",gap:10,alignItems:"center"}}>
         <Badge label={inv.status} color={inv.status==="Paid"?OK:inv.status==="Overdue"?DANGER:WARN} size="lg"/>
+        <Btn sm onClick={shareInvoice}>{linkBusy?"Creating…":linkCopied?"✓ Link copied":inv.publicToken?"🔗 Copy link":"🔗 Create link"}</Btn>
+        {inv.publicToken&&<Btn sm ghost onClick={()=>window.open(invLink,"_blank")}>Preview</Btn>}
         <Btn sm onClick={()=>setShowPrint(true)}>🖨 Preview &amp; Print</Btn>
         <Btn sm danger onClick={del}>Delete</Btn>
       </div>
     </div>
+    {inv.publicToken&&<div style={{background:GOLD_L+"55",border:`1px solid ${GOLD}55`,borderRadius:8,padding:"10px 14px",marginBottom:16,display:"flex",alignItems:"center",gap:12,flexWrap:"wrap"}}>
+      <span style={{fontSize:12,fontWeight:700,color:GOLD_D,whiteSpace:"nowrap"}}>🔗 Client link</span>
+      <span style={{flex:1,minWidth:200,fontSize:12,color:WG,wordBreak:"break-all",fontFamily:"monospace"}}>{invLink}</span>
+      <span style={{fontSize:11,color:WG}}>Re-copy to refresh totals before sending.</span>
+    </div>}
     <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:12,marginBottom:18}}>
       {[["Invoice total",fmt(inv.totalIncGST),INK],["Total paid",fmt(paidTotal),OK],["Balance due",fmt(balance),balance>0.5?WARN:OK]].map(([l,v,col])=>(
         <div key={l} style={{background:WHITE,border:`1px solid ${BD}`,borderRadius:4,padding:"14px 16px"}}>
