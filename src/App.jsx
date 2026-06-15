@@ -1927,8 +1927,13 @@ function JobDetail({jobId,jobs,setJobs,clients,quotes,setQuotes,payments,setPaym
     const num=nextInvoiceNumber(invoices);
     // Pre-fill the customer-facing description from the quote (or job) so it's ready to edit
     const descriptionOverride=q.clientDescription||job?.description||"";
+    // Carry the sourced centre/feature stone onto the invoice as a line (it lives separately on
+    // the quote, not in lineItems). Accent stones already live in lineItems.
+    const lineItems=[...q.lineItems];
+    const centreInc=q.stoneClientTotal||0;
+    if(centreInc>0)lineItems.push({id:uid(),description:(q.stoneType==="lab"?"Lab-grown":"Natural")+" diamond / gemstone",detail:"Supplied & set",costLow:centreInc.toFixed(2),noMarkup:true});
     // A manual-price quote may have no line items — give the invoice one so it isn't blank
-    const lineItems=q.lineItems.length?q.lineItems:[{id:uid(),description:quoteLabel(q),detail:"As quoted",costLow:totalIncGST.toFixed(2),noMarkup:true}];
+    if(!lineItems.length)lineItems.push({id:uid(),description:quoteLabel(q),detail:"As quoted",costLow:totalIncGST.toFixed(2),noMarkup:true});
     const inv={id:uid(),jobId,quoteId:qid,number:num,date:today(),status:"Unpaid",exGST,gst,totalIncGST,lineItems,notes:q.notes||"",descriptionOverride,calc};
     setInvoices(p=>{const n=[...p,inv];persist(K.inv,n);return n;});
     setView("invoiceDetail_"+inv.id);
