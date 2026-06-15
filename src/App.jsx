@@ -1723,11 +1723,12 @@ function RepairIntakeCard({job,setJobs,biz,clients,markupTable}){
   const repairLink=job.repairToken?`${window.location.origin}/?p=${job.repairToken}`:"";
   const shareRepair=async()=>{
     if(!supabaseEnabled)return alert("Online links need the cloud — you appear to be in local-only mode.");
-    saveIntake(items,instructions);   // commit latest edits into the snapshot
     setLinkBusy(true);
-    let token=job.repairToken;
-    if(!token){token=proposalToken();persistJob({repairToken:token});}
-    const snap=buildRepairSnapshot({job:{...job,dateIn:dIn,dateOut:dOut},client:c,biz,items:items.map(it=>({...it,clientPrice:itemClient(it)})),instructions});
+    const token=job.repairToken||proposalToken();
+    // Single combined save (intake + token together) to avoid out-of-order live-sync echoes
+    // that would momentarily wipe the freshly-set token. One write = the gold bar shows at once.
+    setJobs(p=>{const n=p.map(j=>j.id===job.id?{...j,intake:{items,instructions},repairToken:token}:j);persist(K.jo,n);return n;});
+    const snap=buildRepairSnapshot({job:{...job,dateIn:dIn,dateOut:dOut,repairToken:token},client:c,biz,items:items.map(it=>({...it,clientPrice:itemClient(it)})),instructions});
     const{error}=await supabase.from(PUBLIC_PROPOSALS_TABLE).upsert({token,data:snap,status:"sent",created_at:new Date().toISOString()},{onConflict:"token"});
     setLinkBusy(false);
     if(error){alert("Couldn't create the link: "+error.message+"\n\nIf it mentions a missing table, the proposals Supabase setup hasn't been run.");return;}
