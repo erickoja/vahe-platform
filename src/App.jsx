@@ -2929,6 +2929,14 @@ function JobProposals({job,client,quotes,proposals,setProposals,setQuotes,biz,ma
 
   // Auto-check sent proposals for acceptance when the job is opened
   useEffect(()=>{jobProposals.filter(p=>p.status==="sent").forEach(p=>checkAcceptance(p,true));},[job?.id]);   // eslint-disable-line
+  // Keep sent proposals' link snapshots current (e.g. payments recorded since publishing) when the job opens
+  useEffect(()=>{
+    if(!supabaseEnabled||!supabase)return;
+    jobProposals.filter(p=>p.token&&p.status==="sent").forEach(p=>{
+      const snap=buildProposalSnapshot({proposal:p,job,client,biz,quotes,markupTable,payments});
+      supabase.from(PUBLIC_PROPOSALS_TABLE).update({data:snap}).eq("token",p.token).then(()=>{}).catch(()=>{});
+    });
+  },[job?.id]);   // eslint-disable-line
 
   const delProposal=async p=>{
     if(!confirm("Delete this proposal? The client's link will stop working."))return;
