@@ -2260,7 +2260,13 @@ function QuoteBuilder({jobId:jobIdProp,editQuoteId,jobs,clients,quotes,setQuotes
   const[pFlash,setPFlash]=useState(null);         // row currently flashing "✓ added"
   const[sessionAdds,setSessionAdds]=useState([]); // costs added this visit (for the footer tally)
   const markAdded=(id,cost)=>{setAddedIds(p=>({...p,[id]:(p[id]||0)+1}));setSessionAdds(p=>[...p,Number(cost)||0]);setPFlash(id);setTimeout(()=>setPFlash(f=>f===id?null:f),1400);};
-  const openPricing=()=>{setAddedIds({});setSessionAdds([]);setPricingModal(true);};
+  const openPricing=()=>{
+    setAddedIds({});setSessionAdds([]);
+    // Don't reopen stuck on a picker-only category (Centre Stone Setting / CAD) that hides the
+    // browsable item list — return to "All" so you can always add ordinary items.
+    if(pCat===CENTRE_SET_CAT||pCat==="CAD Design"){setPCat("All");setSelCAD(null);}
+    setPricingModal(true);
+  };
   const closePricing=()=>{setPricingModal(false);setSelCAD(null);};
   useEffect(()=>{
     if(!pricingModal)return;
