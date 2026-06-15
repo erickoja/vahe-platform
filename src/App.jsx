@@ -1931,7 +1931,14 @@ function JobDetail({jobId,jobs,setJobs,clients,quotes,setQuotes,payments,setPaym
     // the quote, not in lineItems). Accent stones already live in lineItems.
     const lineItems=[...q.lineItems];
     const centreInc=q.stoneClientTotal||0;
-    if(centreInc>0)lineItems.push({id:uid(),description:(q.stoneType==="lab"?"Lab-grown":"Natural")+" diamond / gemstone",detail:"Supplied & set",costLow:centreInc.toFixed(2),noMarkup:true});
+    if(centreInc>0){
+      const sDescs=(q.stoneItems||[]).map(s=>(s.description||"").trim()).filter(Boolean);
+      const sDetails=(q.stoneItems||[]).map(s=>(s.detail||"").trim()).filter(Boolean);
+      lineItems.push({id:uid(),
+        description:sDescs.length?sDescs.join(" + "):(q.stoneType==="lab"?"Lab-grown":"Natural")+" diamond / gemstone",
+        detail:sDetails.length?sDetails.join(" · "):"Supplied & set",
+        costLow:centreInc.toFixed(2),noMarkup:true});
+    }
     // A manual-price quote may have no line items — give the invoice one so it isn't blank
     if(!lineItems.length)lineItems.push({id:uid(),description:quoteLabel(q),detail:"As quoted",costLow:totalIncGST.toFixed(2),noMarkup:true});
     const inv={id:uid(),jobId,quoteId:qid,number:num,date:today(),status:"Unpaid",exGST,gst,totalIncGST,lineItems,notes:q.notes||"",descriptionOverride,calc};
@@ -4181,7 +4188,14 @@ function InvoicesList({invoices,jobs,clients,quotes,payments,setInvoices,markupT
     const descriptionOverride=q.clientDescription||jb?.description||"";
     const lineItems=[...q.lineItems];   // accent stones already live in lineItems; only the centre stone needs adding
     const centreInc=q.stoneClientTotal||0;
-    if(centreInc>0)lineItems.push({id:uid(),description:(q.stoneType==="lab"?"Lab-grown":"Natural")+" diamond / gemstone",detail:"Supplied & set",costLow:centreInc.toFixed(2),noMarkup:true});
+    if(centreInc>0){
+      const sDescs=(q.stoneItems||[]).map(s=>(s.description||"").trim()).filter(Boolean);
+      const sDetails=(q.stoneItems||[]).map(s=>(s.detail||"").trim()).filter(Boolean);
+      lineItems.push({id:uid(),
+        description:sDescs.length?sDescs.join(" + "):(q.stoneType==="lab"?"Lab-grown":"Natural")+" diamond / gemstone",
+        detail:sDetails.length?sDetails.join(" · "):"Supplied & set",
+        costLow:centreInc.toFixed(2),noMarkup:true});
+    }
     // A manual-price quote may have no line items — give the invoice one so it isn't blank
     if(!lineItems.length)lineItems.push({id:uid(),description:quoteLabel(q),detail:"As quoted",costLow:totalIncGST.toFixed(2),noMarkup:true});
     const inv={id:uid(),jobId:selJob,quoteId:selQuote,number:num,date:today(),status:"Unpaid",exGST,gst,totalIncGST,lineItems,notes:q.notes||"",descriptionOverride,calc};
