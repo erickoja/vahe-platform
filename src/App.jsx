@@ -2477,10 +2477,29 @@ function QuoteBuilder({jobId:jobIdProp,editQuoteId,jobs,clients,quotes,setQuotes
             <button onClick={()=>removeAccentItem(li.id)} style={{background:"none",border:"none",cursor:"pointer",color:DANGER,fontSize:17,padding:0,lineHeight:1}}>×</button>
           </div>
         </div>;})}
+      {/* Sourced centre / feature stone — folded into the jewellery costs list (priced on the stone markup) */}
+      {stoneMode==="sourcing"&&stoneType&&stoneItems.map(li=>{
+        const stoneCost=Number(li.cost)||Number(li.costLow)||0;
+        const accent=stoneType==="lab"?"#7B5EA7":"#3B6E8F";
+        return <div key={li.id} style={{display:"grid",gridTemplateColumns:"200px 1fr 120px 80px",gap:8,marginBottom:8,alignItems:"center"}}>
+          <input value={li.description} onChange={e=>setStonItem(li.id,"description",e.target.value)} placeholder="e.g. 1.52ct oval sapphire" style={{...SS.inp,marginTop:0,fontSize:13,padding:"7px 10px",borderColor:stoneType==="lab"?"#C4A8F0":"#8EB5D4"}}/>
+          <div style={{display:"flex",alignItems:"center",gap:6,minWidth:0}}>
+            <span style={{background:accent+"18",color:accent,fontSize:8,fontWeight:800,padding:"3px 5px",borderRadius:3,letterSpacing:"0.04em",flexShrink:0,whiteSpace:"nowrap"}} title="Centre / feature stone — priced on the stone markup">CENTRE · {stoneType==="lab"?"LAB":"NAT"}</span>
+            <input value={li.detail} onChange={e=>setStonItem(li.id,"detail",e.target.value)} placeholder="cert / source / notes" style={{...SS.inp,marginTop:0,fontSize:13,padding:"7px 10px",color:WG,flex:1,minWidth:0}}/>
+          </div>
+          <div style={{position:"relative"}}>
+            <span style={{position:"absolute",left:10,top:"50%",transform:"translateY(-50%)",fontSize:12,color:WG,pointerEvents:"none"}}>$</span>
+            <input type="number" value={li.cost||""} onChange={e=>setStonItem(li.id,"cost",e.target.value)} placeholder="0.00" min="0" step="0.01" style={{...SS.inp,marginTop:0,fontSize:13,padding:"7px 8px 7px 22px",textAlign:"right",borderColor:stoneCost>0?(stoneType==="lab"?"#C4A8F0":"#8EB5D4"):BD,fontWeight:stoneCost>0?700:400}}/>
+          </div>
+          <div style={{display:"flex",gap:3,alignItems:"center",justifyContent:"flex-end"}}>
+            <button onClick={()=>removeStoneItem(li.id)} style={{background:"none",border:"none",cursor:"pointer",color:DANGER,fontSize:17,padding:0,lineHeight:1}}>×</button>
+          </div>
+        </div>;})}
       <div style={{display:"flex",gap:10,marginTop:8,flexWrap:"wrap"}}>
         <button onClick={()=>setItems(p=>[...p,blankItem()])} style={{background:"none",border:`1px dashed ${GOLD}`,borderRadius:4,padding:"6px 14px",color:GOLD,fontSize:12,fontWeight:700,cursor:"pointer",fontFamily:"inherit"}}>+ Add item</button>
         <button onClick={openPricing} style={{background:GOLD_L,border:`1px solid ${GOLD}`,borderRadius:4,padding:"6px 14px",color:GOLD_D,fontSize:12,fontWeight:700,cursor:"pointer",fontFamily:"inherit"}}>⊕ Pricing DB</button>
         <button onClick={()=>setAccentModal(true)} style={{background:"#EEF4FB",border:"1px solid #8EB5D4",borderRadius:4,padding:"6px 14px",color:"#3B6E8F",fontSize:12,fontWeight:700,cursor:"pointer",fontFamily:"inherit"}}>+ Accent / fancy stone</button>
+        {stoneMode==="sourcing"&&stoneType&&<button onClick={addStoneItem} style={{background:(stoneType==="lab"?"#7B5EA7":"#3B6E8F")+"18",border:`1px solid ${stoneType==="lab"?"#7B5EA7":"#3B6E8F"}`,borderRadius:4,padding:"6px 14px",color:stoneType==="lab"?"#7B5EA7":"#3B6E8F",fontSize:12,fontWeight:700,cursor:"pointer",fontFamily:"inherit"}}>+ Centre stone</button>}
       </div>
       <div style={{fontSize:11,color:WG,margin:"8px 0 20px",lineHeight:1.5}}>Custom coloured or fancy-cut stones aren't in the pricing DB — add them with <strong style={{color:"#3B6E8F"}}>+ Accent / fancy stone</strong>. They default to manufacturing markup and join the costs above; switch a pricey one to <strong>Natural</strong>/<strong>Lab</strong> stone markup to price it separately below.</div>
       {validItems.length>0&&<div style={{marginBottom:28}}>
@@ -2576,29 +2595,10 @@ function QuoteBuilder({jobId:jobIdProp,editQuoteId,jobs,clients,quotes,setQuotes
           </div>
         </div>
 
-        {/* Stone line items — only show once type is selected */}
+        {/* Stone line entries live up in the unified Jewellery costs list (tagged CENTRE).
+            Here we keep the type selector above, plus the pricing summary + notes below. */}
         {stoneType&&<>
-          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 140px 40px",gap:8,marginBottom:6,padding:"0 2px"}}>
-            {["Stone / description","Cert / source / notes","Your exact cost",""].map(h=>(
-              <div key={h} style={{fontSize:10,fontWeight:700,color:WG,textTransform:"uppercase",letterSpacing:"0.04em"}}>{h}</div>
-            ))}
-          </div>
-          {stoneItems.length===0&&<div style={{color:WG,fontSize:13,marginBottom:10,fontStyle:"italic"}}>No stones added yet — click "+ Add stone" below.</div>}
-          {stoneItems.map(li=>{
-            const stoneCost=Number(li.cost)||Number(li.costLow)||0;
-            return <div key={li.id} style={{display:"grid",gridTemplateColumns:"1fr 1fr 140px 40px",gap:8,marginBottom:8,alignItems:"center"}}>
-              <input value={li.description} onChange={e=>setStonItem(li.id,"description",e.target.value)} placeholder="e.g. 1.52ct oval sapphire"
-                style={{...SS.inp,marginTop:0,fontSize:13,padding:"7px 10px",borderColor:stoneType==="lab"?"#C4A8F0":"#8EB5D4"}}/>
-              <input value={li.detail} onChange={e=>setStonItem(li.id,"detail",e.target.value)} placeholder="e.g. GIA cert #12345, origin, treatment"
-                style={{...SS.inp,marginTop:0,fontSize:13,padding:"7px 10px",color:WG}}/>
-              <div style={{position:"relative"}}>
-                <span style={{position:"absolute",left:10,top:"50%",transform:"translateY(-50%)",fontSize:12,color:WG,pointerEvents:"none"}}>$</span>
-                <input type="number" value={li.cost||""} onChange={e=>setStonItem(li.id,"cost",e.target.value)} placeholder="0.00" min="0" step="0.01"
-                  style={{...SS.inp,marginTop:0,fontSize:13,padding:"7px 8px 7px 22px",textAlign:"right",borderColor:stoneCost>0?(stoneType==="lab"?"#C4A8F0":"#8EB5D4"):BD,fontWeight:stoneCost>0?700:400}}/>
-              </div>
-              <button onClick={()=>removeStoneItem(li.id)} style={{background:"none",border:"none",cursor:"pointer",color:DANGER,fontSize:17,padding:0,lineHeight:1,textAlign:"center"}}>×</button>
-            </div>;})}
-          <button onClick={addStoneItem} style={{background:"none",border:`1px dashed ${stoneType==="lab"?"#C4A8F0":"#8EB5D4"}`,borderRadius:4,padding:"6px 14px",color:stoneType==="lab"?"#7B5EA7":"#3B6E8F",fontSize:12,fontWeight:700,cursor:"pointer",fontFamily:"inherit",marginBottom:16}}>+ Add stone</button>
+          <div style={{fontSize:12,color:WG,marginBottom:12,lineHeight:1.5}}>Add the centre stone with <strong style={{color:stoneType==="lab"?"#7B5EA7":"#3B6E8F"}}>+ Centre stone</strong> in the jewellery costs list above — it's tagged <strong>CENTRE</strong> and priced on the {stoneType==="lab"?"lab-grown":"natural"} stone markup below.</div>
           {stoneCalc&&<div style={{marginBottom:4}}>
             <div style={{fontSize:11,fontWeight:700,color:stoneType==="lab"?"#7B5EA7":"#3B6E8F",textTransform:"uppercase",letterSpacing:"0.06em",marginBottom:10}}>
               {stoneType==="lab"?"Lab-Grown stone":"Natural stone"} — markup + GST
@@ -2607,7 +2607,7 @@ function QuoteBuilder({jobId:jobIdProp,editQuoteId,jobs,clients,quotes,setQuotes
           </div>}
           <Input label="Stone notes (for records)" value={stoneNotes} onChange={setStoneNotes} as="textarea" rows={2} placeholder="e.g. Sourced from XYZ. GIA cert pending."/>
         </>}
-        {!stoneType&&<div style={{color:WG,fontSize:13,fontStyle:"italic",marginBottom:8}}>Select a stone type above to add stone costs.</div>}
+        {!stoneType&&<div style={{color:WG,fontSize:13,fontStyle:"italic",marginBottom:8}}>Select a stone type above, then add the centre stone in the jewellery costs list.</div>}
       </div>}
 
       {/* ── Grand total ── */}
