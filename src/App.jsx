@@ -1892,8 +1892,17 @@ function JobDetail({jobId,jobs,setJobs,clients,quotes,setQuotes,payments,setPaym
   const[editJobModal,setEditJobModal]=useState(false);
   const[payModal,setPayModal]=useState(false);
   const moveStage=s=>{setJobs(p=>{const n=p.map(j=>j.id===jobId?{...j,stage:s}:j);persist(K.jo,n);return n;});setEditStage(false);};
-  const addPay=f=>{setPayments(p=>{const n=[...p,{...f,id:uid(),jobId,date:f.date||today()}];persist(K.pa,n);return n;});setPayModal(false);};
-  const delPay=id=>{if(!confirm("Delete this payment?"))return;setPayments(p=>{const n=p.filter(x=>x.id!==id);persist(K.pa,n);return n;});};
+  // Keep any live invoice link(s) for this job in sync after a payment change, so the customer's
+  // link shows the updated Paid / Balance due instead of a stale snapshot.
+  const refreshInvoiceLinks=(pmts)=>{
+    if(!supabaseEnabled||!supabase)return;
+    ji.filter(iv=>iv.publicToken).forEach(iv=>{
+      const snap=buildInvoiceSnapshot({inv:iv,job,client:c,biz,payments:pmts});
+      supabase.from(PUBLIC_PROPOSALS_TABLE).update({data:snap}).eq("token",iv.publicToken).then(()=>{}).catch(()=>{});
+    });
+  };
+  const addPay=f=>{const n=[...payments,{...f,id:uid(),jobId,date:f.date||today()}];setPayments(n);persist(K.pa,n);refreshInvoiceLinks(n);setPayModal(false);};
+  const delPay=id=>{if(!confirm("Delete this payment?"))return;const n=payments.filter(x=>x.id!==id);setPayments(n);persist(K.pa,n);refreshInvoiceLinks(n);};
   const delJob=()=>{
     if(!confirm("Delete this job? This will also remove all related quotes, payments, notes and invoices."))return;
     setJobs(p=>{const n=p.filter(j=>j.id!==jobId);persist(K.jo,n);return n;});
