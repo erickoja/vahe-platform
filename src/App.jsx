@@ -2036,7 +2036,8 @@ function AccentStoneModal({pricing,setPricing,naturalStoneMarkup,labStoneMarkup,
   const stonePreview=stoneMU&&cn>0?calcStoneQuote([{cost:cn}],qMarkup==="lab"?labStoneMarkup:naturalStoneMarkup):null;
   const addQuick=()=>{
     if(cn<=0)return alert("Enter the cost.");
-    onAdd({description:quickDesc,detail:qn>1?`${qn} stones`:"",costLow:cn.toFixed(2),markupMode:qMarkup});
+    // No auto per-stone detail — the description already carries qty/shape/size, and the cost is a total.
+    onAdd({description:quickDesc,detail:"",costLow:cn.toFixed(2),markupMode:qMarkup});
   };
   const saveAndAdd=()=>{
     if(!newName.trim())return alert("Enter a stone name");
@@ -2454,20 +2455,18 @@ function QuoteBuilder({jobId:jobIdProp,editQuoteId,jobs,clients,quotes,setQuotes
             {idx>0&&<button onClick={()=>moveItem(li.id,-1)} style={{background:"none",border:"none",cursor:"pointer",color:WG,fontSize:13,padding:"0 2px"}}>↑</button>}
           </div>
         </div>;})}
-      {/* Manufacturing-markup accent stones — folded into the jewellery costs list */}
+      {/* Manufacturing-markup accent stones — folded into the jewellery costs list (editable) */}
       {mfgAccents.map(li=>{
         const cost=Number(li.costLow)||0;
         return <div key={li.id} style={{display:"grid",gridTemplateColumns:"200px 1fr 120px 80px",gap:8,marginBottom:8,alignItems:"center"}}>
-          <div style={{fontSize:13,fontWeight:600,color:INK,display:"flex",alignItems:"center",gap:6,minWidth:0}}>
-            <span style={{background:"#EEF4FB",color:"#3B6E8F",fontSize:8,fontWeight:800,padding:"2px 5px",borderRadius:3,letterSpacing:"0.04em",flexShrink:0}} title="Accent / fancy stone">ACCENT</span>
-            <span style={{overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{li.description||<span style={{color:WG,fontStyle:"italic"}}>—</span>}</span>
-          </div>
-          <div style={{display:"flex",alignItems:"center",gap:8,minWidth:0}}>
-            <span style={{fontSize:12,color:WG,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{li.detail||""}</span>
-            <select value={li.markupMode||"mfg"} onChange={e=>setAccentItem(li.id,"markupMode",e.target.value)} title="Markup basis — switch to natural/lab to price it separately" style={{...SS.inp,marginTop:0,fontSize:11,padding:"5px 6px",width:"auto",flexShrink:0,marginLeft:"auto"}}>
-              <option value="mfg">Mfg markup</option>
-              <option value="natural">Natural stone</option>
-              <option value="lab">Lab stone</option>
+          <input value={li.description} onChange={e=>setAccentItem(li.id,"description",e.target.value)} placeholder="e.g. 4 × pear sapphire" style={{...SS.inp,marginTop:0,fontSize:13,padding:"7px 10px"}}/>
+          <div style={{display:"flex",alignItems:"center",gap:6,minWidth:0}}>
+            <span style={{background:"#EEF4FB",color:"#3B6E8F",fontSize:8,fontWeight:800,padding:"3px 5px",borderRadius:3,letterSpacing:"0.04em",flexShrink:0}} title="Accent / fancy stone">ACCENT</span>
+            <input value={li.detail||""} onChange={e=>setAccentItem(li.id,"detail",e.target.value)} placeholder="notes (optional)" style={{...SS.inp,marginTop:0,fontSize:13,padding:"7px 10px",color:WG,flex:1,minWidth:0}}/>
+            <select value={li.markupMode||"mfg"} onChange={e=>setAccentItem(li.id,"markupMode",e.target.value)} title="Markup basis — switch to natural/lab to price it separately" style={{...SS.inp,marginTop:0,fontSize:11,padding:"5px 6px",width:"auto",flexShrink:0}}>
+              <option value="mfg">Mfg</option>
+              <option value="natural">Natural</option>
+              <option value="lab">Lab</option>
             </select>
           </div>
           <div style={{position:"relative"}}>
