@@ -1624,6 +1624,8 @@ function RepairIntakeCard({job,setJobs,biz,clients}){
   const commit=()=>saveIntake(items,instructions);
   const addItem=()=>{const ni=[...items,blankIntakeItem()];setItems(ni);saveIntake(ni,instructions);};
   const removeItem=id=>{const ni=items.filter(i=>i.id!==id);setItems(ni);saveIntake(ni,instructions);};
+  const[saved,setSaved]=useState(false);
+  const saveNow=()=>{saveIntake(items,instructions);setSaved(true);setTimeout(()=>setSaved(false),2000);};
   return <Card id="repair-intake">
     <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:16}}>
       <div style={{fontWeight:700,fontSize:15,color:INK}}>Repair Intake {items.length>1&&<span style={{fontWeight:400,color:WG,fontSize:13}}>· {items.length} items</span>}</div>
@@ -1669,6 +1671,10 @@ function RepairIntakeCard({job,setJobs,biz,clients}){
     </div>
     <div style={{fontSize:12,color:WG,lineHeight:1.7,padding:"12px 14px",background:PARCH,borderRadius:8,border:`1px solid ${BD}`}}>
       <strong style={{color:INK}}>Disclaimer: </strong>We are not responsible for damage to client-supplied gemstones during repair. We do not provide a warranty on repaired pieces — all repairs are undertaken at the client's risk.
+    </div>
+    <div style={{display:"flex",alignItems:"center",justifyContent:"flex-end",gap:12,marginTop:16}}>
+      <span style={{fontSize:12,color:WG,fontStyle:"italic"}}>Your changes save automatically.</span>
+      <Btn onClick={saveNow}>{saved?"✓ Saved":"Save intake"}</Btn>
     </div>
   </Card>;
 }
