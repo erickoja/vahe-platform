@@ -1189,9 +1189,11 @@ ${inv.notes?`<div class="notes">${inv.notes}</div>`:""}
 }
 
 // ── Dashboard ─────────────────────────────────────────────────────────────
-function Dashboard({clients,jobs,quotes,payments,invoices,appointments=[],proposals=[],markProposalSeen,markupTable,setView,setSelClient}){
+function Dashboard({clients,jobs,quotes,payments,invoices,appointments=[],proposals=[],markProposalSeen,markRepairSeen,markupTable,setView,setSelClient}){
   // Proposals a client accepted that haven't been acknowledged yet → dashboard alert
   const acceptedUnseen=proposals.filter(p=>p.status==="accepted"&&p.seen===false);
+  // Repair links a client accepted/declined that haven't been acknowledged yet
+  const repairUnseen=jobs.filter(j=>j.repairResponse&&j.repairResponse.seen===false);
   const active=jobs.filter(j=>j.stage!=="Collected");
   const tISO=localToday();
   const upcomingAppts=[...appointments].filter(a=>(!a.status||a.status==="Scheduled")&&a.date>=tISO).sort((a,b)=>String(a.date+(a.time||"")).localeCompare(String(b.date+(b.time||"")))).slice(0,6);
@@ -1225,6 +1227,20 @@ function Dashboard({clients,jobs,quotes,payments,invoices,appointments=[],propos
         </div>
         <Btn sm onClick={()=>{markProposalSeen&&markProposalSeen(p.id);if(job)setView("jobDetail_"+job.id);}}>Review</Btn>
         <button onClick={()=>markProposalSeen&&markProposalSeen(p.id)} title="Dismiss" style={{background:"none",border:"none",cursor:"pointer",color:WG,fontSize:18,padding:0,lineHeight:1}}>×</button>
+      </div>;
+    })}
+    {/* Repair accept/decline alerts */}
+    {repairUnseen.map(job=>{
+      const cl=clients.find(x=>x.id===job.clientId);
+      const r=job.repairResponse;const acc=r.decision!=="declined";
+      return <div key={job.id} style={{display:"flex",alignItems:"center",gap:14,background:(acc?OK:DANGER)+"10",border:`1px solid ${(acc?OK:DANGER)}55`,borderRadius:12,padding:"14px 18px",marginBottom:14}}>
+        <div style={{fontSize:24,lineHeight:1}}>{acc?"🎉":"⚠️"}</div>
+        <div style={{flex:1}}>
+          <div style={{fontSize:14,fontWeight:800,color:INK}}>Repair {acc?"accepted":"declined"}{cl?.name?` — ${cl.name}`:""}</div>
+          <div style={{fontSize:13,color:WG,marginTop:2}}><strong style={{color:acc?OK:DANGER}}>{r.name||"Client"}</strong> {acc?"accepted":"declined"} the {job.type||"repair"} online{r.at?` on ${fmtDate(r.at)}`:""}.</div>
+        </div>
+        <Btn sm onClick={()=>{markRepairSeen&&markRepairSeen(job.id);setView("jobDetail_"+job.id);}}>Review</Btn>
+        <button onClick={()=>markRepairSeen&&markRepairSeen(job.id)} title="Dismiss" style={{background:"none",border:"none",cursor:"pointer",color:WG,fontSize:18,padding:0,lineHeight:1}}>×</button>
       </div>;
     })}
     <div style={{marginBottom:28}}>
@@ -1718,8 +1734,8 @@ function RepairIntakeCard({job,setJobs,biz,clients,markupTable}){
     navigator.clipboard?.writeText(`${window.location.origin}/?p=${token}`).catch(()=>{});
     setLinkCopied(true);setTimeout(()=>setLinkCopied(false),2200);
   };
-  // Client's online accept/decline response, pulled back from the cloud
-  const[response,setResponse]=useState(job.repairResponse||null);
+  // Client's online accept/decline response (lives on the job; kept in sync by the app-level check too)
+  const response=job.repairResponse||null;
   const[checking,setChecking]=useState(false);
   const fetchResponse=async(silent)=>{
     if(!job.repairToken||!supabaseEnabled)return;
@@ -1727,11 +1743,10 @@ function RepairIntakeCard({job,setJobs,biz,clients,markupTable}){
     const{data}=await supabase.from(PUBLIC_PROPOSALS_TABLE).select("accepted_option,accepted_name,accepted_at").eq("token",job.repairToken).maybeSingle();
     if(!silent)setChecking(false);
     if(!data||!data.accepted_option){if(!silent)alert("No response yet — the client hasn't accepted or declined online.");return;}
-    const r={decision:data.accepted_option,name:data.accepted_name||"",at:data.accepted_at||today()};
-    setResponse(r);
+    const r={decision:data.accepted_option,name:data.accepted_name||"",at:data.accepted_at||today(),seen:job.repairResponse?.seen||false};
     if(JSON.stringify(job.repairResponse||null)!==JSON.stringify(r))persistJob({repairResponse:r});
   };
-  useEffect(()=>{fetchResponse(true);},[job.repairToken]);   // eslint-disable-line
+  useEffect(()=>{if(!response)fetchResponse(true);},[job.repairToken]);   // eslint-disable-line
   const saveNow=()=>{saveIntake(items,instructions);setSaved(true);setTimeout(()=>setSaved(false),2000);};
   return <Card id="repair-intake">
     <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:16}}>
@@ -1745,7 +1760,8 @@ function RepairIntakeCard({job,setJobs,biz,clients,markupTable}){
     {job.repairToken&&<div style={{background:GOLD_L+"55",border:`1px solid ${GOLD}55`,borderRadius:8,padding:"9px 14px",marginBottom:16,display:"flex",alignItems:"center",gap:12,flexWrap:"wrap"}}>
       <span style={{fontSize:12,fontWeight:700,color:GOLD_D,whiteSpace:"nowrap"}}>🔗 Client link</span>
       <span style={{flex:1,minWidth:180,fontSize:12,color:WG,wordBreak:"break-all",fontFamily:"monospace"}}>{repairLink}</span>
-      {!response&&<button onClick={()=>fetchResponse(false)} style={{background:"none",border:`1px solid ${BD}`,borderRadius:6,padding:"4px 10px",fontSize:11,fontWeight:700,color:WG,cursor:"pointer",fontFamily:"inherit"}}>{checking?"Checking…":"Check for response"}</button>}
+      {!response&&<><span style={{fontSize:11,fontWeight:700,color:WG,whiteSpace:"nowrap"}}>⏳ Awaiting client response</span>
+        <button onClick={()=>fetchResponse(false)} style={{background:"none",border:`1px solid ${BD}`,borderRadius:6,padding:"4px 10px",fontSize:11,fontWeight:700,color:WG,cursor:"pointer",fontFamily:"inherit"}}>{checking?"Checking…":"Check now"}</button></>}
     </div>}
     {response&&(()=>{const acc=response.decision!=="declined";return <div style={{background:(acc?OK:DANGER)+"12",border:`1px solid ${(acc?OK:DANGER)}55`,borderRadius:8,padding:"10px 14px",marginBottom:16,fontSize:13,fontWeight:700,color:acc?OK:DANGER}}>
       {acc?"✓":"✗"} Client {acc?"accepted":"declined"} online{response.name?` — ${response.name}`:""}{response.at?` on ${fmtDate(response.at)}`:""}
@@ -5756,11 +5772,12 @@ export default function App(){
     else setViewRaw(v);
   },[]);
 
-  // ── Proposal acceptance notifications ──────────────────────────────────
+  // ── Proposal + repair response notifications ───────────────────────────
   // Live refs so the realtime callback always sees current data (avoids stale closures).
   const proposalsRef=useRef(proposals);proposalsRef.current=proposals;
   const quotesRef=useRef(quotes);quotesRef.current=quotes;
-  const [acceptToast,setAcceptToast]=useState(null);   // {name,label,jobId} for the live pop-up
+  const jobsRef=useRef(jobs);jobsRef.current=jobs;
+  const [acceptToast,setAcceptToast]=useState(null);   // {title,body,jobId,color} for the live pop-up
 
   // Reconcile a cloud acceptance into local state: flag the proposal accepted (unseen → drives
   // the dashboard banner), approve the chosen quote, demote other approved quotes, pop a toast.
@@ -5773,20 +5790,36 @@ export default function App(){
     const nq=quotesRef.current.map(q=>q.id===row.accepted_option?{...q,status:"Approved"}:(q.jobId===p.jobId&&q.status==="Approved"?{...q,status:"Declined"}:q));
     setQuotes(nq);persist(K.qu,nq);
     const acceptedQuote=quotesRef.current.find(q=>q.id===row.accepted_option);
-    setAcceptToast({name:row.accepted_name||"A client",label:acceptedQuote?quoteLabel(acceptedQuote):"a proposal",jobId:p.jobId});
+    setAcceptToast({title:"Proposal accepted",color:OK,body:`${row.accepted_name||"A client"} accepted “${acceptedQuote?quoteLabel(acceptedQuote):"a proposal"}”.`,jobId:p.jobId});
   },[]);
 
-  // Mark a dashboard alert as acknowledged
+  // Reconcile a repair accept/decline (token lives on the job, not a proposal).
+  const reconcileRepairResponse=useCallback((row)=>{
+    if(!row||!row.accepted_option)return;
+    const job=(jobsRef.current||[]).find(j=>j.repairToken===row.token);
+    if(!job||job.repairResponse)return;   // not a repair we track, or already recorded
+    const declined=row.accepted_option==="declined";
+    const resp={decision:row.accepted_option,name:row.accepted_name||"",at:row.accepted_at||today(),seen:false};
+    const nj=jobsRef.current.map(j=>j.id===job.id?{...j,repairResponse:resp}:j);
+    setJobs(nj);persist(K.jo,nj);
+    setAcceptToast({title:declined?"Repair declined":"Repair accepted",color:declined?DANGER:OK,body:`${resp.name||"A client"} ${declined?"declined":"accepted"} the ${job.type||"repair"} online.`,jobId:job.id});
+  },[]);
+
+  // Mark dashboard alerts as acknowledged
   const markProposalSeen=useCallback(id=>{
     const np=(proposalsRef.current||[]).map(p=>p.id===id?{...p,seen:true}:p);
     setProposals(np);persist(K.pp,np);
+  },[]);
+  const markRepairSeen=useCallback(id=>{
+    const nj=(jobsRef.current||[]).map(j=>j.id===id&&j.repairResponse?{...j,repairResponse:{...j.repairResponse,seen:true}}:j);
+    setJobs(nj);persist(K.jo,nj);
   },[]);
 
   // Auto-dismiss the live toast
   useEffect(()=>{if(!acceptToast)return;const t=setTimeout(()=>setAcceptToast(null),9000);return()=>clearTimeout(t);},[acceptToast]);
 
-  // On load (once data is ready) batch-check every sent proposal for a cloud acceptance,
-  // and subscribe to realtime so acceptances pop instantly while the app is open.
+  // On load (once data is ready) batch-check every sent proposal AND every repair link for a
+  // cloud response, and subscribe to realtime so responses pop instantly while the app is open.
   useEffect(()=>{
     if(!storageReady||!supabaseEnabled||!supabase)return;
     let cancelled=false;
@@ -5798,13 +5831,20 @@ export default function App(){
           if(!cancelled&&data)data.forEach(reconcileAccept);
         }catch(e){}
       }
+      const repTokens=(jobsRef.current||[]).filter(j=>j.repairToken&&!j.repairResponse).map(j=>j.repairToken);
+      if(repTokens.length){
+        try{
+          const{data}=await supabase.from(PUBLIC_PROPOSALS_TABLE).select("token,accepted_option,accepted_name,accepted_at").in("token",repTokens);
+          if(!cancelled&&data)data.forEach(reconcileRepairResponse);
+        }catch(e){}
+      }
     })();
     const ch=supabase.channel("public_proposals_accepts")
       .on("postgres_changes",{event:"UPDATE",schema:"public",table:PUBLIC_PROPOSALS_TABLE},payload=>{
-        if(payload.new)reconcileAccept(payload.new);
+        if(payload.new){reconcileAccept(payload.new);reconcileRepairResponse(payload.new);}
       }).subscribe();
     return()=>{cancelled=true;try{supabase.removeChannel(ch);}catch(e){}};
-  },[storageReady,reconcileAccept]);
+  },[storageReady,reconcileAccept,reconcileRepairResponse]);
 
   const activeNav=useMemo(()=>{
     if(view.startsWith("quoteDetail")||view==="quotes")return "quotes";
@@ -5815,7 +5855,7 @@ export default function App(){
   },[view]);
 
   const render=()=>{
-    if(view==="dashboard")return <Dashboard clients={clients} jobs={jobs} quotes={quotes} payments={payments} invoices={invoices} appointments={appointments} proposals={proposals} markProposalSeen={markProposalSeen} markupTable={markupTable} setView={setView} setSelClient={setSelClient}/>;
+    if(view==="dashboard")return <Dashboard clients={clients} jobs={jobs} quotes={quotes} payments={payments} invoices={invoices} appointments={appointments} proposals={proposals} markProposalSeen={markProposalSeen} markRepairSeen={markRepairSeen} markupTable={markupTable} setView={setView} setSelClient={setSelClient}/>;
     if(view==="appointments")return <Appointments appointments={appointments} setAppointments={setAppointments} clients={clients} setClients={setClients} jobs={jobs} setJobs={setJobs} setView={setView} setSelClient={setSelClient} setSelJob={setSelJob}/>;
     if(view==="clients")return <Clients clients={clients} setClients={setClients} jobs={jobs} payments={payments} setView={setView} setSelClient={setSelClient}/>;
     if(view==="clientDetail")return <ClientDetail clientId={selClient} clients={clients} setClients={setClients} jobs={jobs} setJobs={setJobs} quotes={quotes} payments={payments} markupTable={markupTable} setView={setView} setSelJob={setSelJob}/>;
@@ -5883,14 +5923,14 @@ export default function App(){
           </div>
         :render()}
     </div>
-    {/* Live proposal-acceptance pop-up (any view) */}
+    {/* Live response pop-up — proposals & repairs (any view) */}
     {acceptToast&&<div onClick={()=>{const j=acceptToast.jobId;setAcceptToast(null);if(j)setView("jobDetail_"+j);}}
-      style={{position:"fixed",bottom:24,right:24,maxWidth:340,background:INK,color:WHITE,borderRadius:12,padding:"16px 18px",boxShadow:"0 12px 40px rgba(0,0,0,0.35)",zIndex:9999,cursor:"pointer",border:`1px solid ${OK}66`}}>
+      style={{position:"fixed",bottom:24,right:24,maxWidth:340,background:INK,color:WHITE,borderRadius:12,padding:"16px 18px",boxShadow:"0 12px 40px rgba(0,0,0,0.35)",zIndex:9999,cursor:"pointer",border:`1px solid ${(acceptToast.color||OK)}66`}}>
       <div style={{display:"flex",alignItems:"flex-start",gap:12}}>
-        <div style={{fontSize:22,lineHeight:1}}>🎉</div>
+        <div style={{fontSize:22,lineHeight:1}}>{acceptToast.color===DANGER?"⚠️":"🎉"}</div>
         <div style={{flex:1}}>
-          <div style={{fontSize:14,fontWeight:800,color:OK,marginBottom:2}}>Proposal accepted</div>
-          <div style={{fontSize:13,color:"rgba(255,255,255,0.85)",lineHeight:1.5}}><strong>{acceptToast.name}</strong> accepted “{acceptToast.label}”. Click to open the job.</div>
+          <div style={{fontSize:14,fontWeight:800,color:acceptToast.color||OK,marginBottom:2}}>{acceptToast.title||"Update"}</div>
+          <div style={{fontSize:13,color:"rgba(255,255,255,0.85)",lineHeight:1.5}}>{acceptToast.body} Click to open the job.</div>
         </div>
         <button onClick={e=>{e.stopPropagation();setAcceptToast(null);}} style={{background:"none",border:"none",color:"rgba(255,255,255,0.5)",fontSize:18,cursor:"pointer",padding:0,lineHeight:1}}>×</button>
       </div>
