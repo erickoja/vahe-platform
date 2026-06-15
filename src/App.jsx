@@ -1372,9 +1372,11 @@ function Clients({clients,setClients,jobs,payments,setView,setSelClient}){
   </div>;
 }
 
-function ClientDetail({clientId,clients,jobs,setJobs,quotes,payments,markupTable,setView,setSelJob}){
+function ClientDetail({clientId,clients,setClients,jobs,setJobs,quotes,payments,markupTable,setView,setSelJob}){
   const c=clients.find(x=>x.id===clientId);
   const[jobModal,setJobModal]=useState(false);
+  const[editModal,setEditModal]=useState(false);
+  const saveClient=f=>{setClients(p=>{const n=p.map(x=>x.id===clientId?{...x,...f}:x);persist(K.cl,n);return n;});setEditModal(false);};
   if(!c)return null;
   const addJob=f=>{const id=uid();setJobs(p=>{const n=[...p,{...f,id,createdAt:today()}];persist(K.jo,n);return n;});setJobModal(false);setSelJob(id);setView("jobDetail");};
   const cj=jobs.filter(j=>j.clientId===clientId);
@@ -1385,8 +1387,9 @@ function ClientDetail({clientId,clients,jobs,setJobs,quotes,payments,markupTable
     <button onClick={()=>setView("clients")} style={{background:"none",border:"none",cursor:"pointer",color:GOLD,fontSize:13,fontWeight:700,fontFamily:"inherit",marginBottom:18,padding:0}}>← Back to clients</button>
     <div style={{display:"flex",alignItems:"center",gap:14,marginBottom:20}}>
       <div style={{width:50,height:50,borderRadius:"50%",background:GOLD_L,display:"flex",alignItems:"center",justifyContent:"center",fontSize:20,fontWeight:800,color:GOLD_D}}>{c.name.charAt(0)}</div>
-      <div><h1 style={{margin:0,fontSize:24,fontWeight:800,color:INK,letterSpacing:"-0.02em"}}>{c.name}</h1>
+      <div style={{flex:1}}><h1 style={{margin:0,fontSize:24,fontWeight:800,color:INK,letterSpacing:"-0.02em"}}>{c.name}</h1>
       <div style={{fontSize:13,color:WG}}>Since {fmtDate(c.createdAt)} · {fmt(spent)} paid to date</div></div>
+      <Btn sm ghost onClick={()=>setEditModal(true)}>✎ Edit client</Btn>
     </div>
     {charged>0&&<div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:12,marginBottom:16}}>
       {[["Total charged",fmt(charged),INK],["Paid",fmt(spent),OK],["Outstanding",fmt(owing),owing>0.5?WARN:OK]].map(([l,v,col])=>(
@@ -1425,6 +1428,9 @@ function ClientDetail({clientId,clients,jobs,setJobs,quotes,payments,markupTable
     </Card>
     {jobModal&&<Modal title={`New job for ${c.name}`} onClose={()=>setJobModal(false)}>
       <JobForm clients={clients} initial={{clientId}} onSave={addJob} onCancel={()=>setJobModal(false)}/>
+    </Modal>}
+    {editModal&&<Modal title="Edit client" onClose={()=>setEditModal(false)}>
+      <ClientForm initial={c} onSave={saveClient} onCancel={()=>setEditModal(false)}/>
     </Modal>}
   </div>;
 }
@@ -5812,7 +5818,7 @@ export default function App(){
     if(view==="dashboard")return <Dashboard clients={clients} jobs={jobs} quotes={quotes} payments={payments} invoices={invoices} appointments={appointments} proposals={proposals} markProposalSeen={markProposalSeen} markupTable={markupTable} setView={setView} setSelClient={setSelClient}/>;
     if(view==="appointments")return <Appointments appointments={appointments} setAppointments={setAppointments} clients={clients} setClients={setClients} jobs={jobs} setJobs={setJobs} setView={setView} setSelClient={setSelClient} setSelJob={setSelJob}/>;
     if(view==="clients")return <Clients clients={clients} setClients={setClients} jobs={jobs} payments={payments} setView={setView} setSelClient={setSelClient}/>;
-    if(view==="clientDetail")return <ClientDetail clientId={selClient} clients={clients} jobs={jobs} setJobs={setJobs} quotes={quotes} payments={payments} markupTable={markupTable} setView={setView} setSelJob={setSelJob}/>;
+    if(view==="clientDetail")return <ClientDetail clientId={selClient} clients={clients} setClients={setClients} jobs={jobs} setJobs={setJobs} quotes={quotes} payments={payments} markupTable={markupTable} setView={setView} setSelJob={setSelJob}/>;
     if(view==="jobs")return <Jobs clients={clients} jobs={jobs} setJobs={setJobs} quotes={quotes} setQuotes={setQuotes} payments={payments} setPayments={setPayments} notes={notes} setNotes={setNotes} invoices={invoices} setInvoices={setInvoices} markupTable={markupTable} setView={setView} setSelJob={setSelJob}/>;
     if(view==="jobDetail")return <JobDetail jobId={selJob} jobs={jobs} setJobs={setJobs} clients={clients} quotes={quotes} setQuotes={setQuotes} payments={payments} setPayments={setPayments} notes={notes} setNotes={setNotes} invoices={invoices} setInvoices={setInvoices} proposals={proposals} setProposals={setProposals} biz={biz} markupTable={markupTable} setView={setView}/>;
     if(view==="quotes")return <QuotesList quotes={quotes} jobs={jobs} clients={clients} markupTable={markupTable} biz={biz} setView={setView}/>;
