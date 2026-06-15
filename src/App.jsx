@@ -771,6 +771,20 @@ const buildInvoiceSnapshot=({inv,job,client,biz,payments})=>{
   };
 };
 
+// Snapshot of a repair intake/receipt for the public client link (kind:"repair").
+// items must already carry their customer-facing clientPrice (never the trade cost).
+const buildRepairSnapshot=({job,client,biz,items,instructions})=>({
+  kind:"repair",
+  biz:{name:biz?.name||"",logo:biz?.logo||"",phone:biz?.phone||"",email:biz?.email||"",abn:biz?.abn||"",address:biz?.address||""},
+  clientName:client?.name||"",
+  ref:(job?.id||"").slice(-6).toUpperCase(),
+  dateIn:job?.dateIn||"",
+  dateOut:job?.dateOut||"",
+  items:(items||[]).map(it=>({itemType:it.itemType||"",damage:it.damage||"",condition:it.condition||"",price:Number(it.clientPrice)||0})),
+  total:(items||[]).reduce((s,it)=>s+(Number(it.clientPrice)||0),0),
+  instructions:instructions||"",
+});
+
 // ── Storage layer ───────────────────────────────────────────────────────────
 // Three backends, chosen at runtime:
 //  1. Supabase cloud table (when configured + logged in) → shared across computers
@@ -1681,12 +1695,38 @@ function RepairIntakeCard({job,setJobs,biz,clients,markupTable}){
   const repairTotal=items.reduce((s,i)=>s+itemClient(i),0);
   const setAsCharge=()=>{persistJob({totalOverride:repairTotal});alert(`Job charge set to ${fmt(repairTotal)} from the repair items.`);};
   const[saved,setSaved]=useState(false);
+  // Shareable client link — reuses the public proposals table (same as invoices).
+  const[linkBusy,setLinkBusy]=useState(false);
+  const[linkCopied,setLinkCopied]=useState(false);
+  const repairLink=job.repairToken?`${window.location.origin}/?p=${job.repairToken}`:"";
+  const shareRepair=async()=>{
+    if(!supabaseEnabled)return alert("Online links need the cloud — you appear to be in local-only mode.");
+    saveIntake(items,instructions);   // commit latest edits into the snapshot
+    setLinkBusy(true);
+    let token=job.repairToken;
+    if(!token){token=proposalToken();persistJob({repairToken:token});}
+    const snap=buildRepairSnapshot({job:{...job,dateIn:dIn,dateOut:dOut},client:c,biz,items:items.map(it=>({...it,clientPrice:itemClient(it)})),instructions});
+    const{error}=await supabase.from(PUBLIC_PROPOSALS_TABLE).upsert({token,data:snap,status:"sent",created_at:new Date().toISOString()},{onConflict:"token"});
+    setLinkBusy(false);
+    if(error){alert("Couldn't create the link: "+error.message+"\n\nIf it mentions a missing table, the proposals Supabase setup hasn't been run.");return;}
+    navigator.clipboard?.writeText(`${window.location.origin}/?p=${token}`).catch(()=>{});
+    setLinkCopied(true);setTimeout(()=>setLinkCopied(false),2200);
+  };
   const saveNow=()=>{saveIntake(items,instructions);setSaved(true);setTimeout(()=>setSaved(false),2000);};
   return <Card id="repair-intake">
     <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:16}}>
       <div style={{fontWeight:700,fontSize:15,color:INK}}>Repair Intake {items.length>1&&<span style={{fontWeight:400,color:WG,fontSize:13}}>· {items.length} items</span>}</div>
-      <Btn sm ghost onClick={()=>printRepairIntake(biz,c,{...job,dateIn:dIn,dateOut:dOut,intake:{items:items.map(it=>({...it,clientPrice:itemClient(it)})),instructions}})}>Print / Save PDF</Btn>
+      <div style={{display:"flex",gap:8,alignItems:"center"}}>
+        <Btn sm onClick={shareRepair}>{linkBusy?"Creating…":linkCopied?"✓ Link copied":job.repairToken?"🔗 Copy link":"🔗 Create link"}</Btn>
+        {job.repairToken&&<Btn sm ghost onClick={()=>window.open(repairLink,"_blank")}>Preview</Btn>}
+        <Btn sm ghost onClick={()=>printRepairIntake(biz,c,{...job,dateIn:dIn,dateOut:dOut,intake:{items:items.map(it=>({...it,clientPrice:itemClient(it)})),instructions}})}>Print / Save PDF</Btn>
+      </div>
     </div>
+    {job.repairToken&&<div style={{background:GOLD_L+"55",border:`1px solid ${GOLD}55`,borderRadius:8,padding:"9px 14px",marginBottom:16,display:"flex",alignItems:"center",gap:12,flexWrap:"wrap"}}>
+      <span style={{fontSize:12,fontWeight:700,color:GOLD_D,whiteSpace:"nowrap"}}>🔗 Client link</span>
+      <span style={{flex:1,minWidth:180,fontSize:12,color:WG,wordBreak:"break-all",fontFamily:"monospace"}}>{repairLink}</span>
+      <span style={{fontSize:11,color:WG}}>Re-copy to refresh after edits.</span>
+    </div>}
     <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:14,marginBottom:18}}>
       <div>
         <div style={SS.lbl}>Date taken in</div>
@@ -2858,6 +2898,85 @@ function JobProposals({job,client,quotes,proposals,setProposals,setQuotes,biz,ma
   </Card>;
 }
 
+// Client-facing repair receipt (rendered inside PublicProposalPage when kind==="repair").
+function PublicRepairBody({snap}){
+  const b=snap.biz||{};
+  const items=snap.items||[];
+  const hasPrices=(snap.total||0)>0;
+  const dash=<span style={{color:"#bbb"}}>—</span>;
+  const sum=[
+    ["Client",snap.clientName||"—"],
+    ["Taken in",snap.dateIn?fmtDate(snap.dateIn):"—"],
+    ["Ready for collection",snap.dateOut?fmtDate(snap.dateOut):"—"],
+    ...(hasPrices?[["Repair total · inc GST",fmtR(snap.total)]]:[]),
+  ];
+  return <div style={{maxWidth:680,margin:"0 auto"}}>
+    {/* Header */}
+    <div style={{background:INK,borderRadius:`${RADIUS}px ${RADIUS}px 0 0`,padding:"32px 32px 26px",color:WHITE,display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:16,flexWrap:"wrap"}}>
+      <div>
+        <div style={{fontSize:10,fontWeight:700,color:"rgba(255,255,255,0.5)",letterSpacing:"0.2em",textTransform:"uppercase",marginBottom:12}}>Repair Receipt</div>
+        {b.logo
+          ?<div style={{background:WHITE,borderRadius:10,padding:"8px 14px",display:"inline-block"}}><img src={b.logo} alt={b.name||"Logo"} style={{maxWidth:200,maxHeight:54,objectFit:"contain",display:"block"}}/></div>
+          :<div style={{fontSize:24,fontWeight:800}}>{b.name||"Our Studio"}</div>}
+        <div style={{marginTop:12,fontSize:12,color:"rgba(255,255,255,0.5)",lineHeight:1.7}}>
+          {b.address&&<div>{b.address}</div>}
+          {(b.phone||b.email)&&<div>{[b.phone,b.email].filter(Boolean).join("  ·  ")}</div>}
+          {b.abn&&<div style={{color:"rgba(255,255,255,0.32)"}}>ABN {b.abn}</div>}
+        </div>
+      </div>
+      <div style={{textAlign:"right"}}>
+        <div style={{fontSize:18,fontWeight:800,letterSpacing:"0.04em"}}>#{snap.ref}</div>
+      </div>
+    </div>
+
+    <div style={{background:WHITE,borderRadius:`0 0 ${RADIUS}px ${RADIUS}px`,border:`1px solid ${BD}`,borderTop:"none",padding:"26px 32px 32px",boxShadow:SHADOW}}>
+      {/* Summary strip */}
+      <div style={{display:"grid",gridTemplateColumns:`repeat(${sum.length},1fr)`,gap:1,background:BD,border:`1px solid ${BD}`,borderRadius:10,overflow:"hidden",marginBottom:24}}>
+        {sum.map(([l,v],i)=>(
+          <div key={l} style={{background:WHITE,padding:"12px 14px"}}>
+            <div style={{fontSize:9,fontWeight:700,color:WG,textTransform:"uppercase",letterSpacing:"0.06em",marginBottom:4}}>{l}</div>
+            <div style={{fontSize:14,fontWeight:700,color:i===sum.length-1&&hasPrices?GOLD_D:INK}}>{v}</div>
+          </div>
+        ))}
+      </div>
+
+      {items.length>1&&<div style={{fontSize:10,fontWeight:700,color:WG,textTransform:"uppercase",letterSpacing:"0.06em",marginBottom:10}}>{items.length} items received in this drop-off</div>}
+
+      {/* Items */}
+      <div style={{display:"grid",gridTemplateColumns:`28px 1.1fr 1.4fr 1fr${hasPrices?" 90px":""}`,gap:8,padding:"0 0 8px",borderBottom:`2px solid ${INK}`}}>
+        {["#","Item","Issue / work","Condition",...(hasPrices?["Price"]:[])].map((h,i)=><div key={h} style={{fontSize:9,fontWeight:700,color:WG,textTransform:"uppercase",letterSpacing:"0.05em",textAlign:hasPrices&&i===4?"right":"left"}}>{h}</div>)}
+      </div>
+      {items.map((it,i)=>(
+        <div key={i} style={{display:"grid",gridTemplateColumns:`28px 1.1fr 1.4fr 1fr${hasPrices?" 90px":""}`,gap:8,padding:"11px 0",borderBottom:`1px solid ${BD}`,fontSize:13,alignItems:"start"}}>
+          <div style={{color:GOLD_D,fontWeight:800}}>{i+1}</div>
+          <div style={{fontWeight:700,color:INK}}>{it.itemType||dash}</div>
+          <div style={{color:"#444",lineHeight:1.5,whiteSpace:"pre-wrap"}}>{it.damage||dash}</div>
+          <div style={{color:"#444",lineHeight:1.5,whiteSpace:"pre-wrap"}}>{it.condition||dash}</div>
+          {hasPrices&&<div style={{fontWeight:700,color:INK,textAlign:"right"}}>{it.price>0?fmtR(it.price):dash}</div>}
+        </div>
+      ))}
+      {hasPrices&&<div style={{display:"flex",justifyContent:"flex-end",alignItems:"baseline",gap:16,marginTop:14}}>
+        <span style={{fontSize:10,fontWeight:700,color:WG,textTransform:"uppercase",letterSpacing:"0.08em"}}>Repair total (inc GST)</span>
+        <span style={{fontSize:20,fontWeight:800,color:INK}}>{fmtR(snap.total)}</span>
+      </div>}
+
+      {snap.instructions&&<div style={{fontSize:13,color:INK,lineHeight:1.6,background:PARCH,borderLeft:`3px solid ${GOLD}`,borderRadius:"0 8px 8px 0",padding:"12px 16px",margin:"22px 0 0"}}>
+        <div style={{fontSize:9,fontWeight:700,color:WG,textTransform:"uppercase",letterSpacing:"0.08em",marginBottom:4}}>Client instructions</div>{snap.instructions}
+      </div>}
+
+      {/* Terms */}
+      <div style={{borderTop:`1px solid ${BD}`,marginTop:24,paddingTop:18}}>
+        <div style={{fontSize:9,fontWeight:700,color:WG,letterSpacing:"0.12em",textTransform:"uppercase",marginBottom:8}}>Terms &amp; conditions</div>
+        <div style={{fontSize:11,color:"#7A746E",lineHeight:1.6}}>
+          <strong style={{color:INK}}>Gemstone &amp; diamond setting:</strong> For client-supplied gemstones or diamonds we have not crafted or sourced, we cannot assume responsibility for any damage that may occur during setting or repair. The quality, integrity and condition of externally sourced stones are solely the client's responsibility. By submitting such items you accept that we cannot be held liable for any damage incurred.<br/><br/>
+          <strong style={{color:INK}}>Repair warranty:</strong> {b.name||"We"} carry out repairs with the utmost care and craftsmanship, but do not provide a warranty on repaired pieces. The nature of jewellery repair means we cannot guarantee against further damage, wear or failure of repaired areas after the piece leaves our care. All repairs are undertaken at the client's risk.
+        </div>
+      </div>
+      <div style={{textAlign:"center",fontSize:10,color:WG,marginTop:24}}>All prices inclusive of GST · Quoted in AUD</div>
+    </div>
+  </div>;
+}
+
 // Client-facing tax invoice (rendered inside PublicProposalPage when kind==="invoice").
 function PublicInvoiceBody({snap}){
   const b=snap.biz||{};
@@ -2975,6 +3094,7 @@ function PublicProposalPage({token}){
 
   // Invoices ride on the same public table/link — render the invoice layout instead.
   if(snap.kind==="invoice")return wrap(<PublicInvoiceBody snap={snap}/>);
+  if(snap.kind==="repair")return wrap(<PublicRepairBody snap={snap}/>);
 
   const b=snap.biz||{};
   const opts=snap.options||[];
