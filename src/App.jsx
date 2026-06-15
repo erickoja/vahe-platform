@@ -1712,6 +1712,20 @@ function RepairIntakeCard({job,setJobs,biz,clients,markupTable}){
     navigator.clipboard?.writeText(`${window.location.origin}/?p=${token}`).catch(()=>{});
     setLinkCopied(true);setTimeout(()=>setLinkCopied(false),2200);
   };
+  // Client's online accept/decline response, pulled back from the cloud
+  const[response,setResponse]=useState(job.repairResponse||null);
+  const[checking,setChecking]=useState(false);
+  const fetchResponse=async(silent)=>{
+    if(!job.repairToken||!supabaseEnabled)return;
+    if(!silent)setChecking(true);
+    const{data}=await supabase.from(PUBLIC_PROPOSALS_TABLE).select("accepted_option,accepted_name,accepted_at").eq("token",job.repairToken).maybeSingle();
+    if(!silent)setChecking(false);
+    if(!data||!data.accepted_option){if(!silent)alert("No response yet — the client hasn't accepted or declined online.");return;}
+    const r={decision:data.accepted_option,name:data.accepted_name||"",at:data.accepted_at||today()};
+    setResponse(r);
+    if(JSON.stringify(job.repairResponse||null)!==JSON.stringify(r))persistJob({repairResponse:r});
+  };
+  useEffect(()=>{fetchResponse(true);},[job.repairToken]);   // eslint-disable-line
   const saveNow=()=>{saveIntake(items,instructions);setSaved(true);setTimeout(()=>setSaved(false),2000);};
   return <Card id="repair-intake">
     <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:16}}>
@@ -1725,8 +1739,11 @@ function RepairIntakeCard({job,setJobs,biz,clients,markupTable}){
     {job.repairToken&&<div style={{background:GOLD_L+"55",border:`1px solid ${GOLD}55`,borderRadius:8,padding:"9px 14px",marginBottom:16,display:"flex",alignItems:"center",gap:12,flexWrap:"wrap"}}>
       <span style={{fontSize:12,fontWeight:700,color:GOLD_D,whiteSpace:"nowrap"}}>🔗 Client link</span>
       <span style={{flex:1,minWidth:180,fontSize:12,color:WG,wordBreak:"break-all",fontFamily:"monospace"}}>{repairLink}</span>
-      <span style={{fontSize:11,color:WG}}>Re-copy to refresh after edits.</span>
+      {!response&&<button onClick={()=>fetchResponse(false)} style={{background:"none",border:`1px solid ${BD}`,borderRadius:6,padding:"4px 10px",fontSize:11,fontWeight:700,color:WG,cursor:"pointer",fontFamily:"inherit"}}>{checking?"Checking…":"Check for response"}</button>}
     </div>}
+    {response&&(()=>{const acc=response.decision!=="declined";return <div style={{background:(acc?OK:DANGER)+"12",border:`1px solid ${(acc?OK:DANGER)}55`,borderRadius:8,padding:"10px 14px",marginBottom:16,fontSize:13,fontWeight:700,color:acc?OK:DANGER}}>
+      {acc?"✓":"✗"} Client {acc?"accepted":"declined"} online{response.name?` — ${response.name}`:""}{response.at?` on ${fmtDate(response.at)}`:""}
+    </div>;})()}
     <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:14,marginBottom:18}}>
       <div>
         <div style={SS.lbl}>Date taken in</div>
@@ -2899,80 +2916,111 @@ function JobProposals({job,client,quotes,proposals,setProposals,setQuotes,biz,ma
 }
 
 // Client-facing repair receipt (rendered inside PublicProposalPage when kind==="repair").
-function PublicRepairBody({snap}){
+// responded/decision/responderName reflect a prior accept/decline; onRespond records a new one.
+function PublicRepairBody({snap,responded,decision,responderName,onRespond}){
   const b=snap.biz||{};
   const items=snap.items||[];
   const hasPrices=(snap.total||0)>0;
   const dash=<span style={{color:"#bbb"}}>—</span>;
+  const [name,setName]=useState("");
+  const [busy,setBusy]=useState(false);
+  const respond=async(d)=>{
+    if(!name.trim())return;
+    setBusy(true);
+    try{await onRespond(d,name.trim());}
+    catch(e){alert("Sorry — we couldn't record your response. Please try again or contact the studio.");}
+    setBusy(false);
+  };
   const sum=[
     ["Client",snap.clientName||"—"],
     ["Taken in",snap.dateIn?fmtDate(snap.dateIn):"—"],
     ["Ready for collection",snap.dateOut?fmtDate(snap.dateOut):"—"],
     ...(hasPrices?[["Repair total · inc GST",fmtR(snap.total)]]:[]),
   ];
-  return <div style={{maxWidth:680,margin:"0 auto"}}>
+  const accepted=responded&&decision!=="declined";
+  return <div style={{maxWidth:760,margin:"0 auto"}}>
     {/* Header */}
-    <div style={{background:INK,borderRadius:`${RADIUS}px ${RADIUS}px 0 0`,padding:"32px 32px 26px",color:WHITE,display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:16,flexWrap:"wrap"}}>
+    <div style={{background:INK,borderRadius:`${RADIUS}px ${RADIUS}px 0 0`,padding:"36px 44px 32px",color:WHITE,display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:16,flexWrap:"wrap"}}>
       <div>
-        <div style={{fontSize:10,fontWeight:700,color:"rgba(255,255,255,0.5)",letterSpacing:"0.2em",textTransform:"uppercase",marginBottom:12}}>Repair Receipt</div>
+        <div style={{fontSize:10,fontWeight:700,color:"rgba(255,255,255,0.5)",letterSpacing:"0.2em",textTransform:"uppercase",marginBottom:14}}>Repair Receipt</div>
         {b.logo
-          ?<div style={{background:WHITE,borderRadius:10,padding:"8px 14px",display:"inline-block"}}><img src={b.logo} alt={b.name||"Logo"} style={{maxWidth:200,maxHeight:54,objectFit:"contain",display:"block"}}/></div>
-          :<div style={{fontSize:24,fontWeight:800}}>{b.name||"Our Studio"}</div>}
-        <div style={{marginTop:12,fontSize:12,color:"rgba(255,255,255,0.5)",lineHeight:1.7}}>
+          ?<div style={{background:WHITE,borderRadius:10,padding:"8px 14px",display:"inline-block"}}><img src={b.logo} alt={b.name||"Logo"} style={{maxWidth:200,maxHeight:58,objectFit:"contain",display:"block"}}/></div>
+          :<div style={{fontSize:26,fontWeight:800}}>{b.name||"Our Studio"}</div>}
+        <div style={{marginTop:14,fontSize:12,color:"rgba(255,255,255,0.5)",lineHeight:1.8}}>
           {b.address&&<div>{b.address}</div>}
           {(b.phone||b.email)&&<div>{[b.phone,b.email].filter(Boolean).join("  ·  ")}</div>}
           {b.abn&&<div style={{color:"rgba(255,255,255,0.32)"}}>ABN {b.abn}</div>}
         </div>
       </div>
       <div style={{textAlign:"right"}}>
-        <div style={{fontSize:18,fontWeight:800,letterSpacing:"0.04em"}}>#{snap.ref}</div>
+        <div style={{fontSize:19,fontWeight:800,letterSpacing:"0.04em"}}>#{snap.ref}</div>
       </div>
     </div>
 
-    <div style={{background:WHITE,borderRadius:`0 0 ${RADIUS}px ${RADIUS}px`,border:`1px solid ${BD}`,borderTop:"none",padding:"26px 32px 32px",boxShadow:SHADOW}}>
+    <div style={{background:WHITE,borderRadius:`0 0 ${RADIUS}px ${RADIUS}px`,border:`1px solid ${BD}`,borderTop:"none",padding:"32px 44px 38px",boxShadow:SHADOW}}>
       {/* Summary strip */}
-      <div style={{display:"grid",gridTemplateColumns:`repeat(${sum.length},1fr)`,gap:1,background:BD,border:`1px solid ${BD}`,borderRadius:10,overflow:"hidden",marginBottom:24}}>
+      <div style={{display:"grid",gridTemplateColumns:`repeat(${sum.length},1fr)`,gap:1,background:BD,border:`1px solid ${BD}`,borderRadius:10,overflow:"hidden",marginBottom:28}}>
         {sum.map(([l,v],i)=>(
-          <div key={l} style={{background:WHITE,padding:"12px 14px"}}>
-            <div style={{fontSize:9,fontWeight:700,color:WG,textTransform:"uppercase",letterSpacing:"0.06em",marginBottom:4}}>{l}</div>
-            <div style={{fontSize:14,fontWeight:700,color:i===sum.length-1&&hasPrices?GOLD_D:INK}}>{v}</div>
+          <div key={l} style={{background:WHITE,padding:"15px 18px"}}>
+            <div style={{fontSize:9,fontWeight:700,color:WG,textTransform:"uppercase",letterSpacing:"0.06em",marginBottom:5}}>{l}</div>
+            <div style={{fontSize:15,fontWeight:700,color:i===sum.length-1&&hasPrices?GOLD_D:INK}}>{v}</div>
           </div>
         ))}
       </div>
 
-      {items.length>1&&<div style={{fontSize:10,fontWeight:700,color:WG,textTransform:"uppercase",letterSpacing:"0.06em",marginBottom:10}}>{items.length} items received in this drop-off</div>}
+      {items.length>1&&<div style={{fontSize:10,fontWeight:700,color:WG,textTransform:"uppercase",letterSpacing:"0.06em",marginBottom:12}}>{items.length} items received in this drop-off</div>}
 
       {/* Items */}
-      <div style={{display:"grid",gridTemplateColumns:`28px 1.1fr 1.4fr 1fr${hasPrices?" 90px":""}`,gap:8,padding:"0 0 8px",borderBottom:`2px solid ${INK}`}}>
+      <div style={{display:"grid",gridTemplateColumns:`30px 1.1fr 1.4fr 1fr${hasPrices?" 96px":""}`,gap:10,padding:"0 0 10px",borderBottom:`2px solid ${INK}`}}>
         {["#","Item","Issue / work","Condition",...(hasPrices?["Price"]:[])].map((h,i)=><div key={h} style={{fontSize:9,fontWeight:700,color:WG,textTransform:"uppercase",letterSpacing:"0.05em",textAlign:hasPrices&&i===4?"right":"left"}}>{h}</div>)}
       </div>
       {items.map((it,i)=>(
-        <div key={i} style={{display:"grid",gridTemplateColumns:`28px 1.1fr 1.4fr 1fr${hasPrices?" 90px":""}`,gap:8,padding:"11px 0",borderBottom:`1px solid ${BD}`,fontSize:13,alignItems:"start"}}>
+        <div key={i} style={{display:"grid",gridTemplateColumns:`30px 1.1fr 1.4fr 1fr${hasPrices?" 96px":""}`,gap:10,padding:"15px 0",borderBottom:`1px solid ${BD}`,fontSize:13.5,alignItems:"start"}}>
           <div style={{color:GOLD_D,fontWeight:800}}>{i+1}</div>
           <div style={{fontWeight:700,color:INK}}>{it.itemType||dash}</div>
-          <div style={{color:"#444",lineHeight:1.5,whiteSpace:"pre-wrap"}}>{it.damage||dash}</div>
-          <div style={{color:"#444",lineHeight:1.5,whiteSpace:"pre-wrap"}}>{it.condition||dash}</div>
+          <div style={{color:"#444",lineHeight:1.6,whiteSpace:"pre-wrap"}}>{it.damage||dash}</div>
+          <div style={{color:"#444",lineHeight:1.6,whiteSpace:"pre-wrap"}}>{it.condition||dash}</div>
           {hasPrices&&<div style={{fontWeight:700,color:INK,textAlign:"right"}}>{it.price>0?fmtR(it.price):dash}</div>}
         </div>
       ))}
-      {hasPrices&&<div style={{display:"flex",justifyContent:"flex-end",alignItems:"baseline",gap:16,marginTop:14}}>
+      {hasPrices&&<div style={{display:"flex",justifyContent:"flex-end",alignItems:"baseline",gap:16,marginTop:18}}>
         <span style={{fontSize:10,fontWeight:700,color:WG,textTransform:"uppercase",letterSpacing:"0.08em"}}>Repair total (inc GST)</span>
-        <span style={{fontSize:20,fontWeight:800,color:INK}}>{fmtR(snap.total)}</span>
+        <span style={{fontSize:22,fontWeight:800,color:INK}}>{fmtR(snap.total)}</span>
       </div>}
 
-      {snap.instructions&&<div style={{fontSize:13,color:INK,lineHeight:1.6,background:PARCH,borderLeft:`3px solid ${GOLD}`,borderRadius:"0 8px 8px 0",padding:"12px 16px",margin:"22px 0 0"}}>
-        <div style={{fontSize:9,fontWeight:700,color:WG,textTransform:"uppercase",letterSpacing:"0.08em",marginBottom:4}}>Client instructions</div>{snap.instructions}
+      {snap.instructions&&<div style={{fontSize:13,color:INK,lineHeight:1.7,background:PARCH,borderLeft:`3px solid ${GOLD}`,borderRadius:"0 8px 8px 0",padding:"14px 18px",margin:"26px 0 0"}}>
+        <div style={{fontSize:9,fontWeight:700,color:WG,textTransform:"uppercase",letterSpacing:"0.08em",marginBottom:5}}>Client instructions</div>{snap.instructions}
       </div>}
+
+      {/* Confirm / decline */}
+      {responded
+        ?<div style={{background:(accepted?OK:DANGER)+"12",border:`1px solid ${(accepted?OK:DANGER)}55`,borderRadius:12,padding:"18px 20px",margin:"28px 0 4px"}}>
+          <div style={{fontSize:15,fontWeight:800,color:accepted?OK:DANGER,marginBottom:3}}>{accepted?"✓ Repair confirmed":"Repair declined"}</div>
+          <div style={{fontSize:13,color:INK,lineHeight:1.6}}>{accepted
+            ?<>Thank you, {responderName||"and"} — you've authorised this repair to proceed. The studio has been notified.</>
+            :<>You've declined this repair{responderName?` (${responderName})`:""}. Nothing further will happen — please contact the studio to discuss.</>}</div>
+        </div>
+        :<div style={{borderTop:`1px solid ${BD}`,marginTop:28,paddingTop:22}}>
+          <div style={{fontSize:14,fontWeight:700,color:INK,marginBottom:4}}>Confirm this repair</div>
+          <div style={{fontSize:12,color:WG,marginBottom:12,lineHeight:1.5}}>Please confirm you authorise the work described above, on the terms below.</div>
+          <input value={name} onChange={e=>setName(e.target.value)} placeholder="Type your full name" style={{...SS.inp,marginTop:0,marginBottom:12}}/>
+          <div style={{display:"flex",gap:10,flexWrap:"wrap"}}>
+            <button onClick={()=>respond("accepted")} disabled={!name.trim()||busy}
+              style={{flex:1,minWidth:160,background:(!name.trim()||busy)?BD:INK,color:WHITE,border:"none",borderRadius:10,padding:"14px",fontSize:15,fontWeight:800,cursor:(!name.trim()||busy)?"not-allowed":"pointer",fontFamily:"inherit"}}>{busy?"Submitting…":"✓ Accept repair"}</button>
+            <button onClick={()=>respond("declined")} disabled={!name.trim()||busy}
+              style={{background:"none",color:DANGER,border:`1px solid ${DANGER}66`,borderRadius:10,padding:"14px 20px",fontSize:14,fontWeight:700,cursor:(!name.trim()||busy)?"not-allowed":"pointer",fontFamily:"inherit",opacity:(!name.trim()||busy)?0.5:1}}>Decline</button>
+          </div>
+        </div>}
 
       {/* Terms */}
-      <div style={{borderTop:`1px solid ${BD}`,marginTop:24,paddingTop:18}}>
-        <div style={{fontSize:9,fontWeight:700,color:WG,letterSpacing:"0.12em",textTransform:"uppercase",marginBottom:8}}>Terms &amp; conditions</div>
-        <div style={{fontSize:11,color:"#7A746E",lineHeight:1.6}}>
+      <div style={{borderTop:`1px solid ${BD}`,marginTop:26,paddingTop:20}}>
+        <div style={{fontSize:9,fontWeight:700,color:WG,letterSpacing:"0.12em",textTransform:"uppercase",marginBottom:10}}>Terms &amp; conditions</div>
+        <div style={{fontSize:11,color:"#7A746E",lineHeight:1.7}}>
           <strong style={{color:INK}}>Gemstone &amp; diamond setting:</strong> For client-supplied gemstones or diamonds we have not crafted or sourced, we cannot assume responsibility for any damage that may occur during setting or repair. The quality, integrity and condition of externally sourced stones are solely the client's responsibility. By submitting such items you accept that we cannot be held liable for any damage incurred.<br/><br/>
           <strong style={{color:INK}}>Repair warranty:</strong> {b.name||"We"} carry out repairs with the utmost care and craftsmanship, but do not provide a warranty on repaired pieces. The nature of jewellery repair means we cannot guarantee against further damage, wear or failure of repaired areas after the piece leaves our care. All repairs are undertaken at the client's risk.
         </div>
       </div>
-      <div style={{textAlign:"center",fontSize:10,color:WG,marginTop:24}}>All prices inclusive of GST · Quoted in AUD</div>
+      <div style={{textAlign:"center",fontSize:10,color:WG,marginTop:26}}>All prices inclusive of GST · Quoted in AUD</div>
     </div>
   </div>;
 }
@@ -3087,6 +3135,13 @@ function PublicProposalPage({token}){
     setBusy(false);
   };
 
+  // Repair accept/decline — reuses accept_proposal, storing the decision in accepted_option.
+  const respondRepair=async(decision,nm)=>{
+    const{error}=await supabase.rpc("accept_proposal",{p_token:token,p_option:decision,p_name:nm});
+    if(error)throw error;
+    setAcceptedOption(decision);setAcceptedName(nm);setState("accepted");
+  };
+
   const wrap=(inner)=><div style={{minHeight:"100vh",background:CREAM,fontFamily:"'DM Sans',sans-serif",padding:"24px 16px",boxSizing:"border-box"}}>{inner}</div>;
   if(state==="loading")return wrap(<div style={{textAlign:"center",color:WG,fontSize:14,marginTop:80}}>Loading your proposal…</div>);
   if(state==="error")return wrap(<div style={{maxWidth:440,margin:"80px auto 0",textAlign:"center",background:WHITE,border:`1px solid ${BD}`,borderRadius:RADIUS,padding:"32px 28px",boxShadow:SHADOW}}><div style={{fontSize:30,marginBottom:10}}>⚠️</div><div style={{fontSize:16,fontWeight:800,color:INK,marginBottom:6}}>Couldn't load this proposal</div><div style={{fontSize:13,color:WG,lineHeight:1.6}}>Please check the link, or get in touch with the studio.</div></div>);
@@ -3094,7 +3149,7 @@ function PublicProposalPage({token}){
 
   // Invoices ride on the same public table/link — render the invoice layout instead.
   if(snap.kind==="invoice")return wrap(<PublicInvoiceBody snap={snap}/>);
-  if(snap.kind==="repair")return wrap(<PublicRepairBody snap={snap}/>);
+  if(snap.kind==="repair")return wrap(<PublicRepairBody snap={snap} responded={state==="accepted"} decision={acceptedOption} responderName={acceptedName} onRespond={respondRepair}/>);
 
   const b=snap.biz||{};
   const opts=snap.options||[];
