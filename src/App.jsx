@@ -1055,10 +1055,25 @@ ${q.validUntil?`<div class="valid">This quote is valid until ${fmtDate(q.validUn
   win.document.close();setTimeout(()=>win.print(),400);
 }
 
+// Normalise intake to a list of items, migrating the old single-item shape.
+function intakeItems(intake){
+  intake=intake||{};
+  if(Array.isArray(intake.items))return intake.items;
+  if(intake.itemType||intake.damage||intake.condition)return[{itemType:intake.itemType||"",damage:intake.damage||"",condition:intake.condition||""}];
+  return[];
+}
 function printRepairIntake(biz,c,job){
   const win=window.open("","_blank");
   const intake=job.intake||{};
+  const items=intakeItems(intake);
   const ref=job.id.slice(-6).toUpperCase();
+  const itemsHtml=items.length
+    ?items.map((it,i)=>`
+<div class="section-title">${items.length>1?`Item ${i+1} of ${items.length}`:"Item Details"}</div>
+<div class="field"><div class="flbl">Item type</div><div class="fval${it.itemType?"":" empty"}">${it.itemType||"Not specified"}</div></div>
+<div class="field"><div class="flbl">Description of damage / issue</div><div class="fval${it.damage?"":" empty"}">${(it.damage||"Not specified").replace(/\n/g,"<br>")}</div></div>
+<div class="field"><div class="flbl">Condition on arrival</div><div class="fval${it.condition?"":" empty"}">${(it.condition||"Not specified").replace(/\n/g,"<br>")}</div></div>`).join("")
+    :`<div class="section-title">Item Details</div><div class="field"><div class="fval empty">No items recorded</div></div>`;
   win.document.write(`<!DOCTYPE html><html><head><title>Repair Intake — ${ref}</title><style>${PCSS}
 .field{margin-bottom:18px}.flbl{font-size:10px;font-weight:700;color:#6B6560;letter-spacing:.08em;text-transform:uppercase;margin-bottom:5px}.fval{font-size:13px;color:#1A1714;line-height:1.6;min-height:22px}.fval.empty{color:#aaa;font-style:italic}.disclaimer{font-size:11px;color:#6B6560;line-height:1.7;padding:14px 18px;background:#FAF7F2;border-left:3px solid #C9A84C;border-radius:0 8px 8px 0;margin-bottom:24px}.section-title{font-size:12px;font-weight:700;color:#C9A84C;text-transform:uppercase;letter-spacing:.1em;margin:24px 0 12px;padding-bottom:6px;border-bottom:1px solid #E8E2D9}
 </style></head><body>
@@ -1067,12 +1082,10 @@ function printRepairIntake(biz,c,job){
   <div><div class="qlbl">Repair Intake</div><div class="qnum">#${ref}</div><div style="font-size:11px;color:#6B6560;text-align:right;margin-top:3px">${fmtDate(today())}</div></div>
 </div>
 <div class="to"><div class="tolbl">Client</div><div class="toname">${c?.name||"—"}</div><div class="todet">${[c?.email,c?.phone].filter(Boolean).join(" · ")}</div></div>
-<div class="section-title">Item Details</div>
-<div class="field"><div class="flbl">Item type</div><div class="fval${intake.itemType?"":" empty"}">${intake.itemType||"Not specified"}</div></div>
-<div class="field"><div class="flbl">Description of damage / issue</div><div class="fval${intake.damage?"":" empty"}">${(intake.damage||"Not specified").replace(/\n/g,"<br>")}</div></div>
-<div class="field"><div class="flbl">Condition on arrival</div><div class="fval${intake.condition?"":" empty"}">${(intake.condition||"Not specified").replace(/\n/g,"<br>")}</div></div>
-${intake.instructions?`<div class="field"><div class="flbl">Client instructions</div><div class="fval">${intake.instructions.replace(/\n/g,"<br>")}</div></div>`:""}
-<div class="field" style="display:flex;gap:24px"><div style="flex:1"><div class="flbl">Date taken in</div><div class="fval${job.dateIn?"":" empty"}">${job.dateIn?fmtDate(job.dateIn):"Not specified"}</div></div><div style="flex:1"><div class="flbl">Date of pickup / collection</div><div class="fval${job.dateOut?"":" empty"}">${job.dateOut?fmtDate(job.dateOut):"Not specified"}</div></div></div>
+${items.length>1?`<div style="font-size:12px;color:#6B6560;margin-bottom:4px">${items.length} items received in this drop-off.</div>`:""}
+${itemsHtml}
+${intake.instructions?`<div class="section-title">Client Instructions</div><div class="field"><div class="fval">${intake.instructions.replace(/\n/g,"<br>")}</div></div>`:""}
+<div class="field" style="display:flex;gap:24px;margin-top:18px"><div style="flex:1"><div class="flbl">Date taken in</div><div class="fval${job.dateIn?"":" empty"}">${job.dateIn?fmtDate(job.dateIn):"Not specified"}</div></div><div style="flex:1"><div class="flbl">Date of pickup / collection</div><div class="fval${job.dateOut?"":" empty"}">${job.dateOut?fmtDate(job.dateOut):"Not specified"}</div></div></div>
 <div class="section-title">Terms & Disclaimer</div>
 <div class="disclaimer">
   <strong>Gemstone &amp; Diamond Setting:</strong> When you provide gemstones or diamonds for setting into a piece of jewellery that we have not personally crafted or sourced, we cannot assume responsibility for any damage that may occur to the provided gemstones or diamonds during the setting or repair process. The quality, integrity, and condition of externally sourced stones are solely the responsibility of the client. We highly recommend consulting with a reputable gemologist or ensuring the durability and suitability of your stones before bringing them for repair. By submitting items for repair involving externally sourced stones, you acknowledge and accept that we cannot be held liable for any potential damage incurred.<br><br>
@@ -1599,22 +1612,24 @@ function JobImages({job,setJobs}){
 function RepairIntakeCard({job,setJobs,biz,clients}){
   const c=clients.find(x=>x.id===job.clientId);
   const intake=job.intake||{};
-  const[f,setF]=useState({itemType:intake.itemType||"",damage:intake.damage||"",condition:intake.condition||"",instructions:intake.instructions||""});
+  const blankIntakeItem=()=>({id:uid(),itemType:"",damage:"",condition:""});
+  const[items,setItems]=useState(()=>{const ex=intakeItems(intake);return ex.length?ex.map(i=>({id:i.id||uid(),itemType:i.itemType||"",damage:i.damage||"",condition:i.condition||""})):[blankIntakeItem()];});
+  const[instructions,setInstructions]=useState(intake.instructions||"");
   const[dIn,setDIn]=useState(job.dateIn||"");
   const[dOut,setDOut]=useState(job.dateOut||"");
-  const persist_=patch=>{setJobs(p=>{const n=p.map(j=>j.id===job.id?{...j,intake:{...j.intake,...patch}}:j);persist(K.jo,n);return n;});};
+  // Persist the whole intake (items + instructions) as the new shape
+  const saveIntake=(nextItems,nextInstr)=>{setJobs(p=>{const n=p.map(j=>j.id===job.id?{...j,intake:{items:nextItems,instructions:nextInstr}}:j);persist(K.jo,n);return n;});};
   const persistJob=patch=>{setJobs(p=>{const n=p.map(j=>j.id===job.id?{...j,...patch}:j);persist(K.jo,n);return n;});};
-  const blur=k=>e=>persist_({[k]:e.target.value});
+  const setItemField=(id,k,v)=>setItems(p=>p.map(i=>i.id===id?{...i,[k]:v}:i));
+  const commit=()=>saveIntake(items,instructions);
+  const addItem=()=>{const ni=[...items,blankIntakeItem()];setItems(ni);saveIntake(ni,instructions);};
+  const removeItem=id=>{const ni=items.filter(i=>i.id!==id);setItems(ni);saveIntake(ni,instructions);};
   return <Card id="repair-intake">
     <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:16}}>
-      <div style={{fontWeight:700,fontSize:15,color:INK}}>Repair Intake</div>
-      <Btn sm ghost onClick={()=>printRepairIntake(biz,c,{...job,dateIn:dIn,dateOut:dOut,intake:{...intake,...f}})}>Print / Save PDF</Btn>
+      <div style={{fontWeight:700,fontSize:15,color:INK}}>Repair Intake {items.length>1&&<span style={{fontWeight:400,color:WG,fontSize:13}}>· {items.length} items</span>}</div>
+      <Btn sm ghost onClick={()=>printRepairIntake(biz,c,{...job,dateIn:dIn,dateOut:dOut,intake:{items,instructions}})}>Print / Save PDF</Btn>
     </div>
-    <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:14,marginBottom:14}}>
-      <div>
-        <div style={SS.lbl}>Item type</div>
-        <input style={SS.inp} value={f.itemType} placeholder="e.g. Gold ring, silver bracelet…" onChange={e=>setF(p=>({...p,itemType:e.target.value}))} onBlur={blur("itemType")}/>
-      </div>
+    <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:14,marginBottom:18}}>
       <div>
         <div style={SS.lbl}>Date taken in</div>
         <input type="date" style={SS.inp} value={dIn} onChange={e=>{setDIn(e.target.value);persistJob({dateIn:e.target.value});}}/>
@@ -1624,17 +1639,33 @@ function RepairIntakeCard({job,setJobs,biz,clients}){
         <input type="date" style={SS.inp} value={dOut} onChange={e=>{setDOut(e.target.value);persistJob({dateOut:e.target.value});}}/>
       </div>
     </div>
-    <div style={{marginBottom:14}}>
-      <div style={SS.lbl}>Description of damage / issue</div>
-      <textarea style={{...SS.inp,minHeight:72,resize:"vertical"}} value={f.damage} placeholder="Describe the damage or work required…" onChange={e=>setF(p=>({...p,damage:e.target.value}))} onBlur={blur("damage")}/>
-    </div>
-    <div style={{marginBottom:14}}>
-      <div style={SS.lbl}>Condition on arrival</div>
-      <textarea style={{...SS.inp,minHeight:56,resize:"vertical"}} value={f.condition} placeholder="Scratches, missing stones, broken clasp…" onChange={e=>setF(p=>({...p,condition:e.target.value}))} onBlur={blur("condition")}/>
-    </div>
+
+    {/* Items — one per piece brought in */}
+    {items.map((it,idx)=>(
+      <div key={it.id} style={{border:`1px solid ${BD}`,borderRadius:10,padding:"14px 16px",marginBottom:12,background:PARCH}}>
+        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}}>
+          <div style={{fontSize:11,fontWeight:700,color:GOLD_D,textTransform:"uppercase",letterSpacing:"0.06em"}}>Item {idx+1}</div>
+          {items.length>1&&<button onClick={()=>removeItem(it.id)} style={{background:"none",border:"none",cursor:"pointer",color:DANGER,fontSize:12,fontWeight:700,fontFamily:"inherit"}}>× Remove</button>}
+        </div>
+        <div style={{marginBottom:12}}>
+          <div style={SS.lbl}>Item type</div>
+          <input style={SS.inp} value={it.itemType} placeholder="e.g. Gold ring, silver bracelet…" onChange={e=>setItemField(it.id,"itemType",e.target.value)} onBlur={commit}/>
+        </div>
+        <div style={{marginBottom:12}}>
+          <div style={SS.lbl}>Description of damage / issue</div>
+          <textarea style={{...SS.inp,minHeight:64,resize:"vertical"}} value={it.damage} placeholder="Describe the damage or work required…" onChange={e=>setItemField(it.id,"damage",e.target.value)} onBlur={commit}/>
+        </div>
+        <div>
+          <div style={SS.lbl}>Condition on arrival</div>
+          <textarea style={{...SS.inp,minHeight:52,resize:"vertical"}} value={it.condition} placeholder="Scratches, missing stones, broken clasp…" onChange={e=>setItemField(it.id,"condition",e.target.value)} onBlur={commit}/>
+        </div>
+      </div>
+    ))}
+    <button onClick={addItem} style={{background:"none",border:`1px dashed ${GOLD}`,borderRadius:8,padding:"8px 16px",color:GOLD_D,fontSize:12,fontWeight:700,cursor:"pointer",fontFamily:"inherit",marginBottom:16}}>+ Add another item</button>
+
     <div style={{marginBottom:16}}>
-      <div style={SS.lbl}>Client instructions <span style={{fontWeight:400,color:WG}}>(optional)</span></div>
-      <textarea style={{...SS.inp,minHeight:56,resize:"vertical"}} value={f.instructions} placeholder="Any specific requests from the client…" onChange={e=>setF(p=>({...p,instructions:e.target.value}))} onBlur={blur("instructions")}/>
+      <div style={SS.lbl}>Client instructions <span style={{fontWeight:400,color:WG}}>(optional — applies to the whole drop-off)</span></div>
+      <textarea style={{...SS.inp,minHeight:56,resize:"vertical"}} value={instructions} placeholder="Any specific requests from the client…" onChange={e=>setInstructions(e.target.value)} onBlur={commit}/>
     </div>
     <div style={{fontSize:12,color:WG,lineHeight:1.7,padding:"12px 14px",background:PARCH,borderRadius:8,border:`1px solid ${BD}`}}>
       <strong style={{color:INK}}>Disclaimer: </strong>We are not responsible for damage to client-supplied gemstones during repair. We do not provide a warranty on repaired pieces — all repairs are undertaken at the client's risk.
