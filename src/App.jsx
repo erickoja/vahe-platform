@@ -51,7 +51,7 @@ const JOB_TYPES=["Engagement ring","Wedding band","Eternity ring","Dress ring","
 const JOB_TYPE_ICONS={"Engagement ring":"◇","Wedding band":"○","Eternity ring":"◉","Dress ring":"✧","Custom pendant":"✦","Necklace":"⌒","Earrings":"❖","Bracelet":"∞","Repair":"◆","Remodelling":"⟳","Grillz":"▦","Chain":"◈","Custom":"✶","Other":"◦"};
 const JOB_STAGES=["Enquiry","Consultation","Quoted","Approved","Design / CAD","Render approval","Wax / Cast","Stone setting","Polishing / Finish","QC check","Ready for collection","Collected"];
 const SC={"Enquiry":"#A0845C","Consultation":"#7A6C5D","Quoted":"#5B7FA6","Approved":"#3B6E8F","Design / CAD":"#7B5EA7","Render approval":"#9B4F96","Wax / Cast":"#B05C3A","Stone setting":"#C47A2E","Polishing / Finish":"#8B9E3A","QC check":"#4A8E6A","Ready for collection":"#2D7A4F","Collected":"#1A5C3A"};
-const PAY_TYPES=["Deposit","CAD / Design stage","Production deposit","Progress payment","Final balance","Lay-by payment","Other"];
+const PAY_TYPES=["Diamond deposit","Diamond balance","Setting deposit","Deposit","CAD / Design stage","Production deposit","Progress payment","Final balance","Lay-by payment","Other"];
 const PAY_METHODS=["Bank transfer","Cash","Card (EFTPOS)","Card (credit)","PayID","Cheque","Other"];
 const FINDINGS_CAT="Findings";
 const PURCHASED_CAT="Purchased Components";
@@ -717,9 +717,10 @@ const K={cl:"jlr4_clients",jo:"jlr4_jobs",qu:"jlr4_quotes",pa:"jlr4_payments",pr
 const PUBLIC_PROPOSALS_TABLE="public_proposals";
 // Build the frozen client-facing snapshot from the chosen option quotes. Stored in the
 // cloud at publish time so the client always sees exactly what was sent (no live data access).
-const buildProposalSnapshot=({proposal,job,client,biz,quotes,markupTable})=>{
+const buildProposalSnapshot=({proposal,job,client,biz,quotes,markupTable,payments})=>{
   const validityDays=biz?.quoteValidityDays||30;
   const created=proposal.createdAt||today();
+  const paidTotal=(payments||[]).filter(p=>p.jobId===job?.id&&p.status==="Received").reduce((s,p)=>s+Number(p.amount),0);
   const options=(proposal.optionIds||[]).map(qid=>{
     const q=quotes.find(x=>x.id===qid);
     if(!q)return null;
@@ -741,6 +742,7 @@ const buildProposalSnapshot=({proposal,job,client,biz,quotes,markupTable})=>{
     intro:proposal.intro||"",
     options,
     depositPercent:biz?.depositPercent||50,
+    paidTotal,
     validUntil:addDays(String(created).slice(0,10),validityDays),
     terms:biz?.quoteTerms||"All custom jewellery requires a deposit before work commences. The final balance is due prior to collection. Quoted prices are valid for the period stated above. Price variations may apply if material costs change significantly. All pieces are handcrafted to order and cannot be returned unless faulty. Estimated completion times are indicative only.",
     createdAt:created,
@@ -2003,7 +2005,7 @@ function JobDetail({jobId,jobs,setJobs,clients,quotes,setQuotes,payments,setPaym
         </div>;
       })}
     </Card>
-    <JobProposals job={job} client={c} quotes={jq} proposals={proposals} setProposals={setProposals} setQuotes={setQuotes} biz={biz} markupTable={markupTable}/>
+    <JobProposals job={job} client={c} quotes={jq} proposals={proposals} setProposals={setProposals} setQuotes={setQuotes} biz={biz} markupTable={markupTable} payments={jp}/>
     <ActivityLog jobId={jobId} notes={notes} setNotes={setNotes}/>
     {payModal&&<Modal title="Record payment" onClose={()=>setPayModal(false)}>
       <PaymentForm onSave={addPay} onCancel={()=>setPayModal(false)} suggestedAmount={balance>0?balance:""}/>
@@ -2856,7 +2858,7 @@ function QuoteBuilder({jobId:jobIdProp,editQuoteId,jobs,clients,quotes,setQuotes
 // ── Multi-option proposals (staff side) ───────────────────────────────────
 // A proposal bundles several quotes as "options" for one job and produces a public
 // link the client opens to pick one and accept online. See PublicProposalPage below.
-function JobProposals({job,client,quotes,proposals,setProposals,setQuotes,biz,markupTable}){
+function JobProposals({job,client,quotes,proposals,setProposals,setQuotes,biz,markupTable,payments=[]}){
   const jobProposals=(proposals||[]).filter(p=>p.jobId===job?.id).slice().reverse();
   const [builder,setBuilder]=useState(false);
   const [sel,setSel]=useState([]);            // chosen option quote ids
@@ -2884,7 +2886,7 @@ function JobProposals({job,client,quotes,proposals,setProposals,setQuotes,biz,ma
     const id=uid(),token=proposalToken();
     const orderedIds=optionable.filter(q=>sel.includes(q.id)).map(q=>q.id);
     const proposal={id,jobId:job.id,token,optionIds:orderedIds,recommendedId:recommended||"",intro:intro.trim(),createdAt:today(),status:"sent",acceptedQuoteId:null,acceptedName:"",acceptedAt:null};
-    const snapshot=buildProposalSnapshot({proposal,job,client,biz,quotes,markupTable});
+    const snapshot=buildProposalSnapshot({proposal,job,client,biz,quotes,markupTable,payments});
     const{error}=await supabase.from(PUBLIC_PROPOSALS_TABLE).insert({token,data:snapshot,status:"sent",created_at:new Date().toISOString()});
     setBusy(false);
     if(error){alert("Couldn't publish the proposal: "+error.message+"\n\nIf this mentions a missing table, the one-time Supabase setup hasn't been run yet.");return;}
@@ -3280,8 +3282,17 @@ function PublicProposalPage({token}){
         })}
       </div>
 
-      {/* Deposit note */}
-      {chosen&&chosen.price!=null&&<div style={{fontSize:12,color:WG,marginTop:14}}>To proceed, a {snap.depositPercent||50}% deposit of <strong style={{color:INK}}>{depositOf(chosen.price)}</strong> is required.</div>}
+      {/* Payments received → balance due, else deposit note */}
+      {chosen&&chosen.price!=null&&(()=>{
+        const paid=Number(snap.paidTotal)||0;
+        if(paid<=0.005)return <div style={{fontSize:12,color:WG,marginTop:14}}>To proceed, a {snap.depositPercent||50}% deposit of <strong style={{color:INK}}>{depositOf(chosen.price)}</strong> is required.</div>;
+        const due=Math.max(0,chosen.price-paid);
+        return <div style={{marginTop:16,background:PARCH,border:`1px solid ${BD}`,borderRadius:10,padding:"14px 16px"}}>
+          <div style={{display:"flex",justifyContent:"space-between",fontSize:13,color:WG,padding:"2px 0"}}><span>Total price (inc GST)</span><span style={{color:INK,fontWeight:600}}>{fmtR(chosen.price)}</span></div>
+          <div style={{display:"flex",justifyContent:"space-between",fontSize:13,color:WG,padding:"2px 0"}}><span>Payments received</span><span style={{color:OK,fontWeight:600}}>− {fmtR(paid)}</span></div>
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"baseline",borderTop:`1px solid ${BD}`,marginTop:8,paddingTop:10}}><span style={{fontSize:13,fontWeight:700,color:INK}}>{due<=0.005?"Paid in full":"Balance now due"}</span><span style={{fontSize:18,fontWeight:800,color:due<=0.005?OK:INK}}>{fmtR(due)}</span></div>
+        </div>;
+      })()}
 
       {/* Accept box */}
       {!accepted&&<div style={{borderTop:`1px solid ${BD}`,marginTop:22,paddingTop:20}}>
@@ -3305,7 +3316,7 @@ function PublicProposalPage({token}){
 }
 
 // ── Quote Proposal Preview ────────────────────────────────────────────────
-function ProposalPreview({quote,job,clients=[],biz,calc,onClose}){
+function ProposalPreview({quote,job,clients=[],biz,calc,payments=[],onClose}){
   const client=clients.find(x=>x.id===job?.clientId)||null;
   const quoteNum="QT-"+quote.id.slice(-6).toUpperCase();
   const issuedDate=new Date(quote.createdAt).toLocaleDateString("en-AU",{day:"numeric",month:"long",year:"numeric"});
@@ -3321,6 +3332,11 @@ function ProposalPreview({quote,job,clients=[],biz,calc,onClose}){
   const grandProposalTotal=manual?Number(quote.manualTotal):settingTotal+stoneTotal+(quote.accentStoneTotal||0);
   const priceDisplay=markupUndef?"Quote pending":fmtR(grandProposalTotal);
   const depositAmt=markupUndef?null:fmtR(grandProposalTotal*deposit/100);
+  // Payments already recorded against this job → outstanding balance the proposal should request.
+  const paidTotal=(payments||[]).filter(p=>p.jobId===job?.id&&p.status==="Received").reduce((s,p)=>s+Number(p.amount),0);
+  const hasPaid=paidTotal>0.005;
+  const outstanding=Math.max(0,grandProposalTotal-paidTotal);
+  const paidInFull=hasPaid&&outstanding<=0.005;
   // Client-facing description — manual field takes priority over job description
   const description=quote.clientDescription||job?.description||"";
 
@@ -3337,10 +3353,13 @@ function ProposalPreview({quote,job,clients=[],biz,calc,onClose}){
       `${job?.type||"Custom Jewellery"}`,
       description||"",  // client description only
       ``,
-      `Quoted price: ${priceDisplay} (inc. GST)`,
-      `Quote valid until: ${validUntil}`,
+      `Total price: ${priceDisplay} (inc. GST)`,
+      ...(hasPaid?[
+        `Payments received: -${fmtR(paidTotal)}`,
+        paidInFull?`Balance now due: ${fmtR(0)} — paid in full. Thank you.`:`Balance now due: ${fmtR(outstanding)}`,
+      ]:[`Quote valid until: ${validUntil}`]),
       ``,
-      `To proceed, a ${deposit}% deposit of ${depositAmt||"—"} is required.`,
+      ...(hasPaid?(paidInFull?[]:[`To proceed, please settle the outstanding balance of ${fmtR(outstanding)}.`]):[`To proceed, a ${deposit}% deposit of ${depositAmt||"—"} is required.`]),
       ``,
       `━━━━━━━━━━━━━━━━━━━━━━━━━`,
       `TERMS & CONDITIONS`,
@@ -3492,19 +3511,35 @@ function ProposalPreview({quote,job,clients=[],biz,calc,onClose}){
             <div style={{fontSize:12,color:WG,fontStyle:"italic",fontFamily:"'DM Sans',sans-serif"}}>Client supplied</div>
           </div>}
 
-          {/* Total row */}
-          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"16px 20px",marginTop:12,background:INK,borderRadius:4}}>
-            <div>
-              <div style={{fontSize:11,fontWeight:700,color:"rgba(255,255,255,0.5)",letterSpacing:"0.1em",textTransform:"uppercase",fontFamily:"'DM Sans',sans-serif",marginBottom:2}}>Total quoted price</div>
-              <div style={{fontSize:10,color:"rgba(255,255,255,0.3)",fontFamily:"'DM Sans',sans-serif"}}>Inc. GST · Quoted in AUD</div>
+          {/* Total row — when payments are recorded, show total, payments received and balance due */}
+          {!markupUndef&&hasPaid
+            ?<div style={{marginTop:12,background:INK,borderRadius:4,padding:"18px 22px",fontFamily:"'DM Sans',sans-serif"}}>
+              <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",fontSize:13,color:"rgba(255,255,255,0.65)",padding:"3px 0"}}>
+                <span>Total price (inc. GST)</span><span style={{color:WHITE,fontWeight:600}}>{priceDisplay}</span>
+              </div>
+              <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",fontSize:13,color:"rgba(255,255,255,0.65)",padding:"3px 0"}}>
+                <span>Payments received</span><span style={{color:"#7FD7A6",fontWeight:600}}>− {fmtR(paidTotal)}</span>
+              </div>
+              <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-end",borderTop:"1px solid rgba(255,255,255,0.18)",marginTop:10,paddingTop:12}}>
+                <div>
+                  <div style={{fontSize:11,fontWeight:700,color:"rgba(255,255,255,0.5)",letterSpacing:"0.1em",textTransform:"uppercase",marginBottom:2}}>{paidInFull?"Paid in full":"Balance now due"}</div>
+                  <div style={{fontSize:10,color:"rgba(255,255,255,0.3)"}}>Inc. GST · AUD</div>
+                </div>
+                <div style={{fontSize:30,fontWeight:800,color:paidInFull?"#7FD7A6":WHITE,letterSpacing:"-0.02em"}}>{fmtR(outstanding)}</div>
+              </div>
             </div>
-            <div style={{textAlign:"right"}}>
-              <div style={{fontSize:30,fontWeight:800,color:WHITE,letterSpacing:"-0.02em",fontFamily:"'DM Sans',sans-serif"}}>{priceDisplay}</div>
-              {depositAmt&&<div style={{fontSize:11,color:"rgba(255,255,255,0.5)",marginTop:4,fontFamily:"'DM Sans',sans-serif"}}>
-                {deposit}% deposit to commence: <span style={{color:WHITE,fontWeight:700}}>{depositAmt}</span>
-              </div>}
-            </div>
-          </div>
+            :<div style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"16px 20px",marginTop:12,background:INK,borderRadius:4}}>
+              <div>
+                <div style={{fontSize:11,fontWeight:700,color:"rgba(255,255,255,0.5)",letterSpacing:"0.1em",textTransform:"uppercase",fontFamily:"'DM Sans',sans-serif",marginBottom:2}}>Total quoted price</div>
+                <div style={{fontSize:10,color:"rgba(255,255,255,0.3)",fontFamily:"'DM Sans',sans-serif"}}>Inc. GST · Quoted in AUD</div>
+              </div>
+              <div style={{textAlign:"right"}}>
+                <div style={{fontSize:30,fontWeight:800,color:WHITE,letterSpacing:"-0.02em",fontFamily:"'DM Sans',sans-serif"}}>{priceDisplay}</div>
+                {depositAmt&&<div style={{fontSize:11,color:"rgba(255,255,255,0.5)",marginTop:4,fontFamily:"'DM Sans',sans-serif"}}>
+                  {deposit}% deposit to commence: <span style={{color:WHITE,fontWeight:700}}>{depositAmt}</span>
+                </div>}
+              </div>
+            </div>}
         </div>
 
         {/* ── TERMS ── */}
@@ -3559,7 +3594,7 @@ function ProposalPreview({quote,job,clients=[],biz,calc,onClose}){
 }
 
 // ── Quote detail ──────────────────────────────────────────────────────────
-function QuoteDetail({quoteId,quotes,setQuotes,jobs,clients,biz,markupTable,naturalStoneMarkup,labStoneMarkup,setView}){
+function QuoteDetail({quoteId,quotes,setQuotes,jobs,clients,biz,markupTable,naturalStoneMarkup,labStoneMarkup,payments=[],setView}){
   const q=quotes.find(x=>x.id===quoteId);
   if(!q)return null;
   const job=jobs.find(j=>j.id===q.jobId);
@@ -3592,7 +3627,7 @@ function QuoteDetail({quoteId,quotes,setQuotes,jobs,clients,biz,markupTable,natu
   const[showProposal,setShowProposal]=useState(false);
 
   return <div>
-    {showProposal&&<ProposalPreview quote={q} job={job} clients={clients} biz={biz} calc={calc} onClose={()=>setShowProposal(false)}/>}
+    {showProposal&&<ProposalPreview quote={q} job={job} clients={clients} biz={biz} calc={calc} payments={payments} onClose={()=>setShowProposal(false)}/>}
     <button onClick={()=>setView("jobDetail_"+q.jobId)} style={{background:"none",border:"none",cursor:"pointer",color:GOLD,fontSize:13,fontWeight:700,fontFamily:"inherit",marginBottom:18,padding:0}}>← Back to job</button>
     <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:20}}>
       <div><h1 style={{margin:0,fontSize:24,fontWeight:800,color:INK,letterSpacing:"-0.02em"}}>{quoteLabel(q)}</h1>
@@ -5912,7 +5947,7 @@ export default function App(){
     if(view==="jobs")return <Jobs clients={clients} jobs={jobs} setJobs={setJobs} quotes={quotes} setQuotes={setQuotes} payments={payments} setPayments={setPayments} notes={notes} setNotes={setNotes} invoices={invoices} setInvoices={setInvoices} markupTable={markupTable} setView={setView} setSelJob={setSelJob}/>;
     if(view==="jobDetail")return <JobDetail jobId={selJob} jobs={jobs} setJobs={setJobs} clients={clients} quotes={quotes} setQuotes={setQuotes} payments={payments} setPayments={setPayments} notes={notes} setNotes={setNotes} invoices={invoices} setInvoices={setInvoices} proposals={proposals} setProposals={setProposals} biz={biz} markupTable={markupTable} setView={setView}/>;
     if(view==="quotes")return <QuotesList quotes={quotes} jobs={jobs} clients={clients} markupTable={markupTable} biz={biz} setView={setView}/>;
-    if(view.startsWith("quoteDetail_"))return <QuoteDetail quoteId={view.split("_")[1]} quotes={quotes} setQuotes={setQuotes} jobs={jobs} clients={clients} biz={biz} markupTable={markupTable} naturalStoneMarkup={naturalStoneMarkup} labStoneMarkup={labStoneMarkup} setView={setView}/>;
+    if(view.startsWith("quoteDetail_"))return <QuoteDetail quoteId={view.split("_")[1]} quotes={quotes} setQuotes={setQuotes} jobs={jobs} clients={clients} biz={biz} markupTable={markupTable} naturalStoneMarkup={naturalStoneMarkup} labStoneMarkup={labStoneMarkup} payments={payments} setView={setView}/>;
     if(view.startsWith("newQuote_"))return <QuoteBuilder jobId={view.split("_")[1]} jobs={jobs} clients={clients} quotes={quotes} setQuotes={setQuotes} pricing={pricing} setPricing={setPricing} markupTable={markupTable} naturalStoneMarkup={naturalStoneMarkup} labStoneMarkup={labStoneMarkup} centreRates={centreRates} setView={setView}/>;
     if(view.startsWith("editQuote_"))return <QuoteBuilder editQuoteId={view.split("_")[1]} jobs={jobs} clients={clients} quotes={quotes} setQuotes={setQuotes} pricing={pricing} setPricing={setPricing} markupTable={markupTable} naturalStoneMarkup={naturalStoneMarkup} labStoneMarkup={labStoneMarkup} centreRates={centreRates} setView={setView}/>;
     if(view==="invoices")return <InvoicesList invoices={invoices} jobs={jobs} clients={clients} quotes={quotes} payments={payments} setInvoices={setInvoices} markupTable={markupTable} setView={setView}/>;
