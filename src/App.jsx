@@ -934,6 +934,15 @@ function StoneMarkupSummary({calc}){
         </div>
       ))}
     </div>
+    {/* Profit / margin — internal only, so you can price big stones with confidence */}
+    {(()=>{
+      const profit=calc.markedUp-calc.totalCost;                       // gross profit, ex GST
+      const margin=calc.markedUp>0?Math.round(profit/calc.markedUp*100):0;   // margin on the ex-GST sell price
+      return <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:12,flexWrap:"wrap",padding:"10px 14px",background:OK+"0E",borderBottom:`1px solid ${BD}`}}>
+        <span style={{fontSize:11,fontWeight:700,color:WG,textTransform:"uppercase",letterSpacing:"0.06em"}}>Your profit on this stone <span style={{fontWeight:400,textTransform:"none",letterSpacing:0}}>(internal — excl. GST)</span></span>
+        <span style={{fontSize:13,color:INK}}><strong style={{color:OK,fontSize:15}}>{fmt(profit)}</strong> profit · <strong style={{color:INK}}>{margin}%</strong> margin · {calc.mult}× markup</span>
+      </div>;
+    })()}
     <div style={{padding:"8px 14px",fontSize:11,color:WG}}>Stone price shown to client: <strong style={{color:INK}}>{fmtR(calc.clientTotal)}</strong> (your cost {fmt(calc.totalCost)} × {calc.mult} markup = {fmt(calc.markedUp)} + 10% GST)</div>
   </div>;
 }
