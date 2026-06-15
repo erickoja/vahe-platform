@@ -1677,6 +1677,7 @@ function RepairIntakeCard({job,setJobs,biz,clients,markupTable}){
   const commit=()=>saveIntake(items,instructions);
   const addItem=()=>{const ni=[...items,blankIntakeItem()];setItems(ni);saveIntake(ni,instructions);};
   const removeItem=id=>{const ni=items.filter(i=>i.id!==id);setItems(ni);saveIntake(ni,instructions);};
+  const moveItem=(id,dir)=>{const i=items.findIndex(x=>x.id===id),j=i+dir;if(i<0||j<0||j>=items.length)return;const ni=[...items];[ni[i],ni[j]]=[ni[j],ni[i]];setItems(ni);saveIntake(ni,instructions);};
   const repairTotal=items.reduce((s,i)=>s+itemClient(i),0);
   const setAsCharge=()=>{persistJob({totalOverride:repairTotal});alert(`Job charge set to ${fmt(repairTotal)} from the repair items.`);};
   const[saved,setSaved]=useState(false);
@@ -1702,7 +1703,11 @@ function RepairIntakeCard({job,setJobs,biz,clients,markupTable}){
       <div key={it.id} style={{border:`1px solid ${BD}`,borderRadius:10,padding:"14px 16px",marginBottom:12,background:PARCH}}>
         <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}}>
           <div style={{fontSize:11,fontWeight:700,color:GOLD_D,textTransform:"uppercase",letterSpacing:"0.06em"}}>Item {idx+1}</div>
-          {items.length>1&&<button onClick={()=>removeItem(it.id)} style={{background:"none",border:"none",cursor:"pointer",color:DANGER,fontSize:12,fontWeight:700,fontFamily:"inherit"}}>× Remove</button>}
+          {items.length>1&&<div style={{display:"flex",alignItems:"center",gap:8}}>
+            <button onClick={()=>moveItem(it.id,-1)} disabled={idx===0} title="Move up" style={{background:"none",border:`1px solid ${BD}`,borderRadius:5,padding:"2px 7px",cursor:idx===0?"not-allowed":"pointer",color:idx===0?BD:WG,fontSize:12,fontFamily:"inherit",lineHeight:1}}>↑</button>
+            <button onClick={()=>moveItem(it.id,1)} disabled={idx===items.length-1} title="Move down" style={{background:"none",border:`1px solid ${BD}`,borderRadius:5,padding:"2px 7px",cursor:idx===items.length-1?"not-allowed":"pointer",color:idx===items.length-1?BD:WG,fontSize:12,fontFamily:"inherit",lineHeight:1}}>↓</button>
+            <button onClick={()=>removeItem(it.id)} style={{background:"none",border:"none",cursor:"pointer",color:DANGER,fontSize:12,fontWeight:700,fontFamily:"inherit"}}>× Remove</button>
+          </div>}
         </div>
         <div style={{display:"grid",gridTemplateColumns:"1fr 220px",gap:12,marginBottom:12}}>
           <div>
