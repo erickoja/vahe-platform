@@ -755,6 +755,10 @@ const buildProposalSnapshot=({proposal,job,client,biz,quotes,markupTable,payment
 const buildInvoiceSnapshot=({inv,job,client,biz,payments})=>{
   const paidTotal=(payments||[]).filter(p=>p.jobId===inv.jobId&&p.status==="Received").reduce((s,p)=>s+Number(p.amount),0);
   const balance=Math.max(0,inv.totalIncGST-paidTotal);
+  const requestAmount=Number(inv.requestAmount)||0;
+  const staged=requestAmount>0;
+  const dueNow=staged?Math.min(requestAmount,balance):balance;
+  const remainingAfter=Math.max(0,balance-dueNow);
   return{
     kind:"invoice",
     biz:{name:biz?.name||"",logo:biz?.logo||"",phone:biz?.phone||"",email:biz?.email||"",abn:biz?.abn||"",address:biz?.address||"",
@@ -769,6 +773,9 @@ const buildInvoiceSnapshot=({inv,job,client,biz,payments})=>{
     totalIncGST:inv.totalIncGST,
     paidTotal,
     balance,
+    staged,
+    dueNow,
+    remainingAfter,
     asAt:today(),
   };
 };
@@ -3181,10 +3188,13 @@ function PublicInvoiceBody({snap}){
         <div style={{minWidth:240}}>
           <div style={{display:"flex",justifyContent:"space-between",fontSize:13,color:WG,padding:"3px 0"}}><span>Includes GST</span><span>{fmt(snap.gst)}</span></div>
           <div style={{display:"flex",justifyContent:"space-between",fontSize:17,fontWeight:800,color:INK,borderTop:`2px solid ${INK}`,marginTop:8,paddingTop:10}}><span>Total (inc GST)</span><span>{fmt(snap.totalIncGST)}</span></div>
-          {snap.paidTotal>0&&<>
-            <div style={{display:"flex",justifyContent:"space-between",fontSize:13,color:OK,padding:"6px 0 3px"}}><span>Paid</span><span>−{fmt(snap.paidTotal)}</span></div>
-            <div style={{display:"flex",justifyContent:"space-between",fontSize:16,fontWeight:800,color:snap.balance>0?WARN:OK}}><span>Balance due</span><span>{fmt(snap.balance)}</span></div>
-          </>}
+          {snap.paidTotal>0&&<div style={{display:"flex",justifyContent:"space-between",fontSize:13,color:OK,padding:"6px 0 3px"}}><span>Paid to date</span><span>−{fmt(snap.paidTotal)}</span></div>}
+          {snap.staged
+            ?<>
+              <div style={{display:"flex",justifyContent:"space-between",fontSize:16,fontWeight:800,color:snap.dueNow>0?WARN:OK,borderTop:`1px solid ${BD}`,marginTop:4,paddingTop:8}}><span>Due now</span><span>{fmt(snap.dueNow)}</span></div>
+              {snap.remainingAfter>0&&<div style={{display:"flex",justifyContent:"space-between",fontSize:12,color:WG,padding:"4px 0 0"}}><span>Balance remaining (payable later)</span><span>{fmt(snap.remainingAfter)}</span></div>}
+            </>
+            :snap.paidTotal>0&&<div style={{display:"flex",justifyContent:"space-between",fontSize:16,fontWeight:800,color:snap.balance>0?WARN:OK}}><span>Balance due</span><span>{fmt(snap.balance)}</span></div>}
         </div>
       </div>
       {snap.paidTotal>0&&<div style={{textAlign:"right",fontSize:11,color:WG,marginTop:4}}>as at {fmtDate(snap.asAt)}</div>}
@@ -3916,6 +3926,10 @@ const nextInvoiceNumber=(invoices)=>{
 function InvoicePrintView({inv,job,client,biz,payments,onClose}){
   const paidTotal=(payments||[]).filter(p=>p.jobId===inv.jobId&&p.status==="Received").reduce((s,p)=>s+Number(p.amount),0);
   const balance=Math.max(0,inv.totalIncGST-paidTotal);
+  const requestAmount=Number(inv.requestAmount)||0;
+  const staged=requestAmount>0;
+  const dueNow=staged?Math.min(requestAmount,balance):balance;
+  const remainingAfter=Math.max(0,balance-dueNow);
   const[copied,setCopied]=useState(false);
   const copyBank=()=>{
     const txt=[`Bank: ${biz.bankName||""}`,`Account name: ${biz.bankAccountName||biz.name||""}`,`BSB: ${biz.bankBSB||""}`,`Account: ${biz.bankAccount||""}`,`Reference: ${inv.number}`].join("\n");
@@ -4003,15 +4017,16 @@ function InvoicePrintView({inv,job,client,biz,payments,onClose}){
         {/* totals */}
         <div style={{padding:"28px 56px 40px",display:"flex",justifyContent:"flex-end"}}>
           <div style={{minWidth:300}}>
-            {[["Total (incl. GST)",fmt(inv.totalIncGST)],["Includes GST",fmt(inv.gst)],["Paid to date",fmt(paidTotal)]].map(([l,v])=>(
+            {[["Total (incl. GST)",fmt(inv.totalIncGST)],["Includes GST",fmt(inv.gst)],["Paid to date",fmt(paidTotal)],...(staged?[["Balance outstanding",fmt(balance)]]:[])].map(([l,v])=>(
               <div key={l} style={{display:"flex",justifyContent:"space-between",fontSize:13,padding:"8px 0",borderBottom:`1px solid ${BD_SOFT}`}}>
                 <span style={{color:WG}}>{l}</span><span style={{fontWeight:600,color:INK}}>{v}</span>
               </div>
             ))}
             <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",background:INK,color:WHITE,borderRadius:6,padding:"14px 18px",marginTop:14}}>
-              <span style={{fontSize:12,fontWeight:700,textTransform:"uppercase",letterSpacing:"0.08em",color:"rgba(255,255,255,0.6)"}}>Balance due</span>
-              <span style={{fontSize:22,fontWeight:800}}>{fmt(balance)}</span>
+              <span style={{fontSize:12,fontWeight:700,textTransform:"uppercase",letterSpacing:"0.08em",color:"rgba(255,255,255,0.6)"}}>{staged?"Due now":"Balance due"}</span>
+              <span style={{fontSize:22,fontWeight:800}}>{fmt(dueNow)}</span>
             </div>
+            {staged&&remainingAfter>0&&<div style={{display:"flex",justifyContent:"space-between",fontSize:12,color:WG,padding:"8px 2px 0"}}><span>Balance remaining (payable later)</span><span style={{fontWeight:600}}>{fmt(remainingAfter)}</span></div>}
           </div>
         </div>
 
@@ -4078,8 +4093,15 @@ function InvoiceDetail({invoiceId,invoices,setInvoices,jobs,clients,payments,biz
     setView("invoices");
   };
   const setDescOverride=v=>setInvoices(p=>{const n=p.map(x=>x.id===invoiceId?{...x,descriptionOverride:v}:x);persist(K.inv,n);return n;});
+  const setRequestAmount=v=>setInvoices(p=>{const n=p.map(x=>x.id===invoiceId?{...x,requestAmount:v}:x);persist(K.inv,n);return n;});
   const paidTotal=(payments||[]).filter(p=>p.jobId===inv.jobId&&p.status==="Received").reduce((s,p)=>s+Number(p.amount),0);
   const balance=Math.max(0,inv.totalIncGST-paidTotal);
+  // Staged request: optionally request only a specific amount now (e.g. the diamond balance),
+  // with the rest noted as payable later. Blank = request the full outstanding balance.
+  const requestAmount=Number(inv.requestAmount)||0;
+  const staged=requestAmount>0;
+  const dueNow=staged?Math.min(requestAmount,balance):balance;
+  const remainingAfter=Math.max(0,balance-dueNow);
   // Shareable client link — same public table/link mechanism as proposals. Re-snapshots
   // the invoice each time so the link always reflects current totals & balance.
   const[linkBusy,setLinkBusy]=useState(false);
@@ -4121,14 +4143,25 @@ function InvoiceDetail({invoiceId,invoices,setInvoices,jobs,clients,payments,biz
       <span style={{flex:1,minWidth:200,fontSize:12,color:WG,wordBreak:"break-all",fontFamily:"monospace"}}>{invLink}</span>
       <span style={{fontSize:11,color:WG}}>Re-copy to refresh totals before sending.</span>
     </div>}
-    <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:12,marginBottom:18}}>
-      {[["Invoice total",fmt(inv.totalIncGST),INK],["Total paid",fmt(paidTotal),OK],["Balance due",fmt(balance),balance>0.5?WARN:OK]].map(([l,v,col])=>(
+    <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:12,marginBottom:staged?10:18}}>
+      {[["Invoice total",fmt(inv.totalIncGST),INK],["Total paid",fmt(paidTotal),OK],[staged?"Due now":"Balance due",fmt(dueNow),dueNow>0.5?WARN:OK]].map(([l,v,col])=>(
         <div key={l} style={{background:WHITE,border:`1px solid ${BD}`,borderRadius:4,padding:"14px 16px"}}>
           <div style={{fontSize:10,color:WG,fontWeight:700,textTransform:"uppercase",letterSpacing:"0.08em"}}>{l}</div>
           <div style={{fontSize:20,fontWeight:700,color:col,marginTop:4}}>{v}</div>
         </div>
       ))}
     </div>
+    {staged&&<div style={{fontSize:12,color:WG,marginBottom:18}}>Requesting <strong style={{color:INK}}>{fmt(dueNow)}</strong> now of the <strong style={{color:INK}}>{fmt(balance)}</strong> outstanding · <strong style={{color:INK}}>{fmt(remainingAfter)}</strong> payable later.</div>}
+    <Card>
+      <label style={SS.lbl}>Amount due now — this request <span style={{fontWeight:400,color:WG,textTransform:"none",letterSpacing:0}}>(optional)</span></label>
+      <div style={{position:"relative",maxWidth:220,marginTop:4}}>
+        <span style={{position:"absolute",left:10,top:"50%",transform:"translateY(-50%)",fontSize:13,color:WG,pointerEvents:"none"}}>$</span>
+        <input type="number" min="0" step="0.01" value={inv.requestAmount||""} onChange={e=>setRequestAmount(e.target.value)} placeholder={`Full balance: ${fmt(balance)}`}
+          style={{...SS.inp,marginTop:0,padding:"9px 10px 9px 24px",textAlign:"right",fontWeight:staged?700:400,borderColor:staged?GOLD:BD}}/>
+      </div>
+      <div style={{fontSize:11,color:WG,marginTop:8,lineHeight:1.5}}>Set this to request a <strong>specific staged amount</strong> now (e.g. the diamond balance) instead of the full outstanding balance. The invoice and client link will show <strong>"Due now"</strong> with the remainder noted as payable later. Leave blank to request the full balance. {staged&&<button onClick={()=>setRequestAmount("")} style={{background:"none",border:`1px solid ${BD}`,borderRadius:6,padding:"2px 8px",fontSize:11,fontWeight:700,color:WG,cursor:"pointer",fontFamily:"inherit",marginLeft:4}}>Clear</button>}</div>
+      <div style={{fontSize:11,color:GOLD_D,marginTop:8}}>After changing this, click <strong>🔗 Copy link</strong> above to refresh what the client sees.</div>
+    </Card>
     <Card>
       <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:8}}>
         <label style={SS.lbl}>Customer-facing description (optional)</label>
