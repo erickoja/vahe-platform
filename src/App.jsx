@@ -1706,9 +1706,15 @@ function RepairIntakeCard({job,setJobs,biz,clients,markupTable}){
   const[instructions,setInstructions]=useState(intake.instructions||"");
   const[dIn,setDIn]=useState(job.dateIn||"");
   const[dOut,setDOut]=useState(job.dateOut||"");
-  // Persist the whole intake (items + instructions) as the new shape
-  const saveIntake=(nextItems,nextInstr)=>{setJobs(p=>{const n=p.map(j=>j.id===job.id?{...j,intake:{items:nextItems,instructions:nextInstr}}:j);persist(K.jo,n);return n;});};
-  const persistJob=patch=>{setJobs(p=>{const n=p.map(j=>j.id===job.id?{...j,...patch}:j);persist(K.jo,n);return n;});};
+  // If a client link exists, keep its cloud snapshot in sync with edits so the link never goes stale.
+  const refreshSnapshot=(itemsArg,instrArg,over)=>{
+    if(!job.repairToken||!supabaseEnabled||!supabase)return;
+    const snap=buildRepairSnapshot({job:{...job,dateIn:over&&"dateIn"in over?over.dateIn:dIn,dateOut:over&&"dateOut"in over?over.dateOut:dOut},client:c,biz,items:itemsArg.map(it=>({...it,clientPrice:itemClient(it)})),instructions:instrArg});
+    supabase.from(PUBLIC_PROPOSALS_TABLE).update({data:snap}).eq("token",job.repairToken).then(()=>{}).catch(()=>{});
+  };
+  // Persist the whole intake (items + instructions) as the new shape, and refresh the link snapshot
+  const saveIntake=(nextItems,nextInstr)=>{setJobs(p=>{const n=p.map(j=>j.id===job.id?{...j,intake:{items:nextItems,instructions:nextInstr}}:j);persist(K.jo,n);return n;});refreshSnapshot(nextItems,nextInstr);};
+  const persistJob=patch=>{setJobs(p=>{const n=p.map(j=>j.id===job.id?{...j,...patch}:j);persist(K.jo,n);return n;});if("dateIn"in patch||"dateOut"in patch)refreshSnapshot(items,instructions,patch);};
   const setItemField=(id,k,v)=>setItems(p=>p.map(i=>i.id===id?{...i,[k]:v}:i));
   const commit=()=>saveIntake(items,instructions);
   const addItem=()=>{const ni=[...items,blankIntakeItem()];setItems(ni);saveIntake(ni,instructions);};
