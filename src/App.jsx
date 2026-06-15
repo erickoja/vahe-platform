@@ -1067,44 +1067,81 @@ function printRepairIntake(biz,c,job){
   const intake=job.intake||{};
   const items=intakeItems(intake);
   const ref=job.id.slice(-6).toUpperCase();
-  // Show the customer-facing price (clientPrice = set price, or cost already marked up); never the raw trade cost.
+  const esc=s=>String(s==null?"":s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
+  const ml=s=>esc(s).replace(/\n/g,"<br>");
+  // Customer-facing price (set price, or cost already marked up) — never the raw trade cost.
   const itemAmt=it=>it.clientPrice!=null?Number(it.clientPrice):(Number(it.price)||0);
   const repairTotal=items.reduce((s,it)=>s+itemAmt(it),0);
-  const itemsHtml=items.length
-    ?items.map((it,i)=>`
-<div class="section-title" style="display:flex;justify-content:space-between;align-items:baseline">
-  <span>${items.length>1?`Item ${i+1} of ${items.length}`:"Item Details"}</span>
-  ${itemAmt(it)>0?`<span style="color:#1A1714;font-size:14px;font-weight:700">${fmt(itemAmt(it))}</span>`:""}
-</div>
-<div class="field"><div class="flbl">Item type</div><div class="fval${it.itemType?"":" empty"}">${it.itemType||"Not specified"}</div></div>
-<div class="field"><div class="flbl">Description of damage / issue</div><div class="fval${it.damage?"":" empty"}">${(it.damage||"Not specified").replace(/\n/g,"<br>")}</div></div>
-<div class="field"><div class="flbl">Condition on arrival</div><div class="fval${it.condition?"":" empty"}">${(it.condition||"Not specified").replace(/\n/g,"<br>")}</div></div>`).join("")
-    :`<div class="section-title">Item Details</div><div class="field"><div class="fval empty">No items recorded</div></div>`;
-  const totalHtml=repairTotal>0?`<div style="display:flex;justify-content:space-between;align-items:center;background:#1A1714;color:#fff;border-radius:8px;padding:14px 18px;margin:18px 0 6px"><div style="font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:rgba(255,255,255,.6)">Repair total (inc GST)</div><div style="font-size:20px;font-weight:800">${fmt(repairTotal)}</div></div>`:"";
-  win.document.write(`<!DOCTYPE html><html><head><title>Repair Intake — ${ref}</title><style>${PCSS}
-.field{margin-bottom:18px}.flbl{font-size:10px;font-weight:700;color:#6B6560;letter-spacing:.08em;text-transform:uppercase;margin-bottom:5px}.fval{font-size:13px;color:#1A1714;line-height:1.6;min-height:22px}.fval.empty{color:#aaa;font-style:italic}.disclaimer{font-size:11px;color:#6B6560;line-height:1.7;padding:14px 18px;background:#FAF7F2;border-left:3px solid #C9A84C;border-radius:0 8px 8px 0;margin-bottom:24px}.section-title{font-size:12px;font-weight:700;color:#C9A84C;text-transform:uppercase;letter-spacing:.1em;margin:24px 0 12px;padding-bottom:6px;border-bottom:1px solid #E8E2D9}
+  const hasPrices=repairTotal>0;
+  const dash=`<span style="color:#bbb">—</span>`;
+
+  // Top summary strip — the facts the customer cares about
+  const sum=[
+    ["Client",esc(c?.name||"—")],
+    ["Taken in",job.dateIn?fmtDate(job.dateIn):"—"],
+    ["Ready for collection",job.dateOut?fmtDate(job.dateOut):"—"],
+    ...(hasPrices?[["Repair total · inc GST",`<span style="color:#8B6914">${fmt(repairTotal)}</span>`]]:[]),
+  ];
+  const summaryHtml=`<div class="rsum" style="grid-template-columns:repeat(${sum.length},1fr)">${sum.map(([l,v])=>`<div><div class="rs-lbl">${l}</div><div class="rs-val">${v}</div></div>`).join("")}</div>`;
+
+  // Items as a compact table — one row per piece
+  const rows=items.length
+    ?items.map((it,i)=>`<tr>
+<td class="num">${i+1}</td>
+<td class="ittype">${it.itemType?esc(it.itemType):dash}</td>
+<td>${it.damage?ml(it.damage):dash}</td>
+<td>${it.condition?ml(it.condition):dash}</td>
+${hasPrices?`<td class="amt">${itemAmt(it)>0?fmt(itemAmt(it)):dash}</td>`:""}
+</tr>`).join("")
+    :`<tr><td colspan="${hasPrices?5:4}" style="color:#bbb;font-style:italic">No items recorded</td></tr>`;
+  const itemsHtml=`<table class="itbl">
+<thead><tr><th class="num">#</th><th>Item</th><th>Issue / work required</th><th>Condition on arrival</th>${hasPrices?`<th class="amt">Price</th>`:""}</tr></thead>
+<tbody>${rows}</tbody></table>
+${hasPrices?`<div class="rtot"><span class="rt-l">Repair total (inc GST)</span><span class="rt-v">${fmt(repairTotal)}</span></div>`:""}`;
+
+  win.document.write(`<!DOCTYPE html><html><head><title>Repair Receipt — ${ref}</title><style>${PCSS}
+.rsum{display:grid;gap:1px;background:#E8E2D9;border:1px solid #E8E2D9;border-radius:10px;overflow:hidden;margin-bottom:26px}
+.rsum>div{background:#fff;padding:12px 16px}
+.rs-lbl{font-size:8.5px;font-weight:700;color:#6B6560;text-transform:uppercase;letter-spacing:.08em;margin-bottom:5px}
+.rs-val{font-size:14px;font-weight:700;color:#1A1714}
+.itbl{width:100%;border-collapse:collapse;margin-bottom:10px}
+.itbl th{font-size:9px;font-weight:700;color:#6B6560;text-transform:uppercase;letter-spacing:.06em;padding:8px 10px;border-bottom:2px solid #1A1714;text-align:left}
+.itbl td{padding:11px 10px;font-size:12px;border-bottom:1px solid #E8E2D9;vertical-align:top;line-height:1.5;color:#1A1714}
+.itbl .num{width:26px;color:#8B6914;font-weight:800}
+.itbl .ittype{font-weight:700;white-space:nowrap}
+.itbl th.amt,.itbl td.amt{text-align:right;white-space:nowrap}
+.itbl td.amt{font-weight:700}
+.rtot{display:flex;justify-content:flex-end;align-items:baseline;gap:16px;margin:4px 0 26px}
+.rtot .rt-l{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:#6B6560}
+.rtot .rt-v{font-size:20px;font-weight:800}
+.instr{font-size:11.5px;line-height:1.6;color:#1A1714;background:#FAF7F2;border-left:3px solid #C9A84C;border-radius:0 8px 8px 0;padding:11px 16px;margin-bottom:26px}
+.instr b{font-size:8.5px;font-weight:700;color:#6B6560;text-transform:uppercase;letter-spacing:.08em;display:block;margin-bottom:4px}
+.terms{font-size:9px;line-height:1.5;color:#7A746E;margin-bottom:18px}
+.terms .tt{font-size:8.5px;font-weight:700;color:#6B6560;text-transform:uppercase;letter-spacing:.1em;margin-bottom:6px}
+.terms b{color:#1A1714}
+.sig{display:grid;grid-template-columns:1fr 1fr;gap:36px;margin-top:8px}
+.sig .sigline{border-bottom:1px solid #1A1714;margin-top:30px;margin-bottom:5px}
+.sig .siglbl{font-size:9px;color:#6B6560}
+@media print{.itbl tr{page-break-inside:avoid}}
 </style></head><body>
 <div class="hdr">
-  <div>${biz.logo?`<img src="${biz.logo}" alt="${biz.name||"Logo"}" style="max-width:180px;max-height:64px;object-fit:contain;display:block;margin-bottom:6px"/>`:`<div class="bname">${biz.name||"Your Jewellery Studio"}</div>`}<div class="bsub">${[biz.email,biz.phone].filter(Boolean).join(" · ")}</div></div>
-  <div><div class="qlbl">Repair Intake</div><div class="qnum">#${ref}</div><div style="font-size:11px;color:#6B6560;text-align:right;margin-top:3px">${fmtDate(today())}</div></div>
+  <div>${biz.logo?`<img src="${biz.logo}" alt="${esc(biz.name||"Logo")}" style="max-width:180px;max-height:64px;object-fit:contain;display:block;margin-bottom:6px"/>`:`<div class="bname">${esc(biz.name||"Your Jewellery Studio")}</div>`}<div class="bsub">${[biz.email,biz.phone].filter(Boolean).map(esc).join(" · ")}</div></div>
+  <div><div class="qlbl">Repair Receipt</div><div class="qnum">#${ref}</div><div style="font-size:11px;color:#6B6560;text-align:right;margin-top:3px">${fmtDate(today())}</div></div>
 </div>
-<div class="to"><div class="tolbl">Client</div><div class="toname">${c?.name||"—"}</div><div class="todet">${[c?.email,c?.phone].filter(Boolean).join(" · ")}</div></div>
-${items.length>1?`<div style="font-size:12px;color:#6B6560;margin-bottom:4px">${items.length} items received in this drop-off.</div>`:""}
+${summaryHtml}
+${items.length>1?`<div style="font-size:10px;font-weight:700;color:#6B6560;text-transform:uppercase;letter-spacing:.08em;margin-bottom:10px">${items.length} items received in this drop-off</div>`:""}
 ${itemsHtml}
-${totalHtml}
-${intake.instructions?`<div class="section-title">Client Instructions</div><div class="field"><div class="fval">${intake.instructions.replace(/\n/g,"<br>")}</div></div>`:""}
-<div class="field" style="display:flex;gap:24px;margin-top:18px"><div style="flex:1"><div class="flbl">Date taken in</div><div class="fval${job.dateIn?"":" empty"}">${job.dateIn?fmtDate(job.dateIn):"Not specified"}</div></div><div style="flex:1"><div class="flbl">Date of pickup / collection</div><div class="fval${job.dateOut?"":" empty"}">${job.dateOut?fmtDate(job.dateOut):"Not specified"}</div></div></div>
-<div class="section-title">Terms & Disclaimer</div>
-<div class="disclaimer">
-  <strong>Gemstone &amp; Diamond Setting:</strong> When you provide gemstones or diamonds for setting into a piece of jewellery that we have not personally crafted or sourced, we cannot assume responsibility for any damage that may occur to the provided gemstones or diamonds during the setting or repair process. The quality, integrity, and condition of externally sourced stones are solely the responsibility of the client. We highly recommend consulting with a reputable gemologist or ensuring the durability and suitability of your stones before bringing them for repair. By submitting items for repair involving externally sourced stones, you acknowledge and accept that we cannot be held liable for any potential damage incurred.<br><br>
-  <strong>Repair Warranty:</strong> ${biz.name||"We"} provide repair services with the utmost care and craftsmanship. However, we do not provide a warranty on repaired pieces. While we endeavour to achieve the best possible outcome, the nature of jewellery repair means we cannot guarantee against further damage, wear, or failure of repaired areas after the piece leaves our care. All repairs are undertaken at the client's risk.
+${intake.instructions?`<div class="instr"><b>Client instructions</b>${ml(intake.instructions)}</div>`:""}
+<div class="terms">
+  <div class="tt">Terms &amp; conditions</div>
+  <b>Gemstone &amp; diamond setting:</b> For client-supplied gemstones or diamonds we have not crafted or sourced, we cannot assume responsibility for any damage that may occur during setting or repair. The quality, integrity and condition of externally sourced stones are solely the client's responsibility; we recommend confirming their durability and suitability beforehand. By submitting such items you accept that we cannot be held liable for any damage incurred.<br><br>
+  <b>Repair warranty:</b> ${esc(biz.name||"We")} carry out repairs with the utmost care and craftsmanship, but do not provide a warranty on repaired pieces. The nature of jewellery repair means we cannot guarantee against further damage, wear or failure of repaired areas after the piece leaves our care. All repairs are undertaken at the client's risk.
 </div>
-<div class="approval">
-  <div class="aplbl">Client acknowledgement</div>
-  <div class="apbody">By signing below, I confirm I have read and understood the above terms, and I authorise ${biz.name||"the studio"} to proceed with the described repair work.</div>
-  <div class="sigrow"><div><div class="sigline"></div><div class="siglbl">Client signature</div></div><div><div class="sigline"></div><div class="siglbl">Date</div></div></div>
+<div class="sig">
+  <div><div class="sigline"></div><div class="siglbl">Client signature — I have read and accept the above terms</div></div>
+  <div><div class="sigline"></div><div class="siglbl">Date</div></div>
 </div>
-<div class="footer">${biz.name||"Your Jewellery Studio"}${biz.abn?" · ABN "+biz.abn:""}</div>
+<div class="footer">${esc(biz.name||"Your Jewellery Studio")}${biz.abn?" · ABN "+esc(biz.abn):""}</div>
 </body></html>`);
   win.document.close();setTimeout(()=>win.print(),400);
 }
