@@ -1026,6 +1026,17 @@ function MarkupSummary({baseLow,baseHigh,isRange,bracket,mult,autoMult,overridde
         </div>
       ))}
     </div>
+    {/* Profit / margin on the marked-up jewellery — internal only. The multiplier bakes in GST,
+        so we back it out for a true profit; no-markup (flat) items are pass-through and excluded. */}
+    {baseLow>0&&(bracket||overridden)&&(()=>{
+      const exGstSell=mfLow/(1+GST_RATE);              // ex-GST value of the marked-up portion
+      const profit=exGstSell-baseLow;
+      const margin=exGstSell>0?Math.round(profit/exGstSell*100):0;
+      return <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:12,flexWrap:"wrap",padding:"10px 16px",background:OK+"0E",borderTop:`1px solid ${BD}`}}>
+        <span style={{fontSize:11,fontWeight:700,color:WG,textTransform:"uppercase",letterSpacing:"0.06em"}}>Your profit on the jewellery <span style={{fontWeight:400,textTransform:"none",letterSpacing:0}}>(internal — excl. GST{hasFlat?"; no-markup items at cost":""})</span></span>
+        <span style={{fontSize:13,color:INK}}><strong style={{color:OK,fontSize:15}}>{fmt(profit)}</strong> profit · <strong style={{color:INK}}>{margin}%</strong> margin · {mult}× markup</span>
+      </div>;
+    })()}
     {hasFlat&&<div style={{display:"grid",gridTemplateColumns:"1fr auto",alignItems:"center",padding:"12px 16px",background:WHITE,gap:12}}>
       <div style={{fontSize:11,color:WG}}>
         Markup total <strong style={{color:INK}}>{fmtR(mfLow)}</strong> + flat fees <strong style={{color:"#7B5EA7"}}>{fmt(flatTotal)}</strong>
