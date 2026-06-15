@@ -1067,13 +1067,20 @@ function printRepairIntake(biz,c,job){
   const intake=job.intake||{};
   const items=intakeItems(intake);
   const ref=job.id.slice(-6).toUpperCase();
+  // Show the customer-facing price (clientPrice = set price, or cost already marked up); never the raw trade cost.
+  const itemAmt=it=>it.clientPrice!=null?Number(it.clientPrice):(Number(it.price)||0);
+  const repairTotal=items.reduce((s,it)=>s+itemAmt(it),0);
   const itemsHtml=items.length
     ?items.map((it,i)=>`
-<div class="section-title">${items.length>1?`Item ${i+1} of ${items.length}`:"Item Details"}</div>
+<div class="section-title" style="display:flex;justify-content:space-between;align-items:baseline">
+  <span>${items.length>1?`Item ${i+1} of ${items.length}`:"Item Details"}</span>
+  ${itemAmt(it)>0?`<span style="color:#1A1714;font-size:14px;font-weight:700">${fmt(itemAmt(it))}</span>`:""}
+</div>
 <div class="field"><div class="flbl">Item type</div><div class="fval${it.itemType?"":" empty"}">${it.itemType||"Not specified"}</div></div>
 <div class="field"><div class="flbl">Description of damage / issue</div><div class="fval${it.damage?"":" empty"}">${(it.damage||"Not specified").replace(/\n/g,"<br>")}</div></div>
 <div class="field"><div class="flbl">Condition on arrival</div><div class="fval${it.condition?"":" empty"}">${(it.condition||"Not specified").replace(/\n/g,"<br>")}</div></div>`).join("")
     :`<div class="section-title">Item Details</div><div class="field"><div class="fval empty">No items recorded</div></div>`;
+  const totalHtml=repairTotal>0?`<div style="display:flex;justify-content:space-between;align-items:center;background:#1A1714;color:#fff;border-radius:8px;padding:14px 18px;margin:18px 0 6px"><div style="font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:rgba(255,255,255,.6)">Repair total (inc GST)</div><div style="font-size:20px;font-weight:800">${fmt(repairTotal)}</div></div>`:"";
   win.document.write(`<!DOCTYPE html><html><head><title>Repair Intake — ${ref}</title><style>${PCSS}
 .field{margin-bottom:18px}.flbl{font-size:10px;font-weight:700;color:#6B6560;letter-spacing:.08em;text-transform:uppercase;margin-bottom:5px}.fval{font-size:13px;color:#1A1714;line-height:1.6;min-height:22px}.fval.empty{color:#aaa;font-style:italic}.disclaimer{font-size:11px;color:#6B6560;line-height:1.7;padding:14px 18px;background:#FAF7F2;border-left:3px solid #C9A84C;border-radius:0 8px 8px 0;margin-bottom:24px}.section-title{font-size:12px;font-weight:700;color:#C9A84C;text-transform:uppercase;letter-spacing:.1em;margin:24px 0 12px;padding-bottom:6px;border-bottom:1px solid #E8E2D9}
 </style></head><body>
@@ -1084,6 +1091,7 @@ function printRepairIntake(biz,c,job){
 <div class="to"><div class="tolbl">Client</div><div class="toname">${c?.name||"—"}</div><div class="todet">${[c?.email,c?.phone].filter(Boolean).join(" · ")}</div></div>
 ${items.length>1?`<div style="font-size:12px;color:#6B6560;margin-bottom:4px">${items.length} items received in this drop-off.</div>`:""}
 ${itemsHtml}
+${totalHtml}
 ${intake.instructions?`<div class="section-title">Client Instructions</div><div class="field"><div class="fval">${intake.instructions.replace(/\n/g,"<br>")}</div></div>`:""}
 <div class="field" style="display:flex;gap:24px;margin-top:18px"><div style="flex:1"><div class="flbl">Date taken in</div><div class="fval${job.dateIn?"":" empty"}">${job.dateIn?fmtDate(job.dateIn):"Not specified"}</div></div><div style="flex:1"><div class="flbl">Date of pickup / collection</div><div class="fval${job.dateOut?"":" empty"}">${job.dateOut?fmtDate(job.dateOut):"Not specified"}</div></div></div>
 <div class="section-title">Terms & Disclaimer</div>
@@ -1609,11 +1617,19 @@ function JobImages({job,setJobs}){
   </Card>;
 }
 
-function RepairIntakeCard({job,setJobs,biz,clients}){
+function RepairIntakeCard({job,setJobs,biz,clients,markupTable}){
   const c=clients.find(x=>x.id===job.clientId);
   const intake=job.intake||{};
-  const blankIntakeItem=()=>({id:uid(),itemType:"",damage:"",condition:""});
-  const[items,setItems]=useState(()=>{const ex=intakeItems(intake);return ex.length?ex.map(i=>({id:i.id||uid(),itemType:i.itemType||"",damage:i.damage||"",condition:i.condition||""})):[blankIntakeItem()];});
+  const blankIntakeItem=()=>({id:uid(),itemType:"",damage:"",condition:"",price:"",priceMode:"set"});
+  const[items,setItems]=useState(()=>{const ex=intakeItems(intake);return ex.length?ex.map(i=>({id:i.id||uid(),itemType:i.itemType||"",damage:i.damage||"",condition:i.condition||"",price:i.price!=null?String(i.price):"",priceMode:i.priceMode||"set"})):[blankIntakeItem()];});
+  // Effective customer price (inc GST) for an item: a "set" price is used as-is; a "cost"
+  // is run through the manufacturing markup table (bracket multiplier, then rounded).
+  const itemClient=it=>{
+    const v=Number(it.price)||0;if(v<=0)return 0;
+    if(it.priceMode==="cost"){const b=getBracket(v,markupTable);return roundQ(v*(b?b.multiplier:1));}
+    return v;
+  };
+  const itemMult=it=>{const b=getBracket(Number(it.price)||0,markupTable);return b?b.multiplier:null;};
   const[instructions,setInstructions]=useState(intake.instructions||"");
   const[dIn,setDIn]=useState(job.dateIn||"");
   const[dOut,setDOut]=useState(job.dateOut||"");
@@ -1624,12 +1640,14 @@ function RepairIntakeCard({job,setJobs,biz,clients}){
   const commit=()=>saveIntake(items,instructions);
   const addItem=()=>{const ni=[...items,blankIntakeItem()];setItems(ni);saveIntake(ni,instructions);};
   const removeItem=id=>{const ni=items.filter(i=>i.id!==id);setItems(ni);saveIntake(ni,instructions);};
+  const repairTotal=items.reduce((s,i)=>s+itemClient(i),0);
+  const setAsCharge=()=>{persistJob({totalOverride:repairTotal});alert(`Job charge set to ${fmt(repairTotal)} from the repair items.`);};
   const[saved,setSaved]=useState(false);
   const saveNow=()=>{saveIntake(items,instructions);setSaved(true);setTimeout(()=>setSaved(false),2000);};
   return <Card id="repair-intake">
     <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:16}}>
       <div style={{fontWeight:700,fontSize:15,color:INK}}>Repair Intake {items.length>1&&<span style={{fontWeight:400,color:WG,fontSize:13}}>· {items.length} items</span>}</div>
-      <Btn sm ghost onClick={()=>printRepairIntake(biz,c,{...job,dateIn:dIn,dateOut:dOut,intake:{items,instructions}})}>Print / Save PDF</Btn>
+      <Btn sm ghost onClick={()=>printRepairIntake(biz,c,{...job,dateIn:dIn,dateOut:dOut,intake:{items:items.map(it=>({...it,clientPrice:itemClient(it)})),instructions}})}>Print / Save PDF</Btn>
     </div>
     <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:14,marginBottom:18}}>
       <div>
@@ -1649,9 +1667,30 @@ function RepairIntakeCard({job,setJobs,biz,clients}){
           <div style={{fontSize:11,fontWeight:700,color:GOLD_D,textTransform:"uppercase",letterSpacing:"0.06em"}}>Item {idx+1}</div>
           {items.length>1&&<button onClick={()=>removeItem(it.id)} style={{background:"none",border:"none",cursor:"pointer",color:DANGER,fontSize:12,fontWeight:700,fontFamily:"inherit"}}>× Remove</button>}
         </div>
-        <div style={{marginBottom:12}}>
-          <div style={SS.lbl}>Item type</div>
-          <input style={SS.inp} value={it.itemType} placeholder="e.g. Gold ring, silver bracelet…" onChange={e=>setItemField(it.id,"itemType",e.target.value)} onBlur={commit}/>
+        <div style={{display:"grid",gridTemplateColumns:"1fr 220px",gap:12,marginBottom:12}}>
+          <div>
+            <div style={SS.lbl}>Item type</div>
+            <input style={SS.inp} value={it.itemType} placeholder="e.g. Gold ring, silver bracelet…" onChange={e=>setItemField(it.id,"itemType",e.target.value)} onBlur={commit}/>
+          </div>
+          <div>
+            <div style={{display:"flex",gap:4,marginBottom:4}}>
+              {[["set","Set price"],["cost","Cost + markup"]].map(([m,lbl])=>(
+                <button key={m} onClick={()=>{setItemField(it.id,"priceMode",m);setTimeout(commit,0);}}
+                  style={{flex:1,padding:"5px 6px",borderRadius:6,border:`1px solid ${it.priceMode===m?INK:BD}`,background:it.priceMode===m?INK:"transparent",color:it.priceMode===m?WHITE:WG,fontSize:10,fontWeight:700,cursor:"pointer",fontFamily:"inherit"}}>{lbl}</button>
+              ))}
+            </div>
+            <div style={{position:"relative"}}>
+              <span style={{position:"absolute",left:10,top:"50%",transform:"translateY(-50%)",fontSize:13,color:WG,pointerEvents:"none"}}>$</span>
+              <input type="number" min="0" step="0.01" style={{...SS.inp,marginTop:0,padding:"9px 10px 9px 22px",textAlign:"right",fontWeight:Number(it.price)>0?700:400}} value={it.price} placeholder={it.priceMode==="cost"?"Trade cost":"0.00"} onChange={e=>setItemField(it.id,"price",e.target.value)} onBlur={commit}/>
+            </div>
+            <div style={{fontSize:10,color:WG,marginTop:4,textAlign:"right",lineHeight:1.4}}>
+              {it.priceMode==="cost"
+                ?(Number(it.price)>0
+                    ?(itemMult(it)?<>×{itemMult(it)} markup → <strong style={{color:OK}}>{fmt(itemClient(it))}</strong> inc GST</>:<span style={{color:WARN}}>cost outside markup table</span>)
+                    :"Trade cost — manufacturing markup applied")
+                :"Final price (inc GST)"}
+            </div>
+          </div>
         </div>
         <div style={{marginBottom:12}}>
           <div style={SS.lbl}>Description of damage / issue</div>
@@ -1664,6 +1703,15 @@ function RepairIntakeCard({job,setJobs,biz,clients}){
       </div>
     ))}
     <button onClick={addItem} style={{background:"none",border:`1px dashed ${GOLD}`,borderRadius:8,padding:"8px 16px",color:GOLD_D,fontSize:12,fontWeight:700,cursor:"pointer",fontFamily:"inherit",marginBottom:16}}>+ Add another item</button>
+
+    {/* Repair total */}
+    {repairTotal>0&&<div style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:12,flexWrap:"wrap",background:INK,borderRadius:10,padding:"14px 18px",marginBottom:16}}>
+      <div>
+        <div style={{fontSize:10,fontWeight:700,color:"rgba(255,255,255,0.5)",textTransform:"uppercase",letterSpacing:"0.08em"}}>Repair total{items.filter(i=>Number(i.price)>0).length>1?` · ${items.filter(i=>Number(i.price)>0).length} items`:""}</div>
+        <div style={{fontSize:22,fontWeight:800,color:WHITE,marginTop:2}}>{fmt(repairTotal)} <span style={{fontSize:12,fontWeight:400,color:"rgba(255,255,255,0.5)"}}>inc GST</span></div>
+      </div>
+      <button onClick={setAsCharge} style={{background:GOLD,border:"none",borderRadius:8,padding:"9px 16px",color:WHITE,fontSize:12,fontWeight:700,cursor:"pointer",fontFamily:"inherit"}}>Set as job charge →</button>
+    </div>}
 
     <div style={{marginBottom:16}}>
       <div style={SS.lbl}>Client instructions <span style={{fontWeight:400,color:WG}}>(optional — applies to the whole drop-off)</span></div>
@@ -1743,7 +1791,7 @@ function JobDetail({jobId,jobs,setJobs,clients,quotes,setQuotes,payments,setPaym
       </div>
     </Card>}
     {job.description&&<Card><div style={{...SS.lbl,marginBottom:8}}>Description</div><div style={{fontSize:14,color:INK,lineHeight:1.7}}>{job.description}</div>{job.notes&&<div style={{marginTop:10,fontSize:13,color:WG,fontStyle:"italic",borderTop:`1px solid ${BD}`,paddingTop:10}}>Notes: {job.notes}</div>}</Card>}
-    {job.type==="Repair"&&<RepairIntakeCard job={job} setJobs={setJobs} biz={biz} clients={clients}/>}
+    {job.type==="Repair"&&<RepairIntakeCard job={job} setJobs={setJobs} biz={biz} clients={clients} markupTable={markupTable}/>}
     <JobImages job={job} setJobs={setJobs}/>
     <Card>
       <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:14}}>
