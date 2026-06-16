@@ -694,6 +694,8 @@ const jobHasCharge=(job,quotes)=>Number(job?.totalOverride)>0||(quotes||[]).some
 // Short reference for a quote: the user's title if set, otherwise the random #ID tag
 const quoteRef=q=>"#"+(q?.id||"").slice(-4).toUpperCase();
 const quoteLabel=q=>(q?.title&&q.title.trim())?q.title.trim():"Quote "+quoteRef(q);
+// Combined client display name — "Jessica & Richard" when a partner is set, else the primary name.
+const clientDisplayName=c=>{if(!c)return"";const p=(c.partnerName||"").trim();return p?`${c.name} & ${p}`:(c.name||"");};
 
 // ── Storage ───────────────────────────────────────────────────────────────
 // ── Stone quote calculation (cost → markup → +GST) ───────────────────────
@@ -737,7 +739,7 @@ const buildProposalSnapshot=({proposal,job,client,biz,quotes,markupTable,payment
   return{
     kind:"proposal",
     biz:{name:biz?.name||"",logo:biz?.logo||"",phone:biz?.phone||"",email:biz?.email||"",abn:biz?.abn||"",address:biz?.address||""},
-    clientName:client?.name||"",
+    clientName:clientDisplayName(client),
     jobType:job?.type||"Custom Jewellery",
     intro:proposal.intro||"",
     options,
@@ -764,7 +766,7 @@ const buildInvoiceSnapshot=({inv,job,client,biz,payments})=>{
     kind:"invoice",
     biz:{name:biz?.name||"",logo:biz?.logo||"",phone:biz?.phone||"",email:biz?.email||"",abn:biz?.abn||"",address:biz?.address||"",
       bankName:biz?.bankName||"",bankAccountName:biz?.bankAccountName||biz?.name||"",bankBSB:biz?.bankBSB||"",bankAccount:biz?.bankAccount||""},
-    clientName:client?.name||"",
+    clientName:clientDisplayName(client),
     number:inv.number,
     date:inv.date,
     jobType:job?.type||"",
@@ -786,7 +788,7 @@ const buildInvoiceSnapshot=({inv,job,client,biz,payments})=>{
 const buildRepairSnapshot=({job,client,biz,items,instructions})=>({
   kind:"repair",
   biz:{name:biz?.name||"",logo:biz?.logo||"",phone:biz?.phone||"",email:biz?.email||"",abn:biz?.abn||"",address:biz?.address||""},
-  clientName:client?.name||"",
+  clientName:clientDisplayName(client),
   ref:(job?.id||"").slice(-6).toUpperCase(),
   dateIn:job?.dateIn||"",
   dateOut:job?.dateOut||"",
@@ -1075,7 +1077,7 @@ function printProposalDoc(biz,c,job,q,calc){console.log('Print proposal (disable
   <div><div class="bname">${biz.name||"Your Jewellery Studio"}</div><div class="bsub">${[biz.email,biz.phone].filter(Boolean).join(" · ")}</div></div>
   <div><div class="qlbl">Quote</div><div class="qnum">#${q.id.slice(-4).toUpperCase()}</div><div style="font-size:11px;color:#6B6560;text-align:right;margin-top:3px">${fmtDate(q.createdAt)}</div></div>
 </div>
-<div class="to"><div class="tolbl">Prepared for</div><div class="toname">${c?.name||"Client"}</div><div class="todet">${[c?.email,c?.phone].filter(Boolean).join(" · ")}</div></div>
+<div class="to"><div class="tolbl">Prepared for</div><div class="toname">${esc(clientDisplayName(c)||"Client")}</div><div class="todet">${[c?.email,c?.phone].filter(Boolean).join(" · ")}</div></div>
 ${job?.description?`<div class="desc-box"><strong>${job.type}</strong><br>${job.description}</div>`:""}
 <table>
   <thead><tr><th>Description</th><th>Detail</th><th class="right">Cost</th></tr></thead>
@@ -1298,7 +1300,7 @@ function Dashboard({clients,jobs,quotes,payments,invoices,appointments=[],propos
           const c=clients.find(x=>x.id===j.clientId);
           const od=j.deadline&&j.deadline<today();
           return <div key={j.id} style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"9px 0",borderBottom:`1px solid ${BD}`}}>
-            <div><div style={{fontWeight:600,fontSize:13,color:INK}}>{j.type} <span style={{color:WG,fontWeight:400}}>· {c?.name}</span></div>
+            <div><div style={{fontWeight:600,fontSize:13,color:INK}}>{j.type} <span style={{color:WG,fontWeight:400}}>· {clientDisplayName(c)}</span></div>
             <div style={{fontSize:12,color:od?DANGER:WG,marginTop:1}}>Due {fmtDate(j.deadline)}{od?" — OVERDUE":""}</div></div>
             <Badge label={j.stage} color={SC[j.stage]||WG}/>
           </div>;
@@ -1327,7 +1329,7 @@ function Dashboard({clients,jobs,quotes,payments,invoices,appointments=[],propos
           {balanceOwing.map(({job,balance})=>{
             const c=clients.find(x=>x.id===job.clientId);
             return <div key={job.id} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"9px 0",borderBottom:`1px solid ${BD}`}}>
-              <div><div style={{fontWeight:600,fontSize:13,color:INK}}>{job.type} · {c?.name}</div><div style={{fontSize:12,color:WG}}>{job.stage}</div></div>
+              <div><div style={{fontWeight:600,fontSize:13,color:INK}}>{job.type} · {clientDisplayName(c)}</div><div style={{fontSize:12,color:WG}}>{job.stage}</div></div>
               <div style={{fontWeight:800,fontSize:15,color:WARN}}>{fmt(balance)} owing</div>
             </div>;
           })}
@@ -1348,13 +1350,20 @@ function Dashboard({clients,jobs,quotes,payments,invoices,appointments=[],propos
 
 // ── Clients ───────────────────────────────────────────────────────────────
 function ClientForm({initial={},onSave,onCancel}){
-  const[f,setF]=useState({name:"",email:"",phone:"",street:"",city:"",state:"",postcode:"",notes:"",...initial});
+  const[f,setF]=useState({name:"",email:"",phone:"",partnerName:"",partnerEmail:"",partnerPhone:"",street:"",city:"",state:"",postcode:"",notes:"",...initial});
   const set=k=>v=>setF(p=>({...p,[k]:v}));
   return <div>
     <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"0 16px"}}>
       <Input label="Full name" value={f.name} onChange={set("name")} placeholder="Sarah Mitchell"/>
       <Input label="Phone" value={f.phone} onChange={set("phone")} placeholder="0412 345 678"/>
       <Input label="Email" value={f.email} onChange={set("email")} placeholder="sarah@example.com"/>
+    </div>
+    <div style={{borderTop:`1px solid ${BD}`,margin:"6px 0 14px"}}/>
+    <div style={{fontSize:10,fontWeight:700,color:WG,letterSpacing:"0.08em",textTransform:"uppercase",marginBottom:10}}>Partner <span style={{fontWeight:400,textTransform:"none",letterSpacing:0}}>(optional — for couples, e.g. engagement / wedding)</span></div>
+    <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"0 16px"}}>
+      <Input label="Partner name" value={f.partnerName||""} onChange={set("partnerName")} placeholder="Richard Lee"/>
+      <Input label="Partner phone" value={f.partnerPhone||""} onChange={set("partnerPhone")} placeholder="0413 222 111"/>
+      <Input label="Partner email" value={f.partnerEmail||""} onChange={set("partnerEmail")} placeholder="richard@example.com"/>
     </div>
     <div style={{borderTop:`1px solid ${BD}`,margin:"6px 0 16px"}}/>
     <Input label="Street address" value={f.street||""} onChange={set("street")} placeholder="123 Main St"/>
@@ -1375,7 +1384,7 @@ function ClientForm({initial={},onSave,onCancel}){
 function Clients({clients,setClients,jobs,payments,setView,setSelClient}){
   const[modal,setModal]=useState(null);
   const[search,setSearch]=useState("");
-  const filtered=clients.filter(c=>c.name.toLowerCase().includes(search.toLowerCase())||c.email.toLowerCase().includes(search.toLowerCase()));
+  const filtered=clients.filter(c=>{const s=search.toLowerCase();return [c.name,c.partnerName,c.email,c.partnerEmail].filter(Boolean).some(v=>v.toLowerCase().includes(s));});
   const save_=(f,id)=>{setClients(p=>{const n=id?p.map(c=>c.id===id?{...c,...f}:c):[...p,{...f,id:uid(),createdAt:today()}];persist(K.cl,n);return n;});setModal(null);};
   const del=id=>{
     const jobCount=jobs.filter(j=>j.clientId===id).length;
@@ -1387,7 +1396,7 @@ function Clients({clients,setClients,jobs,payments,setView,setSelClient}){
   };
   return <div>
     <SectionHeader title="Clients" action={<Btn onClick={()=>setModal("add")}>+ Add client</Btn>}/>
-    <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Search by name or email…" style={{...SS.inp,marginBottom:16,marginTop:0}}/>
+    <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Search by name, partner or email…" style={{...SS.inp,marginBottom:16,marginTop:0}}/>
     {filtered.length===0&&<Card><div style={{color:WG,fontSize:14,textAlign:"center",padding:"14px 0"}}>No clients found.</div></Card>}
     {filtered.map(c=>{
       const cj=jobs.filter(j=>j.clientId===c.id);
@@ -1396,7 +1405,7 @@ function Clients({clients,setClients,jobs,payments,setView,setSelClient}){
         <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start"}}>
           <div style={{display:"flex",gap:14,alignItems:"flex-start",flex:1}}>
             <div style={{width:38,height:38,borderRadius:"50%",background:GOLD_L,display:"flex",alignItems:"center",justifyContent:"center",fontSize:16,fontWeight:800,color:GOLD_D,flexShrink:0}}>{c.name.charAt(0)}</div>
-            <div><div style={{fontWeight:700,fontSize:15,color:INK}}>{c.name}</div>
+            <div><div style={{fontWeight:700,fontSize:15,color:INK}}>{clientDisplayName(c)}</div>
             <div style={{fontSize:12,color:WG,marginTop:2}}>{c.email} · {c.phone}</div>
             <div style={{display:"flex",gap:12,fontSize:12,color:WG,marginTop:4,flexWrap:"wrap"}}>
               {spent>0&&<span>Paid: <b style={{color:OK}}>{fmt(spent)}</b></span>}
@@ -1433,7 +1442,7 @@ function ClientDetail({clientId,clients,setClients,jobs,setJobs,quotes,payments,
     <button onClick={()=>setView("clients")} style={{background:"none",border:"none",cursor:"pointer",color:GOLD,fontSize:13,fontWeight:700,fontFamily:"inherit",marginBottom:18,padding:0}}>← Back to clients</button>
     <div style={{display:"flex",alignItems:"center",gap:14,marginBottom:20}}>
       <div style={{width:50,height:50,borderRadius:"50%",background:GOLD_L,display:"flex",alignItems:"center",justifyContent:"center",fontSize:20,fontWeight:800,color:GOLD_D}}>{c.name.charAt(0)}</div>
-      <div style={{flex:1}}><h1 style={{margin:0,fontSize:24,fontWeight:800,color:INK,letterSpacing:"-0.02em"}}>{c.name}</h1>
+      <div style={{flex:1}}><h1 style={{margin:0,fontSize:24,fontWeight:800,color:INK,letterSpacing:"-0.02em"}}>{clientDisplayName(c)}</h1>
       <div style={{fontSize:13,color:WG}}>Since {fmtDate(c.createdAt)} · {fmt(spent)} paid to date</div></div>
       <Btn sm ghost onClick={()=>setEditModal(true)}>✎ Edit client</Btn>
     </div>
@@ -1448,7 +1457,13 @@ function ClientDetail({clientId,clients,setClients,jobs,setJobs,quotes,payments,
     <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:14,marginBottom:14}}>
       <Card style={{margin:0}}>
         <div style={SS.lbl}>Contact</div>
-        {[["Email",c.email],["Phone",c.phone],["Address",c.street?[c.street,c.city,c.state,c.postcode].filter(Boolean).join(", "):(c.address||"")],["Client since",fmtDate(c.createdAt)]].map(([k,v])=>(
+        {[
+          [c.partnerName?`${c.name} — email`:"Email",c.email],
+          [c.partnerName?`${c.name} — phone`:"Phone",c.phone],
+          ...(c.partnerName?[[`${c.partnerName} — email`,c.partnerEmail],[`${c.partnerName} — phone`,c.partnerPhone]]:[]),
+          ["Address",c.street?[c.street,c.city,c.state,c.postcode].filter(Boolean).join(", "):(c.address||"")],
+          ["Client since",fmtDate(c.createdAt)],
+        ].map(([k,v])=>(
           <div key={k} style={{display:"flex",justifyContent:"space-between",fontSize:13,padding:"7px 0",borderBottom:`1px solid ${BD}`}}><span style={{color:WG}}>{k}</span><span style={{color:INK,fontWeight:600}}>{v||"—"}</span></div>
         ))}
       </Card>
@@ -1571,7 +1586,7 @@ function Jobs({clients,jobs,setJobs,quotes,setQuotes,payments,setPayments,notes,
       const isOverride=Number(j.totalOverride)>0;
       return <Card key={j.id} onClick={()=>{setSelJob(j.id);setView("jobDetail");}}>
         <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start"}}>
-          <div><div style={{fontWeight:700,fontSize:15,color:INK,marginBottom:2}}>{j.type} <span style={{color:WG,fontWeight:400,fontSize:13}}>· {c?.name}</span></div>
+          <div><div style={{fontWeight:700,fontSize:15,color:INK,marginBottom:2}}>{j.type} <span style={{color:WG,fontWeight:400,fontSize:13}}>· {clientDisplayName(c)}</span></div>
           <div style={{fontSize:12,color:od?DANGER:WG,marginBottom:5}}>Due {fmtDate(j.deadline)}{od?" — OVERDUE":""}</div>
           {j.description&&<div style={{fontSize:13,color:INK}}>{j.description.slice(0,90)}{j.description.length>90?"…":""}</div>}</div>
           <div style={{display:"flex",flexDirection:"column",alignItems:"flex-end",gap:8}}>
@@ -1957,7 +1972,7 @@ function JobDetail({jobId,jobs,setJobs,clients,quotes,setQuotes,payments,setPaym
     <button onClick={()=>setView("jobs")} style={{background:"none",border:"none",cursor:"pointer",color:GOLD,fontSize:13,fontWeight:700,fontFamily:"inherit",marginBottom:18,padding:0}}>← Back to jobs</button>
     <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:20}}>
       <div><h1 style={{margin:0,fontSize:24,fontWeight:800,color:INK,letterSpacing:"-0.02em"}}>{job.type}</h1>
-      <div style={{color:WG,fontSize:13,marginTop:3}}>{c?.name} · Due {fmtDate(job.deadline)}</div>
+      <div style={{color:WG,fontSize:13,marginTop:3}}>{clientDisplayName(c)} · Due {fmtDate(job.deadline)}</div>
       {(job.dateIn||job.dateOut)&&<div style={{fontSize:12,color:WG,marginTop:2}}>Taken in: <b style={{color:INK}}>{job.dateIn?fmtDate(job.dateIn):"—"}</b> · Pickup: <b style={{color:INK}}>{job.dateOut?fmtDate(job.dateOut):"—"}</b></div>}
       {job.supplier&&<div style={{fontSize:12,color:WG,marginTop:2}}>Supplier: {job.supplier}{job.supplierRef?` · ${job.supplierRef}`:""}</div>}</div>
       <div style={{display:"flex",gap:8,alignItems:"center"}}>
@@ -2474,7 +2489,7 @@ function QuoteBuilder({jobId:jobIdProp,editQuoteId,jobs,clients,quotes,setQuotes
     <button onClick={()=>setView("jobDetail_"+jobId)} style={{background:"none",border:"none",cursor:"pointer",color:GOLD,fontSize:13,fontWeight:700,fontFamily:"inherit",marginBottom:18,padding:0}}>← Back to job</button>
     <div style={{marginBottom:20}}>
       <h1 style={{margin:0,fontSize:24,fontWeight:700,color:INK}}>{isEditing?"Edit quote":"New quote"}{title.trim()?`: ${title.trim()}`:""}</h1>
-      {job&&<div style={{color:WG,fontSize:13,marginTop:3}}>{job.type} · {c?.name}</div>}
+      {job&&<div style={{color:WG,fontSize:13,marginTop:3}}>{job.type} · {clientDisplayName(c)}</div>}
       {isEditing&&<div style={{fontSize:12,color:WG,marginTop:2}}>Quote {quoteRef(existingQuote)} · created {fmtDate(existingQuote.createdAt)}</div>}
     </div>
 
@@ -3412,7 +3427,7 @@ function ProposalPreview({quote,job,clients=[],biz,calc,payments=[],onClose}){
 
   const copyEmailText=()=>{
     const text=[
-      `Dear ${client?.name||""},`,
+      `Dear ${clientDisplayName(client)},`,
       ``,
       `Thank you for your enquiry. Please find your quote below.`,
       ``,
@@ -3446,7 +3461,7 @@ function ProposalPreview({quote,job,clients=[],biz,calc,payments=[],onClose}){
   };
 
   const[copied,setCopied]=useState(false);
-  const clientName=client?.name||"";
+  const clientName=clientDisplayName(client);
 
   // Pull the job's uploaded images into the proposal (secure signed URLs)
   const jobImages=job?.images||[];
@@ -3701,7 +3716,7 @@ function QuoteDetail({quoteId,quotes,setQuotes,jobs,clients,biz,markupTable,natu
     <button onClick={()=>setView("jobDetail_"+q.jobId)} style={{background:"none",border:"none",cursor:"pointer",color:GOLD,fontSize:13,fontWeight:700,fontFamily:"inherit",marginBottom:18,padding:0}}>← Back to job</button>
     <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:20}}>
       <div><h1 style={{margin:0,fontSize:24,fontWeight:800,color:INK,letterSpacing:"-0.02em"}}>{quoteLabel(q)}</h1>
-      <div style={{color:WG,fontSize:13,marginTop:3}}>Quote {quoteRef(q)} · {job?.type} · {c?.name} · {fmtDate(q.createdAt)}</div>
+      <div style={{color:WG,fontSize:13,marginTop:3}}>Quote {quoteRef(q)} · {job?.type} · {clientDisplayName(c)} · {fmtDate(q.createdAt)}</div>
       {(job?.dateIn||job?.dateOut)&&<div style={{color:WG,fontSize:12,marginTop:2}}>Taken in: <b style={{color:INK}}>{job?.dateIn?fmtDate(job.dateIn):"—"}</b> · Pickup: <b style={{color:INK}}>{job?.dateOut?fmtDate(job.dateOut):"—"}</b></div>}</div>
       <div style={{display:"flex",gap:10,alignItems:"center"}}>
         <Badge label={q.status} color={q.status==="Approved"?OK:q.status==="Draft"?WG:GOLD_D}/>
@@ -4005,7 +4020,7 @@ function InvoicePrintView({inv,job,client,biz,payments,onClose}){
         {/* bill to */}
         <div style={{padding:"0 56px 36px"}}>
           <div style={{fontSize:10,fontWeight:700,color:WG,textTransform:"uppercase",letterSpacing:"0.14em",marginBottom:8}}>Bill to</div>
-          <div style={{fontSize:17,color:INK,fontWeight:700}}>{client?.name||"—"}</div>
+          <div style={{fontSize:17,color:INK,fontWeight:700}}>{clientDisplayName(client)||"—"}</div>
           {client?.address&&<div style={{fontSize:12,color:WG,marginTop:4}}>{client.address}</div>}
           {(client?.email||client?.phone)&&<div style={{fontSize:12,color:WG,marginTop:3}}>{[client?.email,client?.phone].filter(Boolean).join("  ·  ")}</div>}
         </div>
@@ -4155,7 +4170,7 @@ function InvoiceDetail({invoiceId,invoices,setInvoices,jobs,clients,payments,biz
     <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:20}}>
       <div>
         <h1 style={{margin:0,fontSize:24,fontWeight:700,color:INK}}>{inv.number}</h1>
-        <div style={{color:WG,fontSize:13,marginTop:3}}>{job?.type} · {c?.name} · {fmtDate(inv.date)}</div>
+        <div style={{color:WG,fontSize:13,marginTop:3}}>{job?.type} · {clientDisplayName(c)} · {fmtDate(inv.date)}</div>
       </div>
       <div style={{display:"flex",gap:10,alignItems:"center"}}>
         <Badge label={inv.status} color={inv.status==="Paid"?OK:inv.status==="Overdue"?DANGER:WARN} size="lg"/>
