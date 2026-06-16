@@ -51,8 +51,8 @@ const JOB_TYPES=["Engagement ring","Wedding band","Eternity ring","Dress ring","
 const JOB_TYPE_ICONS={"Engagement ring":"◇","Wedding band":"○","Eternity ring":"◉","Dress ring":"✧","Custom pendant":"✦","Necklace":"⌒","Earrings":"❖","Bracelet":"∞","Repair":"◆","Remodelling":"⟳","Grillz":"▦","Chain":"◈","Custom":"✶","Other":"◦"};
 const JOB_STAGES=["Enquiry","Consultation","Quoted","Approved","Design / CAD","Render approval","Wax / Cast","Stone setting","Polishing / Finish","QC check","Ready for collection","Collected"];
 const SC={"Enquiry":"#A0845C","Consultation":"#7A6C5D","Quoted":"#5B7FA6","Approved":"#3B6E8F","Design / CAD":"#7B5EA7","Render approval":"#9B4F96","Wax / Cast":"#B05C3A","Stone setting":"#C47A2E","Polishing / Finish":"#8B9E3A","QC check":"#4A8E6A","Ready for collection":"#2D7A4F","Collected":"#1A5C3A"};
-const PAY_TYPES=["Diamond deposit","Diamond balance","Setting deposit","Deposit","CAD / Design stage","Production deposit","Progress payment","Final balance","Lay-by payment","Other"];
-const PAY_METHODS=["Bank transfer","Cash","Card (EFTPOS)","Card (credit)","PayID","Cheque","Other"];
+const PAY_TYPES=["Diamond deposit","Diamond balance","Setting deposit","Deposit","CAD / Design stage","Production deposit","Progress payment","Final balance","Trade-in credit","Lay-by payment","Other"];
+const PAY_METHODS=["Bank transfer","Cash","Card (EFTPOS)","Card (credit)","PayID","Cheque","Gold/Silver trade in","Other"];
 const FINDINGS_CAT="Findings";
 const PURCHASED_CAT="Purchased Components";
 const CENTRE_SET_CAT="Centre Stone Setting";
@@ -2070,12 +2070,19 @@ function JobDetail({jobId,jobs,setJobs,clients,quotes,setQuotes,payments,setPaym
 function PaymentForm({onSave,onCancel,suggestedAmount}){
   const[f,setF]=useState({type:PAY_TYPES[0],amount:suggestedAmount||"",date:today(),method:PAY_METHODS[0],notes:"",status:"Received"});
   const set=k=>v=>setF(p=>({...p,[k]:v}));
+  const TRADEIN="Gold/Silver trade in";
+  const isTradeIn=f.method===TRADEIN;
+  // Choosing the trade-in method auto-sets the stage to "Trade-in credit" (no stage choice needed);
+  // switching away from it resets the stage so it isn't left on "Trade-in credit".
+  const setMethod=v=>setF(p=>({...p,method:v,type:v===TRADEIN?"Trade-in credit":(p.type==="Trade-in credit"?PAY_TYPES[0]:p.type)}));
   return <div>
     <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"0 16px"}}>
-      <Input label="Payment stage" value={f.type} onChange={set("type")} as="select" options={PAY_TYPES}/>
+      {isTradeIn
+        ?<div style={{marginBottom:14}}><label style={SS.lbl}>Recording</label><div style={{...SS.inp,background:PARCH,color:GOLD_D,fontWeight:700,display:"flex",alignItems:"center"}}>Trade-in credit</div></div>
+        :<Input label="Payment stage" value={f.type} onChange={set("type")} as="select" options={PAY_TYPES.filter(t=>t!=="Trade-in credit")}/>}
       <Input label="Amount ($)" value={f.amount} onChange={set("amount")} type="number" min="0" step="0.01"/>
       <Input label="Date" value={f.date} onChange={set("date")} type="date"/>
-      <Input label="Method" value={f.method} onChange={set("method")} as="select" options={PAY_METHODS}/>
+      <Input label="Method" value={f.method} onChange={setMethod} as="select" options={PAY_METHODS}/>
     </div>
     <div style={{borderTop:`1px solid ${BD}`,margin:"6px 0 16px"}}/>
     <Input label="Notes" value={f.notes} onChange={set("notes")} placeholder="e.g. deposit to begin design phase"/>
