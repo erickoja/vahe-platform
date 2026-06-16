@@ -5334,7 +5334,8 @@ function Settings({biz,setBiz,markupTable,setMarkupTable,naturalStoneMarkup,setN
   const delSmLRow=id=>setSml(p=>p.filter(b=>b.id!==id));
   const[toast,setToast]=useState(null);
   const showToast=msg=>{setToast(msg);setTimeout(()=>setToast(null),2400);};
-  const saveBiz=()=>{setBiz(bForm);persist(K.biz,bForm);showToast("Business details saved");};
+  // Preserve markup-table-owned settings (buffer / rounding) so saving business details can't wipe them.
+  const saveBiz=()=>{const nb={...bForm,markupBuffer:biz.markupBuffer||0,quoteRounding:biz.quoteRounding||0};setBiz(nb);persist(K.biz,nb);showToast("Business details saved");};
   const saveMt=()=>{setMarkupTable(mt);persist(K.mt,mt);const nb={...biz,markupBuffer:Number(buffer)||0,quoteRounding:Number(rounding)||0};setBiz(nb);persist(K.biz,nb);setMarkupBuffer(Number(buffer)||0);setQuoteRounding(Number(rounding)||0);showToast("Markup table saved");};
   const saveSmNTable=()=>{setNaturalStoneMarkup(smn);persist(K.smn,smn);showToast("Natural stone markup saved");};
   const saveSmLTable=()=>{setLabStoneMarkup(sml);persist(K.sml,sml);showToast("Lab-grown stone markup saved");};
