@@ -741,6 +741,7 @@ const buildProposalSnapshot=({proposal,job,client,biz,quotes,markupTable,payment
     jobType:job?.type||"Custom Jewellery",
     intro:proposal.intro||"",
     options,
+    selectMode:proposal.selectMode==="multi"?"multi":"single",
     depositPercent:biz?.depositPercent||50,
     paidTotal,
     validUntil:addDays(String(created).slice(0,10),validityDays),
@@ -1247,12 +1248,12 @@ function Dashboard({clients,jobs,quotes,payments,invoices,appointments=[],propos
     {acceptedUnseen.map(p=>{
       const job=jobs.find(j=>j.id===p.jobId);
       const cl=job?clients.find(x=>x.id===job.clientId):null;
-      const q=quotes.find(x=>x.id===p.acceptedQuoteId);
+      const labels=String(p.acceptedQuoteId||"").split(",").map(s=>s.trim()).filter(Boolean).map(id=>{const aq=quotes.find(x=>x.id===id);return aq?quoteLabel(aq):"";}).filter(Boolean).join(" + ");
       return <div key={p.id} style={{display:"flex",alignItems:"center",gap:14,background:OK+"10",border:`1px solid ${OK}55`,borderRadius:12,padding:"14px 18px",marginBottom:14}}>
         <div style={{fontSize:24,lineHeight:1}}>🎉</div>
         <div style={{flex:1}}>
           <div style={{fontSize:14,fontWeight:800,color:INK}}>Proposal accepted{cl?.name?` — ${cl.name}`:""}</div>
-          <div style={{fontSize:13,color:WG,marginTop:2}}><strong style={{color:OK}}>{p.acceptedName||"Client"}</strong> accepted “{q?quoteLabel(q):"an option"}”{job?` for ${job.type}`:""}{p.acceptedAt?` on ${fmtDate(p.acceptedAt)}`:""} — quote approved.</div>
+          <div style={{fontSize:13,color:WG,marginTop:2}}><strong style={{color:OK}}>{p.acceptedName||"Client"}</strong> accepted “{labels||"an option"}”{job?` for ${job.type}`:""}{p.acceptedAt?` on ${fmtDate(p.acceptedAt)}`:""} — quote{labels.includes(" + ")?"s":""} approved.</div>
         </div>
         <Btn sm onClick={()=>{markProposalSeen&&markProposalSeen(p.id);if(job)setView("jobDetail_"+job.id);}}>Review</Btn>
         <button onClick={()=>markProposalSeen&&markProposalSeen(p.id)} title="Dismiss" style={{background:"none",border:"none",cursor:"pointer",color:WG,fontSize:18,padding:0,lineHeight:1}}>×</button>
@@ -2899,6 +2900,7 @@ function JobProposals({job,client,quotes,proposals,setProposals,setQuotes,biz,ma
   const [busy,setBusy]=useState(false);
   const [copied,setCopied]=useState("");
   const [checking,setChecking]=useState("");
+  const [selectMode,setSelectMode]=useState("single");   // "single" = pick one, "multi" = pick any (bundle)
 
   // Only quotes with a resolvable price can be sent as options
   const optionable=(quotes||[]).filter(q=>{
@@ -2909,7 +2911,7 @@ function JobProposals({job,client,quotes,proposals,setProposals,setQuotes,biz,ma
   const save=next=>{setProposals(next);persist(K.pp,next);};
 
   const toggle=id=>setSel(p=>p.includes(id)?p.filter(x=>x!==id):[...p,id]);
-  const openBuilder=()=>{setSel([]);setRecommended("");setIntro("");setBuilder(true);};
+  const openBuilder=()=>{setSel([]);setRecommended("");setIntro("");setSelectMode("single");setBuilder(true);};
 
   const createAndShare=async()=>{
     if(!sel.length)return alert("Pick at least one quote to include as an option.");
@@ -2917,7 +2919,7 @@ function JobProposals({job,client,quotes,proposals,setProposals,setQuotes,biz,ma
     setBusy(true);
     const id=uid(),token=proposalToken();
     const orderedIds=optionable.filter(q=>sel.includes(q.id)).map(q=>q.id);
-    const proposal={id,jobId:job.id,token,optionIds:orderedIds,recommendedId:recommended||"",intro:intro.trim(),createdAt:today(),status:"sent",acceptedQuoteId:null,acceptedName:"",acceptedAt:null};
+    const proposal={id,jobId:job.id,token,optionIds:orderedIds,recommendedId:selectMode==="multi"?"":(recommended||""),selectMode,intro:intro.trim(),createdAt:today(),status:"sent",acceptedQuoteId:null,acceptedName:"",acceptedAt:null};
     const snapshot=buildProposalSnapshot({proposal,job,client,biz,quotes,markupTable,payments});
     const{error}=await supabase.from(PUBLIC_PROPOSALS_TABLE).insert({token,data:snapshot,status:"sent",created_at:new Date().toISOString()});
     setBusy(false);
@@ -2963,7 +2965,7 @@ function JobProposals({job,client,quotes,proposals,setProposals,setQuotes,biz,ma
     save(proposals.filter(x=>x.id!==p.id));
   };
 
-  const optLabel=qid=>{const q=quotes.find(x=>x.id===qid);return q?quoteLabel(q):"—";};
+  const optLabel=ids=>String(ids||"").split(",").map(s=>s.trim()).filter(Boolean).map(id=>{const q=quotes.find(x=>x.id===id);return q?quoteLabel(q):"—";}).join(" + ")||"—";
 
   return <Card>
     <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:jobProposals.length?14:0}}>
@@ -3001,7 +3003,16 @@ function JobProposals({job,client,quotes,proposals,setProposals,setQuotes,biz,ma
     })}
 
     {builder&&<Modal title="New proposal" onClose={()=>setBuilder(false)} wide>
-      <div style={{fontSize:13,color:WG,marginBottom:16,lineHeight:1.6}}>Pick the quote(s) to offer as options. The client sees them side by side and accepts one online. Star the one you'd recommend.</div>
+      <div style={{fontSize:13,color:WG,marginBottom:14,lineHeight:1.6}}>Pick the quote(s) to offer as options, then choose how the client selects.</div>
+      {/* How the client chooses */}
+      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:18}}>
+        {[["single","Choose one","The client picks a single option — for alternatives (e.g. Good / Better / Best)."],["multi","Choose any (bundle)","The client can tick more than one — for sets they buy together (e.g. two wedding bands). Total = the chosen options combined."]].map(([m,t,d])=>(
+          <button key={m} onClick={()=>setSelectMode(m)} style={{textAlign:"left",padding:"12px 14px",borderRadius:8,border:`2px solid ${selectMode===m?GOLD:BD}`,background:selectMode===m?GOLD_L+"55":WHITE,cursor:"pointer",fontFamily:"inherit"}}>
+            <div style={{fontSize:13,fontWeight:700,color:selectMode===m?GOLD_D:INK,marginBottom:3}}>{selectMode===m?"● ":"○ "}{t}</div>
+            <div style={{fontSize:11,color:WG,lineHeight:1.5}}>{d}</div>
+          </button>
+        ))}
+      </div>
       <div style={{fontSize:10,fontWeight:700,color:WG,textTransform:"uppercase",letterSpacing:"0.06em",marginBottom:8}}>Options</div>
       {optionable.map(q=>{
         const on=sel.includes(q.id);
@@ -3011,9 +3022,9 @@ function JobProposals({job,client,quotes,proposals,setProposals,setQuotes,biz,ma
             <div style={{fontWeight:700,fontSize:14,color:INK}}>{quoteLabel(q)}</div>
             <div style={{fontSize:12,color:WG,marginTop:1}}>{fmtR(quoteGrandTotal(q,markupTable))} inc GST · {q.status}</div>
           </div>
-          <button onClick={()=>setRecommended(r=>r===q.id?"":q.id)} disabled={!on}
+          {selectMode!=="multi"&&<button onClick={()=>setRecommended(r=>r===q.id?"":q.id)} disabled={!on}
             title="Mark as recommended"
-            style={{background:recommended===q.id?GOLD:"none",border:`1px solid ${recommended===q.id?GOLD:BD}`,borderRadius:6,padding:"5px 11px",fontSize:12,fontWeight:700,color:recommended===q.id?WHITE:(on?GOLD_D:WG),cursor:on?"pointer":"not-allowed",fontFamily:"inherit",opacity:on?1:0.5}}>★ Recommend</button>
+            style={{background:recommended===q.id?GOLD:"none",border:`1px solid ${recommended===q.id?GOLD:BD}`,borderRadius:6,padding:"5px 11px",fontSize:12,fontWeight:700,color:recommended===q.id?WHITE:(on?GOLD_D:WG),cursor:on?"pointer":"not-allowed",fontFamily:"inherit",opacity:on?1:0.5}}>★ Recommend</button>}
         </div>;
       })}
       <div style={{marginTop:14}}>
@@ -3219,7 +3230,7 @@ function PublicInvoiceBody({snap}){
 function PublicProposalPage({token}){
   const [state,setState]=useState("loading");   // loading | ready | accepted | error | notfound
   const [snap,setSnap]=useState(null);
-  const [sel,setSel]=useState("");
+  const [picks,setPicks]=useState([]);          // selected option ids (1 for single-select, many for multi)
   const [name,setName]=useState("");
   const [acceptedOption,setAcceptedOption]=useState("");
   const [acceptedName,setAcceptedName]=useState("");
@@ -3235,19 +3246,23 @@ function PublicProposalPage({token}){
         if(!row){setState("notfound");return;}
         setSnap(row.data);
         if(row.status==="accepted"){setAcceptedOption(row.accepted_option||"");setAcceptedName(row.accepted_name||"");setState("accepted");}
-        else{const opts=row.data?.options||[];const rec=opts.find(o=>o.recommended);setSel(rec?rec.id:(opts[0]?.id||""));setState("ready");}
+        else{const opts=row.data?.options||[];const isMulti=row.data?.selectMode==="multi";
+          if(isMulti)setPicks([]);   // multi: nothing pre-ticked
+          else{const rec=opts.find(o=>o.recommended);setPicks(rec?[rec.id]:(opts[0]?.id?[opts[0].id]:[]));}
+          setState("ready");}
       }catch(e){setState("error");}
     })();
   },[token]);
 
   const accept=async()=>{
-    if(!sel||!name.trim())return;
+    if(!picks.length||!name.trim())return;
+    const optionStr=picks.join(",");
     setBusy(true);
     try{
-      const{data,error}=await supabase.rpc("accept_proposal",{p_token:token,p_option:sel,p_name:name.trim()});
+      const{data,error}=await supabase.rpc("accept_proposal",{p_token:token,p_option:optionStr,p_name:name.trim()});
       if(error)throw error;
       if(data===false){/* already accepted in the meantime */ }
-      setAcceptedOption(sel);setAcceptedName(name.trim());setState("accepted");
+      setAcceptedOption(optionStr);setAcceptedName(name.trim());setState("accepted");
     }catch(e){alert("Sorry — we couldn't record your acceptance. Please try again or contact the studio.");}
     setBusy(false);
   };
@@ -3271,7 +3286,11 @@ function PublicProposalPage({token}){
   const b=snap.biz||{};
   const opts=snap.options||[];
   const accepted=state==="accepted";
-  const chosen=opts.find(o=>o.id===(accepted?acceptedOption:sel));
+  const multi=snap.selectMode==="multi";
+  const selectedIds=accepted?String(acceptedOption||"").split(",").map(s=>s.trim()).filter(Boolean):picks;
+  const selectedOpts=opts.filter(o=>selectedIds.includes(o.id));
+  const comboPrice=selectedOpts.reduce((s,o)=>s+(o.price!=null?o.price:0),0);
+  const toggle=id=>{if(accepted)return;multi?setPicks(p=>p.includes(id)?p.filter(x=>x!==id):[...p,id]):setPicks([id]);};
   const depositOf=price=>price!=null?fmtR(price*(snap.depositPercent||50)/100):"—";
 
   return wrap(<div style={{maxWidth:680,margin:"0 auto"}}>
@@ -3296,22 +3315,23 @@ function PublicProposalPage({token}){
 
       {accepted&&<div style={{background:OK+"12",border:`1px solid ${OK}55`,borderRadius:10,padding:"16px 18px",margin:"20px 0 4px"}}>
         <div style={{fontSize:15,fontWeight:800,color:OK,marginBottom:3}}>✓ Thank you, {acceptedName||"and welcome"}!</div>
-        <div style={{fontSize:13,color:INK,lineHeight:1.6}}>You've accepted <strong>{chosen?.label||"your option"}</strong>{chosen?.price!=null?` at ${fmtR(chosen.price)} (inc GST)`:""}. The studio has been notified and will be in touch about your deposit and next steps.</div>
+        <div style={{fontSize:13,color:INK,lineHeight:1.6}}>You've accepted <strong>{selectedOpts.length?selectedOpts.map(o=>o.label).join(" + "):"your option"}</strong>{comboPrice>0?` at ${fmtR(comboPrice)} (inc GST)`:""}. The studio has been notified and will be in touch about your deposit and next steps.</div>
       </div>}
 
       {/* Options */}
-      <div style={{fontSize:9,fontWeight:700,color:WG,letterSpacing:"0.16em",textTransform:"uppercase",margin:"24px 0 12px"}}>{accepted?"Your selection":opts.length>1?"Choose an option":"Your quote"}</div>
+      <div style={{fontSize:9,fontWeight:700,color:WG,letterSpacing:"0.16em",textTransform:"uppercase",margin:"24px 0 6px"}}>{accepted?"Your selection":multi?"Choose the pieces you'd like":opts.length>1?"Choose an option":"Your quote"}</div>
+      {!accepted&&multi&&<div style={{fontSize:12,color:WG,marginBottom:12}}>Tick every piece you'd like — you can choose more than one.</div>}
       <div style={{display:"flex",flexDirection:"column",gap:12}}>
         {opts.map(o=>{
-          const isSel=(accepted?acceptedOption:sel)===o.id;
+          const isSel=selectedIds.includes(o.id);
           const dim=accepted&&!isSel;
-          return <div key={o.id} onClick={()=>{if(!accepted)setSel(o.id);}}
+          return <div key={o.id} onClick={()=>toggle(o.id)}
             style={{border:`2px solid ${isSel?GOLD:BD}`,borderRadius:12,padding:"16px 18px",cursor:accepted?"default":"pointer",background:isSel?GOLD_L+"44":WHITE,opacity:dim?0.5:1,transition:"all 0.15s",position:"relative"}}>
             {o.recommended&&<div style={{position:"absolute",top:-9,left:16,background:GOLD,color:WHITE,fontSize:9,fontWeight:800,letterSpacing:"0.08em",textTransform:"uppercase",padding:"2px 10px",borderRadius:20}}>Recommended</div>}
             <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:16}}>
               <div style={{flex:1,minWidth:0}}>
                 <div style={{display:"flex",alignItems:"center",gap:10}}>
-                  {!accepted&&<div style={{width:18,height:18,borderRadius:"50%",border:`2px solid ${isSel?GOLD:BD}`,flexShrink:0,display:"flex",alignItems:"center",justifyContent:"center"}}>{isSel&&<div style={{width:9,height:9,borderRadius:"50%",background:GOLD}}/>}</div>}
+                  {!accepted&&<div style={{width:18,height:18,borderRadius:multi?4:"50%",border:`2px solid ${isSel?GOLD:BD}`,flexShrink:0,display:"flex",alignItems:"center",justifyContent:"center"}}>{isSel&&(multi?<span style={{color:GOLD,fontSize:13,fontWeight:900,lineHeight:1}}>✓</span>:<div style={{width:9,height:9,borderRadius:"50%",background:GOLD}}/>)}</div>}
                   <div style={{fontSize:16,fontWeight:700,color:INK}}>{o.label}</div>
                 </div>
                 {o.description&&<div style={{fontSize:13,color:WG,lineHeight:1.6,marginTop:6,fontFamily:"Georgia,serif"}}>{o.description}</div>}
@@ -3325,13 +3345,19 @@ function PublicProposalPage({token}){
         })}
       </div>
 
-      {/* Payments received → balance due, else deposit note */}
-      {chosen&&chosen.price!=null&&(()=>{
+      {/* Combined total (multi-select) */}
+      {multi&&selectedOpts.length>0&&<div style={{display:"flex",justifyContent:"space-between",alignItems:"baseline",marginTop:14,padding:"12px 16px",background:INK,borderRadius:10}}>
+        <span style={{fontSize:12,fontWeight:700,color:"rgba(255,255,255,0.6)",textTransform:"uppercase",letterSpacing:"0.06em"}}>Combined total · {selectedOpts.length} piece{selectedOpts.length!==1?"s":""}</span>
+        <span style={{fontSize:20,fontWeight:800,color:WHITE}}>{fmtR(comboPrice)} <span style={{fontSize:11,fontWeight:400,color:"rgba(255,255,255,0.5)"}}>inc GST</span></span>
+      </div>}
+
+      {/* Payments received → balance due, else deposit note (on the combined total) */}
+      {selectedOpts.length>0&&comboPrice>0&&(()=>{
         const paid=Number(snap.paidTotal)||0;
-        if(paid<=0.005)return <div style={{fontSize:12,color:WG,marginTop:14}}>To proceed, a {snap.depositPercent||50}% deposit of <strong style={{color:INK}}>{depositOf(chosen.price)}</strong> is required.</div>;
-        const due=Math.max(0,chosen.price-paid);
+        if(paid<=0.005)return <div style={{fontSize:12,color:WG,marginTop:14}}>To proceed, a {snap.depositPercent||50}% deposit of <strong style={{color:INK}}>{depositOf(comboPrice)}</strong> is required.</div>;
+        const due=Math.max(0,comboPrice-paid);
         return <div style={{marginTop:16,background:PARCH,border:`1px solid ${BD}`,borderRadius:10,padding:"14px 16px"}}>
-          <div style={{display:"flex",justifyContent:"space-between",fontSize:13,color:WG,padding:"2px 0"}}><span>Total price (inc GST)</span><span style={{color:INK,fontWeight:600}}>{fmtR(chosen.price)}</span></div>
+          <div style={{display:"flex",justifyContent:"space-between",fontSize:13,color:WG,padding:"2px 0"}}><span>{multi?"Combined total":"Total price"} (inc GST)</span><span style={{color:INK,fontWeight:600}}>{fmtR(comboPrice)}</span></div>
           <div style={{display:"flex",justifyContent:"space-between",fontSize:13,color:WG,padding:"2px 0"}}><span>Payments received</span><span style={{color:OK,fontWeight:600}}>− {fmtR(paid)}</span></div>
           <div style={{display:"flex",justifyContent:"space-between",alignItems:"baseline",borderTop:`1px solid ${BD}`,marginTop:8,paddingTop:10}}><span style={{fontSize:13,fontWeight:700,color:INK}}>{due<=0.005?"Paid in full":"Balance now due"}</span><span style={{fontSize:18,fontWeight:800,color:due<=0.005?OK:INK}}>{fmtR(due)}</span></div>
         </div>;
@@ -3339,11 +3365,12 @@ function PublicProposalPage({token}){
 
       {/* Accept box */}
       {!accepted&&<div style={{borderTop:`1px solid ${BD}`,marginTop:22,paddingTop:20}}>
-        <div style={{fontSize:13,fontWeight:700,color:INK,marginBottom:10}}>Accept this proposal</div>
+        <div style={{fontSize:13,fontWeight:700,color:INK,marginBottom:10}}>Accept {multi?"your selection":"this proposal"}</div>
+        {multi&&!picks.length&&<div style={{fontSize:12,color:WARN,marginBottom:10}}>Tick at least one piece above to continue.</div>}
         <input value={name} onChange={e=>setName(e.target.value)} placeholder="Type your full name to confirm" style={{...SS.inp,marginTop:0,marginBottom:12}}/>
-        <button onClick={accept} disabled={!sel||!name.trim()||busy}
-          style={{width:"100%",background:(!sel||!name.trim()||busy)?BD:INK,color:WHITE,border:"none",borderRadius:10,padding:"14px",fontSize:15,fontWeight:800,cursor:(!sel||!name.trim()||busy)?"not-allowed":"pointer",fontFamily:"inherit",letterSpacing:"0.02em"}}>
-          {busy?"Submitting…":`Accept${chosen?` — ${chosen.label}`:""}`}
+        <button onClick={accept} disabled={!picks.length||!name.trim()||busy}
+          style={{width:"100%",background:(!picks.length||!name.trim()||busy)?BD:INK,color:WHITE,border:"none",borderRadius:10,padding:"14px",fontSize:15,fontWeight:800,cursor:(!picks.length||!name.trim()||busy)?"not-allowed":"pointer",fontFamily:"inherit",letterSpacing:"0.02em"}}>
+          {busy?"Submitting…":multi?`Accept ${picks.length} piece${picks.length!==1?"s":""}${comboPrice>0?` — ${fmtR(comboPrice)}`:""}`:`Accept${selectedOpts[0]?` — ${selectedOpts[0].label}`:""}`}
         </button>
         <div style={{fontSize:11,color:WG,marginTop:10,lineHeight:1.5}}>By accepting you agree to the terms below. This records your selection and notifies the studio — it is not a payment.</div>
       </div>}
@@ -5944,12 +5971,19 @@ export default function App(){
     if(!row||row.status!=="accepted")return;
     const p=(proposalsRef.current||[]).find(x=>x.token===row.token);
     if(!p||p.status==="accepted")return;   // unknown here, or already handled
+    const acceptedIds=String(row.accepted_option||"").split(",").map(s=>s.trim()).filter(Boolean);   // 1 (single) or many (multi)
+    const multi=p.selectMode==="multi";
     const np=proposalsRef.current.map(x=>x.token===row.token?{...x,status:"accepted",acceptedQuoteId:row.accepted_option,acceptedName:row.accepted_name||"",acceptedAt:row.accepted_at||today(),seen:false}:x);
     setProposals(np);persist(K.pp,np);
-    const nq=quotesRef.current.map(q=>q.id===row.accepted_option?{...q,status:"Approved"}:(q.jobId===p.jobId&&q.status==="Approved"?{...q,status:"Declined"}:q));
+    // Approve every accepted quote. Multi: decline the proposal's non-selected options. Single: demote other approved on the job.
+    const nq=quotesRef.current.map(q=>{
+      if(acceptedIds.includes(q.id))return{...q,status:"Approved"};
+      if(multi)return (p.optionIds||[]).includes(q.id)?{...q,status:"Declined"}:q;
+      return (q.jobId===p.jobId&&q.status==="Approved")?{...q,status:"Declined"}:q;
+    });
     setQuotes(nq);persist(K.qu,nq);
-    const acceptedQuote=quotesRef.current.find(q=>q.id===row.accepted_option);
-    setAcceptToast({title:"Proposal accepted",color:OK,body:`${row.accepted_name||"A client"} accepted “${acceptedQuote?quoteLabel(acceptedQuote):"a proposal"}”.`,jobId:p.jobId});
+    const labels=acceptedIds.map(id=>{const aq=quotesRef.current.find(q=>q.id===id);return aq?quoteLabel(aq):"";}).filter(Boolean).join(" + ");
+    setAcceptToast({title:"Proposal accepted",color:OK,body:`${row.accepted_name||"A client"} accepted “${labels||"a proposal"}”.`,jobId:p.jobId});
   },[]);
 
   // Reconcile a repair accept/decline (token lives on the job, not a proposal).
