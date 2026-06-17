@@ -49,8 +49,8 @@ const TINTS={
 // ── Constants ─────────────────────────────────────────────────────────────
 const JOB_TYPES=["Engagement ring","Wedding band","Eternity ring","Dress ring","Custom pendant","Necklace","Earrings","Bracelet","Repair","Remodelling","Grillz","Chain","Custom","Other"];
 const JOB_TYPE_ICONS={"Engagement ring":"◇","Wedding band":"○","Eternity ring":"◉","Dress ring":"✧","Custom pendant":"✦","Necklace":"⌒","Earrings":"❖","Bracelet":"∞","Repair":"◆","Remodelling":"⟳","Grillz":"▦","Chain":"◈","Custom":"✶","Other":"◦"};
-const JOB_STAGES=["Enquiry","Consultation","Quoted","Approved","Design / CAD","Render approval","Wax / Cast","Stone setting","Polishing / Finish","QC check","Ready for collection","Collected"];
-const SC={"Enquiry":"#A0845C","Consultation":"#7A6C5D","Quoted":"#5B7FA6","Approved":"#3B6E8F","Design / CAD":"#7B5EA7","Render approval":"#9B4F96","Wax / Cast":"#B05C3A","Stone setting":"#C47A2E","Polishing / Finish":"#8B9E3A","QC check":"#4A8E6A","Ready for collection":"#2D7A4F","Collected":"#1A5C3A"};
+const JOB_STAGES=["Enquiry","Consultation","Quoted","Approved","Design / CAD","Manufacturing","Stone setting","Polishing / Finish","QC check","Ready for collection","Collected"];
+const SC={"Enquiry":"#A0845C","Consultation":"#7A6C5D","Quoted":"#5B7FA6","Approved":"#3B6E8F","Design / CAD":"#7B5EA7","Manufacturing":"#B05C3A","Stone setting":"#C47A2E","Polishing / Finish":"#8B9E3A","QC check":"#4A8E6A","Ready for collection":"#2D7A4F","Collected":"#1A5C3A"};
 const PAY_TYPES=["Diamond deposit","Diamond balance","Setting deposit","Deposit","CAD / Design stage","Production deposit","Progress payment","Final balance","Trade-in credit","Lay-by payment","Other"];
 const PAY_METHODS=["Bank transfer","Cash","Card (EFTPOS)","Card (credit)","PayID","Cheque","Gold/Silver trade in","Other"];
 const FINDINGS_CAT="Findings";
@@ -1533,6 +1533,9 @@ function Jobs({clients,jobs,setJobs,quotes,setQuotes,payments,setPayments,notes,
   const[sf,setSf]=useState("All");
   const[tf,setTf]=useState("All");
   const[search,setSearch]=useState("");
+  const[mode,setMode]=useState("list");        // list | board (production board)
+  const[dragOver,setDragOver]=useState(null);   // stage column being dragged over
+  const moveJobToStage=(id,stage)=>{setJobs(p=>{const n=p.map(j=>j.id===id&&j.stage!==stage?{...j,stage}:j);persist(K.jo,n);return n;});};
   const typeCounts=useMemo(()=>{const m={};jobs.forEach(j=>{m[j.type]=(m[j.type]||0)+1;});return m;},[jobs]);
   const typesByCount=useMemo(()=>Object.keys(typeCounts).sort((a,b)=>typeCounts[b]-typeCounts[a]),[typeCounts]);
   const q=search.trim().toLowerCase();
@@ -1572,12 +1575,54 @@ function Jobs({clients,jobs,setJobs,quotes,setQuotes,payments,setPayments,notes,
         ))}
       </div>
     </div>}
-    <div style={{display:"flex",gap:6,flexWrap:"wrap",marginBottom:14}}>
-      {["All",...JOB_STAGES].map(s=><button key={s} onClick={()=>setSf(s)} style={{padding:"4px 11px",borderRadius:20,border:`1px solid ${sf===s?GOLD:BD}`,background:sf===s?GOLD:"transparent",color:sf===s?WHITE:WG,fontSize:11,fontWeight:700,cursor:"pointer",fontFamily:"inherit"}}>{s}</button>)}
+    {/* List / Board view toggle */}
+    <div style={{display:"flex",gap:6,marginBottom:14,alignItems:"center"}}>
+      {[["list","☰ List"],["board","▦ Board"]].map(([m,label])=>(
+        <button key={m} onClick={()=>setMode(m)} style={{padding:"5px 15px",borderRadius:20,border:`1px solid ${mode===m?INK:BD}`,background:mode===m?INK:"transparent",color:mode===m?WHITE:WG,fontSize:12,fontWeight:700,cursor:"pointer",fontFamily:"inherit"}}>{label}</button>
+      ))}
+      {mode==="board"&&<span style={{fontSize:11,color:WG,marginLeft:6}}>Drag a card to move it to another stage.</span>}
     </div>
-    {(q||tf!=="All"||sf!=="All")&&<div style={{fontSize:12,color:WG,marginBottom:12}}>Showing <b style={{color:INK}}>{filtered.length}</b> of {jobs.length} job{jobs.length!==1?"s":""}{tf!=="All"?` · ${tf}`:""}{sf!=="All"?` · ${sf}`:""}{q?` · “${search.trim()}”`:""}{(q||tf!=="All"||sf!=="All")&&<button onClick={()=>{setSearch("");setTf("All");setSf("All");}} style={{background:"none",border:"none",color:GOLD,fontWeight:700,fontSize:12,cursor:"pointer",fontFamily:"inherit",marginLeft:8,padding:0}}>Clear</button>}</div>}
-    {filtered.length===0&&<Card><div style={{color:WG,fontSize:14,textAlign:"center",padding:"14px 0"}}>No jobs found{q?` for “${search.trim()}”`:""}.</div></Card>}
-    {filtered.map(j=>{
+    {mode==="list"&&<div style={{display:"flex",gap:6,flexWrap:"wrap",marginBottom:14}}>
+      {["All",...JOB_STAGES].map(s=><button key={s} onClick={()=>setSf(s)} style={{padding:"4px 11px",borderRadius:20,border:`1px solid ${sf===s?GOLD:BD}`,background:sf===s?GOLD:"transparent",color:sf===s?WHITE:WG,fontSize:11,fontWeight:700,cursor:"pointer",fontFamily:"inherit"}}>{s}</button>)}
+    </div>}
+    {mode==="list"&&(q||tf!=="All"||sf!=="All")&&<div style={{fontSize:12,color:WG,marginBottom:12}}>Showing <b style={{color:INK}}>{filtered.length}</b> of {jobs.length} job{jobs.length!==1?"s":""}{tf!=="All"?` · ${tf}`:""}{sf!=="All"?` · ${sf}`:""}{q?` · “${search.trim()}”`:""}{(q||tf!=="All"||sf!=="All")&&<button onClick={()=>{setSearch("");setTf("All");setSf("All");}} style={{background:"none",border:"none",color:GOLD,fontWeight:700,fontSize:12,cursor:"pointer",fontFamily:"inherit",marginLeft:8,padding:0}}>Clear</button>}</div>}
+
+    {/* ── Production board ── */}
+    {mode==="board"&&(()=>{
+      const byStage={};JOB_STAGES.forEach(s=>byStage[s]=[]);
+      filtered.forEach(j=>{(byStage[j.stage]=byStage[j.stage]||[]).push(j);});
+      return <div style={{display:"flex",gap:14,overflowX:"auto",paddingBottom:18,width:"100%"}}>
+        {JOB_STAGES.map(s=>{
+          const col=byStage[s]||[];const isOver=dragOver===s;const sc=SC[s]||WG;
+          return <div key={s}
+            onDragOver={e=>{e.preventDefault();e.dataTransfer.dropEffect="move";if(dragOver!==s)setDragOver(s);}}
+            onDragLeave={e=>{if(!e.currentTarget.contains(e.relatedTarget))setDragOver(d=>d===s?null:d);}}
+            onDrop={e=>{e.preventDefault();const id=e.dataTransfer.getData("text/plain");if(id)moveJobToStage(id,s);setDragOver(null);}}
+            style={{width:264,flexShrink:0,background:isOver?sc+"18":PARCH,border:`1px solid ${isOver?sc:BD}`,borderRadius:12,padding:"12px 12px 14px",display:"flex",flexDirection:"column",gap:10,alignSelf:"flex-start"}}>
+            <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:8,padding:"0 2px 10px",borderBottom:`2px solid ${sc}`}}>
+              <span style={{fontSize:12,fontWeight:800,color:sc,textTransform:"uppercase",letterSpacing:"0.03em",lineHeight:1.25}}>{s}</span>
+              <span style={{fontSize:12,fontWeight:800,color:WG,background:WHITE,borderRadius:12,padding:"2px 10px",flexShrink:0}}>{col.length}</span>
+            </div>
+            {col.length===0&&<div style={{fontSize:12,color:"#C8C4BE",textAlign:"center",padding:"14px 0"}}>No jobs</div>}
+            {col.map(j=>{
+              const c=clients.find(x=>x.id===j.clientId);
+              const od=j.deadline&&j.deadline<today()&&j.stage!=="Collected";
+              return <div key={j.id} draggable
+                onDragStart={e=>{e.dataTransfer.setData("text/plain",j.id);e.dataTransfer.effectAllowed="move";}}
+                onClick={()=>{setSelJob(j.id);setView("jobDetail");}}
+                style={{background:WHITE,border:`1px solid ${BD}`,borderLeft:`4px solid ${sc}`,borderRadius:9,padding:"12px 14px",cursor:"grab",boxShadow:"0 1px 3px rgba(20,20,22,0.06)"}}>
+                <div style={{fontSize:14.5,fontWeight:700,color:INK,lineHeight:1.3}}>{j.type}</div>
+                <div style={{fontSize:12.5,color:WG,marginTop:3,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{clientDisplayName(c)||"—"}</div>
+                {j.deadline&&<div style={{fontSize:11.5,color:od?DANGER:WG,marginTop:7,fontWeight:od?700:600}}>Due {fmtDate(j.deadline)}{od?" · OVERDUE":""}</div>}
+              </div>;
+            })}
+          </div>;
+        })}
+      </div>;
+    })()}
+
+    {mode==="list"&&filtered.length===0&&<Card><div style={{color:WG,fontSize:14,textAlign:"center",padding:"14px 0"}}>No jobs found{q?` for “${search.trim()}”`:""}.</div></Card>}
+    {mode==="list"&&filtered.map(j=>{
       const c=clients.find(x=>x.id===j.clientId);
       const od=j.deadline&&j.deadline<today()&&j.stage!=="Collected";
       const total=jobChargeTotal(j,quotes,markupTable);
@@ -5922,6 +5967,9 @@ export default function App(){
         const savedIds=new Set(v.map(x=>x.id));
         const missing=SEED_PRICING.filter(x=>!savedIds.has(x.id));
         if(missing.length>0)v=[...v,...missing];
+      }
+      if(k===K.jo&&Array.isArray(v)){
+        v=v.map(j=>{if(!j)return j;if(j.stage==="Wax / Cast")return{...j,stage:"Manufacturing"};if(j.stage==="Render approval")return{...j,stage:"Design / CAD"};return j;});   // renamed/removed stages
       }
       setter(v);
     };
