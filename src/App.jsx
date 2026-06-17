@@ -3381,7 +3381,7 @@ function PublicProposalPage({token}){
       <div style={{fontSize:9,fontWeight:700,color:WG,letterSpacing:"0.16em",textTransform:"uppercase",marginBottom:6}}>Prepared for</div>
       <div style={{fontSize:20,fontWeight:700,color:INK,marginBottom:4}}>{snap.clientName||"—"}</div>
       <div style={{fontSize:13,color:WG}}>{snap.jobType} · Valid until {fmtDate(snap.validUntil)}</div>
-      {snap.intro&&<div style={{fontSize:14,color:"#444",lineHeight:1.7,marginTop:16,fontFamily:"Georgia,serif"}}>{snap.intro}</div>}
+      {snap.intro&&<div style={{fontSize:14,color:"#444",lineHeight:1.7,marginTop:16}}>{snap.intro}</div>}
 
       {accepted&&<div style={{background:OK+"12",border:`1px solid ${OK}55`,borderRadius:4,padding:"16px 18px",margin:"20px 0 4px"}}>
         <div style={{fontSize:15,fontWeight:800,color:OK,marginBottom:3}}>✓ Thank you, {acceptedName||"and welcome"}!</div>
@@ -3404,7 +3404,7 @@ function PublicProposalPage({token}){
                   {!accepted&&<div style={{width:18,height:18,borderRadius:multi?4:"50%",border:`2px solid ${isSel?GOLD:BD}`,flexShrink:0,display:"flex",alignItems:"center",justifyContent:"center"}}>{isSel&&(multi?<span style={{color:GOLD,fontSize:13,fontWeight:900,lineHeight:1}}>✓</span>:<div style={{width:9,height:9,borderRadius:"50%",background:GOLD}}/>)}</div>}
                   <div style={{fontSize:16,fontWeight:700,color:INK}}>{o.label}</div>
                 </div>
-                {o.description&&<div style={{fontSize:13,color:WG,lineHeight:1.6,marginTop:6,fontFamily:"Georgia,serif"}}>{o.description}</div>}
+                {o.description&&<div style={{fontSize:13,color:WG,lineHeight:1.6,marginTop:6}}>{o.description}</div>}
               </div>
               <div style={{textAlign:"right",flexShrink:0}}>
                 <div style={{fontSize:22,fontWeight:800,color:INK}}>{o.price!=null?fmtR(o.price):"—"}</div>
@@ -3555,7 +3555,7 @@ function ProposalPreview({quote,job,clients=[],biz,calc,payments=[],onClose}){
 
     {/* ── Scroll area ── */}
     <div id="proposal-scroll" style={{flex:1,overflowY:"auto",overflowX:"hidden",padding:"40px 20px 60px",background:"#111"}}>
-      <div id="proposal-document" style={{width:"100%",maxWidth:740,margin:"0 auto",background:WHITE,borderRadius:4,boxShadow:"0 20px 80px rgba(0,0,0,0.6)",fontFamily:"Georgia,serif",color:INK}}>
+      <div id="proposal-document" style={{width:"100%",maxWidth:740,margin:"0 auto",background:WHITE,borderRadius:4,boxShadow:"0 20px 80px rgba(0,0,0,0.6)",fontFamily:"'DM Sans',sans-serif",color:INK}}>
 
         {/* ── HEADER ── */}
         <div style={{background:INK,padding:"40px 52px 36px",display:"flex",justifyContent:"space-between",alignItems:"flex-start"}}>
@@ -3594,7 +3594,7 @@ function ProposalPreview({quote,job,clients=[],biz,calc,payments=[],onClose}){
             <div style={{fontSize:9,fontWeight:700,color:WG,letterSpacing:"0.16em",textTransform:"uppercase",marginBottom:12,fontFamily:"'DM Sans',sans-serif"}}>Piece</div>
             <div style={{fontSize:15,fontWeight:700,color:INK,fontFamily:"'DM Sans',sans-serif",marginBottom:8}}>{job?.type||"Custom Jewellery"}</div>
             {description
-              ?<div style={{fontSize:13,color:"#444",lineHeight:1.75,fontFamily:"Georgia,serif"}}>{description}</div>
+              ?<div style={{fontSize:13,color:"#444",lineHeight:1.75,fontFamily:"'DM Sans',sans-serif"}}>{description}</div>
               :<div style={{fontSize:12,color:WG,fontStyle:"italic",fontFamily:"'DM Sans',sans-serif"}}>No description added — edit quote to add one.</div>
             }
             {(job?.dateIn||job?.dateOut)&&<div style={{marginTop:16,display:"flex",gap:28}}>
@@ -3611,7 +3611,7 @@ function ProposalPreview({quote,job,clients=[],biz,calc,payments=[],onClose}){
             {imgUrls.map((im,i)=>(
               <div key={i} style={{gridColumn:imgUrls.length===3&&i===0?"1 / -1":"auto"}}>
                 <img src={im.url} alt={im.caption||"Reference"} style={{width:"100%",height:imgUrls.length===1?320:220,objectFit:"cover",borderRadius:6,border:`1px solid ${BD}`,display:"block"}}/>
-                {im.caption&&<div style={{fontSize:11,color:WG,marginTop:6,fontStyle:"italic",fontFamily:"Georgia,serif"}}>{im.caption}</div>}
+                {im.caption&&<div style={{fontSize:11,color:WG,marginTop:6,fontStyle:"italic",fontFamily:"'DM Sans',sans-serif"}}>{im.caption}</div>}
               </div>
             ))}
           </div>
@@ -3628,7 +3628,7 @@ function ProposalPreview({quote,job,clients=[],biz,calc,payments=[],onClose}){
           <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:24,padding:"13px 0",borderTop:`1px solid ${BD}`}}>
             <div style={{flex:1,minWidth:0}}>
               <div style={{fontSize:13,fontWeight:600,color:INK,fontFamily:"'DM Sans',sans-serif"}}>{job?.type||"Jewellery piece"}</div>
-              <div style={{fontSize:11,color:WG,marginTop:3,lineHeight:1.6,fontFamily:"Georgia,serif"}}>{description||"Design, materials & craftsmanship"}</div>
+              <div style={{fontSize:11,color:WG,marginTop:3,lineHeight:1.6,fontFamily:"'DM Sans',sans-serif"}}>{description||"Design, materials & craftsmanship"}</div>
             </div>
             <div style={{fontSize:16,fontWeight:700,color:INK,fontFamily:"'DM Sans',sans-serif",whiteSpace:"nowrap"}}>{manual?<span style={{fontSize:12,fontWeight:400,fontStyle:"italic",color:WG}}>Included</span>:calc.bracket?fmtR(settingTotal):"—"}</div>
           </div>
@@ -3685,13 +3685,13 @@ function ProposalPreview({quote,job,clients=[],biz,calc,payments=[],onClose}){
         {/* ── TERMS ── */}
         <div style={{padding:"28px 52px",borderBottom:`1px solid ${BD}`}}>
           <div style={{fontSize:9,fontWeight:700,color:WG,letterSpacing:"0.16em",textTransform:"uppercase",marginBottom:14,fontFamily:"'DM Sans',sans-serif"}}>Terms &amp; conditions</div>
-          <div style={{fontSize:11,color:"#555",lineHeight:1.85,fontFamily:"Georgia,serif"}}>{terms}</div>
+          <div style={{fontSize:11,color:"#555",lineHeight:1.85,fontFamily:"'DM Sans',sans-serif"}}>{terms}</div>
         </div>
 
         {/* ── CLIENT ACCEPTANCE ── */}
         <div style={{padding:"28px 52px 44px"}}>
           <div style={{fontSize:9,fontWeight:700,color:WG,letterSpacing:"0.16em",textTransform:"uppercase",marginBottom:14,fontFamily:"'DM Sans',sans-serif"}}>Client acceptance</div>
-          <div style={{fontSize:12,color:"#555",marginBottom:28,fontFamily:"Georgia,serif",lineHeight:1.75}}>
+          <div style={{fontSize:12,color:"#555",marginBottom:28,fontFamily:"'DM Sans',sans-serif",lineHeight:1.75}}>
             I, the undersigned, accept the above quote and authorise work to commence upon payment of the required deposit.
           </div>
           <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"24px 40px"}}>
