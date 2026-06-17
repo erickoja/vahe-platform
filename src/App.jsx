@@ -5848,16 +5848,38 @@ function Appointments({appointments,setAppointments,clients,setClients,jobs=[],s
 
 // ── Nav + App shell ───────────────────────────────────────────────────────
 const NAV=[
-  {id:"dashboard",label:"Dashboard",icon:"⬡"},
-  {id:"appointments",label:"Appointments",icon:"◷"},
-  {id:"clients",label:"Clients",icon:"◈"},
-  {id:"jobs",label:"Jobs",icon:"◎"},
-  {id:"quotes",label:"Quotes",icon:"◇"},
-  {id:"invoices",label:"Invoices",icon:"◉"},
-  {id:"pricing",label:"Pricing DB",icon:"◆"},
-  {id:"reports",label:"Reports",icon:"▦"},
-  {id:"settings",label:"Settings",icon:"⚙"},
+  {id:"dashboard",label:"Dashboard"},
+  {id:"appointments",label:"Appointments"},
+  {id:"clients",label:"Clients"},
+  {id:"jobs",label:"Jobs"},
+  {id:"quotes",label:"Quotes"},
+  {id:"invoices",label:"Invoices"},
+  {id:"pricing",label:"Pricing DB"},
+  {id:"reports",label:"Reports"},
+  {id:"settings",label:"Settings"},
 ];
+const NAV_MAP=Object.fromEntries(NAV.map(n=>[n.id,n]));
+const NAV_GROUPS=[
+  {label:null,ids:["dashboard"]},
+  {label:"Workflow",ids:["appointments","clients","jobs","quotes","invoices"]},
+  {label:"Studio",ids:["pricing","reports","settings"]},
+];
+// Cohesive line-icon set for the sidebar (single 24-grid, 1.6 stroke, inherits color).
+function NavIcon({name,size=17}){
+  const p={width:size,height:size,viewBox:"0 0 24 24",fill:"none",stroke:"currentColor",strokeWidth:1.6,strokeLinecap:"round",strokeLinejoin:"round",style:{display:"block",flexShrink:0}};
+  switch(name){
+    case "dashboard": return <svg {...p}><rect x="3.5" y="3.5" width="7" height="7" rx="1.4"/><rect x="13.5" y="3.5" width="7" height="7" rx="1.4"/><rect x="3.5" y="13.5" width="7" height="7" rx="1.4"/><rect x="13.5" y="13.5" width="7" height="7" rx="1.4"/></svg>;
+    case "appointments": return <svg {...p}><rect x="3.5" y="5" width="17" height="15.5" rx="2"/><line x1="3.5" y1="9.5" x2="20.5" y2="9.5"/><line x1="8" y1="3" x2="8" y2="6.5"/><line x1="16" y1="3" x2="16" y2="6.5"/></svg>;
+    case "clients": return <svg {...p}><circle cx="8.5" cy="8" r="3"/><path d="M3 19c0-3.2 2.3-5.5 5.5-5.5s5.5 2.3 5.5 5.5"/><path d="M16 5.4a3 3 0 0 1 0 5.2"/><path d="M16.6 13.6c2.5.2 4.4 2.4 4.4 5.4"/></svg>;
+    case "jobs": return <svg {...p}><path d="M6 4H18L21 9L12 20L3 9Z"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="9" y1="9" x2="12" y2="20"/><line x1="15" y1="9" x2="12" y2="20"/><line x1="9" y1="9" x2="6" y2="4"/><line x1="15" y1="9" x2="18" y2="4"/></svg>;
+    case "quotes": return <svg {...p}><rect x="5" y="3" width="14" height="18" rx="2"/><line x1="8.5" y1="8" x2="15.5" y2="8"/><line x1="8.5" y1="12" x2="15.5" y2="12"/><line x1="8.5" y1="16" x2="13" y2="16"/></svg>;
+    case "invoices": return <svg {...p}><path d="M6 2.5H18V21.5L15 19.7L12 21.5L9 19.7L6 21.5Z"/><line x1="9" y1="8" x2="15" y2="8"/><line x1="9" y1="12" x2="15" y2="12"/></svg>;
+    case "pricing": return <svg {...p}><path d="M20.6 11.4 12.6 3.4a2 2 0 0 0-1.4-.6H4.5a1 1 0 0 0-1 1v6.7a2 2 0 0 0 .6 1.4l8 8a1.9 1.9 0 0 0 2.7 0l5.8-5.8a1.9 1.9 0 0 0 0-2.7Z"/><circle cx="7.8" cy="7.8" r="1.4"/></svg>;
+    case "reports": return <svg {...p}><line x1="3.5" y1="20.5" x2="20.5" y2="20.5"/><rect x="5" y="12" width="3.4" height="7" rx="0.6"/><rect x="10.3" y="8" width="3.4" height="11" rx="0.6"/><rect x="15.6" y="4.5" width="3.4" height="14.5" rx="0.6"/></svg>;
+    case "settings": return <svg {...p}><line x1="4" y1="8" x2="20" y2="8"/><circle cx="9" cy="8" r="2.3"/><line x1="4" y1="16" x2="20" y2="16"/><circle cx="15" cy="16" r="2.3"/></svg>;
+    default: return null;
+  }
+}
 
 // ── Login screen ──────────────────────────────────────────────────────────
 function Login(){
@@ -5876,8 +5898,7 @@ function Login(){
   return <div style={{minHeight:"100vh",display:"flex",alignItems:"center",justifyContent:"center",background:"#000000",fontFamily:"'DM Sans',sans-serif",padding:20}}>
     <form onSubmit={submit} style={{width:"100%",maxWidth:360,background:"#0E0E0E",border:"1px solid rgba(255,255,255,0.08)",borderRadius:16,padding:"36px 32px"}}>
       <div style={{textAlign:"center",marginBottom:28}}>
-        <div style={{fontSize:8,fontWeight:700,color:GOLD,letterSpacing:"0.28em",textTransform:"uppercase",marginBottom:8,opacity:0.85}}>Studio Platform</div>
-        <div style={{fontSize:30,fontWeight:300,color:WHITE,letterSpacing:"0.2em"}}>VAHÉ</div>
+        <div style={{fontSize:22,fontWeight:700,color:WHITE,letterSpacing:"0.16em",textTransform:"uppercase",lineHeight:1}}>Workshop Pilot</div>
       </div>
       <label style={{...SS.lbl,color:"rgba(255,255,255,0.5)"}}>Email</label>
       <input type="email" value={email} onChange={e=>setEmail(e.target.value)} autoFocus placeholder="you@studio.com"
@@ -6155,31 +6176,36 @@ export default function App(){
   }
 
   return <div style={{display:"flex",minHeight:"100vh",background:CREAM,fontFamily:"'DM Sans',sans-serif"}}>
-    <div style={{width:210,background:"#000000",display:"flex",flexDirection:"column",padding:"28px 0",flexShrink:0,position:"sticky",top:0,height:"100vh",overflowY:"auto"}}>
-      <div style={{padding:"0 20px 28px",borderBottom:"1px solid rgba(255,255,255,0.06)"}}>
-        <div style={{fontSize:8,fontWeight:700,color:GOLD,letterSpacing:"0.28em",textTransform:"uppercase",marginBottom:10,opacity:0.8}}>Studio Platform</div>
-        {biz.logo
-          ?<div style={{background:WHITE,borderRadius:4,padding:"8px 12px",display:"inline-flex",maxWidth:"100%"}}>
-              <img src={biz.logo} alt={biz.name||"Logo"} style={{maxWidth:"100%",maxHeight:46,objectFit:"contain",display:"block"}}/>
-            </div>
-          :<div style={{fontSize:24,fontWeight:300,color:WHITE,letterSpacing:"0.18em",fontFamily:"'DM Sans',sans-serif",lineHeight:1.1}}>{biz.name||"VAHÉ"}</div>}
+    <div style={{width:210,background:"#000000",display:"flex",flexDirection:"column",padding:"40px 0 28px",flexShrink:0,position:"sticky",top:0,height:"100vh",overflowY:"auto"}}>
+      <div style={{padding:"0 20px 28px",borderBottom:"1px solid rgba(255,255,255,0.06)",textAlign:"center"}}>
+        <div style={{fontSize:17,fontWeight:700,color:WHITE,letterSpacing:"0.16em",textTransform:"uppercase",lineHeight:1.15}}>Workshop Pilot</div>
       </div>
-      <nav style={{padding:"16px 8px",flex:1}}>
-        {NAV.map(n=>{
-          const active=activeNav===n.id;
-          return <button key={n.id} onClick={()=>setView(n.id)} style={{display:"flex",alignItems:"center",gap:10,width:"100%",padding:"8px 16px",borderRadius:0,border:"none",borderLeft:active?`2px solid ${GOLD}`:"2px solid transparent",background:active?"rgba(184,146,42,0.1)":"transparent",color:active?GOLD:"rgba(255,255,255,0.45)",fontSize:11,fontWeight:active?700:400,cursor:"pointer",fontFamily:"inherit",textAlign:"left",letterSpacing:"0.08em",textTransform:"uppercase",marginBottom:2,transition:"all 0.12s"}}
-            onMouseEnter={e=>{if(!active){e.currentTarget.style.background="rgba(255,255,255,0.06)";e.currentTarget.style.color=WHITE;}}}
-            onMouseLeave={e=>{e.currentTarget.style.background=active?"rgba(201,168,76,0.16)":"transparent";e.currentTarget.style.color=active?GOLD:"rgba(255,255,255,0.42)";}}>
-            <span style={{fontSize:14}}>{n.icon}</span>{n.label}
-          </button>;
-        })}
+      <nav style={{padding:"16px 12px",flex:1}}>
+        {NAV_GROUPS.map((g,gi)=>(
+          <div key={gi} style={{marginBottom:gi<NAV_GROUPS.length-1?16:0}}>
+            {g.label&&<div style={{fontSize:9,fontWeight:700,letterSpacing:"0.2em",textTransform:"uppercase",color:"rgba(255,255,255,0.26)",padding:"0 12px",marginBottom:8}}>{g.label}</div>}
+            {g.ids.map(id=>{
+              const n=NAV_MAP[id];const active=activeNav===id;
+              return <button key={id} onClick={()=>setView(id)} style={{display:"flex",alignItems:"center",gap:12,width:"100%",padding:"9px 12px",borderRadius:6,border:"none",background:active?"rgba(184,146,42,0.13)":"transparent",color:active?GOLD:"rgba(255,255,255,0.5)",fontSize:11,fontWeight:active?700:500,cursor:"pointer",fontFamily:"inherit",textAlign:"left",letterSpacing:"0.09em",textTransform:"uppercase",marginBottom:2,transition:"background 0.12s,color 0.12s"}}
+                onMouseEnter={e=>{if(!active){e.currentTarget.style.background="rgba(255,255,255,0.05)";e.currentTarget.style.color="rgba(255,255,255,0.92)";}}}
+                onMouseLeave={e=>{if(!active){e.currentTarget.style.background="transparent";e.currentTarget.style.color="rgba(255,255,255,0.5)";}}}>
+                <NavIcon name={id} size={17}/><span>{n.label}</span>
+              </button>;
+            })}
+          </div>
+        ))}
       </nav>
-      <div style={{padding:"12px 20px",borderTop:"1px solid rgba(255,255,255,0.08)"}}>
-        {supabaseEnabled&&session&&<div style={{marginBottom:10}}>
-          <div style={{fontSize:10,color:"rgba(255,255,255,0.4)",marginBottom:6,wordBreak:"break-all"}}>{session.user?.email}</div>
-          <button onClick={()=>supabase.auth.signOut()} style={{background:"none",border:"1px solid rgba(255,255,255,0.18)",borderRadius:6,padding:"5px 12px",color:"rgba(255,255,255,0.55)",fontSize:11,fontWeight:700,cursor:"pointer",fontFamily:"inherit",letterSpacing:"0.04em"}}>Sign out</button>
+      <div style={{padding:"14px 16px",borderTop:"1px solid rgba(255,255,255,0.07)"}}>
+        {supabaseEnabled&&session&&<div style={{display:"flex",alignItems:"center",gap:10,marginBottom:12}}>
+          <div style={{width:28,height:28,borderRadius:"50%",background:"rgba(255,255,255,0.08)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:11,fontWeight:700,color:"rgba(255,255,255,0.7)",flexShrink:0}}>{(session.user?.email||"?").slice(0,1).toUpperCase()}</div>
+          <div style={{fontSize:10.5,color:"rgba(255,255,255,0.5)",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",minWidth:0,flex:1}}>{session.user?.email}</div>
         </div>}
-        <div style={{fontSize:9,color:"rgba(255,255,255,0.18)",letterSpacing:"0.1em",textTransform:"uppercase"}}>v0.9</div>
+        <div style={{display:"flex",alignItems:"center",justifyContent:"space-between"}}>
+          {supabaseEnabled&&session
+            ?<button onClick={()=>supabase.auth.signOut()} style={{background:"none",border:"none",padding:0,color:"rgba(255,255,255,0.42)",fontSize:9.5,fontWeight:700,letterSpacing:"0.14em",textTransform:"uppercase",cursor:"pointer",fontFamily:"inherit"}}>Sign out</button>
+            :<span/>}
+          <div style={{fontSize:9,color:"rgba(255,255,255,0.18)",letterSpacing:"0.1em",textTransform:"uppercase"}}>v0.9</div>
+        </div>
       </div>
     </div>
     <div style={{flex:1,padding:"40px 56px",width:"100%",minWidth:0}}>
