@@ -36,7 +36,7 @@ const GOLD="#B8922A",GOLD_L="#F5EDD8",GOLD_D="#7A5F0F",INK="#141414",PARCH="#F7F
 // Monochrome (black & white) system
 const CREAM="#F5F5F6";          // app background (light neutral grey)
 const BD_SOFT="#ECECEE";        // softer hairline border
-const RADIUS=18;                // card corner radius
+const RADIUS=5;                 // card corner radius (sharp editorial)
 const SHADOW="0 1px 2px rgba(20,20,22,0.04),0 4px 14px rgba(20,20,22,0.06)";
 const SHADOW_HV="0 6px 18px rgba(20,20,22,0.10),0 16px 36px rgba(20,20,22,0.12)";
 // Stat-tile treatments — neutral by default; a couple carry a functional status hint
@@ -925,13 +925,13 @@ const deleteJobImage=async(path)=>{
 };
 
 // ── Shared UI ─────────────────────────────────────────────────────────────
-const SS={inp:{width:"100%",padding:"10px 13px",borderRadius:10,border:`1px solid ${BD}`,fontSize:13,fontFamily:"inherit",color:INK,background:WHITE,outline:"none",boxSizing:"border-box",marginTop:4},lbl:{fontSize:10,fontWeight:700,color:WG,letterSpacing:"0.1em",textTransform:"uppercase",display:"block"}};
+const SS={inp:{width:"100%",padding:"10px 13px",borderRadius:4,border:`1px solid ${BD}`,fontSize:13,fontFamily:"inherit",color:INK,background:WHITE,outline:"none",boxSizing:"border-box",marginTop:4},lbl:{fontSize:10,fontWeight:700,color:WG,letterSpacing:"0.1em",textTransform:"uppercase",display:"block"}};
 
 
 function StoneMarkupSummary({calc}){
   if(!calc)return null;
   if(!calc.bracket)return <div style={{background:"#FFF3CD",border:"1px solid #F0C040",borderRadius:6,padding:"12px 16px",fontSize:13,color:WARN}}>Stone cost is outside your stone markup table range — check your table in Settings.</div>;
-  return <div style={{background:PARCH,border:`1px solid ${BD}`,borderRadius:8,overflow:"hidden"}}>
+  return <div style={{background:PARCH,border:`1px solid ${BD}`,borderRadius:4,overflow:"hidden"}}>
     <div style={{display:"grid",gridTemplateColumns:"repeat(5,1fr)",borderBottom:`1px solid ${BD}`}}>
       {[
         ["Your cost",fmt(calc.totalCost),WG],
@@ -960,15 +960,18 @@ function StoneMarkupSummary({calc}){
 }
 
 function Badge({label,color=WG,size="sm"}){
-  return <span style={{display:"inline-block",padding:size==="lg"?"4px 14px":"2px 9px",borderRadius:20,fontSize:size==="lg"?12:11,fontWeight:700,letterSpacing:"0.04em",background:color+"22",color,border:`1px solid ${color}44`,whiteSpace:"nowrap"}}>{label}</span>;
+  return <span style={{display:"inline-block",padding:size==="lg"?"4px 14px":"2px 9px",borderRadius:3,fontSize:size==="lg"?12:11,fontWeight:700,letterSpacing:"0.04em",background:color+"22",color,border:`1px solid ${color}44`,whiteSpace:"nowrap"}}>{label}</span>;
 }
 function Btn({onClick,children,sm,danger,ghost,disabled}){
   const[h,setH]=useState(false);
-  const bg=disabled?"#D6D6D8":danger?(h?"#9A2D22":DANGER):ghost?(h?"#EFEFF1":"transparent"):(h?"#000000":INK);
-  const fg=ghost?(h?INK:WG):WHITE;
-  const shadow=disabled||ghost?"none":h?(danger?"0 4px 12px rgba(192,57,43,0.28)":"0 4px 12px rgba(20,20,22,0.28)"):(danger?"0 2px 6px rgba(192,57,43,0.20)":"0 2px 6px rgba(20,20,22,0.20)");
+  // Fine-editorial style: flat, near-square, hairline borders, uppercase letter-spaced labels.
+  let bg,fg,bc;
+  if(disabled){bg="#D6D6D8";fg=WHITE;bc="#D6D6D8";}
+  else if(danger){bg=h?"#9A2D22":DANGER;fg=WHITE;bc=bg;}
+  else if(ghost){bg=h?"#F1EFE8":"transparent";fg=INK;bc=h?"#A99F8C":"#C9BFAE";}
+  else{bg=h?"#000000":INK;fg=WHITE;bc=bg;}
   return <button onClick={disabled?undefined:onClick} onMouseEnter={()=>setH(true)} onMouseLeave={()=>setH(false)} disabled={disabled}
-    style={{background:bg,color:fg,border:ghost?`1px solid ${BD}`:"none",borderRadius:999,padding:sm?"6px 15px":"10px 22px",fontSize:sm?12:14,fontWeight:700,cursor:disabled?"default":"pointer",fontFamily:"inherit",letterSpacing:"0.01em",transition:"all 0.15s",opacity:disabled?0.6:1,boxShadow:shadow,transform:h&&!disabled?"translateY(-1px)":"none"}}>{children}</button>;
+    style={{background:bg,color:fg,border:`1px solid ${bc}`,borderRadius:2,padding:sm?"7px 15px":"10px 23px",fontSize:sm?11:12.5,fontWeight:700,letterSpacing:"0.12em",textTransform:"uppercase",cursor:disabled?"default":"pointer",fontFamily:"inherit",transition:"all 0.15s",opacity:disabled?0.6:1,whiteSpace:"nowrap"}}>{children}</button>;
 }
 function Input({label,value,onChange,type="text",placeholder,as,options,rows,min,step,disabled}){
   return <div style={{marginBottom:14}}>
@@ -1020,9 +1023,9 @@ function MarkupSummary({baseLow,baseHigh,isRange,bracket,mult,autoMult,overridde
   const mfHigh=markupFinalHigh!==undefined?markupFinalHigh:finalHigh;
   const hasFlat=hasFlatItems&&flatTotal>0;
   // No bracket AND no manual override = genuinely can't price → warn.
-  if(!bracket&&!overridden&&baseLow>0)return <div style={{background:"#FFF3CD",border:"1px solid #F0C040",borderRadius:10,padding:"12px 16px",fontSize:13,color:WARN}}>Base cost is outside your markup table range — set a manual markup multiplier below, or check your table in Settings.</div>;
+  if(!bracket&&!overridden&&baseLow>0)return <div style={{background:"#FFF3CD",border:"1px solid #F0C040",borderRadius:4,padding:"12px 16px",fontSize:13,color:WARN}}>Base cost is outside your markup table range — set a manual markup multiplier below, or check your table in Settings.</div>;
   if(!bracket&&!overridden&&baseLow===0&&!hasFlat)return null;
-  return <div style={{background:PARCH,border:`1px solid ${BD}`,borderRadius:8,overflow:"hidden"}}>
+  return <div style={{background:PARCH,border:`1px solid ${BD}`,borderRadius:4,overflow:"hidden"}}>
     <div style={{display:"grid",gridTemplateColumns:hasFlat?"1fr 1fr 1fr 1fr 1fr":"1fr 1fr 1fr 1fr",borderBottom:hasFlat?`1px solid ${BD}`:"none"}}>
       {[
         ["Base cost",baseLow>0?fmt(baseLow):"—",WG],
@@ -1251,7 +1254,7 @@ function Dashboard({clients,jobs,quotes,payments,invoices,appointments=[],propos
       const job=jobs.find(j=>j.id===p.jobId);
       const cl=job?clients.find(x=>x.id===job.clientId):null;
       const labels=String(p.acceptedQuoteId||"").split(",").map(s=>s.trim()).filter(Boolean).map(id=>{const aq=quotes.find(x=>x.id===id);return aq?quoteLabel(aq):"";}).filter(Boolean).join(" + ");
-      return <div key={p.id} style={{display:"flex",alignItems:"center",gap:14,background:OK+"10",border:`1px solid ${OK}55`,borderRadius:12,padding:"14px 18px",marginBottom:14}}>
+      return <div key={p.id} style={{display:"flex",alignItems:"center",gap:14,background:OK+"10",border:`1px solid ${OK}55`,borderRadius:5,padding:"14px 18px",marginBottom:14}}>
         <div style={{fontSize:24,lineHeight:1}}>🎉</div>
         <div style={{flex:1}}>
           <div style={{fontSize:14,fontWeight:800,color:INK}}>Proposal accepted{cl?.name?` — ${cl.name}`:""}</div>
@@ -1265,7 +1268,7 @@ function Dashboard({clients,jobs,quotes,payments,invoices,appointments=[],propos
     {repairUnseen.map(job=>{
       const cl=clients.find(x=>x.id===job.clientId);
       const r=job.repairResponse;const acc=r.decision!=="declined";
-      return <div key={job.id} style={{display:"flex",alignItems:"center",gap:14,background:(acc?OK:DANGER)+"10",border:`1px solid ${(acc?OK:DANGER)}55`,borderRadius:12,padding:"14px 18px",marginBottom:14}}>
+      return <div key={job.id} style={{display:"flex",alignItems:"center",gap:14,background:(acc?OK:DANGER)+"10",border:`1px solid ${(acc?OK:DANGER)}55`,borderRadius:5,padding:"14px 18px",marginBottom:14}}>
         <div style={{fontSize:24,lineHeight:1}}>{acc?"🎉":"⚠️"}</div>
         <div style={{flex:1}}>
           <div style={{fontSize:14,fontWeight:800,color:INK}}>Repair {acc?"accepted":"declined"}{cl?.name?` — ${cl.name}`:""}</div>
@@ -1448,7 +1451,7 @@ function ClientDetail({clientId,clients,setClients,jobs,setJobs,quotes,payments,
     </div>
     {charged>0&&<div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:12,marginBottom:16}}>
       {[["Total charged",fmt(charged),INK],["Paid",fmt(spent),OK],["Outstanding",fmt(owing),owing>0.5?WARN:OK]].map(([l,v,col])=>(
-        <div key={l} style={{background:WHITE,border:`1px solid ${BD}`,borderRadius:14,padding:"14px 16px"}}>
+        <div key={l} style={{background:WHITE,border:`1px solid ${BD}`,borderRadius:5,padding:"14px 16px"}}>
           <div style={{fontSize:10,color:WG,fontWeight:700,textTransform:"uppercase",letterSpacing:"0.06em"}}>{l}</div>
           <div style={{fontSize:20,fontWeight:800,color:col,marginTop:3}}>{v}</div>
         </div>
@@ -1512,7 +1515,7 @@ function JobForm({clients,initial={},onSave,onCancel}){
       <Input label="Date of pickup / collection" value={f.dateOut} onChange={set("dateOut")} type="date"/>
     </div>
     <div style={{borderTop:`1px solid ${BD}`,margin:"6px 0 16px"}}/>
-    <div style={{background:GOLD_L,border:`1px solid ${GOLD}55`,borderRadius:10,padding:"12px 16px",marginBottom:16}}>
+    <div style={{background:GOLD_L,border:`1px solid ${GOLD}55`,borderRadius:4,padding:"12px 16px",marginBottom:16}}>
       <Input label="Total charge override ($) — optional" value={f.totalOverride||""} onChange={set("totalOverride")} type="number" min="0" step="0.01" placeholder="e.g. 4500"/>
       <div style={{fontSize:11,color:GOLD_D,marginTop:-6,lineHeight:1.5}}>Set this when the sale was agreed outside the CRM (no quote needed). The CRM uses it as the job's total for balances, overview &amp; reports. Leave blank to use approved quotes instead.</div>
     </div>
@@ -1578,12 +1581,12 @@ function Jobs({clients,jobs,setJobs,quotes,setQuotes,payments,setPayments,notes,
     {/* List / Board view toggle */}
     <div style={{display:"flex",gap:6,marginBottom:14,alignItems:"center"}}>
       {[["list","☰ List"],["board","▦ Board"]].map(([m,label])=>(
-        <button key={m} onClick={()=>setMode(m)} style={{padding:"5px 15px",borderRadius:20,border:`1px solid ${mode===m?INK:BD}`,background:mode===m?INK:"transparent",color:mode===m?WHITE:WG,fontSize:12,fontWeight:700,cursor:"pointer",fontFamily:"inherit"}}>{label}</button>
+        <button key={m} onClick={()=>setMode(m)} style={{padding:"6px 16px",borderRadius:3,border:`1px solid ${mode===m?INK:BD}`,background:mode===m?INK:"transparent",color:mode===m?WHITE:WG,fontSize:11,fontWeight:700,letterSpacing:"0.1em",textTransform:"uppercase",cursor:"pointer",fontFamily:"inherit"}}>{label}</button>
       ))}
       {mode==="board"&&<span style={{fontSize:11,color:WG,marginLeft:6}}>Drag a card to move it to another stage.</span>}
     </div>
     {mode==="list"&&<div style={{display:"flex",gap:6,flexWrap:"wrap",marginBottom:14}}>
-      {["All",...JOB_STAGES].map(s=><button key={s} onClick={()=>setSf(s)} style={{padding:"4px 11px",borderRadius:20,border:`1px solid ${sf===s?GOLD:BD}`,background:sf===s?GOLD:"transparent",color:sf===s?WHITE:WG,fontSize:11,fontWeight:700,cursor:"pointer",fontFamily:"inherit"}}>{s}</button>)}
+      {["All",...JOB_STAGES].map(s=><button key={s} onClick={()=>setSf(s)} style={{padding:"4px 11px",borderRadius:3,border:`1px solid ${sf===s?GOLD:BD}`,background:sf===s?GOLD:"transparent",color:sf===s?WHITE:WG,fontSize:11,fontWeight:700,cursor:"pointer",fontFamily:"inherit"}}>{s}</button>)}
     </div>}
     {mode==="list"&&(q||tf!=="All"||sf!=="All")&&<div style={{fontSize:12,color:WG,marginBottom:12}}>Showing <b style={{color:INK}}>{filtered.length}</b> of {jobs.length} job{jobs.length!==1?"s":""}{tf!=="All"?` · ${tf}`:""}{sf!=="All"?` · ${sf}`:""}{q?` · “${search.trim()}”`:""}{(q||tf!=="All"||sf!=="All")&&<button onClick={()=>{setSearch("");setTf("All");setSf("All");}} style={{background:"none",border:"none",color:GOLD,fontWeight:700,fontSize:12,cursor:"pointer",fontFamily:"inherit",marginLeft:8,padding:0}}>Clear</button>}</div>}
 
@@ -1598,10 +1601,10 @@ function Jobs({clients,jobs,setJobs,quotes,setQuotes,payments,setPayments,notes,
             onDragOver={e=>{e.preventDefault();e.dataTransfer.dropEffect="move";if(dragOver!==s)setDragOver(s);}}
             onDragLeave={e=>{if(!e.currentTarget.contains(e.relatedTarget))setDragOver(d=>d===s?null:d);}}
             onDrop={e=>{e.preventDefault();const id=e.dataTransfer.getData("text/plain");if(id)moveJobToStage(id,s);setDragOver(null);}}
-            style={{width:264,flexShrink:0,background:isOver?sc+"18":PARCH,border:`1px solid ${isOver?sc:BD}`,borderRadius:12,padding:"12px 12px 14px",display:"flex",flexDirection:"column",gap:10,alignSelf:"flex-start"}}>
+            style={{width:264,flexShrink:0,background:isOver?sc+"18":PARCH,border:`1px solid ${isOver?sc:BD}`,borderRadius:5,padding:"12px 12px 14px",display:"flex",flexDirection:"column",gap:10,alignSelf:"flex-start"}}>
             <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:8,padding:"0 2px 10px",borderBottom:`2px solid ${sc}`}}>
               <span style={{fontSize:12,fontWeight:800,color:sc,textTransform:"uppercase",letterSpacing:"0.03em",lineHeight:1.25}}>{s}</span>
-              <span style={{fontSize:12,fontWeight:800,color:WG,background:WHITE,borderRadius:12,padding:"2px 10px",flexShrink:0}}>{col.length}</span>
+              <span style={{fontSize:12,fontWeight:800,color:WG,background:WHITE,borderRadius:5,padding:"2px 10px",flexShrink:0}}>{col.length}</span>
             </div>
             {col.length===0&&<div style={{fontSize:12,color:"#C8C4BE",textAlign:"center",padding:"14px 0"}}>No jobs</div>}
             {col.map(j=>{
@@ -1751,16 +1754,16 @@ function JobImages({job,setJobs}){
   return <Card>
     <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:14}}>
       <div style={{fontWeight:700,fontSize:15,color:INK}}>Images ({images.length})</div>
-      <label style={{background:GOLD,color:WHITE,borderRadius:8,padding:"7px 16px",fontSize:12,fontWeight:700,cursor:busy?"default":"pointer",fontFamily:"inherit",letterSpacing:"0.02em",opacity:busy?0.6:1}}>
+      <label style={{background:GOLD,color:WHITE,borderRadius:4,padding:"7px 16px",fontSize:12,fontWeight:700,cursor:busy?"default":"pointer",fontFamily:"inherit",letterSpacing:"0.02em",opacity:busy?0.6:1}}>
         {busy?"Uploading…":"+ Upload images"}
         <input type="file" accept="image/*" multiple disabled={busy} onChange={e=>{onFiles(e.target.files);e.target.value="";}} style={{display:"none"}}/>
       </label>
     </div>
-    {err&&<div style={{background:DANGER+"15",border:`1px solid ${DANGER}44`,color:DANGER,fontSize:12,padding:"8px 12px",borderRadius:8,marginBottom:12}}>{err}</div>}
+    {err&&<div style={{background:DANGER+"15",border:`1px solid ${DANGER}44`,color:DANGER,fontSize:12,padding:"8px 12px",borderRadius:4,marginBottom:12}}>{err}</div>}
     {images.length===0&&!busy&&<div style={{fontSize:13,color:WG,fontStyle:"italic",padding:"8px 0"}}>No images yet. Upload reference shots, CAD renders, progress photos or the finished piece.</div>}
     {images.length>0&&<div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(150px,1fr))",gap:12}}>
       {images.map(img=>(
-        <div key={img.id} style={{border:`1px solid ${BD}`,borderRadius:10,overflow:"hidden",background:PARCH}}>
+        <div key={img.id} style={{border:`1px solid ${BD}`,borderRadius:4,overflow:"hidden",background:PARCH}}>
           <div onClick={()=>urls[img.path]&&setLightbox(urls[img.path])} style={{width:"100%",height:130,background:`#EEE center/cover no-repeat`,backgroundImage:urls[img.path]?`url(${urls[img.path]})`:"none",cursor:urls[img.path]?"zoom-in":"default",display:"flex",alignItems:"center",justifyContent:"center"}}>
             {!urls[img.path]&&<span style={{fontSize:11,color:WG}}>loading…</span>}
           </div>
@@ -1775,7 +1778,7 @@ function JobImages({job,setJobs}){
       ))}
     </div>}
     {lightbox&&<div onClick={()=>setLightbox(null)} style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.85)",zIndex:600,display:"flex",alignItems:"center",justifyContent:"center",padding:30,cursor:"zoom-out"}}>
-      <img src={lightbox} alt="" style={{maxWidth:"100%",maxHeight:"100%",borderRadius:8,boxShadow:"0 20px 80px rgba(0,0,0,0.6)"}}/>
+      <img src={lightbox} alt="" style={{maxWidth:"100%",maxHeight:"100%",borderRadius:4,boxShadow:"0 20px 80px rgba(0,0,0,0.6)"}}/>
     </div>}
   </Card>;
 }
@@ -1854,13 +1857,13 @@ function RepairIntakeCard({job,setJobs,biz,clients,markupTable}){
         <Btn sm ghost onClick={()=>printRepairIntake(biz,c,{...job,dateIn:dIn,dateOut:dOut,intake:{items:items.map(it=>({...it,clientPrice:itemClient(it)})),instructions}})}>Print / Save PDF</Btn>
       </div>
     </div>
-    {job.repairToken&&<div style={{background:GOLD_L+"55",border:`1px solid ${GOLD}55`,borderRadius:8,padding:"9px 14px",marginBottom:16,display:"flex",alignItems:"center",gap:12,flexWrap:"wrap"}}>
+    {job.repairToken&&<div style={{background:GOLD_L+"55",border:`1px solid ${GOLD}55`,borderRadius:4,padding:"9px 14px",marginBottom:16,display:"flex",alignItems:"center",gap:12,flexWrap:"wrap"}}>
       <span style={{fontSize:12,fontWeight:700,color:GOLD_D,whiteSpace:"nowrap"}}>🔗 Client link</span>
       <span style={{flex:1,minWidth:180,fontSize:12,color:WG,wordBreak:"break-all",fontFamily:"monospace"}}>{repairLink}</span>
       {!response&&<><span style={{fontSize:11,fontWeight:700,color:WG,whiteSpace:"nowrap"}}>⏳ Awaiting client response</span>
         <button onClick={()=>fetchResponse(false)} style={{background:"none",border:`1px solid ${BD}`,borderRadius:6,padding:"4px 10px",fontSize:11,fontWeight:700,color:WG,cursor:"pointer",fontFamily:"inherit"}}>{checking?"Checking…":"Check now"}</button></>}
     </div>}
-    {response&&(()=>{const acc=response.decision!=="declined";return <div style={{background:(acc?OK:DANGER)+"12",border:`1px solid ${(acc?OK:DANGER)}55`,borderRadius:8,padding:"10px 14px",marginBottom:16,fontSize:13,fontWeight:700,color:acc?OK:DANGER}}>
+    {response&&(()=>{const acc=response.decision!=="declined";return <div style={{background:(acc?OK:DANGER)+"12",border:`1px solid ${(acc?OK:DANGER)}55`,borderRadius:4,padding:"10px 14px",marginBottom:16,fontSize:13,fontWeight:700,color:acc?OK:DANGER}}>
       {acc?"✓":"✗"} Client {acc?"accepted":"declined"} online{response.name?` — ${response.name}`:""}{response.at?` on ${fmtDate(response.at)}`:""}
     </div>;})()}
     <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:14,marginBottom:18}}>
@@ -1876,7 +1879,7 @@ function RepairIntakeCard({job,setJobs,biz,clients,markupTable}){
 
     {/* Items — one per piece brought in */}
     {items.map((it,idx)=>(
-      <div key={it.id} style={{border:`1px solid ${BD}`,borderRadius:10,padding:"14px 16px",marginBottom:12,background:PARCH}}>
+      <div key={it.id} style={{border:`1px solid ${BD}`,borderRadius:4,padding:"14px 16px",marginBottom:12,background:PARCH}}>
         <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}}>
           <div style={{fontSize:11,fontWeight:700,color:GOLD_D,textTransform:"uppercase",letterSpacing:"0.06em"}}>Item {idx+1}</div>
           {items.length>1&&<div style={{display:"flex",alignItems:"center",gap:8}}>
@@ -1920,22 +1923,22 @@ function RepairIntakeCard({job,setJobs,biz,clients,markupTable}){
         </div>
       </div>
     ))}
-    <button onClick={addItem} style={{background:"none",border:`1px dashed ${GOLD}`,borderRadius:8,padding:"8px 16px",color:GOLD_D,fontSize:12,fontWeight:700,cursor:"pointer",fontFamily:"inherit",marginBottom:16}}>+ Add another item</button>
+    <button onClick={addItem} style={{background:"none",border:`1px dashed ${GOLD}`,borderRadius:4,padding:"8px 16px",color:GOLD_D,fontSize:12,fontWeight:700,cursor:"pointer",fontFamily:"inherit",marginBottom:16}}>+ Add another item</button>
 
     {/* Repair total */}
-    {repairTotal>0&&<div style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:12,flexWrap:"wrap",background:INK,borderRadius:10,padding:"14px 18px",marginBottom:16}}>
+    {repairTotal>0&&<div style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:12,flexWrap:"wrap",background:INK,borderRadius:4,padding:"14px 18px",marginBottom:16}}>
       <div>
         <div style={{fontSize:10,fontWeight:700,color:"rgba(255,255,255,0.5)",textTransform:"uppercase",letterSpacing:"0.08em"}}>Repair total{items.filter(i=>Number(i.price)>0).length>1?` · ${items.filter(i=>Number(i.price)>0).length} items`:""}</div>
         <div style={{fontSize:22,fontWeight:800,color:WHITE,marginTop:2}}>{fmt(repairTotal)} <span style={{fontSize:12,fontWeight:400,color:"rgba(255,255,255,0.5)"}}>inc GST</span></div>
       </div>
-      <button onClick={setAsCharge} style={{background:GOLD,border:"none",borderRadius:8,padding:"9px 16px",color:WHITE,fontSize:12,fontWeight:700,cursor:"pointer",fontFamily:"inherit"}}>Set as job charge →</button>
+      <button onClick={setAsCharge} style={{background:GOLD,border:"none",borderRadius:4,padding:"9px 16px",color:WHITE,fontSize:12,fontWeight:700,cursor:"pointer",fontFamily:"inherit"}}>Set as job charge →</button>
     </div>}
 
     <div style={{marginBottom:16}}>
       <div style={SS.lbl}>Client instructions <span style={{fontWeight:400,color:WG}}>(optional — applies to the whole drop-off)</span></div>
       <textarea style={{...SS.inp,minHeight:56,resize:"vertical"}} value={instructions} placeholder="Any specific requests from the client…" onChange={e=>setInstructions(e.target.value)} onBlur={commit}/>
     </div>
-    <div style={{fontSize:12,color:WG,lineHeight:1.7,padding:"12px 14px",background:PARCH,borderRadius:8,border:`1px solid ${BD}`}}>
+    <div style={{fontSize:12,color:WG,lineHeight:1.7,padding:"12px 14px",background:PARCH,borderRadius:4,border:`1px solid ${BD}`}}>
       <strong style={{color:INK}}>Disclaimer: </strong>We are not responsible for damage to client-supplied gemstones during repair. We do not provide a warranty on repaired pieces — all repairs are undertaken at the client's risk.
     </div>
     <div style={{display:"flex",alignItems:"center",justifyContent:"flex-end",gap:12,marginTop:16}}>
@@ -2030,7 +2033,7 @@ function JobDetail({jobId,jobs,setJobs,clients,quotes,setQuotes,payments,setPaym
     {editStage&&<Card style={{background:PARCH}}>
       <div style={{...SS.lbl,marginBottom:10}}>Move to stage</div>
       <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
-        {JOB_STAGES.map(s=><button key={s} onClick={()=>moveStage(s)} style={{padding:"4px 11px",borderRadius:20,border:`1px solid ${job.stage===s?SC[s]:BD}`,background:job.stage===s?(SC[s]+"22"):"transparent",color:job.stage===s?SC[s]:WG,fontSize:11,fontWeight:700,cursor:"pointer",fontFamily:"inherit"}}>{s}</button>)}
+        {JOB_STAGES.map(s=><button key={s} onClick={()=>moveStage(s)} style={{padding:"4px 11px",borderRadius:3,border:`1px solid ${job.stage===s?SC[s]:BD}`,background:job.stage===s?(SC[s]+"22"):"transparent",color:job.stage===s?SC[s]:WG,fontSize:11,fontWeight:700,cursor:"pointer",fontFamily:"inherit"}}>{s}</button>)}
       </div>
     </Card>}
     {job.description&&<Card><div style={{...SS.lbl,marginBottom:8}}>Description</div><div style={{fontSize:14,color:INK,lineHeight:1.7}}>{job.description}</div>{job.notes&&<div style={{marginTop:10,fontSize:13,color:WG,fontStyle:"italic",borderTop:`1px solid ${BD}`,paddingTop:10}}>Notes: {job.notes}</div>}</Card>}
@@ -2043,7 +2046,7 @@ function JobDetail({jobId,jobs,setJobs,clients,quotes,setQuotes,payments,setPaym
       </div>
       {jobTotal>0&&<div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:10,marginBottom:14}}>
         {[[usingOverride?"Total charge":"Approx. quote",fmt(jobTotal),INK],["Received",fmt(paidTotal),OK],["Outstanding",fmt(Math.max(0,balance)),balance>0.5?WARN:OK]].map(([l,v,col])=>(
-          <div key={l} style={{background:PARCH,borderRadius:10,padding:"10px 12px",border:`1px solid ${BD}`}}>
+          <div key={l} style={{background:PARCH,borderRadius:4,padding:"10px 12px",border:`1px solid ${BD}`}}>
             <div style={{fontSize:10,color:WG,fontWeight:700,textTransform:"uppercase",letterSpacing:"0.05em"}}>{l}</div>
             <div style={{fontSize:19,fontWeight:800,color:col,marginTop:3}}>{v}</div>
           </div>
@@ -2176,7 +2179,7 @@ function AccentStoneModal({pricing,setPricing,naturalStoneMarkup,labStoneMarkup,
   return <Modal title="Add accent & fancy stone" onClose={onClose}>
     {!adding&&<>
       {/* Quick structured cut/fancy stone entry */}
-      <div style={{background:PARCH,border:`1px solid ${BD}`,borderRadius:10,padding:"14px 16px",marginBottom:18}}>
+      <div style={{background:PARCH,border:`1px solid ${BD}`,borderRadius:4,padding:"14px 16px",marginBottom:18}}>
         <div style={{fontSize:11,fontWeight:700,color:WG,textTransform:"uppercase",letterSpacing:"0.06em",marginBottom:10}}>Quick add — cut / fancy stone</div>
         <div style={{display:"grid",gridTemplateColumns:"1.1fr 1fr 0.6fr 0.9fr",gap:"0 12px"}}>
           <Input label="Cut / shape" value={shape} onChange={setShape} as="select" options={STONE_SHAPES}/>
@@ -2281,7 +2284,7 @@ function CentreStonePicker({onAdd,centreRates=DEFAULT_CENTRE_RATES}){
         <div style={{display:"flex",gap:10,marginTop:4}}>
           {[[false,"Basic","Round diamond, standard claw"],[true,"Complex","Pear claws, bezels, fragile / sapphire"]].map(([val,label,sub])=>(
             <button key={label} onClick={()=>setComplex(val)} style={{
-              flex:1,padding:"10px 14px",borderRadius:8,cursor:"pointer",fontFamily:"inherit",textAlign:"left",
+              flex:1,padding:"10px 14px",borderRadius:4,cursor:"pointer",fontFamily:"inherit",textAlign:"left",
               border:`2px solid ${complex===val?(val?"#B05C3A":"#4A8E6A"):BD}`,
               background:complex===val?(val?"#B05C3A11":"#4A8E6A11"):"transparent",transition:"all 0.12s"
             }}>
@@ -2292,7 +2295,7 @@ function CentreStonePicker({onAdd,centreRates=DEFAULT_CENTRE_RATES}){
         </div>
       </div>
     </div>
-    <div style={{marginTop:18,background:fee>0?OK+"11":PARCH,border:`1px solid ${fee>0?OK:BD}`,borderRadius:10,padding:"14px 18px",display:"flex",justifyContent:"space-between",alignItems:"center",gap:12}}>
+    <div style={{marginTop:18,background:fee>0?OK+"11":PARCH,border:`1px solid ${fee>0?OK:BD}`,borderRadius:4,padding:"14px 18px",display:"flex",justifyContent:"space-between",alignItems:"center",gap:12}}>
       <div>
         <div style={{fontSize:12,fontWeight:700,color:INK}}>Centre stone setting — {complex?"complex":"basic"}</div>
         <div style={{fontSize:12,color:WG,marginTop:2}}>{w>0?`${w}ct × ${fmt(perCt)}/ct`:"Enter a carat weight to calculate"}</div>
@@ -2320,7 +2323,7 @@ function CADQuotePicker({pricing,selCAD,setSelCAD,pQty,setPQty,addFromDB}){
         const isNone=tier.baseCost===0;
         return <button key={tier.id}
           onClick={()=>setSelCAD(sel?null:tier)}
-          style={{border:`2px solid ${sel?col:BD}`,borderRadius:12,padding:"14px",cursor:"pointer",background:sel?col+"18":WHITE,transition:"all 0.12s",textAlign:"left",fontFamily:"inherit"}}>
+          style={{border:`2px solid ${sel?col:BD}`,borderRadius:5,padding:"14px",cursor:"pointer",background:sel?col+"18":WHITE,transition:"all 0.12s",textAlign:"left",fontFamily:"inherit"}}>
           <div style={{width:10,height:10,borderRadius:"50%",background:sel?col:BD,marginBottom:8,transition:"background 0.12s"}}/>
           <div style={{fontSize:13,fontWeight:700,color:sel?col:INK,marginBottom:4}}>{tier.name}</div>
           <div style={{fontSize:18,fontWeight:800,color:sel?col:isNone?WG:INK}}>{isNone?"—":fmt(tier.baseCost)}</div>
@@ -2328,7 +2331,7 @@ function CADQuotePicker({pricing,selCAD,setSelCAD,pQty,setPQty,addFromDB}){
         </button>;
       })}
     </div>
-    {selCAD&&<div style={{background:selCAD.baseCost>0?OK+"11":PARCH,border:`1px solid ${selCAD.baseCost>0?OK:BD}`,borderRadius:10,padding:"12px 16px",marginBottom:16,display:"flex",justifyContent:"space-between",alignItems:"center",gap:12}}>
+    {selCAD&&<div style={{background:selCAD.baseCost>0?OK+"11":PARCH,border:`1px solid ${selCAD.baseCost>0?OK:BD}`,borderRadius:4,padding:"12px 16px",marginBottom:16,display:"flex",justifyContent:"space-between",alignItems:"center",gap:12}}>
       <div>
         <div style={{fontSize:13,fontWeight:700,color:INK}}>CAD Design — {selCAD.name}</div>
         <div style={{fontSize:12,color:WG,marginTop:2}}>{selCAD.baseCost>0?"Incl. 2 major revisions + unlimited minor revisions":"No design fee charged"}</div>
@@ -2340,7 +2343,7 @@ function CADQuotePicker({pricing,selCAD,setSelCAD,pQty,setPQty,addFromDB}){
     </div>}
     {cadRev&&<div style={{borderTop:`1px solid ${BD}`,paddingTop:16}}>
       <div style={{fontSize:11,fontWeight:700,color:WG,textTransform:"uppercase",letterSpacing:"0.06em",marginBottom:10}}>Additional revision (optional)</div>
-      <div style={{display:"flex",alignItems:"center",gap:12,background:PARCH,borderRadius:10,padding:"12px 14px"}}>
+      <div style={{display:"flex",alignItems:"center",gap:12,background:PARCH,borderRadius:4,padding:"12px 14px"}}>
         <div style={{flex:1}}>
           <div style={{fontSize:13,fontWeight:700,color:INK}}>Additional revision</div>
           <div style={{fontSize:12,color:WG,marginTop:2}}>{fmt(cadRev.baseCost)}/hr · major revisions beyond the 2 included</div>
@@ -2555,7 +2558,7 @@ function QuoteBuilder({jobId:jobIdProp,editQuoteId,jobs,clients,quotes,setQuotes
         <div>
           <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:6}}>
             <label style={SS.lbl}>Description for client</label>
-            <div style={{background:OK+"22",color:OK,fontSize:10,fontWeight:700,padding:"2px 8px",borderRadius:10,letterSpacing:"0.04em"}}>APPEARS ON PROPOSAL</div>
+            <div style={{background:OK+"22",color:OK,fontSize:10,fontWeight:700,padding:"2px 8px",borderRadius:4,letterSpacing:"0.04em"}}>APPEARS ON PROPOSAL</div>
           </div>
           <textarea value={clientDescription} onChange={e=>setClientDescription(e.target.value)} rows={4}
             placeholder="e.g. Custom 18ct white gold engagement ring featuring a 1.52ct oval-cut sapphire with a diamond pavé halo. All stones hand-selected and set in our studio."
@@ -2695,7 +2698,7 @@ function QuoteBuilder({jobId:jobIdProp,editQuoteId,jobs,clients,quotes,setQuotes
       <div style={{display:"flex",gap:8,marginBottom:stoneMode==="none"?0:22}}>
         {[["none","No stone"],["client","Client supplying their own"],["sourcing","We are sourcing the stone"]].map(([val,label])=>(
           <button key={val} onClick={()=>{setStoneMode(val);if(val!=="sourcing")setStoneItems([]);if(val!=="sourcing")setStoneType("");}} style={{
-            padding:"8px 20px",borderRadius:20,fontSize:12,fontWeight:700,cursor:"pointer",fontFamily:"inherit",
+            padding:"8px 20px",borderRadius:3,fontSize:12,fontWeight:700,cursor:"pointer",fontFamily:"inherit",
             border:`1.5px solid ${stoneMode===val?(val==="sourcing"?"#7B5EA7":val==="client"?"#3B6E8F":INK):BD}`,
             background:stoneMode===val?(val==="sourcing"?"#7B5EA722":val==="client"?"#3B6E8F22":"#1A1A1A11"):"transparent",
             color:stoneMode===val?(val==="sourcing"?"#7B5EA7":val==="client"?"#3B6E8F":INK):WG,
@@ -2802,7 +2805,7 @@ function QuoteBuilder({jobId:jobIdProp,editQuoteId,jobs,clients,quotes,setQuotes
 
     {pricingModal&&<div onClick={e=>{if(e.target===e.currentTarget)closePricing();}}
       style={{position:"fixed",inset:0,background:"rgba(26,23,20,0.6)",display:"flex",alignItems:"center",justifyContent:"center",zIndex:200,backdropFilter:"blur(3px)",padding:16}}>
-      <div style={{background:WHITE,borderRadius:8,width:"min(1240px,97vw)",height:"min(880px,94vh)",display:"flex",flexDirection:"column",border:`1px solid ${BD}`,boxShadow:"0 24px 64px rgba(0,0,0,0.25)",overflow:"hidden"}}>
+      <div style={{background:WHITE,borderRadius:4,width:"min(1240px,97vw)",height:"min(880px,94vh)",display:"flex",flexDirection:"column",border:`1px solid ${BD}`,boxShadow:"0 24px 64px rgba(0,0,0,0.25)",overflow:"hidden"}}>
 
         {/* ── Header: title + global search (fixed) ── */}
         <div style={{flexShrink:0,padding:"16px 24px 14px",borderBottom:`1px solid ${BD}`}}>
@@ -2829,7 +2832,7 @@ function QuoteBuilder({jobId:jobIdProp,editQuoteId,jobs,clients,quotes,setQuotes
 
           <div style={{flex:1,display:"flex",flexDirection:"column",minHeight:0,padding:"0 24px"}}>
             {/* Quick manual amount — add a custom labelled line */}
-            <div style={{flexShrink:0,display:"flex",alignItems:"center",gap:10,background:PARCH,border:`1px solid ${BD}`,borderRadius:8,padding:"8px 12px",margin:"12px 0 10px"}}>
+            <div style={{flexShrink:0,display:"flex",alignItems:"center",gap:10,background:PARCH,border:`1px solid ${BD}`,borderRadius:4,padding:"8px 12px",margin:"12px 0 10px"}}>
               <span style={{background:"#3B6E8F",color:WHITE,fontSize:10,fontWeight:700,padding:"4px 9px",borderRadius:5,letterSpacing:"0.06em",whiteSpace:"nowrap"}}>MANUAL AMOUNT</span>
               <input value={manLabel} onChange={e=>setManLabel(e.target.value)} placeholder="Label (e.g. Labour)" onKeyDown={e=>{if(e.key==="Enter")addManual();}} style={{...SS.inp,marginTop:0,flex:1}}/>
               <div style={{position:"relative",width:110,flexShrink:0}}>
@@ -2844,7 +2847,7 @@ function QuoteBuilder({jobId:jobIdProp,editQuoteId,jobs,clients,quotes,setQuotes
               : !pSearching&&pCat==="CAD Design"
               ? <div style={{flex:1,overflowY:"auto",paddingBottom:14}}><CADQuotePicker pricing={pricing} selCAD={selCAD} setSelCAD={setSelCAD} pQty={pQty} setPQty={setPQty} addFromDB={addFromDB}/></div>
               : <div style={{flex:1,overflowY:"auto",paddingBottom:14}}>
-                  {!pSearching&&pCat==="3D Print & Cast"&&<div style={{display:"flex",alignItems:"center",gap:12,padding:"10px 14px",marginBottom:8,background:GOLD_L+"66",border:`1px solid ${GOLD}55`,borderRadius:10,flexWrap:"wrap"}}>
+                  {!pSearching&&pCat==="3D Print & Cast"&&<div style={{display:"flex",alignItems:"center",gap:12,padding:"10px 14px",marginBottom:8,background:GOLD_L+"66",border:`1px solid ${GOLD}55`,borderRadius:4,flexWrap:"wrap"}}>
                     <div style={{flex:1,minWidth:180}}>
                       <div style={{fontSize:12,fontWeight:700,color:GOLD_D}}>Manual override price</div>
                       <div style={{fontSize:11,color:WG,marginTop:2}}>Add your own 3D print &amp; cast total instead of the per-piece figures.</div>
@@ -2884,7 +2887,7 @@ function QuoteBuilder({jobId:jobIdProp,editQuoteId,jobs,clients,quotes,setQuotes
                       <div style={{flex:1,minWidth:0}}>
                         <div style={{display:"flex",alignItems:"center",gap:8,minWidth:0}}>
                           <span style={{fontWeight:600,fontSize:13,color:INK,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{(isDiamond||isSetting)?`${item.sizeMm}mm`:item.name}</span>
-                          {timesAdded>0&&<span style={{background:flashing?OK:OK+"1A",color:flashing?WHITE:OK,fontSize:9,fontWeight:800,padding:"2px 8px",borderRadius:10,letterSpacing:"0.05em",whiteSpace:"nowrap",flexShrink:0,transition:"all 0.25s"}}>✓ {timesAdded>1?`ON QUOTE ×${timesAdded}`:"ON QUOTE"}</span>}
+                          {timesAdded>0&&<span style={{background:flashing?OK:OK+"1A",color:flashing?WHITE:OK,fontSize:9,fontWeight:800,padding:"2px 8px",borderRadius:4,letterSpacing:"0.05em",whiteSpace:"nowrap",flexShrink:0,transition:"all 0.25s"}}>✓ {timesAdded>1?`ON QUOTE ×${timesAdded}`:"ON QUOTE"}</span>}
                         </div>
                         <div style={{fontSize:11,color:WG,marginTop:1,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>
                           {showCat?`${item.category} · `:""}
@@ -3046,7 +3049,7 @@ function JobProposals({job,client,quotes,proposals,setProposals,setQuotes,biz,ma
 
     {jobProposals.map(p=>{
       const accepted=p.status==="accepted";
-      return <div key={p.id} style={{border:`1px solid ${accepted?OK+"66":BD}`,borderRadius:10,padding:"12px 14px",marginBottom:10,background:accepted?OK+"08":WHITE}}>
+      return <div key={p.id} style={{border:`1px solid ${accepted?OK+"66":BD}`,borderRadius:4,padding:"12px 14px",marginBottom:10,background:accepted?OK+"08":WHITE}}>
         <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:12,flexWrap:"wrap"}}>
           <div style={{flex:1,minWidth:200}}>
             <div style={{display:"flex",alignItems:"center",gap:10}}>
@@ -3074,7 +3077,7 @@ function JobProposals({job,client,quotes,proposals,setProposals,setQuotes,biz,ma
       {/* How the client chooses */}
       <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:18}}>
         {[["single","Choose one","The client picks a single option — for alternatives (e.g. Good / Better / Best)."],["multi","Choose any (bundle)","The client can tick more than one — for sets they buy together (e.g. two wedding bands). Total = the chosen options combined."]].map(([m,t,d])=>(
-          <button key={m} onClick={()=>setSelectMode(m)} style={{textAlign:"left",padding:"12px 14px",borderRadius:8,border:`2px solid ${selectMode===m?GOLD:BD}`,background:selectMode===m?GOLD_L+"55":WHITE,cursor:"pointer",fontFamily:"inherit"}}>
+          <button key={m} onClick={()=>setSelectMode(m)} style={{textAlign:"left",padding:"12px 14px",borderRadius:4,border:`2px solid ${selectMode===m?GOLD:BD}`,background:selectMode===m?GOLD_L+"55":WHITE,cursor:"pointer",fontFamily:"inherit"}}>
             <div style={{fontSize:13,fontWeight:700,color:selectMode===m?GOLD_D:INK,marginBottom:3}}>{selectMode===m?"● ":"○ "}{t}</div>
             <div style={{fontSize:11,color:WG,lineHeight:1.5}}>{d}</div>
           </button>
@@ -3083,7 +3086,7 @@ function JobProposals({job,client,quotes,proposals,setProposals,setQuotes,biz,ma
       <div style={{fontSize:10,fontWeight:700,color:WG,textTransform:"uppercase",letterSpacing:"0.06em",marginBottom:8}}>Options</div>
       {optionable.map(q=>{
         const on=sel.includes(q.id);
-        return <div key={q.id} style={{display:"flex",alignItems:"center",gap:12,padding:"10px 12px",border:`1px solid ${on?GOLD:BD}`,borderRadius:8,marginBottom:8,background:on?GOLD_L+"55":WHITE}}>
+        return <div key={q.id} style={{display:"flex",alignItems:"center",gap:12,padding:"10px 12px",border:`1px solid ${on?GOLD:BD}`,borderRadius:4,marginBottom:8,background:on?GOLD_L+"55":WHITE}}>
           <input type="checkbox" checked={on} onChange={()=>toggle(q.id)} style={{width:16,height:16,cursor:"pointer",accentColor:GOLD}}/>
           <div style={{flex:1,cursor:"pointer"}} onClick={()=>toggle(q.id)}>
             <div style={{fontWeight:700,fontSize:14,color:INK}}>{quoteLabel(q)}</div>
@@ -3136,7 +3139,7 @@ function PublicRepairBody({snap,responded,decision,responderName,onRespond}){
       <div>
         <div style={{fontSize:10,fontWeight:700,color:"rgba(255,255,255,0.5)",letterSpacing:"0.2em",textTransform:"uppercase",marginBottom:14}}>Repair Receipt</div>
         {b.logo
-          ?<div style={{background:WHITE,borderRadius:10,padding:"8px 14px",display:"inline-block"}}><img src={b.logo} alt={b.name||"Logo"} style={{maxWidth:200,maxHeight:58,objectFit:"contain",display:"block"}}/></div>
+          ?<div style={{background:WHITE,borderRadius:4,padding:"8px 14px",display:"inline-block"}}><img src={b.logo} alt={b.name||"Logo"} style={{maxWidth:200,maxHeight:58,objectFit:"contain",display:"block"}}/></div>
           :<div style={{fontSize:26,fontWeight:800}}>{b.name||"Our Studio"}</div>}
         <div style={{marginTop:14,fontSize:12,color:"rgba(255,255,255,0.5)",lineHeight:1.8}}>
           {b.address&&<div>{b.address}</div>}
@@ -3151,7 +3154,7 @@ function PublicRepairBody({snap,responded,decision,responderName,onRespond}){
 
     <div style={{background:WHITE,borderRadius:`0 0 ${RADIUS}px ${RADIUS}px`,border:`1px solid ${BD}`,borderTop:"none",padding:"32px 44px 38px",boxShadow:SHADOW}}>
       {/* Summary strip */}
-      <div style={{display:"grid",gridTemplateColumns:`repeat(${sum.length},1fr)`,gap:1,background:BD,border:`1px solid ${BD}`,borderRadius:10,overflow:"hidden",marginBottom:28}}>
+      <div style={{display:"grid",gridTemplateColumns:`repeat(${sum.length},1fr)`,gap:1,background:BD,border:`1px solid ${BD}`,borderRadius:4,overflow:"hidden",marginBottom:28}}>
         {sum.map(([l,v],i)=>(
           <div key={l} style={{background:WHITE,padding:"15px 18px"}}>
             <div style={{fontSize:9,fontWeight:700,color:WG,textTransform:"uppercase",letterSpacing:"0.06em",marginBottom:5}}>{l}</div>
@@ -3186,7 +3189,7 @@ function PublicRepairBody({snap,responded,decision,responderName,onRespond}){
 
       {/* Confirm / decline */}
       {responded
-        ?<div style={{background:(accepted?OK:DANGER)+"12",border:`1px solid ${(accepted?OK:DANGER)}55`,borderRadius:12,padding:"18px 20px",margin:"28px 0 4px"}}>
+        ?<div style={{background:(accepted?OK:DANGER)+"12",border:`1px solid ${(accepted?OK:DANGER)}55`,borderRadius:5,padding:"18px 20px",margin:"28px 0 4px"}}>
           <div style={{fontSize:15,fontWeight:800,color:accepted?OK:DANGER,marginBottom:3}}>{accepted?"✓ Repair confirmed":"Repair declined"}</div>
           <div style={{fontSize:13,color:INK,lineHeight:1.6}}>{accepted
             ?<>Thank you, {responderName||"and"} — you've authorised this repair to proceed. The studio has been notified.</>
@@ -3198,9 +3201,9 @@ function PublicRepairBody({snap,responded,decision,responderName,onRespond}){
           <input value={name} onChange={e=>setName(e.target.value)} placeholder="Type your full name" style={{...SS.inp,marginTop:0,marginBottom:12}}/>
           <div style={{display:"flex",gap:10,flexWrap:"wrap"}}>
             <button onClick={()=>respond("accepted")} disabled={!name.trim()||busy}
-              style={{flex:1,minWidth:160,background:(!name.trim()||busy)?BD:INK,color:WHITE,border:"none",borderRadius:10,padding:"14px",fontSize:15,fontWeight:800,cursor:(!name.trim()||busy)?"not-allowed":"pointer",fontFamily:"inherit"}}>{busy?"Submitting…":"✓ Accept repair"}</button>
+              style={{flex:1,minWidth:160,background:(!name.trim()||busy)?BD:INK,color:WHITE,border:"none",borderRadius:4,padding:"14px",fontSize:15,fontWeight:800,cursor:(!name.trim()||busy)?"not-allowed":"pointer",fontFamily:"inherit"}}>{busy?"Submitting…":"✓ Accept repair"}</button>
             <button onClick={()=>respond("declined")} disabled={!name.trim()||busy}
-              style={{background:"none",color:DANGER,border:`1px solid ${DANGER}66`,borderRadius:10,padding:"14px 20px",fontSize:14,fontWeight:700,cursor:(!name.trim()||busy)?"not-allowed":"pointer",fontFamily:"inherit",opacity:(!name.trim()||busy)?0.5:1}}>Decline</button>
+              style={{background:"none",color:DANGER,border:`1px solid ${DANGER}66`,borderRadius:4,padding:"14px 20px",fontSize:14,fontWeight:700,cursor:(!name.trim()||busy)?"not-allowed":"pointer",fontFamily:"inherit",opacity:(!name.trim()||busy)?0.5:1}}>Decline</button>
           </div>
         </div>}
 
@@ -3228,7 +3231,7 @@ function PublicInvoiceBody({snap}){
       <div>
         <div style={{fontSize:10,fontWeight:700,color:"rgba(255,255,255,0.5)",letterSpacing:"0.2em",textTransform:"uppercase",marginBottom:12}}>Tax Invoice</div>
         {b.logo
-          ?<div style={{background:WHITE,borderRadius:10,padding:"8px 14px",display:"inline-block"}}><img src={b.logo} alt={b.name||"Logo"} style={{maxWidth:200,maxHeight:54,objectFit:"contain",display:"block"}}/></div>
+          ?<div style={{background:WHITE,borderRadius:4,padding:"8px 14px",display:"inline-block"}}><img src={b.logo} alt={b.name||"Logo"} style={{maxWidth:200,maxHeight:54,objectFit:"contain",display:"block"}}/></div>
           :<div style={{fontSize:24,fontWeight:800}}>{b.name||"Our Studio"}</div>}
         <div style={{marginTop:12,fontSize:12,color:"rgba(255,255,255,0.5)",lineHeight:1.7}}>
           {b.address&&<div>{b.address}</div>}
@@ -3278,7 +3281,7 @@ function PublicInvoiceBody({snap}){
       {snap.paidTotal>0&&<div style={{textAlign:"right",fontSize:11,color:WG,marginTop:4}}>as at {fmtDate(snap.asAt)}</div>}
 
       {/* Payment details */}
-      {bank.length>0&&<div style={{marginTop:24,background:PARCH,border:`1px solid ${BD}`,borderRadius:12,padding:"18px 20px"}}>
+      {bank.length>0&&<div style={{marginTop:24,background:PARCH,border:`1px solid ${BD}`,borderRadius:5,padding:"18px 20px"}}>
         <div style={{fontSize:9,fontWeight:700,color:WG,letterSpacing:"0.16em",textTransform:"uppercase",marginBottom:12}}>Payment — direct deposit</div>
         <div style={{fontSize:14}}>
           {bank.map(([k,v])=><div key={k} style={{display:"flex",gap:16,padding:"3px 0"}}><div style={{color:WG,width:110,flexShrink:0}}>{k}</div><div style={{fontWeight:k==="Reference"?800:600,color:INK}}>{v}</div></div>)}
@@ -3365,7 +3368,7 @@ function PublicProposalPage({token}){
     <div style={{background:INK,borderRadius:`${RADIUS}px ${RADIUS}px 0 0`,padding:"32px 32px 26px",color:WHITE}}>
       <div style={{fontSize:10,fontWeight:700,color:"rgba(255,255,255,0.5)",letterSpacing:"0.2em",textTransform:"uppercase",marginBottom:12}}>Quote Proposal</div>
       {b.logo
-        ?<div style={{background:WHITE,borderRadius:10,padding:"8px 14px",display:"inline-block"}}><img src={b.logo} alt={b.name||"Logo"} style={{maxWidth:200,maxHeight:54,objectFit:"contain",display:"block"}}/></div>
+        ?<div style={{background:WHITE,borderRadius:4,padding:"8px 14px",display:"inline-block"}}><img src={b.logo} alt={b.name||"Logo"} style={{maxWidth:200,maxHeight:54,objectFit:"contain",display:"block"}}/></div>
         :<div style={{fontSize:24,fontWeight:800}}>{b.name||"Our Studio"}</div>}
       <div style={{marginTop:12,fontSize:12,color:"rgba(255,255,255,0.5)",lineHeight:1.7}}>
         {b.address&&<div>{b.address}</div>}
@@ -3380,7 +3383,7 @@ function PublicProposalPage({token}){
       <div style={{fontSize:13,color:WG}}>{snap.jobType} · Valid until {fmtDate(snap.validUntil)}</div>
       {snap.intro&&<div style={{fontSize:14,color:"#444",lineHeight:1.7,marginTop:16,fontFamily:"Georgia,serif"}}>{snap.intro}</div>}
 
-      {accepted&&<div style={{background:OK+"12",border:`1px solid ${OK}55`,borderRadius:10,padding:"16px 18px",margin:"20px 0 4px"}}>
+      {accepted&&<div style={{background:OK+"12",border:`1px solid ${OK}55`,borderRadius:4,padding:"16px 18px",margin:"20px 0 4px"}}>
         <div style={{fontSize:15,fontWeight:800,color:OK,marginBottom:3}}>✓ Thank you, {acceptedName||"and welcome"}!</div>
         <div style={{fontSize:13,color:INK,lineHeight:1.6}}>You've accepted <strong>{selectedOpts.length?selectedOpts.map(o=>o.label).join(" + "):"your option"}</strong>{comboPrice>0?` at ${fmtR(comboPrice)} (inc GST)`:""}. The studio has been notified and will be in touch about your deposit and next steps.</div>
       </div>}
@@ -3393,8 +3396,8 @@ function PublicProposalPage({token}){
           const isSel=selectedIds.includes(o.id);
           const dim=accepted&&!isSel;
           return <div key={o.id} onClick={()=>toggle(o.id)}
-            style={{border:`2px solid ${isSel?GOLD:BD}`,borderRadius:12,padding:"16px 18px",cursor:accepted?"default":"pointer",background:isSel?GOLD_L+"44":WHITE,opacity:dim?0.5:1,transition:"all 0.15s",position:"relative"}}>
-            {o.recommended&&<div style={{position:"absolute",top:-9,left:16,background:GOLD,color:WHITE,fontSize:9,fontWeight:800,letterSpacing:"0.08em",textTransform:"uppercase",padding:"2px 10px",borderRadius:20}}>Recommended</div>}
+            style={{border:`2px solid ${isSel?GOLD:BD}`,borderRadius:5,padding:"16px 18px",cursor:accepted?"default":"pointer",background:isSel?GOLD_L+"44":WHITE,opacity:dim?0.5:1,transition:"all 0.15s",position:"relative"}}>
+            {o.recommended&&<div style={{position:"absolute",top:-9,left:16,background:GOLD,color:WHITE,fontSize:9,fontWeight:800,letterSpacing:"0.08em",textTransform:"uppercase",padding:"2px 10px",borderRadius:3}}>Recommended</div>}
             <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:16}}>
               <div style={{flex:1,minWidth:0}}>
                 <div style={{display:"flex",alignItems:"center",gap:10}}>
@@ -3413,7 +3416,7 @@ function PublicProposalPage({token}){
       </div>
 
       {/* Combined total (multi-select) */}
-      {multi&&selectedOpts.length>0&&<div style={{display:"flex",justifyContent:"space-between",alignItems:"baseline",marginTop:14,padding:"12px 16px",background:INK,borderRadius:10}}>
+      {multi&&selectedOpts.length>0&&<div style={{display:"flex",justifyContent:"space-between",alignItems:"baseline",marginTop:14,padding:"12px 16px",background:INK,borderRadius:4}}>
         <span style={{fontSize:12,fontWeight:700,color:"rgba(255,255,255,0.6)",textTransform:"uppercase",letterSpacing:"0.06em"}}>Combined total · {selectedOpts.length} piece{selectedOpts.length!==1?"s":""}</span>
         <span style={{fontSize:20,fontWeight:800,color:WHITE}}>{fmtR(comboPrice)} <span style={{fontSize:11,fontWeight:400,color:"rgba(255,255,255,0.5)"}}>inc GST</span></span>
       </div>}
@@ -3423,7 +3426,7 @@ function PublicProposalPage({token}){
         const paid=Number(snap.paidTotal)||0;
         if(paid<=0.005)return <div style={{fontSize:12,color:WG,marginTop:14}}>To proceed, a {snap.depositPercent||50}% deposit of <strong style={{color:INK}}>{depositOf(comboPrice)}</strong> is required.</div>;
         const due=Math.max(0,comboPrice-paid);
-        return <div style={{marginTop:16,background:PARCH,border:`1px solid ${BD}`,borderRadius:10,padding:"14px 16px"}}>
+        return <div style={{marginTop:16,background:PARCH,border:`1px solid ${BD}`,borderRadius:4,padding:"14px 16px"}}>
           <div style={{display:"flex",justifyContent:"space-between",fontSize:13,color:WG,padding:"2px 0"}}><span>{multi?"Combined total":"Total price"} (inc GST)</span><span style={{color:INK,fontWeight:600}}>{fmtR(comboPrice)}</span></div>
           <div style={{display:"flex",justifyContent:"space-between",fontSize:13,color:WG,padding:"2px 0"}}><span>Payments received</span><span style={{color:OK,fontWeight:600}}>− {fmtR(paid)}</span></div>
           <div style={{display:"flex",justifyContent:"space-between",alignItems:"baseline",borderTop:`1px solid ${BD}`,marginTop:8,paddingTop:10}}><span style={{fontSize:13,fontWeight:700,color:INK}}>{due<=0.005?"Paid in full":"Balance now due"}</span><span style={{fontSize:18,fontWeight:800,color:due<=0.005?OK:INK}}>{fmtR(due)}</span></div>
@@ -3436,7 +3439,7 @@ function PublicProposalPage({token}){
         {multi&&!picks.length&&<div style={{fontSize:12,color:WARN,marginBottom:10}}>Tick at least one piece above to continue.</div>}
         <input value={name} onChange={e=>setName(e.target.value)} placeholder="Type your full name to confirm" style={{...SS.inp,marginTop:0,marginBottom:12}}/>
         <button onClick={accept} disabled={!picks.length||!name.trim()||busy}
-          style={{width:"100%",background:(!picks.length||!name.trim()||busy)?BD:INK,color:WHITE,border:"none",borderRadius:10,padding:"14px",fontSize:15,fontWeight:800,cursor:(!picks.length||!name.trim()||busy)?"not-allowed":"pointer",fontFamily:"inherit",letterSpacing:"0.02em"}}>
+          style={{width:"100%",background:(!picks.length||!name.trim()||busy)?BD:INK,color:WHITE,border:"none",borderRadius:4,padding:"14px",fontSize:15,fontWeight:800,cursor:(!picks.length||!name.trim()||busy)?"not-allowed":"pointer",fontFamily:"inherit",letterSpacing:"0.02em"}}>
           {busy?"Submitting…":multi?`Accept ${picks.length} piece${picks.length!==1?"s":""}${comboPrice>0?` — ${fmtR(comboPrice)}`:""}`:`Accept${selectedOpts[0]?` — ${selectedOpts[0].label}`:""}`}
         </button>
         <div style={{fontSize:11,color:WG,marginTop:10,lineHeight:1.5}}>By accepting you agree to the terms below. This records your selection and notifies the studio — it is not a payment.</div>
@@ -3541,10 +3544,10 @@ function ProposalPreview({quote,job,clients=[],biz,calc,payments=[],onClose}){
         <span style={{fontSize:13,fontWeight:700,color:"rgba(255,255,255,0.85)",letterSpacing:"0.05em"}}>Proposal · {quoteNum}</span>
       </div>
       <div style={{display:"flex",gap:10}}>
-        <button onClick={copyEmailText} style={{background:copied?"#2D7A4F22":"rgba(255,255,255,0.06)",border:`1px solid ${copied?"#2D7A4F":"rgba(255,255,255,0.15)"}`,borderRadius:8,padding:"6px 16px",color:copied?"#4CAF84":"rgba(255,255,255,0.7)",fontSize:12,fontWeight:700,cursor:"pointer",fontFamily:"inherit",transition:"all 0.2s"}}>
+        <button onClick={copyEmailText} style={{background:copied?"#2D7A4F22":"rgba(255,255,255,0.06)",border:`1px solid ${copied?"#2D7A4F":"rgba(255,255,255,0.15)"}`,borderRadius:4,padding:"6px 16px",color:copied?"#4CAF84":"rgba(255,255,255,0.7)",fontSize:12,fontWeight:700,cursor:"pointer",fontFamily:"inherit",transition:"all 0.2s"}}>
           {copied?"✓ Copied":"✉ Copy email text"}
         </button>
-        <button onClick={()=>window.print()} style={{background:WHITE,border:"none",borderRadius:8,padding:"6px 18px",color:INK,fontSize:12,fontWeight:700,cursor:"pointer",fontFamily:"inherit",letterSpacing:"0.02em"}}>
+        <button onClick={()=>window.print()} style={{background:WHITE,border:"none",borderRadius:4,padding:"6px 18px",color:INK,fontSize:12,fontWeight:700,cursor:"pointer",fontFamily:"inherit",letterSpacing:"0.02em"}}>
           Print / Save PDF
         </button>
       </div>
@@ -3559,7 +3562,7 @@ function ProposalPreview({quote,job,clients=[],biz,calc,payments=[],onClose}){
           <div>
             <div style={{fontSize:10,fontWeight:700,color:"rgba(255,255,255,0.55)",letterSpacing:"0.2em",textTransform:"uppercase",marginBottom:10,fontFamily:"'DM Sans',sans-serif"}}>Quote Proposal</div>
             {biz.logo
-              ?<div style={{background:WHITE,borderRadius:10,padding:"8px 14px",display:"inline-block"}}><img src={biz.logo} alt={biz.name||"Logo"} style={{maxWidth:220,maxHeight:60,objectFit:"contain",display:"block"}}/></div>
+              ?<div style={{background:WHITE,borderRadius:4,padding:"8px 14px",display:"inline-block"}}><img src={biz.logo} alt={biz.name||"Logo"} style={{maxWidth:220,maxHeight:60,objectFit:"contain",display:"block"}}/></div>
               :<div style={{fontSize:26,fontWeight:800,color:WHITE,letterSpacing:"-0.01em",fontFamily:"'DM Sans',sans-serif",lineHeight:1.1}}>{biz.name||"Your Studio"}</div>}
             <div style={{marginTop:12,display:"flex",flexDirection:"column",gap:3}}>
               {biz.address&&<div style={{fontSize:11,color:"rgba(255,255,255,0.45)",fontFamily:"'DM Sans',sans-serif"}}>{biz.address}</div>}
@@ -3942,7 +3945,7 @@ function QuotesList({quotes,jobs,clients,markupTable,biz,setView}){
           const active=filter===t;
           const n=counts[t];
           return <button key={t} onClick={()=>setFilter(t)}
-            style={{display:"flex",alignItems:"center",gap:7,padding:"6px 13px",borderRadius:20,border:`1px solid ${active?INK:BD}`,background:active?INK:"transparent",color:active?WHITE:WG,fontSize:12,fontWeight:700,cursor:"pointer",fontFamily:"inherit"}}>
+            style={{display:"flex",alignItems:"center",gap:7,padding:"6px 14px",borderRadius:3,border:`1px solid ${active?INK:BD}`,background:active?INK:"transparent",color:active?WHITE:WG,fontSize:11,fontWeight:700,letterSpacing:"0.08em",textTransform:"uppercase",cursor:"pointer",fontFamily:"inherit"}}>
             {t}<span style={{fontSize:11,fontWeight:700,color:active?"rgba(255,255,255,0.6)":WG}}>{n}</span>
           </button>;
         })}
@@ -3970,8 +3973,8 @@ function QuotesList({quotes,jobs,clients,markupTable,biz,setView}){
             </div>
             {/* Follow-up + expiry flags */}
             {(followUp||expired)&&<div style={{display:"flex",gap:8,marginTop:6,flexWrap:"wrap"}}>
-              {followUp&&<span style={{background:GOLD_L,color:GOLD_D,border:`1px solid ${GOLD}55`,borderRadius:20,padding:"2px 10px",fontSize:11,fontWeight:700}}>🔔 Sent {daysSent} days ago — follow up?</span>}
-              {expired&&<span style={{background:DANGER+"14",color:DANGER,border:`1px solid ${DANGER}44`,borderRadius:20,padding:"2px 10px",fontSize:11,fontWeight:700}}>⚠ Expired {fmtDate(expiryISO)}</span>}
+              {followUp&&<span style={{background:GOLD_L,color:GOLD_D,border:`1px solid ${GOLD}55`,borderRadius:3,padding:"2px 10px",fontSize:11,fontWeight:700}}>🔔 Sent {daysSent} days ago — follow up?</span>}
+              {expired&&<span style={{background:DANGER+"14",color:DANGER,border:`1px solid ${DANGER}44`,borderRadius:3,padding:"2px 10px",fontSize:11,fontWeight:700}}>⚠ Expired {fmtDate(expiryISO)}</span>}
             </div>}
           </div>
           <div style={{display:"flex",gap:14,alignItems:"center"}}>
@@ -4038,8 +4041,8 @@ function InvoicePrintView({inv,job,client,biz,payments,onClose}){
         <div style={{fontSize:11,fontWeight:700,color:"rgba(255,255,255,0.85)",letterSpacing:"0.1em",textTransform:"uppercase"}}>Tax Invoice — {inv.number}</div>
       </div>
       <div style={{display:"flex",gap:10}}>
-        <button onClick={copyBank} style={{background:copied?"#2D7A4F":"rgba(255,255,255,0.08)",border:`1px solid ${copied?"#2D7A4F":"rgba(255,255,255,0.2)"}`,borderRadius:8,padding:"7px 16px",color:copied?WHITE:"rgba(255,255,255,0.8)",fontSize:11,fontWeight:700,cursor:"pointer",fontFamily:"inherit",letterSpacing:"0.06em",textTransform:"uppercase",transition:"all 0.2s"}}>{copied?"✓ Copied":"Copy bank details"}</button>
-        <button onClick={()=>window.print()} style={{background:WHITE,border:"none",borderRadius:8,padding:"7px 20px",color:INK,fontSize:11,fontWeight:700,cursor:"pointer",fontFamily:"inherit",letterSpacing:"0.06em",textTransform:"uppercase"}}>Print / Save PDF</button>
+        <button onClick={copyBank} style={{background:copied?"#2D7A4F":"rgba(255,255,255,0.08)",border:`1px solid ${copied?"#2D7A4F":"rgba(255,255,255,0.2)"}`,borderRadius:4,padding:"7px 16px",color:copied?WHITE:"rgba(255,255,255,0.8)",fontSize:11,fontWeight:700,cursor:"pointer",fontFamily:"inherit",letterSpacing:"0.06em",textTransform:"uppercase",transition:"all 0.2s"}}>{copied?"✓ Copied":"Copy bank details"}</button>
+        <button onClick={()=>window.print()} style={{background:WHITE,border:"none",borderRadius:4,padding:"7px 20px",color:INK,fontSize:11,fontWeight:700,cursor:"pointer",fontFamily:"inherit",letterSpacing:"0.06em",textTransform:"uppercase"}}>Print / Save PDF</button>
       </div>
     </div>
     {/* page */}
@@ -4232,7 +4235,7 @@ function InvoiceDetail({invoiceId,invoices,setInvoices,jobs,clients,payments,biz
         <Btn sm danger onClick={del}>Delete</Btn>
       </div>
     </div>
-    {inv.publicToken&&<div style={{background:GOLD_L+"55",border:`1px solid ${GOLD}55`,borderRadius:8,padding:"10px 14px",marginBottom:16,display:"flex",alignItems:"center",gap:12,flexWrap:"wrap"}}>
+    {inv.publicToken&&<div style={{background:GOLD_L+"55",border:`1px solid ${GOLD}55`,borderRadius:4,padding:"10px 14px",marginBottom:16,display:"flex",alignItems:"center",gap:12,flexWrap:"wrap"}}>
       <span style={{fontSize:12,fontWeight:700,color:GOLD_D,whiteSpace:"nowrap"}}>🔗 Client link</span>
       <span style={{flex:1,minWidth:200,fontSize:12,color:WG,wordBreak:"break-all",fontFamily:"monospace"}}>{invLink}</span>
       <span style={{fontSize:11,color:WG}}>Re-copy to refresh totals before sending.</span>
@@ -4259,7 +4262,7 @@ function InvoiceDetail({invoiceId,invoices,setInvoices,jobs,clients,payments,biz
     <Card>
       <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:8}}>
         <label style={SS.lbl}>Customer-facing description (optional)</label>
-        <div style={{background:inv.descriptionOverride?.trim()?OK+"22":BD,color:inv.descriptionOverride?.trim()?OK:WG,fontSize:10,fontWeight:700,padding:"2px 8px",borderRadius:10,letterSpacing:"0.04em"}}>{inv.descriptionOverride?.trim()?"SHOWN ON INVOICE":"USING ITEMISED LIST"}</div>
+        <div style={{background:inv.descriptionOverride?.trim()?OK+"22":BD,color:inv.descriptionOverride?.trim()?OK:WG,fontSize:10,fontWeight:700,padding:"2px 8px",borderRadius:4,letterSpacing:"0.04em"}}>{inv.descriptionOverride?.trim()?"SHOWN ON INVOICE":"USING ITEMISED LIST"}</div>
       </div>
       <textarea value={inv.descriptionOverride||""} onChange={e=>setDescOverride(e.target.value)} rows={3}
         placeholder="e.g. Custom 18ct yellow gold bracelet — design, materials & handcrafting"
@@ -4459,7 +4462,7 @@ function DiamondTable({items,onQtyChange,onSavePrices}){
       <div style={{fontSize:13,fontWeight:800,color:total&&!editing?OK:WG,textAlign:"right",paddingRight:4}}>{total&&!editing?fmt(total):"—"}</div>
     </div>;
   };
-  return <div style={{background:WHITE,borderRadius:14,border:`1px solid ${editing?GOLD:BD}`,overflow:"hidden",transition:"border-color 0.15s"}}>
+  return <div style={{background:WHITE,borderRadius:5,border:`1px solid ${editing?GOLD:BD}`,overflow:"hidden",transition:"border-color 0.15s"}}>
     <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"10px 16px",background:editing?GOLD_L:PARCH,borderBottom:`1px solid ${editing?GOLD+"55":BD}`}}>
       <div style={{fontSize:11,fontWeight:700,color:editing?GOLD_D:WG,textTransform:"uppercase",letterSpacing:"0.06em"}}>{editing?"Editing per-stone prices — update then save":"Per stone cost · click ✎ to update prices"}</div>
       <div style={{display:"flex",gap:8}}>
@@ -4539,7 +4542,7 @@ function SettingTable({items,onSavePrices,label="Basic Setting",onQtyChange}){
     </div>;
   };
 
-  return <div style={{background:WHITE,borderRadius:14,border:`1px solid ${editing?GOLD:BD}`,overflow:"hidden",transition:"border-color 0.15s"}}>
+  return <div style={{background:WHITE,borderRadius:5,border:`1px solid ${editing?GOLD:BD}`,overflow:"hidden",transition:"border-color 0.15s"}}>
     {/* Toolbar */}
     <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"10px 16px",background:editing?GOLD_L:PARCH,borderBottom:`1px solid ${editing?GOLD+"55":BD}`,transition:"background 0.15s"}}>
       <div style={{fontSize:11,fontWeight:700,color:editing?GOLD_D:WG,textTransform:"uppercase",letterSpacing:"0.06em"}}>
@@ -4615,7 +4618,7 @@ function CADDesignTable({items,onSavePrices,onQtyChange}){
     "Complex Design":"#7B5EA7",
   };
 
-  return <div style={{background:WHITE,borderRadius:14,border:`1px solid ${editing?GOLD:BD}`,overflow:"hidden",transition:"border-color 0.15s"}}>
+  return <div style={{background:WHITE,borderRadius:5,border:`1px solid ${editing?GOLD:BD}`,overflow:"hidden",transition:"border-color 0.15s"}}>
     {/* Toolbar */}
     <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"12px 18px",background:editing?GOLD_L:PARCH,borderBottom:`1px solid ${editing?GOLD+"55":BD}`}}>
       <div style={{fontSize:11,fontWeight:700,color:editing?GOLD_D:WG,textTransform:"uppercase",letterSpacing:"0.06em"}}>
@@ -4646,7 +4649,7 @@ function CADDesignTable({items,onSavePrices,onQtyChange}){
           <div style={{display:"flex",alignItems:"center",gap:6,marginBottom:10}}>
             <div style={{width:8,height:8,borderRadius:"50%",background:sel?col:BD,transition:"background 0.12s",flexShrink:0}}/>
             <div style={{fontSize:12,fontWeight:700,color:sel?col:WG}}>{tier.name}</div>
-            {sel&&!editing&&<span style={{marginLeft:"auto",fontSize:10,fontWeight:800,color:col,background:col+"22",padding:"1px 6px",borderRadius:10}}>✓ selected</span>}
+            {sel&&!editing&&<span style={{marginLeft:"auto",fontSize:10,fontWeight:800,color:col,background:col+"22",padding:"1px 6px",borderRadius:4}}>✓ selected</span>}
           </div>
           {editing
             ?<input type="number" value={fees[tier.id]||""} min="0" step="1"
@@ -4675,7 +4678,7 @@ function CADDesignTable({items,onSavePrices,onQtyChange}){
               <span style={{fontSize:12,color:WG}}>/hr</span>
             </div>
           :<span style={{fontSize:14,fontWeight:800,color:INK}}>{fmt(Number(addRate)||revItem?.baseCost||70)}<span style={{fontSize:11,fontWeight:400,color:WG}}>/hr</span></span>}
-        {!editing&&<div style={{display:"flex",alignItems:"center",gap:8,background:PARCH,borderRadius:8,padding:"8px 12px",border:`1px solid ${revQty&&Number(revQty)>0?GOLD:BD}`}}>
+        {!editing&&<div style={{display:"flex",alignItems:"center",gap:8,background:PARCH,borderRadius:4,padding:"8px 12px",border:`1px solid ${revQty&&Number(revQty)>0?GOLD:BD}`}}>
           <label style={{fontSize:11,fontWeight:700,color:WG,whiteSpace:"nowrap"}}>Hrs:</label>
           <input type="number" value={revQty} min="0" step="1" placeholder="0"
             onChange={e=>handleRevQty(e.target.value)}
@@ -4726,7 +4729,7 @@ function PrintCastTable({items,onSavePrices,onQtyChange}){
   const castTotal=cast*pieces;
   const total=usingOverride?ov:printTotal+castTotal;
 
-  return <div style={{background:WHITE,borderRadius:14,border:`1px solid ${editing?GOLD:BD}`,overflow:"hidden",transition:"border-color 0.15s"}}>
+  return <div style={{background:WHITE,borderRadius:5,border:`1px solid ${editing?GOLD:BD}`,overflow:"hidden",transition:"border-color 0.15s"}}>
     {/* Toolbar */}
     <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"12px 18px",background:editing?GOLD_L:PARCH,borderBottom:`1px solid ${editing?GOLD+"55":BD}`,transition:"background 0.15s"}}>
       <div style={{fontSize:11,fontWeight:700,color:editing?GOLD_D:WG,textTransform:"uppercase",letterSpacing:"0.06em"}}>
@@ -4926,18 +4929,18 @@ function PricingDB({pricing,setPricing,spotPrices,setSpotPrices,markupTable,cent
   const DCOLORS={"Lab Grown Diamonds | D-E":"#7B5EA7","Natural diamonds G-H SI1":"#3B6E8F","Natural diamonds D-E VS":"#2D7A4F"};
   return <div>
     <SectionHeader title="Pricing database" action={<Btn onClick={()=>setModal("add")}>+ Add item</Btn>}/>
-    {savedToast&&<div style={{position:"fixed",top:18,right:24,background:OK,color:WHITE,fontSize:13,fontWeight:700,padding:"10px 20px",borderRadius:10,boxShadow:"0 4px 18px rgba(0,0,0,0.18)",zIndex:9999,display:"flex",alignItems:"center",gap:8}}>
+    {savedToast&&<div style={{position:"fixed",top:18,right:24,background:OK,color:WHITE,fontSize:13,fontWeight:700,padding:"10px 20px",borderRadius:4,boxShadow:"0 4px 18px rgba(0,0,0,0.18)",zIndex:9999,display:"flex",alignItems:"center",gap:8}}>
       ✓ Prices saved — all future quotes will use updated figures
     </div>}
 
     <div style={{display:"flex",gap:6,flexWrap:"wrap",marginBottom:16}}>
       {["All","Metals","Labour","CAD Design","Basic Setting","Complex Setting",CENTRE_SET_CAT,"3D Print & Cast",FINDINGS_CAT,PURCHASED_CAT,...DIAMOND_CATS,REPAIRS_CAT].map(cat=>(
-        <button key={cat} onClick={()=>setCf(cat)} style={{padding:"4px 11px",borderRadius:20,border:`1px solid ${cf===cat?(DCOLORS[cat]||GOLD):BD}`,background:cf===cat?(DCOLORS[cat]||GOLD):"transparent",color:cf===cat?WHITE:WG,fontSize:11,fontWeight:700,cursor:"pointer",fontFamily:"inherit"}}>{cat}</button>
+        <button key={cat} onClick={()=>setCf(cat)} style={{padding:"4px 11px",borderRadius:3,border:`1px solid ${cf===cat?(DCOLORS[cat]||GOLD):BD}`,background:cf===cat?(DCOLORS[cat]||GOLD):"transparent",color:cf===cat?WHITE:WG,fontSize:11,fontWeight:700,cursor:"pointer",fontFamily:"inherit"}}>{cat}</button>
       ))}
     </div>
 
     {/* ── Live calculation panel ───────────────────────────────────────── */}
-    <div style={{background:hasSelections?INK:PARCH,border:`1px solid ${hasSelections?GOLD+"55":BD}`,borderRadius:14,padding:"16px 20px",marginBottom:18,transition:"all 0.2s"}}>
+    <div style={{background:hasSelections?INK:PARCH,border:`1px solid ${hasSelections?GOLD+"55":BD}`,borderRadius:5,padding:"16px 20px",marginBottom:18,transition:"all 0.2s"}}>
       <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:hasSelections?14:0}}>
         <div style={{fontSize:11,fontWeight:700,color:hasSelections?GOLD:WG,letterSpacing:"0.1em",textTransform:"uppercase"}}>
           {hasSelections?"Live calculation — enter quantities in any table below":"Cost calculator — enter quantities in the tables below to see your base cost and marked-up price"}
@@ -4974,7 +4977,7 @@ function PricingDB({pricing,setPricing,spotPrices,setSpotPrices,markupTable,cent
           ))}
         </div>
         {/* Summary row */}
-        {markupEntries.length>0&&<div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr 1fr",gap:0,background:"rgba(255,255,255,0.06)",borderRadius:10,overflow:"hidden",border:"1px solid rgba(255,255,255,0.1)",marginBottom:flatEntries.length>0?8:0}}>
+        {markupEntries.length>0&&<div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr 1fr",gap:0,background:"rgba(255,255,255,0.06)",borderRadius:4,overflow:"hidden",border:"1px solid rgba(255,255,255,0.1)",marginBottom:flatEntries.length>0?8:0}}>
           {[
             ["Base cost",fmt(baseCost),"rgba(255,255,255,0.5)",WHITE],
             ["Bracket",bracket?`${fmt(bracket.low)} – ${fmt(bracket.high)}`:"—","rgba(255,255,255,0.5)","rgba(255,255,255,0.7)"],
@@ -4987,7 +4990,7 @@ function PricingDB({pricing,setPricing,spotPrices,setSpotPrices,markupTable,cent
             </div>
           ))}
         </div>}
-        {flatEntries.length>0&&<div style={{display:"flex",justifyContent:"space-between",alignItems:"center",background:"rgba(123,94,167,0.15)",border:"1px solid rgba(123,94,167,0.3)",borderRadius:10,padding:"10px 16px"}}>
+        {flatEntries.length>0&&<div style={{display:"flex",justifyContent:"space-between",alignItems:"center",background:"rgba(123,94,167,0.15)",border:"1px solid rgba(123,94,167,0.3)",borderRadius:4,padding:"10px 16px"}}>
           <div style={{fontSize:11,fontWeight:700,color:"rgba(201,168,255,0.8)",textTransform:"uppercase",letterSpacing:"0.08em"}}>Flat fee total (no markup)</div>
           <div style={{fontSize:20,fontWeight:800,color:"#C9A8FF"}}>{fmtR(flatCost)}</div>
         </div>}
@@ -4997,7 +5000,7 @@ function PricingDB({pricing,setPricing,spotPrices,setSpotPrices,markupTable,cent
 
     {/* Basic Setting view */}
     {isSettingView&&<div>
-      <div style={{background:WHITE,border:`1px solid ${BD}`,borderRadius:12,padding:"12px 16px",marginBottom:14,fontSize:13,lineHeight:1.5}}>
+      <div style={{background:WHITE,border:`1px solid ${BD}`,borderRadius:5,padding:"12px 16px",marginBottom:14,fontSize:13,lineHeight:1.5}}>
         <strong style={{color:INK}}>Basic Setting — labour cost per stone</strong>
         <span style={{display:"block",marginTop:3,fontSize:12,color:WG}}>Fixed setting fee by stone size (AUD) · Applies to all round stones regardless of type — lab grown or natural</span>
         <span style={{display:"block",marginTop:3,fontSize:12,color:WG}}>This is a separate cost from the stone price — both lines should appear in your quote.</span>
@@ -5007,7 +5010,7 @@ function PricingDB({pricing,setPricing,spotPrices,setSpotPrices,markupTable,cent
 
     {/* Complex Setting view */}
     {isComplexSettingView&&<div>
-      <div style={{background:WHITE,border:`1px solid ${BD}`,borderRadius:12,padding:"12px 16px",marginBottom:14,fontSize:13,lineHeight:1.5}}>
+      <div style={{background:WHITE,border:`1px solid ${BD}`,borderRadius:5,padding:"12px 16px",marginBottom:14,fontSize:13,lineHeight:1.5}}>
         <strong style={{color:INK}}>Complex Setting — French Pavé / Channel / Bezel</strong>
         <span style={{display:"block",marginTop:3,fontSize:12,color:WG}}>Fixed setting fee by stone size (AUD) · For complex setting styles requiring extra bench time</span>
         <span style={{display:"block",marginTop:3,fontSize:12,color:WG}}>This is a separate cost from the stone price — both lines should appear in your quote.</span>
@@ -5017,7 +5020,7 @@ function PricingDB({pricing,setPricing,spotPrices,setSpotPrices,markupTable,cent
 
     {/* Diamond view */}
     {isDiamondView&&<div>
-      <div style={{background:WHITE,border:`1px solid ${BD}`,borderRadius:12,padding:"12px 16px",marginBottom:14,fontSize:13,lineHeight:1.5}}>
+      <div style={{background:WHITE,border:`1px solid ${BD}`,borderRadius:5,padding:"12px 16px",marginBottom:14,fontSize:13,lineHeight:1.5}}>
         <strong style={{color:DCOLORS[cf]||INK}}>{cf}</strong>
         <span style={{display:"block",marginTop:3,fontSize:12,color:WG}}>{DIAMOND_CAT_LABELS[cf]}</span>
         <span style={{display:"block",marginTop:3,fontSize:12,color:WG}}>Raw costs per stone — markup applied at quote time via multiplier table. Add a Basic Setting line separately for the setting labour cost.</span>
@@ -5027,7 +5030,7 @@ function PricingDB({pricing,setPricing,spotPrices,setSpotPrices,markupTable,cent
 
     {/* 3D Print & Cast view */}
     {isPrintCastView&&<div>
-      <div style={{background:WHITE,border:`1px solid ${BD}`,borderRadius:12,padding:"12px 16px",marginBottom:14,fontSize:13,lineHeight:1.5}}>
+      <div style={{background:WHITE,border:`1px solid ${BD}`,borderRadius:5,padding:"12px 16px",marginBottom:14,fontSize:13,lineHeight:1.5}}>
         <strong style={{color:INK}}>3D Printing & Casting — fee calculator</strong>
         <span style={{display:"block",marginTop:3,fontSize:12,color:WG}}>Fixed fees per piece — edit your rates any time. Both print and cast fees should appear as separate lines in your quote.</span>
       </div>
@@ -5036,7 +5039,7 @@ function PricingDB({pricing,setPricing,spotPrices,setSpotPrices,markupTable,cent
 
     {/* CAD Design view */}
     {isCADView&&<div>
-      <div style={{background:WHITE,border:`1px solid ${BD}`,borderRadius:12,padding:"12px 16px",marginBottom:14,fontSize:13,lineHeight:1.5}}>
+      <div style={{background:WHITE,border:`1px solid ${BD}`,borderRadius:5,padding:"12px 16px",marginBottom:14,fontSize:13,lineHeight:1.5}}>
         <strong style={{color:INK}}>CAD Design — fee tiers</strong>
         <span style={{display:"block",marginTop:3,fontSize:12,color:WG}}>Select a tier per job · includes CAD design, renderings & 3D model · Fees and revision rate are editable</span>
       </div>
@@ -5045,7 +5048,7 @@ function PricingDB({pricing,setPricing,spotPrices,setSpotPrices,markupTable,cent
 
     {/* Centre Stone Setting view — interactive calculator feeding live calc */}
     {isCentreView&&<div>
-      <div style={{background:WHITE,border:`1px solid ${editRates?GOLD:BD}`,borderRadius:12,padding:"14px 18px",marginBottom:14,fontSize:13,lineHeight:1.6}}>
+      <div style={{background:WHITE,border:`1px solid ${editRates?GOLD:BD}`,borderRadius:5,padding:"14px 18px",marginBottom:14,fontSize:13,lineHeight:1.6}}>
         <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:12}}>
           <div>
             <strong style={{color:INK}}>Centre Stone Setting — calculated fee</strong>
@@ -5058,7 +5061,7 @@ function PricingDB({pricing,setPricing,spotPrices,setSpotPrices,markupTable,cent
             <div style={{fontSize:12,color:INK}}><strong>Basic</strong> = carat × <strong style={{color:"#4A8E6A"}}>{fmt(centreRates.basicPerCt)}</strong>/ct</div>
             <div style={{fontSize:12,color:INK}}><strong>Complex</strong> = carat × <strong style={{color:"#B05C3A"}}>{fmt(centreRates.complexPerCt)}</strong>/ct <span style={{color:WG}}>(pear claws, bezels, fragile / sapphire stones)</span></div>
           </div>
-          :<div style={{marginTop:12,background:PARCH,border:`1px solid ${BD}`,borderRadius:10,padding:"14px 16px"}}>
+          :<div style={{marginTop:12,background:PARCH,border:`1px solid ${BD}`,borderRadius:4,padding:"14px 16px"}}>
             <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"0 16px"}}>
               <div>
                 <label style={SS.lbl}>Basic setting ($ per carat)</label>
@@ -5083,7 +5086,7 @@ function PricingDB({pricing,setPricing,spotPrices,setSpotPrices,markupTable,cent
             </div>
           </div>}
       </div>
-      <div style={{background:WHITE,border:`1px solid ${BD}`,borderRadius:14,padding:"18px 20px",marginBottom:16}}>
+      <div style={{background:WHITE,border:`1px solid ${BD}`,borderRadius:5,padding:"18px 20px",marginBottom:16}}>
         <div style={{display:"grid",gridTemplateColumns:"180px 1fr",gap:"0 20px",alignItems:"start"}}>
           <div>
             <label style={SS.lbl}>Centre stone carat weight</label>
@@ -5099,7 +5102,7 @@ function PricingDB({pricing,setPricing,spotPrices,setSpotPrices,markupTable,cent
             <div style={{display:"flex",gap:10,marginTop:4}}>
               {[[false,"Basic","Round diamond, standard claw"],[true,"Complex","Pear claws, bezels, fragile / sapphire"]].map(([val,label,sub])=>(
                 <button key={label} onClick={()=>{setCentreComplex(val);updateCentreSelection(centreCt,val);}} style={{
-                  flex:1,padding:"10px 14px",borderRadius:8,cursor:"pointer",fontFamily:"inherit",textAlign:"left",
+                  flex:1,padding:"10px 14px",borderRadius:4,cursor:"pointer",fontFamily:"inherit",textAlign:"left",
                   border:`2px solid ${centreComplex===val?(val?"#B05C3A":"#4A8E6A"):BD}`,
                   background:centreComplex===val?(val?"#B05C3A11":"#4A8E6A11"):"transparent",transition:"all 0.12s"
                 }}>
@@ -5115,7 +5118,7 @@ function PricingDB({pricing,setPricing,spotPrices,setSpotPrices,markupTable,cent
           <div style={{fontSize:20,fontWeight:800,color:centreSettingFee(centreCt,centreComplex,centreRates)>0?OK:WG}}>{fmt(centreSettingFee(centreCt,centreComplex,centreRates))}</div>
         </div>
       </div>
-      <div style={{background:WHITE,border:`1px solid ${BD}`,borderRadius:14,overflow:"hidden"}}>
+      <div style={{background:WHITE,border:`1px solid ${BD}`,borderRadius:5,overflow:"hidden"}}>
         <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",background:PARCH,borderBottom:`1px solid ${BD}`}}>
           {["Carat weight","Basic fee","Complex fee"].map(h=><div key={h} style={{padding:"10px 16px",fontSize:10,fontWeight:700,color:WG,textTransform:"uppercase",letterSpacing:"0.06em"}}>{h}</div>)}
         </div>
@@ -5131,10 +5134,10 @@ function PricingDB({pricing,setPricing,spotPrices,setSpotPrices,markupTable,cent
 
     {/* Regular items view */}
     {!isDiamondView&&!isSettingView&&!isComplexSettingView&&!isPrintCastView&&!isCADView&&!isCentreView&&<>
-      {isAllView&&<div style={{background:WHITE,borderRadius:10,border:`1px solid ${BD}`,padding:"11px 16px",marginBottom:14,fontSize:13,color:WG,lineHeight:1.6}}>
+      {isAllView&&<div style={{background:WHITE,borderRadius:4,border:`1px solid ${BD}`,padding:"11px 16px",marginBottom:14,fontSize:13,color:WG,lineHeight:1.6}}>
         Raw costs — no markup applied here. The multiplier table handles that at quote time. Select a diamond category or "Basic Setting" to view those price charts.
       </div>}
-      {filteredRegular.length>0&&<div style={{background:WHITE,borderRadius:14,border:`1px solid ${regularEditing?GOLD:BD}`,overflow:"hidden",marginBottom:16,transition:"border-color 0.15s"}}>
+      {filteredRegular.length>0&&<div style={{background:WHITE,borderRadius:5,border:`1px solid ${regularEditing?GOLD:BD}`,overflow:"hidden",marginBottom:16,transition:"border-color 0.15s"}}>
         {/* Table header bar with edit button */}
         <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"10px 16px",background:regularEditing?GOLD_L:PARCH,borderBottom:`1px solid ${regularEditing?GOLD+"55":BD}`}}>
           <div style={{fontSize:11,fontWeight:700,color:regularEditing?GOLD_D:WG,textTransform:"uppercase",letterSpacing:"0.06em"}}>
@@ -5214,7 +5217,7 @@ function PricingDB({pricing,setPricing,spotPrices,setSpotPrices,markupTable,cent
           {(()=>{
             const tiers=pricing.filter(p=>p.cadTier&&p.baseCost>0);
             const rev=pricing.find(p=>p.cadRevision);
-            return <div onClick={()=>setCf("CAD Design")} style={{background:WHITE,border:`1px solid ${BD}`,borderRadius:12,padding:"16px 18px",cursor:"pointer",transition:"border-color 0.15s"}}
+            return <div onClick={()=>setCf("CAD Design")} style={{background:WHITE,border:`1px solid ${BD}`,borderRadius:5,padding:"16px 18px",cursor:"pointer",transition:"border-color 0.15s"}}
               onMouseEnter={e=>e.currentTarget.style.borderColor=GOLD} onMouseLeave={e=>e.currentTarget.style.borderColor=BD}>
               <div style={{fontSize:12,fontWeight:700,color:INK,marginBottom:6}}>CAD Design</div>
               <div style={{fontSize:11,color:WG,lineHeight:1.7}}>{tiers.length} tiers · {fmt(tiers[0]?.baseCost)} – {fmt(tiers[tiers.length-1]?.baseCost)}<br/>2 major revisions included · {fmt(rev?.baseCost||70)}/hr after<br/><span style={{color:WG}}>Includes None (no charge) option</span></div>
@@ -5225,7 +5228,7 @@ function PricingDB({pricing,setPricing,spotPrices,setSpotPrices,markupTable,cent
           {(()=>{
             const pc=pricing.find(p=>p.name==="3D print fee");
             const cc=pricing.find(p=>p.name==="Casting fee");
-            return <div onClick={()=>setCf("3D Print & Cast")} style={{background:WHITE,border:`1px solid ${BD}`,borderRadius:12,padding:"16px 18px",cursor:"pointer",transition:"border-color 0.15s"}}
+            return <div onClick={()=>setCf("3D Print & Cast")} style={{background:WHITE,border:`1px solid ${BD}`,borderRadius:5,padding:"16px 18px",cursor:"pointer",transition:"border-color 0.15s"}}
               onMouseEnter={e=>e.currentTarget.style.borderColor=GOLD} onMouseLeave={e=>e.currentTarget.style.borderColor=BD}>
               <div style={{fontSize:12,fontWeight:700,color:INK,marginBottom:6}}>3D Print & Cast</div>
               <div style={{fontSize:11,color:WG,lineHeight:1.7}}>Print: <strong style={{color:INK}}>{fmt(pc?.baseCost||60)}/piece</strong> · Cast: <strong style={{color:INK}}>{fmt(cc?.baseCost||15)}/piece</strong><br/><span style={{color:WG}}>Rates editable · qty-based calculator</span></div>
@@ -5235,7 +5238,7 @@ function PricingDB({pricing,setPricing,spotPrices,setSpotPrices,markupTable,cent
           {/* Basic Setting card */}
           {(()=>{
             const its=pricing.filter(p=>p.category==="Basic Setting").sort((a,b)=>a.sizeMm-b.sizeMm);
-            return <div onClick={()=>setCf("Basic Setting")} style={{background:WHITE,border:`1px solid ${BD}`,borderRadius:12,padding:"16px 18px",cursor:"pointer",transition:"border-color 0.15s"}}
+            return <div onClick={()=>setCf("Basic Setting")} style={{background:WHITE,border:`1px solid ${BD}`,borderRadius:5,padding:"16px 18px",cursor:"pointer",transition:"border-color 0.15s"}}
               onMouseEnter={e=>e.currentTarget.style.borderColor=GOLD} onMouseLeave={e=>e.currentTarget.style.borderColor=BD}>
               <div style={{fontSize:12,fontWeight:700,color:INK,marginBottom:6}}>Basic Setting</div>
               <div style={{fontSize:11,color:WG,lineHeight:1.7}}>{its.length} sizes · {its[0]?.sizeMm}mm – {its[its.length-1]?.sizeMm}mm<br/>Setting labour: {fmt(its[0]?.baseCost)} – {fmt(its[its.length-1]?.baseCost)}/stone<br/><span style={{color:WG}}>Applies to all stone types</span></div>
@@ -5245,7 +5248,7 @@ function PricingDB({pricing,setPricing,spotPrices,setSpotPrices,markupTable,cent
           {/* Complex Setting card */}
           {(()=>{
             const its=pricing.filter(p=>p.category==="Complex Setting").sort((a,b)=>a.sizeMm-b.sizeMm);
-            return <div onClick={()=>setCf("Complex Setting")} style={{background:WHITE,border:`1px solid ${BD}`,borderRadius:12,padding:"16px 18px",cursor:"pointer",transition:"border-color 0.15s"}}
+            return <div onClick={()=>setCf("Complex Setting")} style={{background:WHITE,border:`1px solid ${BD}`,borderRadius:5,padding:"16px 18px",cursor:"pointer",transition:"border-color 0.15s"}}
               onMouseEnter={e=>e.currentTarget.style.borderColor=GOLD} onMouseLeave={e=>e.currentTarget.style.borderColor=BD}>
               <div style={{fontSize:12,fontWeight:700,color:INK,marginBottom:6}}>Complex Setting</div>
               <div style={{fontSize:11,color:WG,lineHeight:1.7}}>{its.length} sizes · {its[0]?.sizeMm}mm – {its[its.length-1]?.sizeMm}mm<br/>Setting labour: {fmt(its[0]?.baseCost)} – {fmt(its[its.length-1]?.baseCost)}/stone<br/><span style={{color:WG}}>French Pavé · Channel · Bezel</span></div>
@@ -5255,7 +5258,7 @@ function PricingDB({pricing,setPricing,spotPrices,setSpotPrices,markupTable,cent
           {DIAMOND_CATS.map(cat=>{
             const its=pricing.filter(p=>p.category===cat).sort((a,b)=>a.sizeMm-b.sizeMm);
             const col=DCOLORS[cat]||WG;
-            return <div key={cat} onClick={()=>setCf(cat)} style={{background:WHITE,border:`1px solid ${col}44`,borderRadius:12,padding:"16px 18px",cursor:"pointer",transition:"border-color 0.15s"}}
+            return <div key={cat} onClick={()=>setCf(cat)} style={{background:WHITE,border:`1px solid ${col}44`,borderRadius:5,padding:"16px 18px",cursor:"pointer",transition:"border-color 0.15s"}}
               onMouseEnter={e=>e.currentTarget.style.borderColor=col} onMouseLeave={e=>e.currentTarget.style.borderColor=col+"44"}>
               <div style={{fontSize:12,fontWeight:700,color:col,marginBottom:6}}>{cat}</div>
               <div style={{fontSize:11,color:WG,lineHeight:1.7}}>{its.length} sizes · {its[0]?.sizeMm}mm – {its[its.length-1]?.sizeMm}mm<br/>{fmt(its[0]?.baseCost)} – {fmt(its[its.length-1]?.baseCost)} per stone</div>
@@ -5289,7 +5292,7 @@ function PricingItemForm({initial={},onSave,onCancel}){
     {isAccent
       ?<>
         <Input label="Notes / detail (optional)" value={f.detail||""} onChange={set("detail")} placeholder="e.g. heat treated, round, supplier XYZ"/>
-        <div style={{background:"#EEF4FB",border:"1px solid #C8DFF0",borderRadius:8,padding:"10px 14px",fontSize:12,color:"#3B6E8F",marginBottom:14}}>
+        <div style={{background:"#EEF4FB",border:"1px solid #C8DFF0",borderRadius:4,padding:"10px 14px",fontSize:12,color:"#3B6E8F",marginBottom:14}}>
           Cost is entered per quote — accent stone prices vary job to job.
         </div>
       </>
@@ -5319,13 +5322,13 @@ function SpotPriceUpdater({spotPrices,setSpotPrices,pricing,setPricing,onClose})
     onClose();
   };
   return <div>
-    <div style={{background:GOLD_L,borderRadius:10,padding:"12px 16px",marginBottom:16,fontSize:13,color:GOLD_D,lineHeight:1.6}}>Enter today's fine metal spot price per gram (AUD). All metal pricing items update automatically based on purity.</div>
+    <div style={{background:GOLD_L,borderRadius:4,padding:"12px 16px",marginBottom:16,fontSize:13,color:GOLD_D,lineHeight:1.6}}>Enter today's fine metal spot price per gram (AUD). All metal pricing items update automatically based on purity.</div>
     <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:"0 16px"}}>
       <Input label="Fine gold ($/g)" value={g} onChange={setG} type="number" min="0" step="0.01"/>
       <Input label="Platinum ($/g)" value={pt} onChange={setPt} type="number" min="0" step="0.01"/>
       <Input label="Silver ($/g)" value={ag} onChange={setAg} type="number" min="0" step="0.01"/>
     </div>
-    <div style={{background:PARCH,borderRadius:10,padding:"12px 16px",marginBottom:14,fontSize:13}}>
+    <div style={{background:PARCH,borderRadius:4,padding:"12px 16px",marginBottom:14,fontSize:13}}>
       <div style={{fontWeight:700,color:INK,marginBottom:8}}>Preview</div>
       {[{n:"9ct yellow gold",k:"gold",p:0.375},{n:"18ct gold (all alloys)",k:"gold",p:0.75},{n:"Platinum 950",k:"platinum",p:0.95},{n:"Silver 925",k:"silver",p:0.925}].map(m=>{
         const spot=m.k==="gold"?Number(g):m.k==="platinum"?Number(pt):Number(ag);
@@ -5444,12 +5447,12 @@ function Settings({biz,setBiz,markupTable,setMarkupTable,naturalStoneMarkup,setN
       <div style={{marginBottom:18}}>
         <label style={SS.lbl}>Business logo</label>
         <div style={{display:"flex",alignItems:"center",gap:16,marginTop:8}}>
-          <div style={{width:90,height:90,borderRadius:14,border:`1px solid ${BD}`,background:PARCH,display:"flex",alignItems:"center",justifyContent:"center",overflow:"hidden",flexShrink:0}}>
+          <div style={{width:90,height:90,borderRadius:5,border:`1px solid ${BD}`,background:PARCH,display:"flex",alignItems:"center",justifyContent:"center",overflow:"hidden",flexShrink:0}}>
             {bForm.logo?<img src={bForm.logo} alt="Logo" style={{maxWidth:"100%",maxHeight:"100%",objectFit:"contain"}}/>:<span style={{fontSize:11,color:WG}}>No logo</span>}
           </div>
           <div>
             <div style={{display:"flex",gap:8,alignItems:"center"}}>
-              <label style={{background:INK,color:WHITE,borderRadius:999,padding:"8px 18px",fontSize:13,fontWeight:700,cursor:"pointer",fontFamily:"inherit"}}>
+              <label style={{background:INK,color:WHITE,borderRadius:3,padding:"8px 18px",fontSize:12,fontWeight:700,cursor:"pointer",fontFamily:"inherit",letterSpacing:"0.1em",textTransform:"uppercase"}}>
                 {bForm.logo?"Replace logo":"Upload logo"}
                 <input type="file" accept="image/*" style={{display:"none"}} onChange={async e=>{
                   const f=e.target.files?.[0];e.target.value="";if(!f)return;
@@ -5490,7 +5493,7 @@ function Settings({biz,setBiz,markupTable,setMarkupTable,naturalStoneMarkup,setN
     <Card>
       <div style={{fontWeight:700,fontSize:15,color:INK,marginBottom:4}}>Markup table</div>
       <div style={{fontSize:13,color:WG,marginBottom:16,lineHeight:1.6}}>Your tiered multiplier table. The quote builder uses this to find the right bracket and calculate your final price automatically. Adjust any row and save.</div>
-      <div style={{background:WHITE,borderRadius:12,border:`1px solid ${BD}`,overflow:"hidden",marginBottom:16}}>
+      <div style={{background:WHITE,borderRadius:5,border:`1px solid ${BD}`,overflow:"hidden",marginBottom:16}}>
         <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 120px",padding:"9px 16px",background:PARCH,borderBottom:`1px solid ${BD}`}}>
           {["Cost from ($)","Cost to ($)","Multiplier"].map(h=><div key={h} style={{fontSize:10,fontWeight:700,color:WG,textTransform:"uppercase",letterSpacing:"0.05em"}}>{h}</div>)}
         </div>
@@ -5513,7 +5516,7 @@ function Settings({biz,setBiz,markupTable,setMarkupTable,naturalStoneMarkup,setN
           </div>;
         })}
       </div>
-      <div style={{background:GOLD_L,border:`1px solid ${GOLD}55`,borderRadius:10,padding:"14px 16px",marginBottom:16}}>
+      <div style={{background:GOLD_L,border:`1px solid ${GOLD}55`,borderRadius:4,padding:"14px 16px",marginBottom:16}}>
         <div style={{display:"flex",alignItems:"flex-start",gap:14,flexWrap:"wrap"}}>
           <div style={{flexShrink:0}}>
             <label style={SS.lbl}>Bracket threshold buffer ($)</label>
@@ -5527,7 +5530,7 @@ function Settings({biz,setBiz,markupTable,setMarkupTable,naturalStoneMarkup,setN
           </div>
         </div>
       </div>
-      <div style={{background:GOLD_L,border:`1px solid ${GOLD}55`,borderRadius:10,padding:"14px 16px",marginBottom:16}}>
+      <div style={{background:GOLD_L,border:`1px solid ${GOLD}55`,borderRadius:4,padding:"14px 16px",marginBottom:16}}>
         <div style={{display:"flex",alignItems:"flex-start",gap:14,flexWrap:"wrap"}}>
           <div style={{flexShrink:0}}>
             <label style={SS.lbl}>Round quote prices</label>
@@ -5627,7 +5630,7 @@ function Settings({biz,setBiz,markupTable,setMarkupTable,naturalStoneMarkup,setN
 // ── Appointments ───────────────────────────────────────────────────────────
 const apptName=(a,clients)=>{const c=a.clientId&&clients.find(x=>x.id===a.clientId);return c?c.name:(a.clientName||"—");};
 function MiniBtn({label,color,onClick}){
-  return <button onClick={e=>{e.stopPropagation();onClick();}} style={{background:color+"14",border:`1px solid ${color}44`,borderRadius:20,padding:"3px 10px",fontSize:11,fontWeight:700,color,cursor:"pointer",fontFamily:"inherit"}}>{label}</button>;
+  return <button onClick={e=>{e.stopPropagation();onClick();}} style={{background:color+"14",border:`1px solid ${color}44`,borderRadius:3,padding:"3px 10px",fontSize:11,fontWeight:700,color,cursor:"pointer",fontFamily:"inherit"}}>{label}</button>;
 }
 function ApptLegend(){
   return <div style={{display:"flex",gap:14,flexWrap:"wrap",alignItems:"center",marginBottom:14}}>
@@ -5722,8 +5725,8 @@ function Appointments({appointments,setAppointments,clients,setClients,jobs=[],s
   const modalInitial=modal==="add"?{}:(modal&&modal.prefillDate?{date:modal.prefillDate}:(isEdit?modal:{}));
 
   // ── Toolbar ──
-  const pill=(val,label)=><button key={val} onClick={()=>setMode(val)} style={{padding:"5px 14px",borderRadius:20,border:`1px solid ${mode===val?GOLD:BD}`,background:mode===val?GOLD:"transparent",color:mode===val?WHITE:WG,fontSize:12,fontWeight:700,cursor:"pointer",fontFamily:"inherit"}}>{label}</button>;
-  const navBtn=(label,onClick)=><button onClick={onClick} style={{background:WHITE,border:`1px solid ${BD}`,borderRadius:8,padding:"6px 12px",fontSize:13,fontWeight:700,color:INK,cursor:"pointer",fontFamily:"inherit"}}>{label}</button>;
+  const pill=(val,label)=><button key={val} onClick={()=>setMode(val)} style={{padding:"6px 15px",borderRadius:3,border:`1px solid ${mode===val?GOLD:BD}`,background:mode===val?GOLD:"transparent",color:mode===val?WHITE:WG,fontSize:11,fontWeight:700,letterSpacing:"0.1em",textTransform:"uppercase",cursor:"pointer",fontFamily:"inherit"}}>{label}</button>;
+  const navBtn=(label,onClick)=><button onClick={onClick} style={{background:WHITE,border:`1px solid ${BD}`,borderRadius:4,padding:"6px 12px",fontSize:13,fontWeight:700,color:INK,cursor:"pointer",fontFamily:"inherit"}}>{label}</button>;
 
   const renderList=()=>{
     const upcoming=sorted.filter(a=>isLiveAppt(a)&&a.date>=tISO);
@@ -5732,8 +5735,8 @@ function Appointments({appointments,setAppointments,clients,setClients,jobs=[],s
     const days=[...new Set(list.map(a=>a.date))];
     return <div>
       <div style={{display:"flex",gap:6,marginBottom:16}}>
-        <button onClick={()=>setShowPast(false)} style={{padding:"5px 14px",borderRadius:20,border:`1px solid ${!showPast?GOLD:BD}`,background:!showPast?GOLD:"transparent",color:!showPast?WHITE:WG,fontSize:12,fontWeight:700,cursor:"pointer",fontFamily:"inherit"}}>Upcoming ({upcoming.length})</button>
-        <button onClick={()=>setShowPast(true)} style={{padding:"5px 14px",borderRadius:20,border:`1px solid ${showPast?GOLD:BD}`,background:showPast?GOLD:"transparent",color:showPast?WHITE:WG,fontSize:12,fontWeight:700,cursor:"pointer",fontFamily:"inherit"}}>Past &amp; resolved ({past.length})</button>
+        <button onClick={()=>setShowPast(false)} style={{padding:"6px 15px",borderRadius:3,border:`1px solid ${!showPast?GOLD:BD}`,background:!showPast?GOLD:"transparent",color:!showPast?WHITE:WG,fontSize:11,fontWeight:700,letterSpacing:"0.08em",textTransform:"uppercase",cursor:"pointer",fontFamily:"inherit"}}>Upcoming ({upcoming.length})</button>
+        <button onClick={()=>setShowPast(true)} style={{padding:"6px 15px",borderRadius:3,border:`1px solid ${showPast?GOLD:BD}`,background:showPast?GOLD:"transparent",color:showPast?WHITE:WG,fontSize:11,fontWeight:700,letterSpacing:"0.08em",textTransform:"uppercase",cursor:"pointer",fontFamily:"inherit"}}>Past &amp; resolved ({past.length})</button>
       </div>
       {list.length===0&&<Card><div style={{color:WG,fontSize:14,textAlign:"center",padding:"14px 0"}}>No {showPast?"past or resolved":"upcoming"} appointments.</div></Card>}
       {days.map(d=>(
@@ -5795,7 +5798,7 @@ function Appointments({appointments,setAppointments,clients,setClients,jobs=[],s
       <div style={{display:"grid",gridTemplateColumns:"repeat(7,1fr)",gap:8,alignItems:"start"}}>
         {days.map(d=>{
           const isT=d===tISO;const list=byDay[d]||[];
-          return <div key={d} onClick={()=>setModal({prefillDate:d})} style={{background:WHITE,border:`1px solid ${isT?GOLD:BD_SOFT}`,borderRadius:12,minHeight:160,padding:"10px 9px",cursor:"pointer"}}>
+          return <div key={d} onClick={()=>setModal({prefillDate:d})} style={{background:WHITE,border:`1px solid ${isT?GOLD:BD_SOFT}`,borderRadius:5,minHeight:160,padding:"10px 9px",cursor:"pointer"}}>
             <div style={{fontSize:11,fontWeight:700,textTransform:"uppercase",letterSpacing:"0.04em",color:isT?GOLD:WG,marginBottom:8}}>{parseISO(d).toLocaleDateString("en-AU",{weekday:"short"})} {parseISO(d).getDate()}</div>
             {list.map(a=><ApptChip key={a.id} a={a} clients={clients} onClick={()=>setModal(a)}/>)}
           </div>;
@@ -5819,7 +5822,7 @@ function Appointments({appointments,setAppointments,clients,setClients,jobs=[],s
         <div style={{fontSize:15,fontWeight:800,color:INK,marginLeft:6}}>{monthLabel(first)}</div>
       </div>
       <ApptLegend/>
-      <div style={{display:"grid",gridTemplateColumns:"repeat(7,1fr)",gap:1,background:BD,border:`1px solid ${BD}`,borderRadius:12,overflow:"hidden"}}>
+      <div style={{display:"grid",gridTemplateColumns:"repeat(7,1fr)",gap:1,background:BD,border:`1px solid ${BD}`,borderRadius:5,overflow:"hidden"}}>
         {dow.map(d=><div key={d} style={{background:PARCH,padding:"7px 0",textAlign:"center",fontSize:10,fontWeight:700,textTransform:"uppercase",letterSpacing:"0.06em",color:WG}}>{d}</div>)}
         {cells.map(d=>{
           const isT=d===tISO;const inMonth=d.slice(0,7)===curMonth;const list=byDay[d]||[];
@@ -5882,8 +5885,8 @@ function Login(){
       <label style={{...SS.lbl,color:"rgba(255,255,255,0.5)"}}>Password</label>
       <input type="password" value={password} onChange={e=>setPassword(e.target.value)} placeholder="••••••••"
         style={{...SS.inp,marginTop:4,marginBottom:18,background:"#161616",border:"1px solid rgba(255,255,255,0.12)",color:WHITE}}/>
-      {err&&<div style={{background:DANGER+"22",border:`1px solid ${DANGER}55`,color:"#FF9B91",fontSize:12,padding:"9px 12px",borderRadius:8,marginBottom:14}}>{err}</div>}
-      <button type="submit" disabled={busy} style={{width:"100%",background:busy?"#7A5F0F":GOLD,color:WHITE,border:"none",borderRadius:8,padding:"11px",fontSize:14,fontWeight:700,cursor:busy?"default":"pointer",fontFamily:"inherit",letterSpacing:"0.04em"}}>
+      {err&&<div style={{background:DANGER+"22",border:`1px solid ${DANGER}55`,color:"#FF9B91",fontSize:12,padding:"9px 12px",borderRadius:4,marginBottom:14}}>{err}</div>}
+      <button type="submit" disabled={busy} style={{width:"100%",background:busy?"#7A5F0F":GOLD,color:WHITE,border:"none",borderRadius:4,padding:"11px",fontSize:14,fontWeight:700,cursor:busy?"default":"pointer",fontFamily:"inherit",letterSpacing:"0.04em"}}>
         {busy?"Signing in…":"Sign in"}
       </button>
       <div style={{fontSize:11,color:"rgba(255,255,255,0.3)",textAlign:"center",marginTop:16,lineHeight:1.6}}>Accounts are created by your studio administrator.</div>
@@ -6156,7 +6159,7 @@ export default function App(){
       <div style={{padding:"0 20px 28px",borderBottom:"1px solid rgba(255,255,255,0.06)"}}>
         <div style={{fontSize:8,fontWeight:700,color:GOLD,letterSpacing:"0.28em",textTransform:"uppercase",marginBottom:10,opacity:0.8}}>Studio Platform</div>
         {biz.logo
-          ?<div style={{background:WHITE,borderRadius:10,padding:"8px 12px",display:"inline-flex",maxWidth:"100%"}}>
+          ?<div style={{background:WHITE,borderRadius:4,padding:"8px 12px",display:"inline-flex",maxWidth:"100%"}}>
               <img src={biz.logo} alt={biz.name||"Logo"} style={{maxWidth:"100%",maxHeight:46,objectFit:"contain",display:"block"}}/>
             </div>
           :<div style={{fontSize:24,fontWeight:300,color:WHITE,letterSpacing:"0.18em",fontFamily:"'DM Sans',sans-serif",lineHeight:1.1}}>{biz.name||"VAHÉ"}</div>}
@@ -6188,7 +6191,7 @@ export default function App(){
     </div>
     {/* Live response pop-up — proposals & repairs (any view) */}
     {acceptToast&&<div onClick={()=>{const j=acceptToast.jobId;setAcceptToast(null);if(j)setView("jobDetail_"+j);}}
-      style={{position:"fixed",bottom:24,right:24,maxWidth:340,background:INK,color:WHITE,borderRadius:12,padding:"16px 18px",boxShadow:"0 12px 40px rgba(0,0,0,0.35)",zIndex:9999,cursor:"pointer",border:`1px solid ${(acceptToast.color||OK)}66`}}>
+      style={{position:"fixed",bottom:24,right:24,maxWidth:340,background:INK,color:WHITE,borderRadius:5,padding:"16px 18px",boxShadow:"0 12px 40px rgba(0,0,0,0.35)",zIndex:9999,cursor:"pointer",border:`1px solid ${(acceptToast.color||OK)}66`}}>
       <div style={{display:"flex",alignItems:"flex-start",gap:12}}>
         <div style={{fontSize:22,lineHeight:1}}>{acceptToast.color===DANGER?"⚠️":"🎉"}</div>
         <div style={{flex:1}}>
