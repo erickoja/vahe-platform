@@ -2374,6 +2374,7 @@ function QuoteBuilder({jobId:jobIdProp,editQuoteId,jobs,clients,quotes,setQuotes
   const[notes,setNotes]=useState(existingQuote?.notes||"");
   const[clientDescription,setClientDescription]=useState(existingQuote?.clientDescription||"");
   const[title,setTitle]=useState(existingQuote?.title??(job?.type||""));   // prefill new quotes with the job type
+  const[pieceTitle,setPieceTitle]=useState(existingQuote?.pieceTitle||"");  // custom piece name on documents; blank = use job type
   const[markupOverride,setMarkupOverride]=useState(existingQuote?.markupOverride?String(existingQuote.markupOverride):"");
   const[manualTotal,setManualTotal]=useState(existingQuote?.manualTotal?String(existingQuote.manualTotal):"");
   const[validUntil,setValidUntil]=useState(existingQuote?.validUntil||"");
@@ -2521,12 +2522,12 @@ function QuoteBuilder({jobId:jobIdProp,editQuoteId,jobs,clients,quotes,setQuotes
     if(!baseValidItems.length&&!validAccentItems.length&&!hasSourcedStones&&!manualOn)return alert("Add at least one cost item — a line item, a sourced stone, or a manual quoted price.");
     if(isEditing){
       // Update existing quote — preserve id, jobId, createdAt
-      const updated={...existingQuote,status,title:title.trim(),markupOverride:Number(markupOverride)||0,manualTotal:Number(manualTotal)||0,validUntil,notes,lineItems:validItems,
+      const updated={...existingQuote,status,title:title.trim(),pieceTitle:pieceTitle.trim(),markupOverride:Number(markupOverride)||0,manualTotal:Number(manualTotal)||0,validUntil,notes,lineItems:validItems,
         stoneMode,stoneType:stoneMode==="sourcing"?stoneType:"",stoneItems:stoneMode==="sourcing"?validStoneItems:[],
         stoneNotes,stoneClientTotal:stoneCalc?.clientTotal||0,accentStoneTotal,clientDescription,updatedAt:today()};
       setQuotes(p=>{const n=p.map(q=>q.id===editQuoteId?updated:q);persist(K.qu,n);return n;});
     }else{
-      const q={id:uid(),jobId,status,title:title.trim(),markupOverride:Number(markupOverride)||0,manualTotal:Number(manualTotal)||0,createdAt:today(),validUntil,notes,lineItems:validItems,
+      const q={id:uid(),jobId,status,title:title.trim(),pieceTitle:pieceTitle.trim(),markupOverride:Number(markupOverride)||0,manualTotal:Number(manualTotal)||0,createdAt:today(),validUntil,notes,lineItems:validItems,
         stoneMode,stoneType:stoneMode==="sourcing"?stoneType:"",stoneItems:stoneMode==="sourcing"?validStoneItems:[],
         stoneNotes,stoneClientTotal:stoneCalc?.clientTotal||0,accentStoneTotal,clientDescription};
       setQuotes(p=>{const n=[...p,q];persist(K.qu,n);return n;});
@@ -2554,6 +2555,9 @@ function QuoteBuilder({jobId:jobIdProp,editQuoteId,jobs,clients,quotes,setQuotes
         <div style={{display:"grid",gridTemplateColumns:"1fr 200px",gap:"0 24px",marginBottom:16}}>
           <Input label="Quote title / label" value={title} onChange={setTitle} placeholder="e.g. Engagement ring, Diamond upgrade, Repair…"/>
           <Input label="Quote expiry date" value={validUntil} onChange={setValidUntil} type="date"/>
+        </div>
+        <div style={{marginBottom:16}}>
+          <Input label="Piece name on documents (optional)" value={pieceTitle} onChange={setPieceTitle} placeholder={`Heading for the piece — blank uses the job type${job?.type?` (“${job.type}”)`:""}. e.g. Solitaire engagement ring`}/>
         </div>
         <div>
           <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:6}}>
@@ -3592,7 +3596,7 @@ function ProposalPreview({quote,job,clients=[],biz,calc,payments=[],onClose}){
           </div>
           <div style={{padding:"28px 52px 28px 32px"}}>
             <div style={{fontSize:9,fontWeight:700,color:WG,letterSpacing:"0.16em",textTransform:"uppercase",marginBottom:12,fontFamily:"'DM Sans',sans-serif"}}>Piece</div>
-            <div style={{fontSize:15,fontWeight:700,color:INK,fontFamily:"'DM Sans',sans-serif",marginBottom:8}}>{job?.type||"Custom Jewellery"}</div>
+            <div style={{fontSize:15,fontWeight:700,color:INK,fontFamily:"'DM Sans',sans-serif",marginBottom:8}}>{(quote.pieceTitle||"").trim()||job?.type||"Custom Jewellery"}</div>
             {description
               ?<div style={{fontSize:13,color:"#444",lineHeight:1.75,fontFamily:"'DM Sans',sans-serif"}}>{description}</div>
               :<div style={{fontSize:12,color:WG,fontStyle:"italic",fontFamily:"'DM Sans',sans-serif"}}>No description added — edit quote to add one.</div>
@@ -3627,7 +3631,7 @@ function ProposalPreview({quote,job,clients=[],biz,calc,payments=[],onClose}){
           {/* Jewellery row */}
           <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:24,padding:"13px 0",borderTop:`1px solid ${BD}`}}>
             <div style={{flex:1,minWidth:0}}>
-              <div style={{fontSize:13,fontWeight:600,color:INK,fontFamily:"'DM Sans',sans-serif"}}>{job?.type||"Jewellery piece"}</div>
+              <div style={{fontSize:13,fontWeight:600,color:INK,fontFamily:"'DM Sans',sans-serif"}}>{(quote.pieceTitle||"").trim()||job?.type||"Jewellery piece"}</div>
               <div style={{fontSize:11,color:WG,marginTop:3,lineHeight:1.6,fontFamily:"'DM Sans',sans-serif"}}>{description||"Design, materials & craftsmanship"}</div>
             </div>
             <div style={{fontSize:16,fontWeight:700,color:INK,fontFamily:"'DM Sans',sans-serif",whiteSpace:"nowrap"}}>{manual?<span style={{fontSize:12,fontWeight:400,fontStyle:"italic",color:WG}}>Included</span>:calc.bracket?fmtR(settingTotal):"—"}</div>
