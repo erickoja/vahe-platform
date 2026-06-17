@@ -3344,7 +3344,7 @@ function PublicProposalPage({token}){
     setAcceptedOption(decision);setAcceptedName(nm);setState("accepted");
   };
 
-  const wrap=(inner)=><div style={{minHeight:"100vh",background:CREAM,fontFamily:"'DM Sans',sans-serif",padding:"24px 16px",boxSizing:"border-box"}}>{inner}</div>;
+  const wrap=(inner)=><div style={{minHeight:"100vh",background:CREAM,fontFamily:"'DM Sans',system-ui,'Segoe UI',Roboto,sans-serif",padding:"24px 16px",boxSizing:"border-box"}}>{inner}</div>;
   if(state==="loading")return wrap(<div style={{textAlign:"center",color:WG,fontSize:14,marginTop:80}}>Loading your proposal…</div>);
   if(state==="error")return wrap(<div style={{maxWidth:440,margin:"80px auto 0",textAlign:"center",background:WHITE,border:`1px solid ${BD}`,borderRadius:RADIUS,padding:"32px 28px",boxShadow:SHADOW}}><div style={{fontSize:30,marginBottom:10}}>⚠️</div><div style={{fontSize:16,fontWeight:800,color:INK,marginBottom:6}}>Couldn't load this proposal</div><div style={{fontSize:13,color:WG,lineHeight:1.6}}>Please check the link, or get in touch with the studio.</div></div>);
   if(state==="notfound")return wrap(<div style={{maxWidth:440,margin:"80px auto 0",textAlign:"center",background:WHITE,border:`1px solid ${BD}`,borderRadius:RADIUS,padding:"32px 28px",boxShadow:SHADOW}}><div style={{fontSize:30,marginBottom:10}}>🔍</div><div style={{fontSize:16,fontWeight:800,color:INK,marginBottom:6}}>Proposal not found</div><div style={{fontSize:13,color:WG,lineHeight:1.6}}>This link may have expired or been withdrawn. Please contact the studio for an up-to-date quote.</div></div>);
