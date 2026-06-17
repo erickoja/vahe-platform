@@ -3633,14 +3633,22 @@ function ProposalPreview({quote,job,clients=[],biz,calc,payments=[],onClose}){
             <div style={{fontSize:16,fontWeight:700,color:INK,fontFamily:"'DM Sans',sans-serif",whiteSpace:"nowrap"}}>{manual?<span style={{fontSize:12,fontWeight:400,fontStyle:"italic",color:WG}}>Included</span>:calc.bracket?fmtR(settingTotal):"—"}</div>
           </div>
 
-          {/* Stone row — studio sourcing */}
-          {quote.stoneMode==="sourcing"&&stoneTotal>0&&<div style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"13px 0",borderTop:`1px solid ${BD}`}}>
-            <div>
-              <div style={{fontSize:13,fontWeight:600,color:INK,fontFamily:"'DM Sans',sans-serif"}}>Centre / feature stone</div>
-              <div style={{fontSize:11,color:WG,marginTop:2,fontFamily:"'DM Sans',sans-serif"}}>{quote.stoneType==="lab"?"Lab-grown diamond / gemstone":"Natural diamond / gemstone"} · inc. GST</div>
-            </div>
-            <div style={{fontSize:16,fontWeight:700,color:INK,fontFamily:"'DM Sans',sans-serif"}}>{manual?<span style={{fontSize:12,fontWeight:400,fontStyle:"italic",color:WG}}>Included</span>:fmtR(stoneTotal)}</div>
-          </div>}
+          {/* Stone row — studio sourcing. Use the actual stone description(s) entered on the quote,
+              falling back to a generic label only when none were given (mirrors the invoice). */}
+          {quote.stoneMode==="sourcing"&&stoneTotal>0&&(()=>{
+            const sDescs=(quote.stoneItems||[]).map(s=>(s.description||"").trim()).filter(Boolean);
+            const sDetails=(quote.stoneItems||[]).map(s=>(s.detail||"").trim()).filter(Boolean);
+            const title=sDescs.length?sDescs.join(" + "):"Centre / feature stone";
+            const subParts=sDescs.length?(sDetails.length?[sDetails.join(" · ")]:[]):[(quote.stoneType==="lab"?"Lab-grown diamond / gemstone":"Natural diamond / gemstone")];
+            subParts.push("inc. GST");
+            return <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"13px 0",borderTop:`1px solid ${BD}`}}>
+              <div>
+                <div style={{fontSize:13,fontWeight:600,color:INK,fontFamily:"'DM Sans',sans-serif"}}>{title}</div>
+                <div style={{fontSize:11,color:WG,marginTop:2,fontFamily:"'DM Sans',sans-serif"}}>{subParts.join(" · ")}</div>
+              </div>
+              <div style={{fontSize:16,fontWeight:700,color:INK,fontFamily:"'DM Sans',sans-serif"}}>{manual?<span style={{fontSize:12,fontWeight:400,fontStyle:"italic",color:WG}}>Included</span>:fmtR(stoneTotal)}</div>
+            </div>;
+          })()}
 
           {/* Client stone row */}
           {quote.stoneMode==="client"&&<div style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"13px 0",borderTop:`1px solid ${BD}`}}>
