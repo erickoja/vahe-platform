@@ -1028,6 +1028,33 @@ const signedImageUrl=async(path)=>{
 const deleteJobImage=async(path)=>{
   try{await supabase.storage.from(IMG_BUCKET).remove([path]);}catch(e){}
 };
+// Fetch a (signed) URL and inline it as a data URL so it prints/PDFs reliably
+// without depending on a network round-trip while the print dialog is open.
+const urlToDataUrl=async(url)=>{
+  try{
+    const res=await fetch(url);
+    const blob=await res.blob();
+    return await new Promise((resolve,reject)=>{
+      const r=new FileReader();
+      r.onload=()=>resolve(r.result);
+      r.onerror=()=>reject(new Error("read failed"));
+      r.readAsDataURL(blob);
+    });
+  }catch(e){return null;}
+};
+// Pull a job's uploaded images in as inline data URLs, ready to embed in print docs.
+const jobImagesForPrint=async(job,max=6)=>{
+  const imgs=job?.images||[];
+  if(!imagesEnabled()||!imgs.length)return[];
+  const out=[];
+  for(const img of imgs.slice(0,max)){
+    const signed=await signedImageUrl(img.path);
+    if(!signed)continue;
+    const dataUrl=await urlToDataUrl(signed);
+    out.push({url:dataUrl||signed,caption:img.caption||""});
+  }
+  return out;
+};
 
 // ── Shared UI ─────────────────────────────────────────────────────────────
 const SS={inp:{width:"100%",padding:"10px 13px",borderRadius:4,border:`1px solid ${BD}`,fontSize:13,fontFamily:"inherit",color:INK,background:WHITE,outline:"none",boxSizing:"border-box",marginTop:4},lbl:{fontSize:10,fontWeight:700,color:WG,letterSpacing:"0.1em",textTransform:"uppercase",display:"block"}};
@@ -1216,8 +1243,9 @@ function intakeItems(intake){
   if(intake.itemType||intake.damage||intake.condition)return[{itemType:intake.itemType||"",damage:intake.damage||"",condition:intake.condition||""}];
   return[];
 }
-function printRepairIntake(biz,c,job){
+async function printRepairIntake(biz,c,job){
   const win=window.open("","_blank");
+  const photos=await jobImagesForPrint(job);
   const intake=job.intake||{};
   const items=intakeItems(intake);
   const ref=job.id.slice(-6).toUpperCase();
@@ -1253,6 +1281,9 @@ ${hasPrices?`<td class="amt">${itemAmt(it)>0?fmt(itemAmt(it)):dash}</td>`:""}
 <tbody>${rows}</tbody></table>
 ${hasPrices?`<div class="rtot"><span class="rt-l">Repair total (inc GST)</span><span class="rt-v">${fmt(repairTotal)}</span></div>`:""}`;
 
+  // Uploaded photos of the piece(s) on intake
+  const photosHtml=photos.length?`<div class="photos"><div class="ph-lbl">Photos on intake</div><div class="ph-grid">${photos.map(p=>`<figure class="ph-item"><img src="${p.url}" alt="Repair photo"/>${p.caption?`<figcaption>${esc(p.caption)}</figcaption>`:""}</figure>`).join("")}</div></div>`:"";
+
   win.document.write(`<!DOCTYPE html><html><head><title>Repair Receipt — ${ref}</title><style>${PCSS}
 .rsum{display:grid;gap:1px;background:#E8E2D9;border:1px solid #E8E2D9;border-radius:10px;overflow:hidden;margin-bottom:26px}
 .rsum>div{background:#fff;padding:12px 16px}
@@ -1276,7 +1307,13 @@ ${hasPrices?`<div class="rtot"><span class="rt-l">Repair total (inc GST)</span><
 .sig{display:grid;grid-template-columns:1fr 1fr;gap:36px;margin-top:8px}
 .sig .sigline{border-bottom:1px solid #1A1714;margin-top:30px;margin-bottom:5px}
 .sig .siglbl{font-size:9px;color:#6B6560}
-@media print{.itbl tr{page-break-inside:avoid}}
+.photos{margin-bottom:26px}
+.ph-lbl{font-size:8.5px;font-weight:700;color:#6B6560;text-transform:uppercase;letter-spacing:.08em;margin-bottom:8px}
+.ph-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+.ph-item{margin:0;break-inside:avoid;page-break-inside:avoid}
+.ph-item img{width:100%;height:150px;object-fit:cover;border:1px solid #E8E2D9;border-radius:8px;display:block}
+.ph-item figcaption{font-size:9px;color:#6B6560;margin-top:5px;line-height:1.4}
+@media print{.itbl tr{page-break-inside:avoid}.ph-item{page-break-inside:avoid}}
 </style></head><body>
 <div class="hdr">
   <div>${biz.logo?`<img src="${biz.logo}" alt="${esc(biz.name||"Logo")}" style="max-width:180px;max-height:64px;object-fit:contain;display:block;margin-bottom:6px"/>`:`<div class="bname">${esc(biz.name||"Your Jewellery Studio")}</div>`}<div class="bsub">${[biz.email,biz.phone].filter(Boolean).map(esc).join(" · ")}</div></div>
@@ -1285,6 +1322,7 @@ ${hasPrices?`<div class="rtot"><span class="rt-l">Repair total (inc GST)</span><
 ${summaryHtml}
 ${items.length>1?`<div style="font-size:10px;font-weight:700;color:#6B6560;text-transform:uppercase;letter-spacing:.08em;margin-bottom:10px">${items.length} items received in this drop-off</div>`:""}
 ${itemsHtml}
+${photosHtml}
 ${intake.instructions?`<div class="instr"><b>Client instructions</b>${ml(intake.instructions)}</div>`:""}
 <div class="terms">
   <div class="tt">Terms &amp; conditions</div>
