@@ -663,9 +663,9 @@ const SEED_PRICING=[
   {id:"rmdnd31",category:REPAIRS_CAT,group:"Diamond Replacement",subgroup:"Natural D-E VS — small round accent diamonds (up to 4.0mm)",name:"Natural D-E VS — 3.8mm",unit:"stone",baseCost:249.00,sizeMm:3.8,caratWeight:0.214,noMarkup:true},
   {id:"rmdnd32",category:REPAIRS_CAT,group:"Diamond Replacement",subgroup:"Natural D-E VS — small round accent diamonds (up to 4.0mm)",name:"Natural D-E VS — 3.9mm",unit:"stone",baseCost:275.00,sizeMm:3.9,caratWeight:0.231,noMarkup:true},
   {id:"rmdnd33",category:REPAIRS_CAT,group:"Diamond Replacement",subgroup:"Natural D-E VS — small round accent diamonds (up to 4.0mm)",name:"Natural D-E VS — 4.0mm",unit:"stone",baseCost:300.00,sizeMm:4.0,caratWeight:0.250,noMarkup:true},
-  {id:"rmdf01",category:REPAIRS_CAT,group:"Diamond Replacement",subgroup:"Fancy shapes — princess, oval, pear, marquise etc. — add stone replacement",name:"Fancy shape — Lab grown D-E",unit:"stone",baseCost:0,noMarkup:true},
-  {id:"rmdf02",category:REPAIRS_CAT,group:"Diamond Replacement",subgroup:"Fancy shapes — princess, oval, pear, marquise etc. — add stone replacement",name:"Fancy shape — Natural G-H SI1",unit:"stone",baseCost:0,noMarkup:true},
-  {id:"rmdf03",category:REPAIRS_CAT,group:"Diamond Replacement",subgroup:"Fancy shapes — princess, oval, pear, marquise etc. — add stone replacement",name:"Fancy shape — Natural D-E VS",unit:"stone",baseCost:0,noMarkup:true},
+  {id:"rmdf01",category:REPAIRS_CAT,group:"Diamond Replacement",subgroup:"Fancy shapes — princess, oval, pear, marquise etc. — add stone replacement",name:"Fancy shape — Lab grown D-E",unit:"stone",baseCost:0,noMarkup:true,poa:true},
+  {id:"rmdf02",category:REPAIRS_CAT,group:"Diamond Replacement",subgroup:"Fancy shapes — princess, oval, pear, marquise etc. — add stone replacement",name:"Fancy shape — Natural G-H SI1",unit:"stone",baseCost:0,noMarkup:true,poa:true},
+  {id:"rmdf03",category:REPAIRS_CAT,group:"Diamond Replacement",subgroup:"Fancy shapes — princess, oval, pear, marquise etc. — add stone replacement",name:"Fancy shape — Natural D-E VS",unit:"stone",baseCost:0,noMarkup:true,poa:true},
 ];
 const SEED_CLIENTS=[
   {id:"c1",name:"Sarah Mitchell",email:"sarah@example.com",phone:"0412 345 678",ringSize:"N",metalPref:"18ct white gold",stonePref:"Diamond",budget:"8000",anniversary:"2019-03-14",notes:"Prefers modern minimal. Allergic to nickel.",createdAt:"2024-10-01"},
