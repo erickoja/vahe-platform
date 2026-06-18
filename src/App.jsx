@@ -890,7 +890,7 @@ const buildInvoiceSnapshot=({inv,job,client,biz,payments})=>{
 
 // Snapshot of a repair intake/receipt for the public client link (kind:"repair").
 // items must already carry their customer-facing clientPrice (never the trade cost).
-const buildRepairSnapshot=({job,client,biz,items,instructions})=>({
+const buildRepairSnapshot=({job,client,biz,items,instructions,photos})=>({
   kind:"repair",
   biz:{name:biz?.name||"",logo:biz?.logo||"",phone:biz?.phone||"",email:biz?.email||"",abn:biz?.abn||"",address:biz?.address||""},
   clientName:clientDisplayName(client),
@@ -900,6 +900,8 @@ const buildRepairSnapshot=({job,client,biz,items,instructions})=>({
   items:(items||[]).map(it=>({itemType:it.itemType||"",damage:it.damage||"",condition:it.condition||"",price:Number(it.clientPrice)||0})),
   total:(items||[]).reduce((s,it)=>s+(Number(it.clientPrice)||0),0),
   instructions:instructions||"",
+  // Inline data URLs (not signed URLs) so they don't expire and need no auth to view.
+  photos:(photos||[]).map(p=>({url:p.url,caption:p.caption||""})),
 });
 
 // ── Storage layer ───────────────────────────────────────────────────────────
@@ -1942,10 +1944,28 @@ function RepairIntakeCard({job,setJobs,biz,clients,markupTable,pricing=[]}){
   const[instructions,setInstructions]=useState(intake.instructions||"");
   const[dIn,setDIn]=useState(job.dateIn||"");
   const[dOut,setDOut]=useState(job.dateOut||"");
+  // Uploaded photos as inline data URLs, loaded once per image set and reused for both the
+  // online link snapshot and the printed receipt (avoids re-fetching on every edit/autosave).
+  const[photoData,setPhotoData]=useState([]);
+  useEffect(()=>{
+    let cancelled=false;
+    (async()=>{
+      const ph=await jobImagesForPrint(job);
+      if(cancelled)return;
+      setPhotoData(ph);
+      // If a client link already exists, backfill its snapshot so the photos show online
+      // without the user having to re-edit or re-share.
+      if(job.repairToken&&supabaseEnabled&&supabase){
+        const snap=buildRepairSnapshot({job:{...job,dateIn:dIn,dateOut:dOut},client:c,biz,items:items.map(it=>({...it,clientPrice:itemClient(it)})),instructions,photos:ph});
+        supabase.from(PUBLIC_PROPOSALS_TABLE).update({data:snap}).eq("token",job.repairToken).then(()=>{}).catch(()=>{});
+      }
+    })();
+    return()=>{cancelled=true;};
+  },[job.id,(job.images||[]).map(i=>i.path).join(",")]);   // eslint-disable-line
   // If a client link exists, keep its cloud snapshot in sync with edits so the link never goes stale.
   const refreshSnapshot=(itemsArg,instrArg,over)=>{
     if(!job.repairToken||!supabaseEnabled||!supabase)return;
-    const snap=buildRepairSnapshot({job:{...job,dateIn:over&&"dateIn"in over?over.dateIn:dIn,dateOut:over&&"dateOut"in over?over.dateOut:dOut},client:c,biz,items:itemsArg.map(it=>({...it,clientPrice:itemClient(it)})),instructions:instrArg});
+    const snap=buildRepairSnapshot({job:{...job,dateIn:over&&"dateIn"in over?over.dateIn:dIn,dateOut:over&&"dateOut"in over?over.dateOut:dOut},client:c,biz,items:itemsArg.map(it=>({...it,clientPrice:itemClient(it)})),instructions:instrArg,photos:photoData});
     supabase.from(PUBLIC_PROPOSALS_TABLE).update({data:snap}).eq("token",job.repairToken).then(()=>{}).catch(()=>{});
   };
   // Persist the whole intake (items + instructions) as the new shape, and refresh the link snapshot
@@ -1983,7 +2003,8 @@ function RepairIntakeCard({job,setJobs,biz,clients,markupTable,pricing=[]}){
     // Single combined save (intake + token together) to avoid out-of-order live-sync echoes
     // that would momentarily wipe the freshly-set token. One write = the gold bar shows at once.
     setJobs(p=>{const n=p.map(j=>j.id===job.id?{...j,intake:{items,instructions},repairToken:token}:j);persist(K.jo,n);return n;});
-    const snap=buildRepairSnapshot({job:{...job,dateIn:dIn,dateOut:dOut,repairToken:token},client:c,biz,items:items.map(it=>({...it,clientPrice:itemClient(it)})),instructions});
+    const photos=photoData.length?photoData:await jobImagesForPrint(job);
+    const snap=buildRepairSnapshot({job:{...job,dateIn:dIn,dateOut:dOut,repairToken:token},client:c,biz,items:items.map(it=>({...it,clientPrice:itemClient(it)})),instructions,photos});
     const{error}=await supabase.from(PUBLIC_PROPOSALS_TABLE).upsert({token,data:snap,status:"sent",created_at:new Date().toISOString()},{onConflict:"token"});
     setLinkBusy(false);
     if(error){alert("Couldn't create the link: "+error.message+"\n\nIf it mentions a missing table, the proposals Supabase setup hasn't been run.");return;}
@@ -3324,6 +3345,7 @@ function PublicRepairBody({snap,responded,decision,responderName,onRespond}){
   const dash=<span style={{color:"#bbb"}}>—</span>;
   const [name,setName]=useState("");
   const [busy,setBusy]=useState(false);
+  const [photo,setPhoto]=useState(null);
   const respond=async(d)=>{
     if(!name.trim())return;
     setBusy(true);
@@ -3392,6 +3414,20 @@ function PublicRepairBody({snap,responded,decision,responderName,onRespond}){
         <div style={{fontSize:9,fontWeight:700,color:WG,textTransform:"uppercase",letterSpacing:"0.08em",marginBottom:5}}>Client instructions</div>{snap.instructions}
       </div>}
 
+      {/* Uploaded photos of the piece(s) */}
+      {(snap.photos||[]).length>0&&<div style={{margin:"28px 0 0"}}>
+        <div style={{fontSize:9,fontWeight:700,color:WG,textTransform:"uppercase",letterSpacing:"0.08em",marginBottom:10}}>Photos on intake</div>
+        <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(150px,1fr))",gap:12}}>
+          {snap.photos.map((p,i)=>(
+            <figure key={i} style={{margin:0}}>
+              <img src={p.url} alt={p.caption||"Repair photo"} onClick={()=>setPhoto(p.url)}
+                style={{width:"100%",height:140,objectFit:"cover",borderRadius:6,border:`1px solid ${BD}`,display:"block",cursor:"zoom-in"}}/>
+              {p.caption&&<figcaption style={{fontSize:11,color:WG,marginTop:5,lineHeight:1.4}}>{p.caption}</figcaption>}
+            </figure>
+          ))}
+        </div>
+      </div>}
+
       {/* Confirm / decline */}
       {responded
         ?<div style={{background:(accepted?OK:DANGER)+"12",border:`1px solid ${(accepted?OK:DANGER)}55`,borderRadius:5,padding:"18px 20px",margin:"28px 0 4px"}}>
@@ -3422,6 +3458,9 @@ function PublicRepairBody({snap,responded,decision,responderName,onRespond}){
       </div>
       <div style={{textAlign:"center",fontSize:10,color:WG,marginTop:26}}>All prices inclusive of GST · Quoted in AUD</div>
     </div>
+    {photo&&<div onClick={()=>setPhoto(null)} style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.85)",zIndex:600,display:"flex",alignItems:"center",justifyContent:"center",padding:30,cursor:"zoom-out"}}>
+      <img src={photo} alt="" style={{maxWidth:"100%",maxHeight:"100%",borderRadius:4,boxShadow:"0 20px 80px rgba(0,0,0,0.6)"}}/>
+    </div>}
   </div>;
 }
 
