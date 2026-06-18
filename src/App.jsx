@@ -390,63 +390,63 @@ const SEED_PRICING=[
   {id:"rp05",category:REPAIRS_CAT,group:"Ring Repairs",name:"Build up cracks & dints",unit:"job",baseCost:75,noMarkup:true},
   {id:"rp06",category:REPAIRS_CAT,group:"Ring Repairs",name:"Join rings (per join)",unit:"job",baseCost:75,noMarkup:true},
   {id:"rp07",category:REPAIRS_CAT,group:"Ring Repairs",name:"Stability balls",unit:"job",baseCost:100,noMarkup:true},
-  {id:"rp08",category:REPAIRS_CAT,group:"Ring Resizing — up to 3mm wide",name:"Resize down — Silver (≤3mm)",unit:"job",baseCost:60,noMarkup:true},
-  {id:"rp09",category:REPAIRS_CAT,group:"Ring Resizing — up to 3mm wide",name:"Resize up ~2 sizes — Silver (≤3mm)",unit:"job",baseCost:70,noMarkup:true},
-  {id:"rp10",category:REPAIRS_CAT,group:"Ring Resizing — up to 3mm wide",name:"Resize up ~3 sizes — Silver (≤3mm)",unit:"job",baseCost:100,noMarkup:true},
-  {id:"rp11",category:REPAIRS_CAT,group:"Ring Resizing — up to 3mm wide",name:"Each additional size — Silver (≤3mm)",unit:"job",baseCost:35,noMarkup:true},
-  {id:"rp12",category:REPAIRS_CAT,group:"Ring Resizing — up to 3mm wide",name:"Resize down — 9ct Gold (≤3mm)",unit:"job",baseCost:60,noMarkup:true},
-  {id:"rp13",category:REPAIRS_CAT,group:"Ring Resizing — up to 3mm wide",name:"Resize up ~2 sizes — 9ct Gold (≤3mm)",unit:"job",baseCost:90,noMarkup:true},
-  {id:"rp14",category:REPAIRS_CAT,group:"Ring Resizing — up to 3mm wide",name:"Resize up ~3 sizes — 9ct Gold (≤3mm)",unit:"job",baseCost:135,noMarkup:true},
-  {id:"rp15",category:REPAIRS_CAT,group:"Ring Resizing — up to 3mm wide",name:"Each additional size — 9ct Gold (≤3mm)",unit:"job",baseCost:45,noMarkup:true},
-  {id:"rp16",category:REPAIRS_CAT,group:"Ring Resizing — up to 3mm wide",name:"Resize down — 18ct Gold (≤3mm)",unit:"job",baseCost:60,noMarkup:true},
-  {id:"rp17",category:REPAIRS_CAT,group:"Ring Resizing — up to 3mm wide",name:"Resize up ~2 sizes — 18ct Gold (≤3mm)",unit:"job",baseCost:120,noMarkup:true},
-  {id:"rp18",category:REPAIRS_CAT,group:"Ring Resizing — up to 3mm wide",name:"Resize up ~3 sizes — 18ct Gold (≤3mm)",unit:"job",baseCost:180,noMarkup:true},
-  {id:"rp19",category:REPAIRS_CAT,group:"Ring Resizing — up to 3mm wide",name:"Each additional size — 18ct Gold (≤3mm)",unit:"job",baseCost:60,noMarkup:true},
-  {id:"rp20",category:REPAIRS_CAT,group:"Ring Resizing — up to 3mm wide",name:"Resize down — Platinum (≤3mm)",unit:"job",baseCost:80,noMarkup:true},
-  {id:"rp21",category:REPAIRS_CAT,group:"Ring Resizing — up to 3mm wide",name:"Resize up ~2 sizes — Platinum (≤3mm)",unit:"job",baseCost:160,noMarkup:true},
-  {id:"rp22",category:REPAIRS_CAT,group:"Ring Resizing — up to 3mm wide",name:"Resize up ~3 sizes — Platinum (≤3mm)",unit:"job",baseCost:240,noMarkup:true},
-  {id:"rp23",category:REPAIRS_CAT,group:"Ring Resizing — up to 3mm wide",name:"Each additional size — Platinum (≤3mm)",unit:"job",baseCost:80,noMarkup:true},
-  {id:"rp24",category:REPAIRS_CAT,group:"Ring Resizing — 3mm+ wide",name:"Resize down — Silver (3mm+)",unit:"job",baseCost:80,noMarkup:true},
-  {id:"rp25",category:REPAIRS_CAT,group:"Ring Resizing — 3mm+ wide",name:"Resize up ~2 sizes — Silver (3mm+)",unit:"job",baseCost:110,noMarkup:true},
-  {id:"rp26",category:REPAIRS_CAT,group:"Ring Resizing — 3mm+ wide",name:"Resize up ~3 sizes — Silver (3mm+)",unit:"job",baseCost:165,noMarkup:true},
-  {id:"rp27",category:REPAIRS_CAT,group:"Ring Resizing — 3mm+ wide",name:"Each additional size — Silver (3mm+)",unit:"job",baseCost:55,noMarkup:true},
-  {id:"rp28",category:REPAIRS_CAT,group:"Ring Resizing — 3mm+ wide",name:"Resize down — 9ct Gold (3mm+)",unit:"job",baseCost:80,noMarkup:true},
-  {id:"rp29",category:REPAIRS_CAT,group:"Ring Resizing — 3mm+ wide",name:"Resize up ~2 sizes — 9ct Gold (3mm+)",unit:"job",baseCost:130,noMarkup:true},
-  {id:"rp30",category:REPAIRS_CAT,group:"Ring Resizing — 3mm+ wide",name:"Resize up ~3 sizes — 9ct Gold (3mm+)",unit:"job",baseCost:195,noMarkup:true},
-  {id:"rp31",category:REPAIRS_CAT,group:"Ring Resizing — 3mm+ wide",name:"Each additional size — 9ct Gold (3mm+)",unit:"job",baseCost:65,noMarkup:true},
-  {id:"rp32",category:REPAIRS_CAT,group:"Ring Resizing — 3mm+ wide",name:"Resize down — 18ct Gold (3mm+)",unit:"job",baseCost:80,noMarkup:true},
-  {id:"rp33",category:REPAIRS_CAT,group:"Ring Resizing — 3mm+ wide",name:"Resize up ~2 sizes — 18ct Gold (3mm+)",unit:"job",baseCost:160,noMarkup:true},
-  {id:"rp34",category:REPAIRS_CAT,group:"Ring Resizing — 3mm+ wide",name:"Resize up ~3 sizes — 18ct Gold (3mm+)",unit:"job",baseCost:240,noMarkup:true},
-  {id:"rp35",category:REPAIRS_CAT,group:"Ring Resizing — 3mm+ wide",name:"Each additional size — 18ct Gold (3mm+)",unit:"job",baseCost:80,noMarkup:true},
-  {id:"rp36",category:REPAIRS_CAT,group:"Ring Resizing — 3mm+ wide",name:"Resize down — Platinum (3mm+)",unit:"job",baseCost:100,noMarkup:true},
-  {id:"rp37",category:REPAIRS_CAT,group:"Ring Resizing — 3mm+ wide",name:"Resize up ~2 sizes — Platinum (3mm+)",unit:"job",baseCost:220,noMarkup:true},
-  {id:"rp38",category:REPAIRS_CAT,group:"Ring Resizing — 3mm+ wide",name:"Resize up ~3 sizes — Platinum (3mm+)",unit:"job",baseCost:330,noMarkup:true},
-  {id:"rp39",category:REPAIRS_CAT,group:"Ring Resizing — 3mm+ wide",name:"Each additional size — Platinum (3mm+)",unit:"job",baseCost:110,noMarkup:true},
-  {id:"rp40",category:REPAIRS_CAT,group:"Claw Re-tipping",name:"Re-tip 1 prong — 9ct Gold",unit:"job",baseCost:60,noMarkup:true},
-  {id:"rp41",category:REPAIRS_CAT,group:"Claw Re-tipping",name:"Re-tip 1 prong — 18ct Gold",unit:"job",baseCost:75,noMarkup:true},
-  {id:"rp42",category:REPAIRS_CAT,group:"Claw Re-tipping",name:"Re-tip 1 prong — Platinum",unit:"job",baseCost:90,noMarkup:true},
-  {id:"rp43",category:REPAIRS_CAT,group:"Claw Re-tipping",name:"Re-tip 1 prong — Silver",unit:"job",baseCost:35,noMarkup:true},
-  {id:"rp44",category:REPAIRS_CAT,group:"Claw Re-tipping",name:"Re-tip 6 prongs — 9ct Gold",unit:"job",baseCost:180,noMarkup:true},
-  {id:"rp45",category:REPAIRS_CAT,group:"Claw Re-tipping",name:"Re-tip 6 prongs — 18ct Gold",unit:"job",baseCost:225,noMarkup:true},
-  {id:"rp46",category:REPAIRS_CAT,group:"Claw Re-tipping",name:"Re-tip 6 prongs — Platinum",unit:"job",baseCost:270,noMarkup:true},
-  {id:"rp47",category:REPAIRS_CAT,group:"Claw Re-tipping",name:"Re-tip 6 prongs — Silver",unit:"job",baseCost:105,noMarkup:true},
-  {id:"rp48",category:REPAIRS_CAT,group:"Claw Re-tipping",name:"Re-tip 12 prongs — 9ct Gold",unit:"job",baseCost:360,noMarkup:true},
-  {id:"rp49",category:REPAIRS_CAT,group:"Claw Re-tipping",name:"Re-tip 12 prongs — 18ct Gold",unit:"job",baseCost:450,noMarkup:true},
-  {id:"rp50",category:REPAIRS_CAT,group:"Claw Re-tipping",name:"Re-tip 12 prongs — Platinum",unit:"job",baseCost:540,noMarkup:true},
-  {id:"rp51",category:REPAIRS_CAT,group:"Claw Re-tipping",name:"Re-tip 12 prongs — Silver",unit:"job",baseCost:210,noMarkup:true},
+  {id:"rp08",category:REPAIRS_CAT,group:"Ring Resizing — up to 3mm wide",subgroup:"Silver",name:"Resize down — Silver (≤3mm)",unit:"job",baseCost:60,noMarkup:true},
+  {id:"rp09",category:REPAIRS_CAT,group:"Ring Resizing — up to 3mm wide",subgroup:"Silver",name:"Resize up ~2 sizes — Silver (≤3mm)",unit:"job",baseCost:70,noMarkup:true},
+  {id:"rp10",category:REPAIRS_CAT,group:"Ring Resizing — up to 3mm wide",subgroup:"Silver",name:"Resize up ~3 sizes — Silver (≤3mm)",unit:"job",baseCost:100,noMarkup:true},
+  {id:"rp11",category:REPAIRS_CAT,group:"Ring Resizing — up to 3mm wide",subgroup:"Silver",name:"Each additional size — Silver (≤3mm)",unit:"job",baseCost:35,noMarkup:true},
+  {id:"rp12",category:REPAIRS_CAT,group:"Ring Resizing — up to 3mm wide",subgroup:"9ct Gold",name:"Resize down — 9ct Gold (≤3mm)",unit:"job",baseCost:60,noMarkup:true},
+  {id:"rp13",category:REPAIRS_CAT,group:"Ring Resizing — up to 3mm wide",subgroup:"9ct Gold",name:"Resize up ~2 sizes — 9ct Gold (≤3mm)",unit:"job",baseCost:90,noMarkup:true},
+  {id:"rp14",category:REPAIRS_CAT,group:"Ring Resizing — up to 3mm wide",subgroup:"9ct Gold",name:"Resize up ~3 sizes — 9ct Gold (≤3mm)",unit:"job",baseCost:135,noMarkup:true},
+  {id:"rp15",category:REPAIRS_CAT,group:"Ring Resizing — up to 3mm wide",subgroup:"9ct Gold",name:"Each additional size — 9ct Gold (≤3mm)",unit:"job",baseCost:45,noMarkup:true},
+  {id:"rp16",category:REPAIRS_CAT,group:"Ring Resizing — up to 3mm wide",subgroup:"18ct Gold",name:"Resize down — 18ct Gold (≤3mm)",unit:"job",baseCost:60,noMarkup:true},
+  {id:"rp17",category:REPAIRS_CAT,group:"Ring Resizing — up to 3mm wide",subgroup:"18ct Gold",name:"Resize up ~2 sizes — 18ct Gold (≤3mm)",unit:"job",baseCost:120,noMarkup:true},
+  {id:"rp18",category:REPAIRS_CAT,group:"Ring Resizing — up to 3mm wide",subgroup:"18ct Gold",name:"Resize up ~3 sizes — 18ct Gold (≤3mm)",unit:"job",baseCost:180,noMarkup:true},
+  {id:"rp19",category:REPAIRS_CAT,group:"Ring Resizing — up to 3mm wide",subgroup:"18ct Gold",name:"Each additional size — 18ct Gold (≤3mm)",unit:"job",baseCost:60,noMarkup:true},
+  {id:"rp20",category:REPAIRS_CAT,group:"Ring Resizing — up to 3mm wide",subgroup:"Platinum",name:"Resize down — Platinum (≤3mm)",unit:"job",baseCost:80,noMarkup:true},
+  {id:"rp21",category:REPAIRS_CAT,group:"Ring Resizing — up to 3mm wide",subgroup:"Platinum",name:"Resize up ~2 sizes — Platinum (≤3mm)",unit:"job",baseCost:160,noMarkup:true},
+  {id:"rp22",category:REPAIRS_CAT,group:"Ring Resizing — up to 3mm wide",subgroup:"Platinum",name:"Resize up ~3 sizes — Platinum (≤3mm)",unit:"job",baseCost:240,noMarkup:true},
+  {id:"rp23",category:REPAIRS_CAT,group:"Ring Resizing — up to 3mm wide",subgroup:"Platinum",name:"Each additional size — Platinum (≤3mm)",unit:"job",baseCost:80,noMarkup:true},
+  {id:"rp24",category:REPAIRS_CAT,group:"Ring Resizing — 3mm+ wide",subgroup:"Silver",name:"Resize down — Silver (3mm+)",unit:"job",baseCost:80,noMarkup:true},
+  {id:"rp25",category:REPAIRS_CAT,group:"Ring Resizing — 3mm+ wide",subgroup:"Silver",name:"Resize up ~2 sizes — Silver (3mm+)",unit:"job",baseCost:110,noMarkup:true},
+  {id:"rp26",category:REPAIRS_CAT,group:"Ring Resizing — 3mm+ wide",subgroup:"Silver",name:"Resize up ~3 sizes — Silver (3mm+)",unit:"job",baseCost:165,noMarkup:true},
+  {id:"rp27",category:REPAIRS_CAT,group:"Ring Resizing — 3mm+ wide",subgroup:"Silver",name:"Each additional size — Silver (3mm+)",unit:"job",baseCost:55,noMarkup:true},
+  {id:"rp28",category:REPAIRS_CAT,group:"Ring Resizing — 3mm+ wide",subgroup:"9ct Gold",name:"Resize down — 9ct Gold (3mm+)",unit:"job",baseCost:80,noMarkup:true},
+  {id:"rp29",category:REPAIRS_CAT,group:"Ring Resizing — 3mm+ wide",subgroup:"9ct Gold",name:"Resize up ~2 sizes — 9ct Gold (3mm+)",unit:"job",baseCost:130,noMarkup:true},
+  {id:"rp30",category:REPAIRS_CAT,group:"Ring Resizing — 3mm+ wide",subgroup:"9ct Gold",name:"Resize up ~3 sizes — 9ct Gold (3mm+)",unit:"job",baseCost:195,noMarkup:true},
+  {id:"rp31",category:REPAIRS_CAT,group:"Ring Resizing — 3mm+ wide",subgroup:"9ct Gold",name:"Each additional size — 9ct Gold (3mm+)",unit:"job",baseCost:65,noMarkup:true},
+  {id:"rp32",category:REPAIRS_CAT,group:"Ring Resizing — 3mm+ wide",subgroup:"18ct Gold",name:"Resize down — 18ct Gold (3mm+)",unit:"job",baseCost:80,noMarkup:true},
+  {id:"rp33",category:REPAIRS_CAT,group:"Ring Resizing — 3mm+ wide",subgroup:"18ct Gold",name:"Resize up ~2 sizes — 18ct Gold (3mm+)",unit:"job",baseCost:160,noMarkup:true},
+  {id:"rp34",category:REPAIRS_CAT,group:"Ring Resizing — 3mm+ wide",subgroup:"18ct Gold",name:"Resize up ~3 sizes — 18ct Gold (3mm+)",unit:"job",baseCost:240,noMarkup:true},
+  {id:"rp35",category:REPAIRS_CAT,group:"Ring Resizing — 3mm+ wide",subgroup:"18ct Gold",name:"Each additional size — 18ct Gold (3mm+)",unit:"job",baseCost:80,noMarkup:true},
+  {id:"rp36",category:REPAIRS_CAT,group:"Ring Resizing — 3mm+ wide",subgroup:"Platinum",name:"Resize down — Platinum (3mm+)",unit:"job",baseCost:100,noMarkup:true},
+  {id:"rp37",category:REPAIRS_CAT,group:"Ring Resizing — 3mm+ wide",subgroup:"Platinum",name:"Resize up ~2 sizes — Platinum (3mm+)",unit:"job",baseCost:220,noMarkup:true},
+  {id:"rp38",category:REPAIRS_CAT,group:"Ring Resizing — 3mm+ wide",subgroup:"Platinum",name:"Resize up ~3 sizes — Platinum (3mm+)",unit:"job",baseCost:330,noMarkup:true},
+  {id:"rp39",category:REPAIRS_CAT,group:"Ring Resizing — 3mm+ wide",subgroup:"Platinum",name:"Each additional size — Platinum (3mm+)",unit:"job",baseCost:110,noMarkup:true},
+  {id:"rp43",category:REPAIRS_CAT,group:"Claw Re-tipping",subgroup:"Silver",name:"Re-tip 1 prong — Silver",unit:"job",baseCost:35,noMarkup:true},
+  {id:"rp47",category:REPAIRS_CAT,group:"Claw Re-tipping",subgroup:"Silver",name:"Re-tip 6 prongs — Silver",unit:"job",baseCost:105,noMarkup:true},
+  {id:"rp51",category:REPAIRS_CAT,group:"Claw Re-tipping",subgroup:"Silver",name:"Re-tip 12 prongs — Silver",unit:"job",baseCost:210,noMarkup:true},
+  {id:"rp40",category:REPAIRS_CAT,group:"Claw Re-tipping",subgroup:"9ct Gold",name:"Re-tip 1 prong — 9ct Gold",unit:"job",baseCost:60,noMarkup:true},
+  {id:"rp44",category:REPAIRS_CAT,group:"Claw Re-tipping",subgroup:"9ct Gold",name:"Re-tip 6 prongs — 9ct Gold",unit:"job",baseCost:180,noMarkup:true},
+  {id:"rp48",category:REPAIRS_CAT,group:"Claw Re-tipping",subgroup:"9ct Gold",name:"Re-tip 12 prongs — 9ct Gold",unit:"job",baseCost:360,noMarkup:true},
+  {id:"rp41",category:REPAIRS_CAT,group:"Claw Re-tipping",subgroup:"18ct Gold",name:"Re-tip 1 prong — 18ct Gold",unit:"job",baseCost:75,noMarkup:true},
+  {id:"rp45",category:REPAIRS_CAT,group:"Claw Re-tipping",subgroup:"18ct Gold",name:"Re-tip 6 prongs — 18ct Gold",unit:"job",baseCost:225,noMarkup:true},
+  {id:"rp49",category:REPAIRS_CAT,group:"Claw Re-tipping",subgroup:"18ct Gold",name:"Re-tip 12 prongs — 18ct Gold",unit:"job",baseCost:450,noMarkup:true},
+  {id:"rp42",category:REPAIRS_CAT,group:"Claw Re-tipping",subgroup:"Platinum",name:"Re-tip 1 prong — Platinum",unit:"job",baseCost:90,noMarkup:true},
+  {id:"rp46",category:REPAIRS_CAT,group:"Claw Re-tipping",subgroup:"Platinum",name:"Re-tip 6 prongs — Platinum",unit:"job",baseCost:270,noMarkup:true},
+  {id:"rp50",category:REPAIRS_CAT,group:"Claw Re-tipping",subgroup:"Platinum",name:"Re-tip 12 prongs — Platinum",unit:"job",baseCost:540,noMarkup:true},
   {id:"rp52",category:REPAIRS_CAT,group:"Claw Re-tipping",name:"V-claw or double claw (each)",unit:"job",baseCost:90,noMarkup:true},
-  {id:"rp53",category:REPAIRS_CAT,group:"Band Replacements",name:"1/4 shank replacement — 9ct Gold (≤3mm)",unit:"job",baseCost:250,noMarkup:true},
-  {id:"rp54",category:REPAIRS_CAT,group:"Band Replacements",name:"1/4 shank replacement — 18ct Gold (≤3mm)",unit:"job",baseCost:350,noMarkup:true},
-  {id:"rp55",category:REPAIRS_CAT,group:"Band Replacements",name:"1/4 shank replacement — Platinum (≤3mm)",unit:"job",baseCost:450,noMarkup:true},
-  {id:"rp56",category:REPAIRS_CAT,group:"Band Replacements",name:"1/4 shank replacement — Silver (≤3mm)",unit:"job",baseCost:200,noMarkup:true},
-  {id:"rp57",category:REPAIRS_CAT,group:"Band Replacements",name:"1/2 shank replacement — 9ct Gold (≤3mm)",unit:"job",baseCost:350,noMarkup:true},
-  {id:"rp58",category:REPAIRS_CAT,group:"Band Replacements",name:"1/2 shank replacement — 18ct Gold (≤3mm)",unit:"job",baseCost:450,noMarkup:true},
-  {id:"rp59",category:REPAIRS_CAT,group:"Band Replacements",name:"1/2 shank replacement — Platinum (≤3mm)",unit:"job",baseCost:550,noMarkup:true},
-  {id:"rp60",category:REPAIRS_CAT,group:"Band Replacements",name:"1/2 shank replacement — Silver (≤3mm)",unit:"job",baseCost:250,noMarkup:true},
-  {id:"rp61",category:REPAIRS_CAT,group:"Band Replacements",name:"3/4 shank replacement — 9ct Gold (≤3mm)",unit:"job",baseCost:400,noMarkup:true},
-  {id:"rp62",category:REPAIRS_CAT,group:"Band Replacements",name:"3/4 shank replacement — 18ct Gold (≤3mm)",unit:"job",baseCost:500,noMarkup:true},
-  {id:"rp63",category:REPAIRS_CAT,group:"Band Replacements",name:"3/4 shank replacement — Platinum (≤3mm)",unit:"job",baseCost:600,noMarkup:true},
-  {id:"rp64",category:REPAIRS_CAT,group:"Band Replacements",name:"3/4 shank replacement — Silver (≤3mm)",unit:"job",baseCost:300,noMarkup:true},
+  {id:"rp56",category:REPAIRS_CAT,group:"Band Replacements",subgroup:"Silver",name:"1/4 shank replacement — Silver (≤3mm)",unit:"job",baseCost:200,noMarkup:true},
+  {id:"rp60",category:REPAIRS_CAT,group:"Band Replacements",subgroup:"Silver",name:"1/2 shank replacement — Silver (≤3mm)",unit:"job",baseCost:250,noMarkup:true},
+  {id:"rp64",category:REPAIRS_CAT,group:"Band Replacements",subgroup:"Silver",name:"3/4 shank replacement — Silver (≤3mm)",unit:"job",baseCost:300,noMarkup:true},
+  {id:"rp53",category:REPAIRS_CAT,group:"Band Replacements",subgroup:"9ct Gold",name:"1/4 shank replacement — 9ct Gold (≤3mm)",unit:"job",baseCost:250,noMarkup:true},
+  {id:"rp57",category:REPAIRS_CAT,group:"Band Replacements",subgroup:"9ct Gold",name:"1/2 shank replacement — 9ct Gold (≤3mm)",unit:"job",baseCost:350,noMarkup:true},
+  {id:"rp61",category:REPAIRS_CAT,group:"Band Replacements",subgroup:"9ct Gold",name:"3/4 shank replacement — 9ct Gold (≤3mm)",unit:"job",baseCost:400,noMarkup:true},
+  {id:"rp54",category:REPAIRS_CAT,group:"Band Replacements",subgroup:"18ct Gold",name:"1/4 shank replacement — 18ct Gold (≤3mm)",unit:"job",baseCost:350,noMarkup:true},
+  {id:"rp58",category:REPAIRS_CAT,group:"Band Replacements",subgroup:"18ct Gold",name:"1/2 shank replacement — 18ct Gold (≤3mm)",unit:"job",baseCost:450,noMarkup:true},
+  {id:"rp62",category:REPAIRS_CAT,group:"Band Replacements",subgroup:"18ct Gold",name:"3/4 shank replacement — 18ct Gold (≤3mm)",unit:"job",baseCost:500,noMarkup:true},
+  {id:"rp55",category:REPAIRS_CAT,group:"Band Replacements",subgroup:"Platinum",name:"1/4 shank replacement — Platinum (≤3mm)",unit:"job",baseCost:450,noMarkup:true},
+  {id:"rp59",category:REPAIRS_CAT,group:"Band Replacements",subgroup:"Platinum",name:"1/2 shank replacement — Platinum (≤3mm)",unit:"job",baseCost:550,noMarkup:true},
+  {id:"rp63",category:REPAIRS_CAT,group:"Band Replacements",subgroup:"Platinum",name:"3/4 shank replacement — Platinum (≤3mm)",unit:"job",baseCost:600,noMarkup:true},
   {id:"rp65",category:REPAIRS_CAT,group:"Chain Repair",name:"Chain tumble polish",unit:"job",baseCost:15,noMarkup:true},
   {id:"rp66",category:REPAIRS_CAT,group:"Chain Repair",name:"Chain hand polish",unit:"job",baseCost:30,noMarkup:true},
   {id:"rp67",category:REPAIRS_CAT,group:"Chain Repair",name:"Solder & restore — small chain (per link)",unit:"job",baseCost:40,noMarkup:true},
@@ -461,107 +461,210 @@ const SEED_PRICING=[
   {id:"rp76",category:REPAIRS_CAT,group:"Chain Repair",name:"Shorten chain — small",unit:"job",baseCost:40,noMarkup:true},
   {id:"rp77",category:REPAIRS_CAT,group:"Chain Repair",name:"Shorten chain — medium",unit:"job",baseCost:60,noMarkup:true},
   {id:"rp78",category:REPAIRS_CAT,group:"Chain Repair",name:"Shorten chain — large",unit:"job",baseCost:80,noMarkup:true},
-  {id:"rps01",category:REPAIRS_CAT,group:"Stone Setting (Repair)",name:"Stone setting repair — 0.7mm",unit:"stone",baseCost:3.50,sizeMm:0.7,noMarkup:true},
-  {id:"rps02",category:REPAIRS_CAT,group:"Stone Setting (Repair)",name:"Stone setting repair — 0.8mm",unit:"stone",baseCost:4.00,sizeMm:0.8,noMarkup:true},
-  {id:"rps03",category:REPAIRS_CAT,group:"Stone Setting (Repair)",name:"Stone setting repair — 0.9mm",unit:"stone",baseCost:4.50,sizeMm:0.9,noMarkup:true},
-  {id:"rps04",category:REPAIRS_CAT,group:"Stone Setting (Repair)",name:"Stone setting repair — 1.0mm",unit:"stone",baseCost:5.00,sizeMm:1.0,noMarkup:true},
-  {id:"rps05",category:REPAIRS_CAT,group:"Stone Setting (Repair)",name:"Stone setting repair — 1.1mm",unit:"stone",baseCost:5.50,sizeMm:1.1,noMarkup:true},
-  {id:"rps06",category:REPAIRS_CAT,group:"Stone Setting (Repair)",name:"Stone setting repair — 1.2mm",unit:"stone",baseCost:6.00,sizeMm:1.2,noMarkup:true},
-  {id:"rps07",category:REPAIRS_CAT,group:"Stone Setting (Repair)",name:"Stone setting repair — 1.3mm",unit:"stone",baseCost:6.50,sizeMm:1.3,noMarkup:true},
-  {id:"rps08",category:REPAIRS_CAT,group:"Stone Setting (Repair)",name:"Stone setting repair — 1.4mm",unit:"stone",baseCost:7.00,sizeMm:1.4,noMarkup:true},
-  {id:"rps09",category:REPAIRS_CAT,group:"Stone Setting (Repair)",name:"Stone setting repair — 1.5mm",unit:"stone",baseCost:7.50,sizeMm:1.5,noMarkup:true},
-  {id:"rps10",category:REPAIRS_CAT,group:"Stone Setting (Repair)",name:"Stone setting repair — 1.6mm",unit:"stone",baseCost:8.00,sizeMm:1.6,noMarkup:true},
-  {id:"rps11",category:REPAIRS_CAT,group:"Stone Setting (Repair)",name:"Stone setting repair — 1.7mm",unit:"stone",baseCost:8.50,sizeMm:1.7,noMarkup:true},
-  {id:"rps12",category:REPAIRS_CAT,group:"Stone Setting (Repair)",name:"Stone setting repair — 1.8mm",unit:"stone",baseCost:9.00,sizeMm:1.8,noMarkup:true},
-  {id:"rps13",category:REPAIRS_CAT,group:"Stone Setting (Repair)",name:"Stone setting repair — 1.9mm",unit:"stone",baseCost:9.50,sizeMm:1.9,noMarkup:true},
-  {id:"rps14",category:REPAIRS_CAT,group:"Stone Setting (Repair)",name:"Stone setting repair — 2.0mm",unit:"stone",baseCost:10.00,sizeMm:2.0,noMarkup:true},
-  {id:"rps15",category:REPAIRS_CAT,group:"Stone Setting (Repair)",name:"Stone setting repair — 2.1mm",unit:"stone",baseCost:10.50,sizeMm:2.1,noMarkup:true},
-  {id:"rps16",category:REPAIRS_CAT,group:"Stone Setting (Repair)",name:"Stone setting repair — 2.2mm",unit:"stone",baseCost:11.00,sizeMm:2.2,noMarkup:true},
-  {id:"rps17",category:REPAIRS_CAT,group:"Stone Setting (Repair)",name:"Stone setting repair — 2.3mm",unit:"stone",baseCost:11.50,sizeMm:2.3,noMarkup:true},
-  {id:"rps18",category:REPAIRS_CAT,group:"Stone Setting (Repair)",name:"Stone setting repair — 2.4mm",unit:"stone",baseCost:12.00,sizeMm:2.4,noMarkup:true},
-  {id:"rps19",category:REPAIRS_CAT,group:"Stone Setting (Repair)",name:"Stone setting repair — 2.5mm",unit:"stone",baseCost:12.50,sizeMm:2.5,noMarkup:true},
-  {id:"rps20",category:REPAIRS_CAT,group:"Stone Setting (Repair)",name:"Stone setting repair — 2.6mm",unit:"stone",baseCost:13.00,sizeMm:2.6,noMarkup:true},
-  {id:"rps21",category:REPAIRS_CAT,group:"Stone Setting (Repair)",name:"Stone setting repair — 2.7mm",unit:"stone",baseCost:13.50,sizeMm:2.7,noMarkup:true},
-  {id:"rps22",category:REPAIRS_CAT,group:"Stone Setting (Repair)",name:"Stone setting repair — 2.8mm",unit:"stone",baseCost:14.00,sizeMm:2.8,noMarkup:true},
-  {id:"rps23",category:REPAIRS_CAT,group:"Stone Setting (Repair)",name:"Stone setting repair — 2.9mm",unit:"stone",baseCost:14.50,sizeMm:2.9,noMarkup:true},
-  {id:"rps24",category:REPAIRS_CAT,group:"Stone Setting (Repair)",name:"Stone setting repair — 3.0mm",unit:"stone",baseCost:15.00,sizeMm:3.0,noMarkup:true},
-  {id:"rps25",category:REPAIRS_CAT,group:"Stone Setting (Repair)",name:"Stone setting repair — 3.1mm",unit:"stone",baseCost:15.50,sizeMm:3.1,noMarkup:true},
-  {id:"rps26",category:REPAIRS_CAT,group:"Stone Setting (Repair)",name:"Stone setting repair — 3.2mm",unit:"stone",baseCost:16.00,sizeMm:3.2,noMarkup:true},
-  {id:"rps27",category:REPAIRS_CAT,group:"Stone Setting (Repair)",name:"Stone setting repair — 3.3mm",unit:"stone",baseCost:16.50,sizeMm:3.3,noMarkup:true},
-  {id:"rps28",category:REPAIRS_CAT,group:"Stone Setting (Repair)",name:"Stone setting repair — 3.4mm",unit:"stone",baseCost:17.00,sizeMm:3.4,noMarkup:true},
-  {id:"rps29",category:REPAIRS_CAT,group:"Stone Setting (Repair)",name:"Stone setting repair — 3.5mm",unit:"stone",baseCost:17.50,sizeMm:3.5,noMarkup:true},
-  {id:"rps30",category:REPAIRS_CAT,group:"Stone Setting (Repair)",name:"Stone setting repair — 3.6mm",unit:"stone",baseCost:18.00,sizeMm:3.6,noMarkup:true},
-  {id:"rps31",category:REPAIRS_CAT,group:"Stone Setting (Repair)",name:"Stone setting repair — 3.7mm",unit:"stone",baseCost:18.50,sizeMm:3.7,noMarkup:true},
-  {id:"rps32",category:REPAIRS_CAT,group:"Stone Setting (Repair)",name:"Stone setting repair — 3.8mm",unit:"stone",baseCost:19.00,sizeMm:3.8,noMarkup:true},
-  {id:"rps33",category:REPAIRS_CAT,group:"Stone Setting (Repair)",name:"Stone setting repair — 3.9mm",unit:"stone",baseCost:19.50,sizeMm:3.9,noMarkup:true},
-  {id:"rps34",category:REPAIRS_CAT,group:"Stone Setting (Repair)",name:"Stone setting repair — 4.0mm",unit:"stone",baseCost:20.00,sizeMm:4.0,noMarkup:true},
-  {id:"rst01",category:REPAIRS_CAT,group:"Stone Tightening",name:"Stone tightening — 0.7mm",unit:"stone",baseCost:1.75,sizeMm:0.7,noMarkup:true},
-  {id:"rst02",category:REPAIRS_CAT,group:"Stone Tightening",name:"Stone tightening — 0.8mm",unit:"stone",baseCost:2.00,sizeMm:0.8,noMarkup:true},
-  {id:"rst03",category:REPAIRS_CAT,group:"Stone Tightening",name:"Stone tightening — 0.9mm",unit:"stone",baseCost:2.25,sizeMm:0.9,noMarkup:true},
-  {id:"rst04",category:REPAIRS_CAT,group:"Stone Tightening",name:"Stone tightening — 1.0mm",unit:"stone",baseCost:2.50,sizeMm:1.0,noMarkup:true},
-  {id:"rst05",category:REPAIRS_CAT,group:"Stone Tightening",name:"Stone tightening — 1.1mm",unit:"stone",baseCost:2.75,sizeMm:1.1,noMarkup:true},
-  {id:"rst06",category:REPAIRS_CAT,group:"Stone Tightening",name:"Stone tightening — 1.2mm",unit:"stone",baseCost:3.00,sizeMm:1.2,noMarkup:true},
-  {id:"rst07",category:REPAIRS_CAT,group:"Stone Tightening",name:"Stone tightening — 1.3mm",unit:"stone",baseCost:3.25,sizeMm:1.3,noMarkup:true},
-  {id:"rst08",category:REPAIRS_CAT,group:"Stone Tightening",name:"Stone tightening — 1.4mm",unit:"stone",baseCost:3.50,sizeMm:1.4,noMarkup:true},
-  {id:"rst09",category:REPAIRS_CAT,group:"Stone Tightening",name:"Stone tightening — 1.5mm",unit:"stone",baseCost:3.75,sizeMm:1.5,noMarkup:true},
-  {id:"rst10",category:REPAIRS_CAT,group:"Stone Tightening",name:"Stone tightening — 1.6mm",unit:"stone",baseCost:4.00,sizeMm:1.6,noMarkup:true},
-  {id:"rst11",category:REPAIRS_CAT,group:"Stone Tightening",name:"Stone tightening — 1.7mm",unit:"stone",baseCost:4.25,sizeMm:1.7,noMarkup:true},
-  {id:"rst12",category:REPAIRS_CAT,group:"Stone Tightening",name:"Stone tightening — 1.8mm",unit:"stone",baseCost:4.50,sizeMm:1.8,noMarkup:true},
-  {id:"rst13",category:REPAIRS_CAT,group:"Stone Tightening",name:"Stone tightening — 1.9mm",unit:"stone",baseCost:4.75,sizeMm:1.9,noMarkup:true},
-  {id:"rst14",category:REPAIRS_CAT,group:"Stone Tightening",name:"Stone tightening — 2.0mm",unit:"stone",baseCost:5.00,sizeMm:2.0,noMarkup:true},
-  {id:"rst15",category:REPAIRS_CAT,group:"Stone Tightening",name:"Stone tightening — 2.1mm",unit:"stone",baseCost:5.25,sizeMm:2.1,noMarkup:true},
-  {id:"rst16",category:REPAIRS_CAT,group:"Stone Tightening",name:"Stone tightening — 2.2mm",unit:"stone",baseCost:5.50,sizeMm:2.2,noMarkup:true},
-  {id:"rst17",category:REPAIRS_CAT,group:"Stone Tightening",name:"Stone tightening — 2.3mm",unit:"stone",baseCost:5.75,sizeMm:2.3,noMarkup:true},
-  {id:"rst18",category:REPAIRS_CAT,group:"Stone Tightening",name:"Stone tightening — 2.4mm",unit:"stone",baseCost:6.00,sizeMm:2.4,noMarkup:true},
-  {id:"rst19",category:REPAIRS_CAT,group:"Stone Tightening",name:"Stone tightening — 2.5mm",unit:"stone",baseCost:6.25,sizeMm:2.5,noMarkup:true},
-  {id:"rst20",category:REPAIRS_CAT,group:"Stone Tightening",name:"Stone tightening — 2.6mm",unit:"stone",baseCost:6.50,sizeMm:2.6,noMarkup:true},
-  {id:"rst21",category:REPAIRS_CAT,group:"Stone Tightening",name:"Stone tightening — 2.7mm",unit:"stone",baseCost:6.75,sizeMm:2.7,noMarkup:true},
-  {id:"rst22",category:REPAIRS_CAT,group:"Stone Tightening",name:"Stone tightening — 2.8mm",unit:"stone",baseCost:7.00,sizeMm:2.8,noMarkup:true},
-  {id:"rst23",category:REPAIRS_CAT,group:"Stone Tightening",name:"Stone tightening — 2.9mm",unit:"stone",baseCost:7.25,sizeMm:2.9,noMarkup:true},
-  {id:"rst24",category:REPAIRS_CAT,group:"Stone Tightening",name:"Stone tightening — 3.0mm",unit:"stone",baseCost:7.50,sizeMm:3.0,noMarkup:true},
-  {id:"rst25",category:REPAIRS_CAT,group:"Stone Tightening",name:"Stone tightening — 3.1mm",unit:"stone",baseCost:7.75,sizeMm:3.1,noMarkup:true},
-  {id:"rst26",category:REPAIRS_CAT,group:"Stone Tightening",name:"Stone tightening — 3.2mm",unit:"stone",baseCost:8.00,sizeMm:3.2,noMarkup:true},
-  {id:"rst27",category:REPAIRS_CAT,group:"Stone Tightening",name:"Stone tightening — 3.3mm",unit:"stone",baseCost:8.25,sizeMm:3.3,noMarkup:true},
-  {id:"rst28",category:REPAIRS_CAT,group:"Stone Tightening",name:"Stone tightening — 3.4mm",unit:"stone",baseCost:8.50,sizeMm:3.4,noMarkup:true},
-  {id:"rst29",category:REPAIRS_CAT,group:"Stone Tightening",name:"Stone tightening — 3.5mm",unit:"stone",baseCost:8.75,sizeMm:3.5,noMarkup:true},
-  {id:"rst30",category:REPAIRS_CAT,group:"Stone Tightening",name:"Stone tightening — 3.6mm",unit:"stone",baseCost:9.00,sizeMm:3.6,noMarkup:true},
-  {id:"rst31",category:REPAIRS_CAT,group:"Stone Tightening",name:"Stone tightening — 3.7mm",unit:"stone",baseCost:9.25,sizeMm:3.7,noMarkup:true},
-  {id:"rst32",category:REPAIRS_CAT,group:"Stone Tightening",name:"Stone tightening — 3.8mm",unit:"stone",baseCost:9.50,sizeMm:3.8,noMarkup:true},
-  {id:"rst33",category:REPAIRS_CAT,group:"Stone Tightening",name:"Stone tightening — 3.9mm",unit:"stone",baseCost:9.75,sizeMm:3.9,noMarkup:true},
-  {id:"rst34",category:REPAIRS_CAT,group:"Stone Tightening",name:"Stone tightening — 4.0mm",unit:"stone",baseCost:10.00,sizeMm:4.0,noMarkup:true},
-  {id:"rmd01",category:REPAIRS_CAT,group:"Diamond Replacement",name:"Diamond replacement — 0.8mm",unit:"stone",baseCost:0.81,sizeMm:0.8,caratWeight:0.002,noMarkup:true},
-  {id:"rmd02",category:REPAIRS_CAT,group:"Diamond Replacement",name:"Diamond replacement — 0.9mm",unit:"stone",baseCost:0.92,sizeMm:0.9,caratWeight:0.003,noMarkup:true},
-  {id:"rmd03",category:REPAIRS_CAT,group:"Diamond Replacement",name:"Diamond replacement — 1.0mm",unit:"stone",baseCost:1.46,sizeMm:1.0,caratWeight:0.004,noMarkup:true},
-  {id:"rmd04",category:REPAIRS_CAT,group:"Diamond Replacement",name:"Diamond replacement — 1.1mm",unit:"stone",baseCost:1.32,sizeMm:1.1,caratWeight:0.005,noMarkup:true},
-  {id:"rmd05",category:REPAIRS_CAT,group:"Diamond Replacement",name:"Diamond replacement — 1.2mm",unit:"stone",baseCost:1.27,sizeMm:1.2,caratWeight:0.007,noMarkup:true},
-  {id:"rmd06",category:REPAIRS_CAT,group:"Diamond Replacement",name:"Diamond replacement — 1.3mm",unit:"stone",baseCost:1.37,sizeMm:1.3,caratWeight:0.009,noMarkup:true},
-  {id:"rmd07",category:REPAIRS_CAT,group:"Diamond Replacement",name:"Diamond replacement — 1.4mm",unit:"stone",baseCost:1.36,sizeMm:1.4,caratWeight:0.011,noMarkup:true},
-  {id:"rmd08",category:REPAIRS_CAT,group:"Diamond Replacement",name:"Diamond replacement — 1.5mm",unit:"stone",baseCost:2.18,sizeMm:1.5,caratWeight:0.013,noMarkup:true},
-  {id:"rmd09",category:REPAIRS_CAT,group:"Diamond Replacement",name:"Diamond replacement — 1.6mm",unit:"stone",baseCost:2.09,sizeMm:1.6,caratWeight:0.016,noMarkup:true},
-  {id:"rmd10",category:REPAIRS_CAT,group:"Diamond Replacement",name:"Diamond replacement — 1.7mm",unit:"stone",baseCost:2.45,sizeMm:1.7,caratWeight:0.019,noMarkup:true},
-  {id:"rmd11",category:REPAIRS_CAT,group:"Diamond Replacement",name:"Diamond replacement — 1.8mm",unit:"stone",baseCost:2.72,sizeMm:1.8,caratWeight:0.023,noMarkup:true},
-  {id:"rmd12",category:REPAIRS_CAT,group:"Diamond Replacement",name:"Diamond replacement — 1.9mm",unit:"stone",baseCost:2.52,sizeMm:1.9,caratWeight:0.027,noMarkup:true},
-  {id:"rmd13",category:REPAIRS_CAT,group:"Diamond Replacement",name:"Diamond replacement — 2.0mm",unit:"stone",baseCost:3.85,sizeMm:2.0,caratWeight:0.031,noMarkup:true},
-  {id:"rmd14",category:REPAIRS_CAT,group:"Diamond Replacement",name:"Diamond replacement — 2.1mm",unit:"stone",baseCost:2.89,sizeMm:2.1,caratWeight:0.036,noMarkup:true},
-  {id:"rmd15",category:REPAIRS_CAT,group:"Diamond Replacement",name:"Diamond replacement — 2.2mm",unit:"stone",baseCost:3.35,sizeMm:2.2,caratWeight:0.042,noMarkup:true},
-  {id:"rmd16",category:REPAIRS_CAT,group:"Diamond Replacement",name:"Diamond replacement — 2.3mm",unit:"stone",baseCost:3.88,sizeMm:2.3,caratWeight:0.047,noMarkup:true},
-  {id:"rmd17",category:REPAIRS_CAT,group:"Diamond Replacement",name:"Diamond replacement — 2.4mm",unit:"stone",baseCost:4.22,sizeMm:2.4,caratWeight:0.054,noMarkup:true},
-  {id:"rmd18",category:REPAIRS_CAT,group:"Diamond Replacement",name:"Diamond replacement — 2.5mm",unit:"stone",baseCost:4.49,sizeMm:2.5,caratWeight:0.061,noMarkup:true},
-  {id:"rmd19",category:REPAIRS_CAT,group:"Diamond Replacement",name:"Diamond replacement — 2.6mm",unit:"stone",baseCost:4.46,sizeMm:2.6,caratWeight:0.069,noMarkup:true},
-  {id:"rmd20",category:REPAIRS_CAT,group:"Diamond Replacement",name:"Diamond replacement — 2.7mm",unit:"stone",baseCost:5.43,sizeMm:2.7,caratWeight:0.077,noMarkup:true},
-  {id:"rmd21",category:REPAIRS_CAT,group:"Diamond Replacement",name:"Diamond replacement — 2.8mm",unit:"stone",baseCost:6.11,sizeMm:2.8,caratWeight:0.086,noMarkup:true},
-  {id:"rmd22",category:REPAIRS_CAT,group:"Diamond Replacement",name:"Diamond replacement — 2.9mm",unit:"stone",baseCost:6.72,sizeMm:2.9,caratWeight:0.095,noMarkup:true},
-  {id:"rmd23",category:REPAIRS_CAT,group:"Diamond Replacement",name:"Diamond replacement — 3.0mm",unit:"stone",baseCost:7.36,sizeMm:3.0,caratWeight:0.105,noMarkup:true},
-  {id:"rmd24",category:REPAIRS_CAT,group:"Diamond Replacement",name:"Diamond replacement — 3.1mm",unit:"stone",baseCost:11.36,sizeMm:3.1,caratWeight:0.116,noMarkup:true},
-  {id:"rmd25",category:REPAIRS_CAT,group:"Diamond Replacement",name:"Diamond replacement — 3.2mm",unit:"stone",baseCost:10.40,sizeMm:3.2,caratWeight:0.128,noMarkup:true},
-  {id:"rmd26",category:REPAIRS_CAT,group:"Diamond Replacement",name:"Diamond replacement — 3.3mm",unit:"stone",baseCost:10.00,sizeMm:3.3,caratWeight:0.140,noMarkup:true},
-  {id:"rmd27",category:REPAIRS_CAT,group:"Diamond Replacement",name:"Diamond replacement — 3.4mm",unit:"stone",baseCost:11.80,sizeMm:3.4,caratWeight:0.153,noMarkup:true},
-  {id:"rmd28",category:REPAIRS_CAT,group:"Diamond Replacement",name:"Diamond replacement — 3.5mm",unit:"stone",baseCost:16.00,sizeMm:3.5,caratWeight:0.167,noMarkup:true},
-  {id:"rmd29",category:REPAIRS_CAT,group:"Diamond Replacement",name:"Diamond replacement — 3.6mm",unit:"stone",baseCost:20.00,sizeMm:3.6,caratWeight:0.182,noMarkup:true},
-  {id:"rmd30",category:REPAIRS_CAT,group:"Diamond Replacement",name:"Diamond replacement — 3.7mm",unit:"stone",baseCost:22.00,sizeMm:3.7,caratWeight:0.198,noMarkup:true},
-  {id:"rmd31",category:REPAIRS_CAT,group:"Diamond Replacement",name:"Diamond replacement — 3.8mm",unit:"stone",baseCost:26.00,sizeMm:3.8,caratWeight:0.214,noMarkup:true},
-  {id:"rmd32",category:REPAIRS_CAT,group:"Diamond Replacement",name:"Diamond replacement — 3.9mm",unit:"stone",baseCost:28.00,sizeMm:3.9,caratWeight:0.231,noMarkup:true},
-  {id:"rmd33",category:REPAIRS_CAT,group:"Diamond Replacement",name:"Diamond replacement — 4.0mm",unit:"stone",baseCost:30.00,sizeMm:4.0,caratWeight:0.250,noMarkup:true},
+  {id:"rps01",category:REPAIRS_CAT,group:"Stone Setting (Repair)",subgroup:"Basic — prong / pavé (small accent stones)",name:"Basic re-set — 0.7mm",unit:"stone",baseCost:3.50,sizeMm:0.7,noMarkup:true},
+  {id:"rps02",category:REPAIRS_CAT,group:"Stone Setting (Repair)",subgroup:"Basic — prong / pavé (small accent stones)",name:"Basic re-set — 0.8mm",unit:"stone",baseCost:4.00,sizeMm:0.8,noMarkup:true},
+  {id:"rps03",category:REPAIRS_CAT,group:"Stone Setting (Repair)",subgroup:"Basic — prong / pavé (small accent stones)",name:"Basic re-set — 0.9mm",unit:"stone",baseCost:4.50,sizeMm:0.9,noMarkup:true},
+  {id:"rps04",category:REPAIRS_CAT,group:"Stone Setting (Repair)",subgroup:"Basic — prong / pavé (small accent stones)",name:"Basic re-set — 1.0mm",unit:"stone",baseCost:5.00,sizeMm:1.0,noMarkup:true},
+  {id:"rps05",category:REPAIRS_CAT,group:"Stone Setting (Repair)",subgroup:"Basic — prong / pavé (small accent stones)",name:"Basic re-set — 1.1mm",unit:"stone",baseCost:5.50,sizeMm:1.1,noMarkup:true},
+  {id:"rps06",category:REPAIRS_CAT,group:"Stone Setting (Repair)",subgroup:"Basic — prong / pavé (small accent stones)",name:"Basic re-set — 1.2mm",unit:"stone",baseCost:6.00,sizeMm:1.2,noMarkup:true},
+  {id:"rps07",category:REPAIRS_CAT,group:"Stone Setting (Repair)",subgroup:"Basic — prong / pavé (small accent stones)",name:"Basic re-set — 1.3mm",unit:"stone",baseCost:6.50,sizeMm:1.3,noMarkup:true},
+  {id:"rps08",category:REPAIRS_CAT,group:"Stone Setting (Repair)",subgroup:"Basic — prong / pavé (small accent stones)",name:"Basic re-set — 1.4mm",unit:"stone",baseCost:7.00,sizeMm:1.4,noMarkup:true},
+  {id:"rps09",category:REPAIRS_CAT,group:"Stone Setting (Repair)",subgroup:"Basic — prong / pavé (small accent stones)",name:"Basic re-set — 1.5mm",unit:"stone",baseCost:7.50,sizeMm:1.5,noMarkup:true},
+  {id:"rps10",category:REPAIRS_CAT,group:"Stone Setting (Repair)",subgroup:"Basic — prong / pavé (small accent stones)",name:"Basic re-set — 1.6mm",unit:"stone",baseCost:8.00,sizeMm:1.6,noMarkup:true},
+  {id:"rps11",category:REPAIRS_CAT,group:"Stone Setting (Repair)",subgroup:"Basic — prong / pavé (small accent stones)",name:"Basic re-set — 1.7mm",unit:"stone",baseCost:8.50,sizeMm:1.7,noMarkup:true},
+  {id:"rps12",category:REPAIRS_CAT,group:"Stone Setting (Repair)",subgroup:"Basic — prong / pavé (small accent stones)",name:"Basic re-set — 1.8mm",unit:"stone",baseCost:9.00,sizeMm:1.8,noMarkup:true},
+  {id:"rps13",category:REPAIRS_CAT,group:"Stone Setting (Repair)",subgroup:"Basic — prong / pavé (small accent stones)",name:"Basic re-set — 1.9mm",unit:"stone",baseCost:9.50,sizeMm:1.9,noMarkup:true},
+  {id:"rps14",category:REPAIRS_CAT,group:"Stone Setting (Repair)",subgroup:"Basic — prong / pavé (small accent stones)",name:"Basic re-set — 2.0mm",unit:"stone",baseCost:10.00,sizeMm:2.0,noMarkup:true},
+  {id:"rps15",category:REPAIRS_CAT,group:"Stone Setting (Repair)",subgroup:"Basic — prong / pavé (small accent stones)",name:"Basic re-set — 2.1mm",unit:"stone",baseCost:10.50,sizeMm:2.1,noMarkup:true},
+  {id:"rps16",category:REPAIRS_CAT,group:"Stone Setting (Repair)",subgroup:"Basic — prong / pavé (small accent stones)",name:"Basic re-set — 2.2mm",unit:"stone",baseCost:11.00,sizeMm:2.2,noMarkup:true},
+  {id:"rps17",category:REPAIRS_CAT,group:"Stone Setting (Repair)",subgroup:"Basic — prong / pavé (small accent stones)",name:"Basic re-set — 2.3mm",unit:"stone",baseCost:11.50,sizeMm:2.3,noMarkup:true},
+  {id:"rps18",category:REPAIRS_CAT,group:"Stone Setting (Repair)",subgroup:"Basic — prong / pavé (small accent stones)",name:"Basic re-set — 2.4mm",unit:"stone",baseCost:12.00,sizeMm:2.4,noMarkup:true},
+  {id:"rps19",category:REPAIRS_CAT,group:"Stone Setting (Repair)",subgroup:"Basic — prong / pavé (small accent stones)",name:"Basic re-set — 2.5mm",unit:"stone",baseCost:12.50,sizeMm:2.5,noMarkup:true},
+  {id:"rps20",category:REPAIRS_CAT,group:"Stone Setting (Repair)",subgroup:"Basic — prong / pavé (small accent stones)",name:"Basic re-set — 2.6mm",unit:"stone",baseCost:13.00,sizeMm:2.6,noMarkup:true},
+  {id:"rps21",category:REPAIRS_CAT,group:"Stone Setting (Repair)",subgroup:"Basic — prong / pavé (small accent stones)",name:"Basic re-set — 2.7mm",unit:"stone",baseCost:13.50,sizeMm:2.7,noMarkup:true},
+  {id:"rps22",category:REPAIRS_CAT,group:"Stone Setting (Repair)",subgroup:"Basic — prong / pavé (small accent stones)",name:"Basic re-set — 2.8mm",unit:"stone",baseCost:14.00,sizeMm:2.8,noMarkup:true},
+  {id:"rps23",category:REPAIRS_CAT,group:"Stone Setting (Repair)",subgroup:"Basic — prong / pavé (small accent stones)",name:"Basic re-set — 2.9mm",unit:"stone",baseCost:14.50,sizeMm:2.9,noMarkup:true},
+  {id:"rps24",category:REPAIRS_CAT,group:"Stone Setting (Repair)",subgroup:"Basic — prong / pavé (small accent stones)",name:"Basic re-set — 3.0mm",unit:"stone",baseCost:15.00,sizeMm:3.0,noMarkup:true},
+  {id:"rps25",category:REPAIRS_CAT,group:"Stone Setting (Repair)",subgroup:"Basic — prong / pavé (small accent stones)",name:"Basic re-set — 3.1mm",unit:"stone",baseCost:15.50,sizeMm:3.1,noMarkup:true},
+  {id:"rps26",category:REPAIRS_CAT,group:"Stone Setting (Repair)",subgroup:"Basic — prong / pavé (small accent stones)",name:"Basic re-set — 3.2mm",unit:"stone",baseCost:16.00,sizeMm:3.2,noMarkup:true},
+  {id:"rps27",category:REPAIRS_CAT,group:"Stone Setting (Repair)",subgroup:"Basic — prong / pavé (small accent stones)",name:"Basic re-set — 3.3mm",unit:"stone",baseCost:16.50,sizeMm:3.3,noMarkup:true},
+  {id:"rps28",category:REPAIRS_CAT,group:"Stone Setting (Repair)",subgroup:"Basic — prong / pavé (small accent stones)",name:"Basic re-set — 3.4mm",unit:"stone",baseCost:17.00,sizeMm:3.4,noMarkup:true},
+  {id:"rps29",category:REPAIRS_CAT,group:"Stone Setting (Repair)",subgroup:"Basic — prong / pavé (small accent stones)",name:"Basic re-set — 3.5mm",unit:"stone",baseCost:17.50,sizeMm:3.5,noMarkup:true},
+  {id:"rps30",category:REPAIRS_CAT,group:"Stone Setting (Repair)",subgroup:"Basic — prong / pavé (small accent stones)",name:"Basic re-set — 3.6mm",unit:"stone",baseCost:18.00,sizeMm:3.6,noMarkup:true},
+  {id:"rps31",category:REPAIRS_CAT,group:"Stone Setting (Repair)",subgroup:"Basic — prong / pavé (small accent stones)",name:"Basic re-set — 3.7mm",unit:"stone",baseCost:18.50,sizeMm:3.7,noMarkup:true},
+  {id:"rps32",category:REPAIRS_CAT,group:"Stone Setting (Repair)",subgroup:"Basic — prong / pavé (small accent stones)",name:"Basic re-set — 3.8mm",unit:"stone",baseCost:19.00,sizeMm:3.8,noMarkup:true},
+  {id:"rps33",category:REPAIRS_CAT,group:"Stone Setting (Repair)",subgroup:"Basic — prong / pavé (small accent stones)",name:"Basic re-set — 3.9mm",unit:"stone",baseCost:19.50,sizeMm:3.9,noMarkup:true},
+  {id:"rps34",category:REPAIRS_CAT,group:"Stone Setting (Repair)",subgroup:"Basic — prong / pavé (small accent stones)",name:"Basic re-set — 4.0mm",unit:"stone",baseCost:20.00,sizeMm:4.0,noMarkup:true},
+  {id:"rpsc01",category:REPAIRS_CAT,group:"Stone Setting (Repair)",subgroup:"Complex — channel, princess & French pavé",name:"Complex re-set — 0.7mm",unit:"stone",baseCost:4.38,sizeMm:0.7,noMarkup:true},
+  {id:"rpsc02",category:REPAIRS_CAT,group:"Stone Setting (Repair)",subgroup:"Complex — channel, princess & French pavé",name:"Complex re-set — 0.8mm",unit:"stone",baseCost:5.00,sizeMm:0.8,noMarkup:true},
+  {id:"rpsc03",category:REPAIRS_CAT,group:"Stone Setting (Repair)",subgroup:"Complex — channel, princess & French pavé",name:"Complex re-set — 0.9mm",unit:"stone",baseCost:5.63,sizeMm:0.9,noMarkup:true},
+  {id:"rpsc04",category:REPAIRS_CAT,group:"Stone Setting (Repair)",subgroup:"Complex — channel, princess & French pavé",name:"Complex re-set — 1.0mm",unit:"stone",baseCost:6.25,sizeMm:1.0,noMarkup:true},
+  {id:"rpsc05",category:REPAIRS_CAT,group:"Stone Setting (Repair)",subgroup:"Complex — channel, princess & French pavé",name:"Complex re-set — 1.1mm",unit:"stone",baseCost:6.88,sizeMm:1.1,noMarkup:true},
+  {id:"rpsc06",category:REPAIRS_CAT,group:"Stone Setting (Repair)",subgroup:"Complex — channel, princess & French pavé",name:"Complex re-set — 1.2mm",unit:"stone",baseCost:7.50,sizeMm:1.2,noMarkup:true},
+  {id:"rpsc07",category:REPAIRS_CAT,group:"Stone Setting (Repair)",subgroup:"Complex — channel, princess & French pavé",name:"Complex re-set — 1.3mm",unit:"stone",baseCost:8.13,sizeMm:1.3,noMarkup:true},
+  {id:"rpsc08",category:REPAIRS_CAT,group:"Stone Setting (Repair)",subgroup:"Complex — channel, princess & French pavé",name:"Complex re-set — 1.4mm",unit:"stone",baseCost:8.75,sizeMm:1.4,noMarkup:true},
+  {id:"rpsc09",category:REPAIRS_CAT,group:"Stone Setting (Repair)",subgroup:"Complex — channel, princess & French pavé",name:"Complex re-set — 1.5mm",unit:"stone",baseCost:9.38,sizeMm:1.5,noMarkup:true},
+  {id:"rpsc10",category:REPAIRS_CAT,group:"Stone Setting (Repair)",subgroup:"Complex — channel, princess & French pavé",name:"Complex re-set — 1.6mm",unit:"stone",baseCost:10.00,sizeMm:1.6,noMarkup:true},
+  {id:"rpsc11",category:REPAIRS_CAT,group:"Stone Setting (Repair)",subgroup:"Complex — channel, princess & French pavé",name:"Complex re-set — 1.7mm",unit:"stone",baseCost:10.63,sizeMm:1.7,noMarkup:true},
+  {id:"rpsc12",category:REPAIRS_CAT,group:"Stone Setting (Repair)",subgroup:"Complex — channel, princess & French pavé",name:"Complex re-set — 1.8mm",unit:"stone",baseCost:11.25,sizeMm:1.8,noMarkup:true},
+  {id:"rpsc13",category:REPAIRS_CAT,group:"Stone Setting (Repair)",subgroup:"Complex — channel, princess & French pavé",name:"Complex re-set — 1.9mm",unit:"stone",baseCost:11.88,sizeMm:1.9,noMarkup:true},
+  {id:"rpsc14",category:REPAIRS_CAT,group:"Stone Setting (Repair)",subgroup:"Complex — channel, princess & French pavé",name:"Complex re-set — 2.0mm",unit:"stone",baseCost:12.50,sizeMm:2.0,noMarkup:true},
+  {id:"rpsc15",category:REPAIRS_CAT,group:"Stone Setting (Repair)",subgroup:"Complex — channel, princess & French pavé",name:"Complex re-set — 2.1mm",unit:"stone",baseCost:13.13,sizeMm:2.1,noMarkup:true},
+  {id:"rpsc16",category:REPAIRS_CAT,group:"Stone Setting (Repair)",subgroup:"Complex — channel, princess & French pavé",name:"Complex re-set — 2.2mm",unit:"stone",baseCost:13.75,sizeMm:2.2,noMarkup:true},
+  {id:"rpsc17",category:REPAIRS_CAT,group:"Stone Setting (Repair)",subgroup:"Complex — channel, princess & French pavé",name:"Complex re-set — 2.3mm",unit:"stone",baseCost:14.38,sizeMm:2.3,noMarkup:true},
+  {id:"rpsc18",category:REPAIRS_CAT,group:"Stone Setting (Repair)",subgroup:"Complex — channel, princess & French pavé",name:"Complex re-set — 2.4mm",unit:"stone",baseCost:15.00,sizeMm:2.4,noMarkup:true},
+  {id:"rpsc19",category:REPAIRS_CAT,group:"Stone Setting (Repair)",subgroup:"Complex — channel, princess & French pavé",name:"Complex re-set — 2.5mm",unit:"stone",baseCost:15.63,sizeMm:2.5,noMarkup:true},
+  {id:"rpsc20",category:REPAIRS_CAT,group:"Stone Setting (Repair)",subgroup:"Complex — channel, princess & French pavé",name:"Complex re-set — 2.6mm",unit:"stone",baseCost:16.25,sizeMm:2.6,noMarkup:true},
+  {id:"rpsc21",category:REPAIRS_CAT,group:"Stone Setting (Repair)",subgroup:"Complex — channel, princess & French pavé",name:"Complex re-set — 2.7mm",unit:"stone",baseCost:16.88,sizeMm:2.7,noMarkup:true},
+  {id:"rpsc22",category:REPAIRS_CAT,group:"Stone Setting (Repair)",subgroup:"Complex — channel, princess & French pavé",name:"Complex re-set — 2.8mm",unit:"stone",baseCost:17.50,sizeMm:2.8,noMarkup:true},
+  {id:"rpsc23",category:REPAIRS_CAT,group:"Stone Setting (Repair)",subgroup:"Complex — channel, princess & French pavé",name:"Complex re-set — 2.9mm",unit:"stone",baseCost:18.13,sizeMm:2.9,noMarkup:true},
+  {id:"rpsc24",category:REPAIRS_CAT,group:"Stone Setting (Repair)",subgroup:"Complex — channel, princess & French pavé",name:"Complex re-set — 3.0mm",unit:"stone",baseCost:18.75,sizeMm:3.0,noMarkup:true},
+  {id:"rpsc25",category:REPAIRS_CAT,group:"Stone Setting (Repair)",subgroup:"Complex — channel, princess & French pavé",name:"Complex re-set — 3.1mm",unit:"stone",baseCost:19.38,sizeMm:3.1,noMarkup:true},
+  {id:"rpsc26",category:REPAIRS_CAT,group:"Stone Setting (Repair)",subgroup:"Complex — channel, princess & French pavé",name:"Complex re-set — 3.2mm",unit:"stone",baseCost:20.00,sizeMm:3.2,noMarkup:true},
+  {id:"rpsc27",category:REPAIRS_CAT,group:"Stone Setting (Repair)",subgroup:"Complex — channel, princess & French pavé",name:"Complex re-set — 3.3mm",unit:"stone",baseCost:20.63,sizeMm:3.3,noMarkup:true},
+  {id:"rpsc28",category:REPAIRS_CAT,group:"Stone Setting (Repair)",subgroup:"Complex — channel, princess & French pavé",name:"Complex re-set — 3.4mm",unit:"stone",baseCost:21.25,sizeMm:3.4,noMarkup:true},
+  {id:"rpsc29",category:REPAIRS_CAT,group:"Stone Setting (Repair)",subgroup:"Complex — channel, princess & French pavé",name:"Complex re-set — 3.5mm",unit:"stone",baseCost:21.88,sizeMm:3.5,noMarkup:true},
+  {id:"rpsc30",category:REPAIRS_CAT,group:"Stone Setting (Repair)",subgroup:"Complex — channel, princess & French pavé",name:"Complex re-set — 3.6mm",unit:"stone",baseCost:22.50,sizeMm:3.6,noMarkup:true},
+  {id:"rpsc31",category:REPAIRS_CAT,group:"Stone Setting (Repair)",subgroup:"Complex — channel, princess & French pavé",name:"Complex re-set — 3.7mm",unit:"stone",baseCost:23.13,sizeMm:3.7,noMarkup:true},
+  {id:"rpsc32",category:REPAIRS_CAT,group:"Stone Setting (Repair)",subgroup:"Complex — channel, princess & French pavé",name:"Complex re-set — 3.8mm",unit:"stone",baseCost:23.75,sizeMm:3.8,noMarkup:true},
+  {id:"rpsc33",category:REPAIRS_CAT,group:"Stone Setting (Repair)",subgroup:"Complex — channel, princess & French pavé",name:"Complex re-set — 3.9mm",unit:"stone",baseCost:24.38,sizeMm:3.9,noMarkup:true},
+  {id:"rpsc34",category:REPAIRS_CAT,group:"Stone Setting (Repair)",subgroup:"Complex — channel, princess & French pavé",name:"Complex re-set — 4.0mm",unit:"stone",baseCost:25.00,sizeMm:4.0,noMarkup:true},
+  {id:"rst01",category:REPAIRS_CAT,group:"Stone Tightening",subgroup:"Small accent stones (up to 4.0mm) — 50% of basic setting rate",name:"Stone tightening — 0.7mm",unit:"stone",baseCost:1.75,sizeMm:0.7,noMarkup:true},
+  {id:"rst02",category:REPAIRS_CAT,group:"Stone Tightening",subgroup:"Small accent stones (up to 4.0mm) — 50% of basic setting rate",name:"Stone tightening — 0.8mm",unit:"stone",baseCost:2.00,sizeMm:0.8,noMarkup:true},
+  {id:"rst03",category:REPAIRS_CAT,group:"Stone Tightening",subgroup:"Small accent stones (up to 4.0mm) — 50% of basic setting rate",name:"Stone tightening — 0.9mm",unit:"stone",baseCost:2.25,sizeMm:0.9,noMarkup:true},
+  {id:"rst04",category:REPAIRS_CAT,group:"Stone Tightening",subgroup:"Small accent stones (up to 4.0mm) — 50% of basic setting rate",name:"Stone tightening — 1.0mm",unit:"stone",baseCost:2.50,sizeMm:1.0,noMarkup:true},
+  {id:"rst05",category:REPAIRS_CAT,group:"Stone Tightening",subgroup:"Small accent stones (up to 4.0mm) — 50% of basic setting rate",name:"Stone tightening — 1.1mm",unit:"stone",baseCost:2.75,sizeMm:1.1,noMarkup:true},
+  {id:"rst06",category:REPAIRS_CAT,group:"Stone Tightening",subgroup:"Small accent stones (up to 4.0mm) — 50% of basic setting rate",name:"Stone tightening — 1.2mm",unit:"stone",baseCost:3.00,sizeMm:1.2,noMarkup:true},
+  {id:"rst07",category:REPAIRS_CAT,group:"Stone Tightening",subgroup:"Small accent stones (up to 4.0mm) — 50% of basic setting rate",name:"Stone tightening — 1.3mm",unit:"stone",baseCost:3.25,sizeMm:1.3,noMarkup:true},
+  {id:"rst08",category:REPAIRS_CAT,group:"Stone Tightening",subgroup:"Small accent stones (up to 4.0mm) — 50% of basic setting rate",name:"Stone tightening — 1.4mm",unit:"stone",baseCost:3.50,sizeMm:1.4,noMarkup:true},
+  {id:"rst09",category:REPAIRS_CAT,group:"Stone Tightening",subgroup:"Small accent stones (up to 4.0mm) — 50% of basic setting rate",name:"Stone tightening — 1.5mm",unit:"stone",baseCost:3.75,sizeMm:1.5,noMarkup:true},
+  {id:"rst10",category:REPAIRS_CAT,group:"Stone Tightening",subgroup:"Small accent stones (up to 4.0mm) — 50% of basic setting rate",name:"Stone tightening — 1.6mm",unit:"stone",baseCost:4.00,sizeMm:1.6,noMarkup:true},
+  {id:"rst11",category:REPAIRS_CAT,group:"Stone Tightening",subgroup:"Small accent stones (up to 4.0mm) — 50% of basic setting rate",name:"Stone tightening — 1.7mm",unit:"stone",baseCost:4.25,sizeMm:1.7,noMarkup:true},
+  {id:"rst12",category:REPAIRS_CAT,group:"Stone Tightening",subgroup:"Small accent stones (up to 4.0mm) — 50% of basic setting rate",name:"Stone tightening — 1.8mm",unit:"stone",baseCost:4.50,sizeMm:1.8,noMarkup:true},
+  {id:"rst13",category:REPAIRS_CAT,group:"Stone Tightening",subgroup:"Small accent stones (up to 4.0mm) — 50% of basic setting rate",name:"Stone tightening — 1.9mm",unit:"stone",baseCost:4.75,sizeMm:1.9,noMarkup:true},
+  {id:"rst14",category:REPAIRS_CAT,group:"Stone Tightening",subgroup:"Small accent stones (up to 4.0mm) — 50% of basic setting rate",name:"Stone tightening — 2.0mm",unit:"stone",baseCost:5.00,sizeMm:2.0,noMarkup:true},
+  {id:"rst15",category:REPAIRS_CAT,group:"Stone Tightening",subgroup:"Small accent stones (up to 4.0mm) — 50% of basic setting rate",name:"Stone tightening — 2.1mm",unit:"stone",baseCost:5.25,sizeMm:2.1,noMarkup:true},
+  {id:"rst16",category:REPAIRS_CAT,group:"Stone Tightening",subgroup:"Small accent stones (up to 4.0mm) — 50% of basic setting rate",name:"Stone tightening — 2.2mm",unit:"stone",baseCost:5.50,sizeMm:2.2,noMarkup:true},
+  {id:"rst17",category:REPAIRS_CAT,group:"Stone Tightening",subgroup:"Small accent stones (up to 4.0mm) — 50% of basic setting rate",name:"Stone tightening — 2.3mm",unit:"stone",baseCost:5.75,sizeMm:2.3,noMarkup:true},
+  {id:"rst18",category:REPAIRS_CAT,group:"Stone Tightening",subgroup:"Small accent stones (up to 4.0mm) — 50% of basic setting rate",name:"Stone tightening — 2.4mm",unit:"stone",baseCost:6.00,sizeMm:2.4,noMarkup:true},
+  {id:"rst19",category:REPAIRS_CAT,group:"Stone Tightening",subgroup:"Small accent stones (up to 4.0mm) — 50% of basic setting rate",name:"Stone tightening — 2.5mm",unit:"stone",baseCost:6.25,sizeMm:2.5,noMarkup:true},
+  {id:"rst20",category:REPAIRS_CAT,group:"Stone Tightening",subgroup:"Small accent stones (up to 4.0mm) — 50% of basic setting rate",name:"Stone tightening — 2.6mm",unit:"stone",baseCost:6.50,sizeMm:2.6,noMarkup:true},
+  {id:"rst21",category:REPAIRS_CAT,group:"Stone Tightening",subgroup:"Small accent stones (up to 4.0mm) — 50% of basic setting rate",name:"Stone tightening — 2.7mm",unit:"stone",baseCost:6.75,sizeMm:2.7,noMarkup:true},
+  {id:"rst22",category:REPAIRS_CAT,group:"Stone Tightening",subgroup:"Small accent stones (up to 4.0mm) — 50% of basic setting rate",name:"Stone tightening — 2.8mm",unit:"stone",baseCost:7.00,sizeMm:2.8,noMarkup:true},
+  {id:"rst23",category:REPAIRS_CAT,group:"Stone Tightening",subgroup:"Small accent stones (up to 4.0mm) — 50% of basic setting rate",name:"Stone tightening — 2.9mm",unit:"stone",baseCost:7.25,sizeMm:2.9,noMarkup:true},
+  {id:"rst24",category:REPAIRS_CAT,group:"Stone Tightening",subgroup:"Small accent stones (up to 4.0mm) — 50% of basic setting rate",name:"Stone tightening — 3.0mm",unit:"stone",baseCost:7.50,sizeMm:3.0,noMarkup:true},
+  {id:"rst25",category:REPAIRS_CAT,group:"Stone Tightening",subgroup:"Small accent stones (up to 4.0mm) — 50% of basic setting rate",name:"Stone tightening — 3.1mm",unit:"stone",baseCost:7.75,sizeMm:3.1,noMarkup:true},
+  {id:"rst26",category:REPAIRS_CAT,group:"Stone Tightening",subgroup:"Small accent stones (up to 4.0mm) — 50% of basic setting rate",name:"Stone tightening — 3.2mm",unit:"stone",baseCost:8.00,sizeMm:3.2,noMarkup:true},
+  {id:"rst27",category:REPAIRS_CAT,group:"Stone Tightening",subgroup:"Small accent stones (up to 4.0mm) — 50% of basic setting rate",name:"Stone tightening — 3.3mm",unit:"stone",baseCost:8.25,sizeMm:3.3,noMarkup:true},
+  {id:"rst28",category:REPAIRS_CAT,group:"Stone Tightening",subgroup:"Small accent stones (up to 4.0mm) — 50% of basic setting rate",name:"Stone tightening — 3.4mm",unit:"stone",baseCost:8.50,sizeMm:3.4,noMarkup:true},
+  {id:"rst29",category:REPAIRS_CAT,group:"Stone Tightening",subgroup:"Small accent stones (up to 4.0mm) — 50% of basic setting rate",name:"Stone tightening — 3.5mm",unit:"stone",baseCost:8.75,sizeMm:3.5,noMarkup:true},
+  {id:"rst30",category:REPAIRS_CAT,group:"Stone Tightening",subgroup:"Small accent stones (up to 4.0mm) — 50% of basic setting rate",name:"Stone tightening — 3.6mm",unit:"stone",baseCost:9.00,sizeMm:3.6,noMarkup:true},
+  {id:"rst31",category:REPAIRS_CAT,group:"Stone Tightening",subgroup:"Small accent stones (up to 4.0mm) — 50% of basic setting rate",name:"Stone tightening — 3.7mm",unit:"stone",baseCost:9.25,sizeMm:3.7,noMarkup:true},
+  {id:"rst32",category:REPAIRS_CAT,group:"Stone Tightening",subgroup:"Small accent stones (up to 4.0mm) — 50% of basic setting rate",name:"Stone tightening — 3.8mm",unit:"stone",baseCost:9.50,sizeMm:3.8,noMarkup:true},
+  {id:"rst33",category:REPAIRS_CAT,group:"Stone Tightening",subgroup:"Small accent stones (up to 4.0mm) — 50% of basic setting rate",name:"Stone tightening — 3.9mm",unit:"stone",baseCost:9.75,sizeMm:3.9,noMarkup:true},
+  {id:"rst34",category:REPAIRS_CAT,group:"Stone Tightening",subgroup:"Small accent stones (up to 4.0mm) — 50% of basic setting rate",name:"Stone tightening — 4.0mm",unit:"stone",baseCost:10.00,sizeMm:4.0,noMarkup:true},
+  {id:"rmd01",category:REPAIRS_CAT,group:"Diamond Replacement",subgroup:"Lab grown D-E — small round accent diamonds (up to 4.0mm)",name:"Lab grown D-E — 0.8mm",unit:"stone",baseCost:0.81,sizeMm:0.8,caratWeight:0.002,noMarkup:true},
+  {id:"rmd02",category:REPAIRS_CAT,group:"Diamond Replacement",subgroup:"Lab grown D-E — small round accent diamonds (up to 4.0mm)",name:"Lab grown D-E — 0.9mm",unit:"stone",baseCost:0.92,sizeMm:0.9,caratWeight:0.003,noMarkup:true},
+  {id:"rmd03",category:REPAIRS_CAT,group:"Diamond Replacement",subgroup:"Lab grown D-E — small round accent diamonds (up to 4.0mm)",name:"Lab grown D-E — 1.0mm",unit:"stone",baseCost:1.46,sizeMm:1.0,caratWeight:0.004,noMarkup:true},
+  {id:"rmd04",category:REPAIRS_CAT,group:"Diamond Replacement",subgroup:"Lab grown D-E — small round accent diamonds (up to 4.0mm)",name:"Lab grown D-E — 1.1mm",unit:"stone",baseCost:1.32,sizeMm:1.1,caratWeight:0.005,noMarkup:true},
+  {id:"rmd05",category:REPAIRS_CAT,group:"Diamond Replacement",subgroup:"Lab grown D-E — small round accent diamonds (up to 4.0mm)",name:"Lab grown D-E — 1.2mm",unit:"stone",baseCost:1.27,sizeMm:1.2,caratWeight:0.007,noMarkup:true},
+  {id:"rmd06",category:REPAIRS_CAT,group:"Diamond Replacement",subgroup:"Lab grown D-E — small round accent diamonds (up to 4.0mm)",name:"Lab grown D-E — 1.3mm",unit:"stone",baseCost:1.37,sizeMm:1.3,caratWeight:0.009,noMarkup:true},
+  {id:"rmd07",category:REPAIRS_CAT,group:"Diamond Replacement",subgroup:"Lab grown D-E — small round accent diamonds (up to 4.0mm)",name:"Lab grown D-E — 1.4mm",unit:"stone",baseCost:1.36,sizeMm:1.4,caratWeight:0.011,noMarkup:true},
+  {id:"rmd08",category:REPAIRS_CAT,group:"Diamond Replacement",subgroup:"Lab grown D-E — small round accent diamonds (up to 4.0mm)",name:"Lab grown D-E — 1.5mm",unit:"stone",baseCost:2.18,sizeMm:1.5,caratWeight:0.013,noMarkup:true},
+  {id:"rmd09",category:REPAIRS_CAT,group:"Diamond Replacement",subgroup:"Lab grown D-E — small round accent diamonds (up to 4.0mm)",name:"Lab grown D-E — 1.6mm",unit:"stone",baseCost:2.09,sizeMm:1.6,caratWeight:0.016,noMarkup:true},
+  {id:"rmd10",category:REPAIRS_CAT,group:"Diamond Replacement",subgroup:"Lab grown D-E — small round accent diamonds (up to 4.0mm)",name:"Lab grown D-E — 1.7mm",unit:"stone",baseCost:2.45,sizeMm:1.7,caratWeight:0.019,noMarkup:true},
+  {id:"rmd11",category:REPAIRS_CAT,group:"Diamond Replacement",subgroup:"Lab grown D-E — small round accent diamonds (up to 4.0mm)",name:"Lab grown D-E — 1.8mm",unit:"stone",baseCost:2.72,sizeMm:1.8,caratWeight:0.023,noMarkup:true},
+  {id:"rmd12",category:REPAIRS_CAT,group:"Diamond Replacement",subgroup:"Lab grown D-E — small round accent diamonds (up to 4.0mm)",name:"Lab grown D-E — 1.9mm",unit:"stone",baseCost:2.52,sizeMm:1.9,caratWeight:0.027,noMarkup:true},
+  {id:"rmd13",category:REPAIRS_CAT,group:"Diamond Replacement",subgroup:"Lab grown D-E — small round accent diamonds (up to 4.0mm)",name:"Lab grown D-E — 2.0mm",unit:"stone",baseCost:3.85,sizeMm:2.0,caratWeight:0.031,noMarkup:true},
+  {id:"rmd14",category:REPAIRS_CAT,group:"Diamond Replacement",subgroup:"Lab grown D-E — small round accent diamonds (up to 4.0mm)",name:"Lab grown D-E — 2.1mm",unit:"stone",baseCost:2.89,sizeMm:2.1,caratWeight:0.036,noMarkup:true},
+  {id:"rmd15",category:REPAIRS_CAT,group:"Diamond Replacement",subgroup:"Lab grown D-E — small round accent diamonds (up to 4.0mm)",name:"Lab grown D-E — 2.2mm",unit:"stone",baseCost:3.35,sizeMm:2.2,caratWeight:0.042,noMarkup:true},
+  {id:"rmd16",category:REPAIRS_CAT,group:"Diamond Replacement",subgroup:"Lab grown D-E — small round accent diamonds (up to 4.0mm)",name:"Lab grown D-E — 2.3mm",unit:"stone",baseCost:3.88,sizeMm:2.3,caratWeight:0.047,noMarkup:true},
+  {id:"rmd17",category:REPAIRS_CAT,group:"Diamond Replacement",subgroup:"Lab grown D-E — small round accent diamonds (up to 4.0mm)",name:"Lab grown D-E — 2.4mm",unit:"stone",baseCost:4.22,sizeMm:2.4,caratWeight:0.054,noMarkup:true},
+  {id:"rmd18",category:REPAIRS_CAT,group:"Diamond Replacement",subgroup:"Lab grown D-E — small round accent diamonds (up to 4.0mm)",name:"Lab grown D-E — 2.5mm",unit:"stone",baseCost:4.49,sizeMm:2.5,caratWeight:0.061,noMarkup:true},
+  {id:"rmd19",category:REPAIRS_CAT,group:"Diamond Replacement",subgroup:"Lab grown D-E — small round accent diamonds (up to 4.0mm)",name:"Lab grown D-E — 2.6mm",unit:"stone",baseCost:4.46,sizeMm:2.6,caratWeight:0.069,noMarkup:true},
+  {id:"rmd20",category:REPAIRS_CAT,group:"Diamond Replacement",subgroup:"Lab grown D-E — small round accent diamonds (up to 4.0mm)",name:"Lab grown D-E — 2.7mm",unit:"stone",baseCost:5.43,sizeMm:2.7,caratWeight:0.077,noMarkup:true},
+  {id:"rmd21",category:REPAIRS_CAT,group:"Diamond Replacement",subgroup:"Lab grown D-E — small round accent diamonds (up to 4.0mm)",name:"Lab grown D-E — 2.8mm",unit:"stone",baseCost:6.11,sizeMm:2.8,caratWeight:0.086,noMarkup:true},
+  {id:"rmd22",category:REPAIRS_CAT,group:"Diamond Replacement",subgroup:"Lab grown D-E — small round accent diamonds (up to 4.0mm)",name:"Lab grown D-E — 2.9mm",unit:"stone",baseCost:6.72,sizeMm:2.9,caratWeight:0.095,noMarkup:true},
+  {id:"rmd23",category:REPAIRS_CAT,group:"Diamond Replacement",subgroup:"Lab grown D-E — small round accent diamonds (up to 4.0mm)",name:"Lab grown D-E — 3.0mm",unit:"stone",baseCost:7.36,sizeMm:3.0,caratWeight:0.105,noMarkup:true},
+  {id:"rmd24",category:REPAIRS_CAT,group:"Diamond Replacement",subgroup:"Lab grown D-E — small round accent diamonds (up to 4.0mm)",name:"Lab grown D-E — 3.1mm",unit:"stone",baseCost:11.36,sizeMm:3.1,caratWeight:0.116,noMarkup:true},
+  {id:"rmd25",category:REPAIRS_CAT,group:"Diamond Replacement",subgroup:"Lab grown D-E — small round accent diamonds (up to 4.0mm)",name:"Lab grown D-E — 3.2mm",unit:"stone",baseCost:10.40,sizeMm:3.2,caratWeight:0.128,noMarkup:true},
+  {id:"rmd26",category:REPAIRS_CAT,group:"Diamond Replacement",subgroup:"Lab grown D-E — small round accent diamonds (up to 4.0mm)",name:"Lab grown D-E — 3.3mm",unit:"stone",baseCost:10.00,sizeMm:3.3,caratWeight:0.140,noMarkup:true},
+  {id:"rmd27",category:REPAIRS_CAT,group:"Diamond Replacement",subgroup:"Lab grown D-E — small round accent diamonds (up to 4.0mm)",name:"Lab grown D-E — 3.4mm",unit:"stone",baseCost:11.80,sizeMm:3.4,caratWeight:0.153,noMarkup:true},
+  {id:"rmd28",category:REPAIRS_CAT,group:"Diamond Replacement",subgroup:"Lab grown D-E — small round accent diamonds (up to 4.0mm)",name:"Lab grown D-E — 3.5mm",unit:"stone",baseCost:16.00,sizeMm:3.5,caratWeight:0.167,noMarkup:true},
+  {id:"rmd29",category:REPAIRS_CAT,group:"Diamond Replacement",subgroup:"Lab grown D-E — small round accent diamonds (up to 4.0mm)",name:"Lab grown D-E — 3.6mm",unit:"stone",baseCost:20.00,sizeMm:3.6,caratWeight:0.182,noMarkup:true},
+  {id:"rmd30",category:REPAIRS_CAT,group:"Diamond Replacement",subgroup:"Lab grown D-E — small round accent diamonds (up to 4.0mm)",name:"Lab grown D-E — 3.7mm",unit:"stone",baseCost:22.00,sizeMm:3.7,caratWeight:0.198,noMarkup:true},
+  {id:"rmd31",category:REPAIRS_CAT,group:"Diamond Replacement",subgroup:"Lab grown D-E — small round accent diamonds (up to 4.0mm)",name:"Lab grown D-E — 3.8mm",unit:"stone",baseCost:26.00,sizeMm:3.8,caratWeight:0.214,noMarkup:true},
+  {id:"rmd32",category:REPAIRS_CAT,group:"Diamond Replacement",subgroup:"Lab grown D-E — small round accent diamonds (up to 4.0mm)",name:"Lab grown D-E — 3.9mm",unit:"stone",baseCost:28.00,sizeMm:3.9,caratWeight:0.231,noMarkup:true},
+  {id:"rmd33",category:REPAIRS_CAT,group:"Diamond Replacement",subgroup:"Lab grown D-E — small round accent diamonds (up to 4.0mm)",name:"Lab grown D-E — 4.0mm",unit:"stone",baseCost:30.00,sizeMm:4.0,caratWeight:0.250,noMarkup:true},
+  {id:"rmdng01",category:REPAIRS_CAT,group:"Diamond Replacement",subgroup:"Natural G-H SI1 — small round accent diamonds (up to 4.0mm)",name:"Natural G-H SI1 — 0.8mm",unit:"stone",baseCost:1.42,sizeMm:0.8,caratWeight:0.002,noMarkup:true},
+  {id:"rmdng02",category:REPAIRS_CAT,group:"Diamond Replacement",subgroup:"Natural G-H SI1 — small round accent diamonds (up to 4.0mm)",name:"Natural G-H SI1 — 0.9mm",unit:"stone",baseCost:2.02,sizeMm:0.9,caratWeight:0.003,noMarkup:true},
+  {id:"rmdng03",category:REPAIRS_CAT,group:"Diamond Replacement",subgroup:"Natural G-H SI1 — small round accent diamonds (up to 4.0mm)",name:"Natural G-H SI1 — 1.0mm",unit:"stone",baseCost:2.67,sizeMm:1.0,caratWeight:0.004,noMarkup:true},
+  {id:"rmdng04",category:REPAIRS_CAT,group:"Diamond Replacement",subgroup:"Natural G-H SI1 — small round accent diamonds (up to 4.0mm)",name:"Natural G-H SI1 — 1.1mm",unit:"stone",baseCost:3.38,sizeMm:1.1,caratWeight:0.005,noMarkup:true},
+  {id:"rmdng05",category:REPAIRS_CAT,group:"Diamond Replacement",subgroup:"Natural G-H SI1 — small round accent diamonds (up to 4.0mm)",name:"Natural G-H SI1 — 1.2mm",unit:"stone",baseCost:4.20,sizeMm:1.2,caratWeight:0.007,noMarkup:true},
+  {id:"rmdng06",category:REPAIRS_CAT,group:"Diamond Replacement",subgroup:"Natural G-H SI1 — small round accent diamonds (up to 4.0mm)",name:"Natural G-H SI1 — 1.3mm",unit:"stone",baseCost:4.67,sizeMm:1.3,caratWeight:0.009,noMarkup:true},
+  {id:"rmdng07",category:REPAIRS_CAT,group:"Diamond Replacement",subgroup:"Natural G-H SI1 — small round accent diamonds (up to 4.0mm)",name:"Natural G-H SI1 — 1.4mm",unit:"stone",baseCost:5.16,sizeMm:1.4,caratWeight:0.011,noMarkup:true},
+  {id:"rmdng08",category:REPAIRS_CAT,group:"Diamond Replacement",subgroup:"Natural G-H SI1 — small round accent diamonds (up to 4.0mm)",name:"Natural G-H SI1 — 1.5mm",unit:"stone",baseCost:7.41,sizeMm:1.5,caratWeight:0.013,noMarkup:true},
+  {id:"rmdng09",category:REPAIRS_CAT,group:"Diamond Replacement",subgroup:"Natural G-H SI1 — small round accent diamonds (up to 4.0mm)",name:"Natural G-H SI1 — 1.6mm",unit:"stone",baseCost:7.20,sizeMm:1.6,caratWeight:0.016,noMarkup:true},
+  {id:"rmdng10",category:REPAIRS_CAT,group:"Diamond Replacement",subgroup:"Natural G-H SI1 — small round accent diamonds (up to 4.0mm)",name:"Natural G-H SI1 — 1.7mm",unit:"stone",baseCost:8.70,sizeMm:1.7,caratWeight:0.019,noMarkup:true},
+  {id:"rmdng11",category:REPAIRS_CAT,group:"Diamond Replacement",subgroup:"Natural G-H SI1 — small round accent diamonds (up to 4.0mm)",name:"Natural G-H SI1 — 1.8mm",unit:"stone",baseCost:12.50,sizeMm:1.8,caratWeight:0.023,noMarkup:true},
+  {id:"rmdng12",category:REPAIRS_CAT,group:"Diamond Replacement",subgroup:"Natural G-H SI1 — small round accent diamonds (up to 4.0mm)",name:"Natural G-H SI1 — 1.9mm",unit:"stone",baseCost:14.50,sizeMm:1.9,caratWeight:0.027,noMarkup:true},
+  {id:"rmdng13",category:REPAIRS_CAT,group:"Diamond Replacement",subgroup:"Natural G-H SI1 — small round accent diamonds (up to 4.0mm)",name:"Natural G-H SI1 — 2.0mm",unit:"stone",baseCost:18.25,sizeMm:2.0,caratWeight:0.031,noMarkup:true},
+  {id:"rmdng14",category:REPAIRS_CAT,group:"Diamond Replacement",subgroup:"Natural G-H SI1 — small round accent diamonds (up to 4.0mm)",name:"Natural G-H SI1 — 2.1mm",unit:"stone",baseCost:19.90,sizeMm:2.1,caratWeight:0.036,noMarkup:true},
+  {id:"rmdng15",category:REPAIRS_CAT,group:"Diamond Replacement",subgroup:"Natural G-H SI1 — small round accent diamonds (up to 4.0mm)",name:"Natural G-H SI1 — 2.2mm",unit:"stone",baseCost:24.15,sizeMm:2.2,caratWeight:0.042,noMarkup:true},
+  {id:"rmdng16",category:REPAIRS_CAT,group:"Diamond Replacement",subgroup:"Natural G-H SI1 — small round accent diamonds (up to 4.0mm)",name:"Natural G-H SI1 — 2.3mm",unit:"stone",baseCost:31.15,sizeMm:2.3,caratWeight:0.047,noMarkup:true},
+  {id:"rmdng17",category:REPAIRS_CAT,group:"Diamond Replacement",subgroup:"Natural G-H SI1 — small round accent diamonds (up to 4.0mm)",name:"Natural G-H SI1 — 2.4mm",unit:"stone",baseCost:35.07,sizeMm:2.4,caratWeight:0.054,noMarkup:true},
+  {id:"rmdng18",category:REPAIRS_CAT,group:"Diamond Replacement",subgroup:"Natural G-H SI1 — small round accent diamonds (up to 4.0mm)",name:"Natural G-H SI1 — 2.5mm",unit:"stone",baseCost:40.38,sizeMm:2.5,caratWeight:0.061,noMarkup:true},
+  {id:"rmdng19",category:REPAIRS_CAT,group:"Diamond Replacement",subgroup:"Natural G-H SI1 — small round accent diamonds (up to 4.0mm)",name:"Natural G-H SI1 — 2.6mm",unit:"stone",baseCost:44.65,sizeMm:2.6,caratWeight:0.069,noMarkup:true},
+  {id:"rmdng20",category:REPAIRS_CAT,group:"Diamond Replacement",subgroup:"Natural G-H SI1 — small round accent diamonds (up to 4.0mm)",name:"Natural G-H SI1 — 2.7mm",unit:"stone",baseCost:54.65,sizeMm:2.7,caratWeight:0.077,noMarkup:true},
+  {id:"rmdng21",category:REPAIRS_CAT,group:"Diamond Replacement",subgroup:"Natural G-H SI1 — small round accent diamonds (up to 4.0mm)",name:"Natural G-H SI1 — 2.8mm",unit:"stone",baseCost:61.88,sizeMm:2.8,caratWeight:0.086,noMarkup:true},
+  {id:"rmdng22",category:REPAIRS_CAT,group:"Diamond Replacement",subgroup:"Natural G-H SI1 — small round accent diamonds (up to 4.0mm)",name:"Natural G-H SI1 — 2.9mm",unit:"stone",baseCost:70.44,sizeMm:2.9,caratWeight:0.095,noMarkup:true},
+  {id:"rmdng23",category:REPAIRS_CAT,group:"Diamond Replacement",subgroup:"Natural G-H SI1 — small round accent diamonds (up to 4.0mm)",name:"Natural G-H SI1 — 3.0mm",unit:"stone",baseCost:79.50,sizeMm:3.0,caratWeight:0.105,noMarkup:true},
+  {id:"rmdng24",category:REPAIRS_CAT,group:"Diamond Replacement",subgroup:"Natural G-H SI1 — small round accent diamonds (up to 4.0mm)",name:"Natural G-H SI1 — 3.1mm",unit:"stone",baseCost:86.79,sizeMm:3.1,caratWeight:0.116,noMarkup:true},
+  {id:"rmdng25",category:REPAIRS_CAT,group:"Diamond Replacement",subgroup:"Natural G-H SI1 — small round accent diamonds (up to 4.0mm)",name:"Natural G-H SI1 — 3.2mm",unit:"stone",baseCost:98.80,sizeMm:3.2,caratWeight:0.128,noMarkup:true},
+  {id:"rmdng26",category:REPAIRS_CAT,group:"Diamond Replacement",subgroup:"Natural G-H SI1 — small round accent diamonds (up to 4.0mm)",name:"Natural G-H SI1 — 3.3mm",unit:"stone",baseCost:105.60,sizeMm:3.3,caratWeight:0.140,noMarkup:true},
+  {id:"rmdng27",category:REPAIRS_CAT,group:"Diamond Replacement",subgroup:"Natural G-H SI1 — small round accent diamonds (up to 4.0mm)",name:"Natural G-H SI1 — 3.4mm",unit:"stone",baseCost:113.00,sizeMm:3.4,caratWeight:0.153,noMarkup:true},
+  {id:"rmdng28",category:REPAIRS_CAT,group:"Diamond Replacement",subgroup:"Natural G-H SI1 — small round accent diamonds (up to 4.0mm)",name:"Natural G-H SI1 — 3.5mm",unit:"stone",baseCost:121.60,sizeMm:3.5,caratWeight:0.167,noMarkup:true},
+  {id:"rmdng29",category:REPAIRS_CAT,group:"Diamond Replacement",subgroup:"Natural G-H SI1 — small round accent diamonds (up to 4.0mm)",name:"Natural G-H SI1 — 3.6mm",unit:"stone",baseCost:132.50,sizeMm:3.6,caratWeight:0.182,noMarkup:true},
+  {id:"rmdng30",category:REPAIRS_CAT,group:"Diamond Replacement",subgroup:"Natural G-H SI1 — small round accent diamonds (up to 4.0mm)",name:"Natural G-H SI1 — 3.7mm",unit:"stone",baseCost:164.50,sizeMm:3.7,caratWeight:0.198,noMarkup:true},
+  {id:"rmdng31",category:REPAIRS_CAT,group:"Diamond Replacement",subgroup:"Natural G-H SI1 — small round accent diamonds (up to 4.0mm)",name:"Natural G-H SI1 — 3.8mm",unit:"stone",baseCost:182.50,sizeMm:3.8,caratWeight:0.214,noMarkup:true},
+  {id:"rmdng32",category:REPAIRS_CAT,group:"Diamond Replacement",subgroup:"Natural G-H SI1 — small round accent diamonds (up to 4.0mm)",name:"Natural G-H SI1 — 3.9mm",unit:"stone",baseCost:210.00,sizeMm:3.9,caratWeight:0.231,noMarkup:true},
+  {id:"rmdng33",category:REPAIRS_CAT,group:"Diamond Replacement",subgroup:"Natural G-H SI1 — small round accent diamonds (up to 4.0mm)",name:"Natural G-H SI1 — 4.0mm",unit:"stone",baseCost:222.50,sizeMm:4.0,caratWeight:0.250,noMarkup:true},
+  {id:"rmdnd01",category:REPAIRS_CAT,group:"Diamond Replacement",subgroup:"Natural D-E VS — small round accent diamonds (up to 4.0mm)",name:"Natural D-E VS — 0.8mm",unit:"stone",baseCost:1.88,sizeMm:0.8,caratWeight:0.002,noMarkup:true},
+  {id:"rmdnd02",category:REPAIRS_CAT,group:"Diamond Replacement",subgroup:"Natural D-E VS — small round accent diamonds (up to 4.0mm)",name:"Natural D-E VS — 0.9mm",unit:"stone",baseCost:2.67,sizeMm:0.9,caratWeight:0.003,noMarkup:true},
+  {id:"rmdnd03",category:REPAIRS_CAT,group:"Diamond Replacement",subgroup:"Natural D-E VS — small round accent diamonds (up to 4.0mm)",name:"Natural D-E VS — 1.0mm",unit:"stone",baseCost:3.54,sizeMm:1.0,caratWeight:0.004,noMarkup:true},
+  {id:"rmdnd04",category:REPAIRS_CAT,group:"Diamond Replacement",subgroup:"Natural D-E VS — small round accent diamonds (up to 4.0mm)",name:"Natural D-E VS — 1.1mm",unit:"stone",baseCost:4.48,sizeMm:1.1,caratWeight:0.005,noMarkup:true},
+  {id:"rmdnd05",category:REPAIRS_CAT,group:"Diamond Replacement",subgroup:"Natural D-E VS — small round accent diamonds (up to 4.0mm)",name:"Natural D-E VS — 1.2mm",unit:"stone",baseCost:4.85,sizeMm:1.2,caratWeight:0.007,noMarkup:true},
+  {id:"rmdnd06",category:REPAIRS_CAT,group:"Diamond Replacement",subgroup:"Natural D-E VS — small round accent diamonds (up to 4.0mm)",name:"Natural D-E VS — 1.3mm",unit:"stone",baseCost:5.70,sizeMm:1.3,caratWeight:0.009,noMarkup:true},
+  {id:"rmdnd07",category:REPAIRS_CAT,group:"Diamond Replacement",subgroup:"Natural D-E VS — small round accent diamonds (up to 4.0mm)",name:"Natural D-E VS — 1.4mm",unit:"stone",baseCost:6.80,sizeMm:1.4,caratWeight:0.011,noMarkup:true},
+  {id:"rmdnd08",category:REPAIRS_CAT,group:"Diamond Replacement",subgroup:"Natural D-E VS — small round accent diamonds (up to 4.0mm)",name:"Natural D-E VS — 1.5mm",unit:"stone",baseCost:9.26,sizeMm:1.5,caratWeight:0.013,noMarkup:true},
+  {id:"rmdnd09",category:REPAIRS_CAT,group:"Diamond Replacement",subgroup:"Natural D-E VS — small round accent diamonds (up to 4.0mm)",name:"Natural D-E VS — 1.6mm",unit:"stone",baseCost:9.43,sizeMm:1.6,caratWeight:0.016,noMarkup:true},
+  {id:"rmdnd10",category:REPAIRS_CAT,group:"Diamond Replacement",subgroup:"Natural D-E VS — small round accent diamonds (up to 4.0mm)",name:"Natural D-E VS — 1.7mm",unit:"stone",baseCost:11.04,sizeMm:1.7,caratWeight:0.019,noMarkup:true},
+  {id:"rmdnd11",category:REPAIRS_CAT,group:"Diamond Replacement",subgroup:"Natural D-E VS — small round accent diamonds (up to 4.0mm)",name:"Natural D-E VS — 1.8mm",unit:"stone",baseCost:15.00,sizeMm:1.8,caratWeight:0.023,noMarkup:true},
+  {id:"rmdnd12",category:REPAIRS_CAT,group:"Diamond Replacement",subgroup:"Natural D-E VS — small round accent diamonds (up to 4.0mm)",name:"Natural D-E VS — 1.9mm",unit:"stone",baseCost:15.97,sizeMm:1.9,caratWeight:0.027,noMarkup:true},
+  {id:"rmdnd13",category:REPAIRS_CAT,group:"Diamond Replacement",subgroup:"Natural D-E VS — small round accent diamonds (up to 4.0mm)",name:"Natural D-E VS — 2.0mm",unit:"stone",baseCost:20.00,sizeMm:2.0,caratWeight:0.031,noMarkup:true},
+  {id:"rmdnd14",category:REPAIRS_CAT,group:"Diamond Replacement",subgroup:"Natural D-E VS — small round accent diamonds (up to 4.0mm)",name:"Natural D-E VS — 2.1mm",unit:"stone",baseCost:25.00,sizeMm:2.1,caratWeight:0.036,noMarkup:true},
+  {id:"rmdnd15",category:REPAIRS_CAT,group:"Diamond Replacement",subgroup:"Natural D-E VS — small round accent diamonds (up to 4.0mm)",name:"Natural D-E VS — 2.2mm",unit:"stone",baseCost:28.18,sizeMm:2.2,caratWeight:0.042,noMarkup:true},
+  {id:"rmdnd16",category:REPAIRS_CAT,group:"Diamond Replacement",subgroup:"Natural D-E VS — small round accent diamonds (up to 4.0mm)",name:"Natural D-E VS — 2.3mm",unit:"stone",baseCost:38.20,sizeMm:2.3,caratWeight:0.047,noMarkup:true},
+  {id:"rmdnd17",category:REPAIRS_CAT,group:"Diamond Replacement",subgroup:"Natural D-E VS — small round accent diamonds (up to 4.0mm)",name:"Natural D-E VS — 2.4mm",unit:"stone",baseCost:39.50,sizeMm:2.4,caratWeight:0.054,noMarkup:true},
+  {id:"rmdnd18",category:REPAIRS_CAT,group:"Diamond Replacement",subgroup:"Natural D-E VS — small round accent diamonds (up to 4.0mm)",name:"Natural D-E VS — 2.5mm",unit:"stone",baseCost:46.50,sizeMm:2.5,caratWeight:0.061,noMarkup:true},
+  {id:"rmdnd19",category:REPAIRS_CAT,group:"Diamond Replacement",subgroup:"Natural D-E VS — small round accent diamonds (up to 4.0mm)",name:"Natural D-E VS — 2.6mm",unit:"stone",baseCost:50.00,sizeMm:2.6,caratWeight:0.069,noMarkup:true},
+  {id:"rmdnd20",category:REPAIRS_CAT,group:"Diamond Replacement",subgroup:"Natural D-E VS — small round accent diamonds (up to 4.0mm)",name:"Natural D-E VS — 2.7mm",unit:"stone",baseCost:64.50,sizeMm:2.7,caratWeight:0.077,noMarkup:true},
+  {id:"rmdnd21",category:REPAIRS_CAT,group:"Diamond Replacement",subgroup:"Natural D-E VS — small round accent diamonds (up to 4.0mm)",name:"Natural D-E VS — 2.8mm",unit:"stone",baseCost:72.50,sizeMm:2.8,caratWeight:0.086,noMarkup:true},
+  {id:"rmdnd22",category:REPAIRS_CAT,group:"Diamond Replacement",subgroup:"Natural D-E VS — small round accent diamonds (up to 4.0mm)",name:"Natural D-E VS — 2.9mm",unit:"stone",baseCost:85.50,sizeMm:2.9,caratWeight:0.095,noMarkup:true},
+  {id:"rmdnd23",category:REPAIRS_CAT,group:"Diamond Replacement",subgroup:"Natural D-E VS — small round accent diamonds (up to 4.0mm)",name:"Natural D-E VS — 3.0mm",unit:"stone",baseCost:93.50,sizeMm:3.0,caratWeight:0.105,noMarkup:true},
+  {id:"rmdnd24",category:REPAIRS_CAT,group:"Diamond Replacement",subgroup:"Natural D-E VS — small round accent diamonds (up to 4.0mm)",name:"Natural D-E VS — 3.1mm",unit:"stone",baseCost:103.50,sizeMm:3.1,caratWeight:0.116,noMarkup:true},
+  {id:"rmdnd25",category:REPAIRS_CAT,group:"Diamond Replacement",subgroup:"Natural D-E VS — small round accent diamonds (up to 4.0mm)",name:"Natural D-E VS — 3.2mm",unit:"stone",baseCost:117.50,sizeMm:3.2,caratWeight:0.128,noMarkup:true},
+  {id:"rmdnd26",category:REPAIRS_CAT,group:"Diamond Replacement",subgroup:"Natural D-E VS — small round accent diamonds (up to 4.0mm)",name:"Natural D-E VS — 3.3mm",unit:"stone",baseCost:127.50,sizeMm:3.3,caratWeight:0.140,noMarkup:true},
+  {id:"rmdnd27",category:REPAIRS_CAT,group:"Diamond Replacement",subgroup:"Natural D-E VS — small round accent diamonds (up to 4.0mm)",name:"Natural D-E VS — 3.4mm",unit:"stone",baseCost:154.00,sizeMm:3.4,caratWeight:0.153,noMarkup:true},
+  {id:"rmdnd28",category:REPAIRS_CAT,group:"Diamond Replacement",subgroup:"Natural D-E VS — small round accent diamonds (up to 4.0mm)",name:"Natural D-E VS — 3.5mm",unit:"stone",baseCost:167.50,sizeMm:3.5,caratWeight:0.167,noMarkup:true},
+  {id:"rmdnd29",category:REPAIRS_CAT,group:"Diamond Replacement",subgroup:"Natural D-E VS — small round accent diamonds (up to 4.0mm)",name:"Natural D-E VS — 3.6mm",unit:"stone",baseCost:181.00,sizeMm:3.6,caratWeight:0.182,noMarkup:true},
+  {id:"rmdnd30",category:REPAIRS_CAT,group:"Diamond Replacement",subgroup:"Natural D-E VS — small round accent diamonds (up to 4.0mm)",name:"Natural D-E VS — 3.7mm",unit:"stone",baseCost:216.00,sizeMm:3.7,caratWeight:0.198,noMarkup:true},
+  {id:"rmdnd31",category:REPAIRS_CAT,group:"Diamond Replacement",subgroup:"Natural D-E VS — small round accent diamonds (up to 4.0mm)",name:"Natural D-E VS — 3.8mm",unit:"stone",baseCost:249.00,sizeMm:3.8,caratWeight:0.214,noMarkup:true},
+  {id:"rmdnd32",category:REPAIRS_CAT,group:"Diamond Replacement",subgroup:"Natural D-E VS — small round accent diamonds (up to 4.0mm)",name:"Natural D-E VS — 3.9mm",unit:"stone",baseCost:275.00,sizeMm:3.9,caratWeight:0.231,noMarkup:true},
+  {id:"rmdnd33",category:REPAIRS_CAT,group:"Diamond Replacement",subgroup:"Natural D-E VS — small round accent diamonds (up to 4.0mm)",name:"Natural D-E VS — 4.0mm",unit:"stone",baseCost:300.00,sizeMm:4.0,caratWeight:0.250,noMarkup:true},
+  {id:"rmdf01",category:REPAIRS_CAT,group:"Diamond Replacement",subgroup:"Fancy shapes — princess, oval, pear, marquise etc. — add stone replacement",name:"Fancy shape — Lab grown D-E",unit:"stone",baseCost:0,noMarkup:true},
+  {id:"rmdf02",category:REPAIRS_CAT,group:"Diamond Replacement",subgroup:"Fancy shapes — princess, oval, pear, marquise etc. — add stone replacement",name:"Fancy shape — Natural G-H SI1",unit:"stone",baseCost:0,noMarkup:true},
+  {id:"rmdf03",category:REPAIRS_CAT,group:"Diamond Replacement",subgroup:"Fancy shapes — princess, oval, pear, marquise etc. — add stone replacement",name:"Fancy shape — Natural D-E VS",unit:"stone",baseCost:0,noMarkup:true},
 ];
 const SEED_CLIENTS=[
   {id:"c1",name:"Sarah Mitchell",email:"sarah@example.com",phone:"0412 345 678",ringSize:"N",metalPref:"18ct white gold",stonePref:"Diamond",budget:"8000",anniversary:"2019-03-14",notes:"Prefers modern minimal. Allergic to nickel.",createdAt:"2024-10-01"},
@@ -2868,10 +2971,12 @@ function QuoteBuilder({jobId:jobIdProp,editQuoteId,jobs,clients,quotes,setQuotes
                     const visibleItems=fp.filter(item=>!(item.category==="CAD Design"&&item.cadTier)&&item.category!=="Accent Stones");
                     const isRepairsView=!pSearching&&pCat===REPAIRS_CAT;
                     const showCat=pSearching||pCat==="All";
-                    let lastGroup=null;
+                    let lastGroup=null;let lastSubgroup=null;
                     return visibleItems.map(item=>{
                     const showGroupHeader=isRepairsView&&item.group&&item.group!==lastGroup;
-                    if(showGroupHeader)lastGroup=item.group;
+                    if(showGroupHeader){lastGroup=item.group;lastSubgroup=null;}
+                    const showSubgroupHeader=isRepairsView&&item.subgroup&&(item.subgroup!==lastSubgroup);
+                    if(showSubgroupHeader)lastSubgroup=item.subgroup;
                     const isDiamond=DIAMOND_CATS.includes(item.category);
                     const isSetting=item.category==="Basic Setting"||item.category==="Complex Setting";
                     const isPrintCast=item.category==="3D Print & Cast";
@@ -2882,7 +2987,7 @@ function QuoteBuilder({jobId:jobIdProp,editQuoteId,jobs,clients,quotes,setQuotes
                     const qtyStep=item.unit==="g"?"0.1":"1";
                     const qtyLabel=item.unit==="g"?"Grams":item.unit==="hr"?"Hours":item.unit==="pair"?"Pairs":item.unit==="item"?"Qty":isPrintCast?"Pieces":isCADRevision?"Hours":isDiamond||isSetting?"Stones":"Qty";
                     const previewCost=needsQty&&qty&&Number(qty)>0?(item.baseCost*Number(qty)).toFixed(2):null;
-                    const mode=pMode[item.id]||"qty";
+                    const mode=pMode[item.id]||(item.baseCost===0&&item.unit==="stone"?"amt":"qty");
                     const amtMode=mode==="amt";
                     const addNow=()=>amtMode?addManualAmount(item,qty):addFromDB(item,qty||1);
                     const timesAdded=addedIds[item.id]||0;
@@ -2924,13 +3029,11 @@ function QuoteBuilder({jobId:jobIdProp,editQuoteId,jobs,clients,quotes,setQuotes
                           <Btn sm onClick={addNow}>Add</Btn>
                         </>}
                     </div>;
-                    if(!showGroupHeader)return row;
-                    return [
-                      <div key={item.id+"_g"} style={{padding:"10px 0 2px"}}>
-                        <span style={{fontSize:10,fontWeight:800,color:GOLD_D,textTransform:"uppercase",letterSpacing:"0.08em"}}>{item.group}</span>
-                      </div>,
-                      row
-                    ];
+                    const prefix=[];
+                    if(showGroupHeader)prefix.push(<div key={item.id+"_g"} style={{padding:"10px 0 2px"}}><span style={{fontSize:10,fontWeight:800,color:GOLD_D,textTransform:"uppercase",letterSpacing:"0.08em"}}>{item.group}</span></div>);
+                    if(showSubgroupHeader)prefix.push(<div key={item.id+"_sg"} style={{padding:"6px 0 1px",marginLeft:2}}><span style={{fontSize:10,fontWeight:700,color:WG,textTransform:"uppercase",letterSpacing:"0.07em"}}>{item.subgroup}</span></div>);
+                    if(!prefix.length)return row;
+                    return [...prefix,row];
                   });
                   })()}
                   {fp.length===0&&<div style={{color:WG,fontSize:14,padding:"10px 0"}}>No items found.</div>}
@@ -3227,7 +3330,6 @@ function PublicRepairBody({snap,responded,decision,responderName,onRespond}){
 // Client-facing tax invoice (rendered inside PublicProposalPage when kind==="invoice").
 function PublicInvoiceBody({snap}){
   const b=snap.biz||{};
-  const itemised=!snap.descriptionOverride?.trim();
   const bank=[["Bank",b.bankName],["Account name",b.bankAccountName],["BSB",b.bankBSB],["Account",b.bankAccount],["Reference",snap.number]].filter(([,v])=>v);
   return <div style={{maxWidth:680,margin:"0 auto"}}>
     {/* Header */}
@@ -3254,18 +3356,12 @@ function PublicInvoiceBody({snap}){
       <div style={{fontSize:18,fontWeight:700,color:INK}}>{snap.clientName||"—"}</div>
       {snap.jobType&&<div style={{fontSize:13,color:WG,marginTop:2}}>{snap.jobType}</div>}
 
-      {/* Lines */}
+      {/* Single customer-facing line — never the internal cost breakdown. */}
       <div style={{marginTop:22,borderTop:`1px solid ${BD}`}}>
-        {itemised
-          ?(snap.lineItems||[]).map((li,i)=>(
-            <div key={i} style={{display:"flex",justifyContent:"space-between",gap:16,padding:"12px 0",borderBottom:`1px solid ${BD}`}}>
-              <div style={{flex:1}}><div style={{fontSize:14,fontWeight:600,color:INK}}>{li.description}</div>{li.detail&&<div style={{fontSize:12,color:WG,marginTop:2}}>{li.detail}</div>}</div>
-              <div style={{fontSize:14,fontWeight:700,color:INK,whiteSpace:"nowrap"}}>{fmt(li.amount)}</div>
-            </div>))
-          :<div style={{display:"flex",justifyContent:"space-between",gap:16,padding:"12px 0",borderBottom:`1px solid ${BD}`}}>
-            <div style={{flex:1,fontSize:14,color:INK,lineHeight:1.6}}>{snap.descriptionOverride}</div>
-            <div style={{fontSize:14,fontWeight:700,color:INK,whiteSpace:"nowrap"}}>{fmt(snap.totalIncGST)}</div>
-          </div>}
+        <div style={{display:"flex",justifyContent:"space-between",gap:16,padding:"12px 0",borderBottom:`1px solid ${BD}`}}>
+          <div style={{flex:1,fontSize:14,color:INK,lineHeight:1.6}}>{(snap.descriptionOverride||"").trim()}</div>
+          <div style={{fontSize:14,fontWeight:700,color:INK,whiteSpace:"nowrap"}}>{fmt(snap.totalIncGST)}</div>
+        </div>
       </div>
 
       {/* Totals */}
@@ -4103,22 +4199,13 @@ function InvoicePrintView({inv,job,client,biz,payments,onClose}){
               </tr>
             </thead>
             <tbody>
-              {inv.descriptionOverride?.trim()
-                ?<tr style={{borderBottom:`1px solid ${BD_SOFT}`}}>
-                    <td style={{padding:"18px 0",color:INK,lineHeight:1.65,whiteSpace:"pre-wrap",fontWeight:500}}>{inv.descriptionOverride}</td>
-                    <td style={{padding:"18px 0",textAlign:"center",color:WG,fontSize:12}}>GST</td>
-                    <td style={{padding:"18px 0",textAlign:"right",fontWeight:700,color:INK}}>{fmt(inv.totalIncGST)}</td>
-                  </tr>
-                :inv.lineItems.map(li=>(
-                  <tr key={li.id} style={{borderBottom:`1px solid ${BD_SOFT}`}}>
-                    <td style={{padding:"15px 0",color:INK,lineHeight:1.5}}>
-                      <div style={{fontWeight:600}}>{li.description}</div>
-                      {li.detail&&<div style={{fontSize:11,color:WG,marginTop:3}}>{li.detail}</div>}
-                    </td>
-                    <td style={{padding:"15px 0",textAlign:"center",color:WG,fontSize:12}}>GST</td>
-                    <td style={{padding:"15px 0",textAlign:"right",fontWeight:600,color:INK}}>{fmt(lineCostLow(li))}</td>
-                  </tr>
-                ))}
+              {/* Customer-facing invoice never shows internal cost lines. Shows only the typed
+                  description (blank if none — the studio is expected to fill it in). */}
+              <tr style={{borderBottom:`1px solid ${BD_SOFT}`}}>
+                <td style={{padding:"18px 0",color:INK,lineHeight:1.65,whiteSpace:"pre-wrap",fontWeight:500}}>{(inv.descriptionOverride||"").trim()}</td>
+                <td style={{padding:"18px 0",textAlign:"center",color:WG,fontSize:12}}>GST</td>
+                <td style={{padding:"18px 0",textAlign:"right",fontWeight:700,color:INK}}>{fmt(inv.totalIncGST)}</td>
+              </tr>
             </tbody>
           </table>
         </div>
@@ -4274,12 +4361,12 @@ function InvoiceDetail({invoiceId,invoices,setInvoices,jobs,clients,payments,biz
     <Card>
       <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:8}}>
         <label style={SS.lbl}>Customer-facing description (optional)</label>
-        <div style={{background:inv.descriptionOverride?.trim()?OK+"22":BD,color:inv.descriptionOverride?.trim()?OK:WG,fontSize:10,fontWeight:700,padding:"2px 8px",borderRadius:4,letterSpacing:"0.04em"}}>{inv.descriptionOverride?.trim()?"SHOWN ON INVOICE":"USING ITEMISED LIST"}</div>
+        <div style={{background:inv.descriptionOverride?.trim()?OK+"22":DANGER+"18",color:inv.descriptionOverride?.trim()?OK:DANGER,fontSize:10,fontWeight:700,padding:"2px 8px",borderRadius:4,letterSpacing:"0.04em"}}>{inv.descriptionOverride?.trim()?"SHOWN ON INVOICE":"BLANK — ADD ONE"}</div>
       </div>
       <textarea value={inv.descriptionOverride||""} onChange={e=>setDescOverride(e.target.value)} rows={3}
         placeholder="e.g. Custom 18ct yellow gold bracelet — design, materials & handcrafting"
         style={{...SS.inp,marginTop:0,resize:"vertical",lineHeight:1.6}}/>
-      <div style={{fontSize:11,color:WG,marginTop:6,lineHeight:1.5}}>When filled in, the printed invoice shows this single description (with the total) instead of the itemised cost lines below — so the customer doesn't see internal items like "3D Print & Cast". Leave blank to itemise.</div>
+      <div style={{fontSize:11,color:WG,marginTop:6,lineHeight:1.5}}>This is the single line the customer sees on the invoice (with the total). The internal cost lines below are never shown to the customer. <strong>If you leave it blank, the invoice prints no description</strong> — so add what this job is (e.g. "Custom engagement ring", "Ring remodel", "Repair").</div>
     </Card>
     <Card>
       <div style={{display:"grid",gridTemplateColumns:"1fr 100px 120px",gap:6,marginBottom:8,paddingBottom:8,borderBottom:`1px solid ${BD}`}}>
@@ -4821,8 +4908,6 @@ function PricingDB({pricing,setPricing,spotPrices,setSpotPrices,markupTable,cent
   const[modal,setModal]=useState(null);
   const[cf,setCf]=useState("All");
   const[spotModal,setSpotModal]=useState(false);
-  const[selections,setSelections]=useState({});
-  const[regQtys,setRegQtys]=useState({});
   const[editingCostId,setEditingCostId]=useState(null);
   const[editingCostVal,setEditingCostVal]=useState("");
   const[dragId,setDragId]=useState(null);
@@ -4830,14 +4915,6 @@ function PricingDB({pricing,setPricing,spotPrices,setSpotPrices,markupTable,cent
   const[savedToast,setSavedToast]=useState(false);
   const[regularEditing,setRegularEditing]=useState(false);
   const[regularEditPrices,setRegularEditPrices]=useState({});
-  const[manLabel,setManLabel]=useState("");
-  const[manAmt,setManAmt]=useState("");
-  const addManualToCalc=()=>{
-    const amt=Number(manAmt)||0;if(amt<=0)return;
-    const id="man_"+uid();
-    setSelections(prev=>({...prev,[id]:{item:{id,name:manLabel.trim()||"Manual amount",baseCost:amt},qty:1}}));
-    setManLabel("");setManAmt("");
-  };
   const[centreCt,setCentreCt]=useState("");
   const[centreComplex,setCentreComplex]=useState(false);
   const[editRates,setEditRates]=useState(false);
@@ -4847,9 +4924,6 @@ function PricingDB({pricing,setPricing,spotPrices,setSpotPrices,markupTable,cent
     const nr={basicPerCt:Number(rateDraft.basicPerCt)||0,complexPerCt:Number(rateDraft.complexPerCt)||0};
     setCentreRates&&setCentreRates(nr);persist(K.csr,nr);
     setEditRates(false);showSaved();
-    // refresh any live-calc entry with the new rate
-    const fee=centreSettingFee(centreCt,centreComplex,nr);
-    setSelections(prev=>{const next={...prev};if(fee>0){next["__centre__"]={item:{id:"__centre__",name:`Centre stone setting — ${centreComplex?"complex":"basic"} (${Number(centreCt)}ct)`,baseCost:fee},qty:1};}else{delete next["__centre__"];}return next;});
   };
 
   const showSaved=()=>{setSavedToast(true);setTimeout(()=>setSavedToast(false),2200);};
@@ -4903,41 +4977,7 @@ function PricingDB({pricing,setPricing,spotPrices,setSpotPrices,markupTable,cent
     showSaved();
   };
 
-  // callback for table components
-  const handleQtyChange=(id,qtyStr,item)=>{
-    const q=Number(qtyStr)||0;
-    setSelections(prev=>{
-      const next={...prev};
-      if(q>0){next[id]={item,qty:q};}
-      else{delete next[id];}
-      return next;
-    });
-  };
 
-  // Centre stone setting → feed live calc panel as a calculated entry
-  const updateCentreSelection=(ct,complex)=>{
-    const fee=centreSettingFee(ct,complex,centreRates);
-    setSelections(prev=>{
-      const next={...prev};
-      if(fee>0){
-        next["__centre__"]={item:{id:"__centre__",name:`Centre stone setting — ${complex?"complex":"basic"} (${Number(ct)}ct)`,baseCost:fee},qty:1};
-      }else{delete next["__centre__"];}
-      return next;
-    });
-  };
-  const clearAll=()=>{setSelections({});setCentreCt("");setCentreComplex(false);};
-
-  // Calc panel derived values
-  const selEntries=Object.values(selections);
-  const markupEntries=selEntries.filter(({item})=>!item.noMarkup);
-  const flatEntries=selEntries.filter(({item})=>item.noMarkup);
-  const baseCost=markupEntries.reduce((s,{item,qty})=>s+(item.baseCost*qty),0);
-  const flatCost=flatEntries.reduce((s,{item,qty})=>s+(item.baseCost*qty),0);
-  const mt=markupTable||DEFAULT_MARKUP_TABLE;
-  const bracket=mt.find(b=>baseCost>=b.low&&baseCost<=b.high)||null;
-  const mult=bracket?.multiplier||null;
-  const finalPrice=mult?baseCost*mult:null;
-  const hasSelections=selEntries.length>0;
   const DCOLORS={"Lab Grown Diamonds | D-E":"#7B5EA7","Natural diamonds G-H SI1":"#3B6E8F","Natural diamonds D-E VS":"#2D7A4F"};
   return <div>
     <SectionHeader title="Pricing database" action={<Btn onClick={()=>setModal("add")}>+ Add item</Btn>}/>
@@ -4951,65 +4991,6 @@ function PricingDB({pricing,setPricing,spotPrices,setSpotPrices,markupTable,cent
       ))}
     </div>
 
-    {/* ── Live calculation panel ───────────────────────────────────────── */}
-    <div style={{background:hasSelections?INK:PARCH,border:`1px solid ${hasSelections?GOLD+"55":BD}`,borderRadius:5,padding:"16px 20px",marginBottom:18,transition:"all 0.2s"}}>
-      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:hasSelections?14:0}}>
-        <div style={{fontSize:11,fontWeight:700,color:hasSelections?GOLD:WG,letterSpacing:"0.1em",textTransform:"uppercase"}}>
-          {hasSelections?"Live calculation — enter quantities in any table below":"Cost calculator — enter quantities in the tables below to see your base cost and marked-up price"}
-        </div>
-        {hasSelections&&<button onClick={clearAll} style={{background:"none",border:`1px solid rgba(255,255,255,0.2)`,borderRadius:6,padding:"3px 10px",fontSize:11,color:"rgba(255,255,255,0.5)",cursor:"pointer",fontFamily:"inherit"}}>Clear all</button>}
-      </div>
-      {/* Manual amount adder — type any figure (e.g. labour) straight into the calc */}
-      <div style={{display:"flex",gap:8,alignItems:"center",flexWrap:"wrap",marginTop:hasSelections?14:12,marginBottom:hasSelections?14:0,paddingTop:hasSelections?14:12,borderTop:`1px solid ${hasSelections?"rgba(255,255,255,0.12)":BD}`}}>
-        <span style={{fontSize:10,fontWeight:700,letterSpacing:"0.08em",textTransform:"uppercase",color:hasSelections?"rgba(255,255,255,0.5)":WG,whiteSpace:"nowrap"}}>Add manual amount</span>
-        <input value={manLabel} onChange={e=>setManLabel(e.target.value)} placeholder="Label (e.g. Labour)"
-          style={{...SS.inp,marginTop:0,flex:1,minWidth:130,padding:"7px 10px",fontSize:13}}/>
-        <div style={{position:"relative",width:120}}>
-          <span style={{position:"absolute",left:10,top:"50%",transform:"translateY(-50%)",fontSize:12,color:WG,pointerEvents:"none"}}>$</span>
-          <input type="number" value={manAmt} min="0" step="0.01" placeholder="0.00" onChange={e=>setManAmt(e.target.value)}
-            onKeyDown={e=>{if(e.key==="Enter")addManualToCalc();}}
-            style={{...SS.inp,marginTop:0,width:"100%",padding:"7px 10px 7px 22px",fontSize:13,textAlign:"right"}}/>
-        </div>
-        <Btn sm onClick={addManualToCalc}>Add</Btn>
-      </div>
-      {hasSelections&&<>
-        {/* Line items */}
-        <div style={{marginBottom:14}}>
-          {markupEntries.map(({item,qty})=>(
-            <div key={item.id} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"5px 0",borderBottom:"1px solid rgba(255,255,255,0.08)",fontSize:12}}>
-              <span style={{color:"rgba(255,255,255,0.7)"}}>{item.name}{qty>1&&<span style={{color:"rgba(255,255,255,0.35)"}}> × {qty}</span>}</span>
-              <span style={{fontWeight:700,color:WHITE}}>{fmt(item.baseCost*qty)}</span>
-            </div>
-          ))}
-          {flatEntries.map(({item,qty})=>(
-            <div key={item.id} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"5px 0",borderBottom:"1px solid rgba(255,255,255,0.08)",fontSize:12}}>
-              <span style={{color:"rgba(255,255,255,0.7)"}}>{item.name}{qty>1&&<span style={{color:"rgba(255,255,255,0.35)"}}> × {qty}</span>}<span style={{marginLeft:6,background:"#7B5EA7",color:WHITE,fontSize:9,fontWeight:700,padding:"1px 5px",borderRadius:3,letterSpacing:"0.04em"}}>FLAT</span></span>
-              <span style={{fontWeight:700,color:"#C9A8FF"}}>{fmt(item.baseCost*qty)}</span>
-            </div>
-          ))}
-        </div>
-        {/* Summary row */}
-        {markupEntries.length>0&&<div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr 1fr",gap:0,background:"rgba(255,255,255,0.06)",borderRadius:4,overflow:"hidden",border:"1px solid rgba(255,255,255,0.1)",marginBottom:flatEntries.length>0?8:0}}>
-          {[
-            ["Base cost",fmt(baseCost),"rgba(255,255,255,0.5)",WHITE],
-            ["Bracket",bracket?`${fmt(bracket.low)} – ${fmt(bracket.high)}`:"—","rgba(255,255,255,0.5)","rgba(255,255,255,0.7)"],
-            ["Multiplier",mult?`${mult}×`:"—","rgba(255,255,255,0.5)",GOLD],
-            ["Your price",finalPrice?fmtR(finalPrice):"—","rgba(255,255,255,0.5)",OK],
-          ].map(([l,v,lc,vc],i)=>(
-            <div key={l} style={{padding:"12px 16px",borderRight:i<3?"1px solid rgba(255,255,255,0.08)":"none"}}>
-              <div style={{fontSize:9,fontWeight:700,letterSpacing:"0.08em",textTransform:"uppercase",color:lc,marginBottom:4}}>{l}</div>
-              <div style={{fontSize:i===3?22:16,fontWeight:800,color:vc}}>{v}</div>
-            </div>
-          ))}
-        </div>}
-        {flatEntries.length>0&&<div style={{display:"flex",justifyContent:"space-between",alignItems:"center",background:"rgba(123,94,167,0.15)",border:"1px solid rgba(123,94,167,0.3)",borderRadius:4,padding:"10px 16px"}}>
-          <div style={{fontSize:11,fontWeight:700,color:"rgba(201,168,255,0.8)",textTransform:"uppercase",letterSpacing:"0.08em"}}>Flat fee total (no markup)</div>
-          <div style={{fontSize:20,fontWeight:800,color:"#C9A8FF"}}>{fmtR(flatCost)}</div>
-        </div>}
-        {!bracket&&baseCost>0&&<div style={{marginTop:10,fontSize:12,color:WARN}}>Base cost is outside your markup table range — check Settings.</div>}
-      </>}
-    </div>
-
     {/* Basic Setting view */}
     {isSettingView&&<div>
       <div style={{background:WHITE,border:`1px solid ${BD}`,borderRadius:5,padding:"12px 16px",marginBottom:14,fontSize:13,lineHeight:1.5}}>
@@ -5017,7 +4998,7 @@ function PricingDB({pricing,setPricing,spotPrices,setSpotPrices,markupTable,cent
         <span style={{display:"block",marginTop:3,fontSize:12,color:WG}}>Fixed setting fee by stone size (AUD) · Applies to all round stones regardless of type — lab grown or natural</span>
         <span style={{display:"block",marginTop:3,fontSize:12,color:WG}}>This is a separate cost from the stone price — both lines should appear in your quote.</span>
       </div>
-      <SettingTable items={filteredSetting} onSavePrices={saveSettingPrices} label="Basic Setting" onQtyChange={handleQtyChange}/>
+      <SettingTable items={filteredSetting} onSavePrices={saveSettingPrices} label="Basic Setting"/>
     </div>}
 
     {/* Complex Setting view */}
@@ -5027,7 +5008,7 @@ function PricingDB({pricing,setPricing,spotPrices,setSpotPrices,markupTable,cent
         <span style={{display:"block",marginTop:3,fontSize:12,color:WG}}>Fixed setting fee by stone size (AUD) · For complex setting styles requiring extra bench time</span>
         <span style={{display:"block",marginTop:3,fontSize:12,color:WG}}>This is a separate cost from the stone price — both lines should appear in your quote.</span>
       </div>
-      <SettingTable items={filteredComplex} onSavePrices={saveSettingPrices} label="Complex Setting" onQtyChange={handleQtyChange}/>
+      <SettingTable items={filteredComplex} onSavePrices={saveSettingPrices} label="Complex Setting"/>
     </div>}
 
     {/* Diamond view */}
@@ -5037,7 +5018,7 @@ function PricingDB({pricing,setPricing,spotPrices,setSpotPrices,markupTable,cent
         <span style={{display:"block",marginTop:3,fontSize:12,color:WG}}>{DIAMOND_CAT_LABELS[cf]}</span>
         <span style={{display:"block",marginTop:3,fontSize:12,color:WG}}>Raw costs per stone — markup applied at quote time via multiplier table. Add a Basic Setting line separately for the setting labour cost.</span>
       </div>
-      <DiamondTable items={filteredDiamond} onQtyChange={handleQtyChange} onSavePrices={saveSettingPrices}/>
+      <DiamondTable items={filteredDiamond} onSavePrices={saveSettingPrices}/>
     </div>}
 
     {/* 3D Print & Cast view */}
@@ -5046,7 +5027,7 @@ function PricingDB({pricing,setPricing,spotPrices,setSpotPrices,markupTable,cent
         <strong style={{color:INK}}>3D Printing & Casting — fee calculator</strong>
         <span style={{display:"block",marginTop:3,fontSize:12,color:WG}}>Fixed fees per piece — edit your rates any time. Both print and cast fees should appear as separate lines in your quote.</span>
       </div>
-      <PrintCastTable items={filteredPrintCast} onSavePrices={saveSettingPrices} onQtyChange={handleQtyChange}/>
+      <PrintCastTable items={filteredPrintCast} onSavePrices={saveSettingPrices}/>
     </div>}
 
     {/* CAD Design view */}
@@ -5055,7 +5036,7 @@ function PricingDB({pricing,setPricing,spotPrices,setSpotPrices,markupTable,cent
         <strong style={{color:INK}}>CAD Design — fee tiers</strong>
         <span style={{display:"block",marginTop:3,fontSize:12,color:WG}}>Select a tier per job · includes CAD design, renderings & 3D model · Fees and revision rate are editable</span>
       </div>
-      <CADDesignTable items={filteredCAD} onSavePrices={saveSettingPrices} onQtyChange={handleQtyChange}/>
+      <CADDesignTable items={filteredCAD} onSavePrices={saveSettingPrices}/>
     </div>}
 
     {/* Centre Stone Setting view — interactive calculator feeding live calc */}
@@ -5104,7 +5085,7 @@ function PricingDB({pricing,setPricing,spotPrices,setSpotPrices,markupTable,cent
             <label style={SS.lbl}>Centre stone carat weight</label>
             <div style={{position:"relative",marginTop:4}}>
               <input type="number" value={centreCt} min="0" step="0.01" placeholder="e.g. 1.50"
-                onChange={e=>{setCentreCt(e.target.value);updateCentreSelection(e.target.value,centreComplex);}}
+                onChange={e=>setCentreCt(e.target.value)}
                 style={{...SS.inp,marginTop:0,paddingRight:34,fontSize:15,fontWeight:700,textAlign:"right"}}/>
               <span style={{position:"absolute",right:12,top:"50%",transform:"translateY(-50%)",fontSize:12,color:WG,pointerEvents:"none"}}>ct</span>
             </div>
@@ -5113,7 +5094,7 @@ function PricingDB({pricing,setPricing,spotPrices,setSpotPrices,markupTable,cent
             <label style={SS.lbl}>Setting type</label>
             <div style={{display:"flex",gap:10,marginTop:4}}>
               {[[false,"Basic","Round diamond, standard claw"],[true,"Complex","Pear claws, bezels, fragile / sapphire"]].map(([val,label,sub])=>(
-                <button key={label} onClick={()=>{setCentreComplex(val);updateCentreSelection(centreCt,val);}} style={{
+                <button key={label} onClick={()=>setCentreComplex(val)} style={{
                   flex:1,padding:"10px 14px",borderRadius:4,cursor:"pointer",fontFamily:"inherit",textAlign:"left",
                   border:`2px solid ${centreComplex===val?(val?"#B05C3A":"#4A8E6A"):BD}`,
                   background:centreComplex===val?(val?"#B05C3A11":"#4A8E6A11"):"transparent",transition:"all 0.12s"
@@ -5168,17 +5149,17 @@ function PricingDB({pricing,setPricing,spotPrices,setSpotPrices,markupTable,cent
           </div>
         </div>
         {/* Column headers */}
-        <div style={{display:"grid",gridTemplateColumns:"2fr 1fr 60px 110px 90px 90px 60px",padding:"9px 16px",background:PARCH,borderBottom:`1px solid ${BD}`}}>
-          {["Item","Category","Unit","Your cost","Qty","Total",""].map(h=><div key={h} style={{fontSize:10,fontWeight:700,color:WG,textTransform:"uppercase",letterSpacing:"0.05em"}}>{h}</div>)}
+        <div style={{display:"grid",gridTemplateColumns:"2fr 1fr 60px 110px 60px",padding:"9px 16px",background:PARCH,borderBottom:`1px solid ${BD}`}}>
+          {["Item","Category","Unit","Your cost",""].map(h=><div key={h} style={{fontSize:10,fontWeight:700,color:WG,textTransform:"uppercase",letterSpacing:"0.05em"}}>{h}</div>)}
         </div>
         {(()=>{
           const isRepairsView=cf===REPAIRS_CAT;
-          let lastGroup=null;
+          let lastGroup=null;let lastSubgroup=null;
           return filteredRegular.map((item,i)=>{
-            const qty=regQtys[item.id]||"";
-            const total=!regularEditing&&qty&&Number(qty)>0?item.baseCost*Number(qty):null;
             const showGroupHeader=isRepairsView&&item.group&&item.group!==lastGroup;
-            if(showGroupHeader)lastGroup=item.group;
+            if(showGroupHeader){lastGroup=item.group;lastSubgroup=null;}
+            const showSubgroupHeader=isRepairsView&&item.subgroup&&(item.subgroup!==lastSubgroup);
+            if(showSubgroupHeader)lastSubgroup=item.subgroup;
             const canDrag=!regularEditing;
             const isDragTarget=dragOverId===item.id&&dragId&&dragId!==item.id;
             const row=<div key={item.id}
@@ -5188,7 +5169,7 @@ function PricingDB({pricing,setPricing,spotPrices,setSpotPrices,markupTable,cent
                 onDragLeave={canDrag?(()=>setDragOverId(o=>o===item.id?null:o)):undefined}
                 onDrop={canDrag?(e=>{e.preventDefault();reorderRegular(dragId,item.id);setDragId(null);setDragOverId(null);}):undefined}
                 onDragEnd={()=>{setDragId(null);setDragOverId(null);}}
-                style={{display:"grid",gridTemplateColumns:"2fr 1fr 60px 110px 90px 90px 60px",padding:"10px 16px",borderBottom:i<filteredRegular.length-1?`1px solid ${BD}`:"none",borderTop:isDragTarget?`2px solid ${GOLD}`:"2px solid transparent",alignItems:"center",opacity:dragId===item.id?0.4:1,background:isDragTarget?GOLD_L+"66":"transparent",transition:"background 0.1s"}}>
+                style={{display:"grid",gridTemplateColumns:"2fr 1fr 60px 110px 60px",padding:"10px 16px",borderBottom:i<filteredRegular.length-1?`1px solid ${BD}`:"none",borderTop:isDragTarget?`2px solid ${GOLD}`:"2px solid transparent",alignItems:"center",opacity:dragId===item.id?0.4:1,background:isDragTarget?GOLD_L+"66":"transparent",transition:"background 0.1s"}}>
                 <div style={{fontWeight:600,fontSize:13,color:INK,display:"flex",alignItems:"center",gap:8}}>{canDrag&&<span title="Drag to reorder" style={{cursor:"grab",color:WG,fontSize:14,lineHeight:1,flexShrink:0}}>⠿</span>}{item.name}</div>
                 <div><Badge label={item.category} color={WG}/></div>
                 <div style={{fontSize:12,color:WG}}>/{item.unit}</div>
@@ -5199,26 +5180,15 @@ function PricingDB({pricing,setPricing,spotPrices,setSpotPrices,markupTable,cent
                         style={{width:"90px",padding:"5px 8px",borderRadius:7,border:`1px solid ${GOLD}`,fontSize:13,fontFamily:"inherit",color:GOLD_D,fontWeight:700,background:GOLD_L,outline:"none",textAlign:"right"}}/>
                     :<span style={{fontSize:13,fontWeight:700,color:INK}}>{fmt(item.baseCost)}</span>}
                 </div>
-                <input type="number" value={qty} min="0" step={item.unit==="g"?"0.1":"1"} placeholder="0"
-                  disabled={regularEditing}
-                  onChange={e=>{
-                    const v=e.target.value;
-                    setRegQtys(p=>({...p,[item.id]:v}));
-                    handleQtyChange(item.id,v,{...item,name:`${item.name} (${v} ${item.unit})`});
-                  }}
-                  style={{width:"72px",padding:"5px 8px",borderRadius:7,border:`1px solid ${qty&&!regularEditing?GOLD:BD}`,fontSize:13,fontFamily:"inherit",color:INK,background:regularEditing?"#f5f5f5":WHITE,outline:"none",textAlign:"right",opacity:regularEditing?0.4:1}}/>
-                <div style={{fontSize:13,fontWeight:800,color:total?OK:WG,textAlign:"right",paddingRight:4}}>{total?fmt(total):"—"}</div>
                 <div style={{display:"flex",gap:4,justifyContent:"flex-end"}}>
                   {!regularEditing&&<Btn sm danger onClick={()=>del(item.id)}>×</Btn>}
                 </div>
               </div>;
-            if(!showGroupHeader)return row;
-            return [
-              <div key={item.id+"_g"} style={{display:"grid",gridTemplateColumns:"2fr 1fr 60px 110px 90px 90px 60px",padding:"7px 16px",background:PARCH,borderTop:i>0?`1px solid ${BD}`:"none",borderBottom:`1px solid ${BD}`}}>
-                <div style={{gridColumn:"1/-1",fontSize:10,fontWeight:800,color:GOLD_D,textTransform:"uppercase",letterSpacing:"0.08em"}}>{item.group}</div>
-              </div>,
-              row
-            ];
+            const prefix2=[];
+            if(showGroupHeader)prefix2.push(<div key={item.id+"_g"} style={{display:"grid",gridTemplateColumns:"2fr 1fr 60px 110px 60px",padding:"7px 16px",background:PARCH,borderTop:i>0?`1px solid ${BD}`:"none",borderBottom:`1px solid ${BD}`}}><div style={{gridColumn:"1/-1",fontSize:10,fontWeight:800,color:GOLD_D,textTransform:"uppercase",letterSpacing:"0.08em"}}>{item.group}</div></div>);
+            if(showSubgroupHeader)prefix2.push(<div key={item.id+"_sg"} style={{display:"grid",gridTemplateColumns:"2fr 1fr 60px 110px 60px",padding:"5px 16px",background:"transparent",borderBottom:`1px solid ${BD}`}}><div style={{gridColumn:"1/-1",fontSize:10,fontWeight:700,color:WG,textTransform:"uppercase",letterSpacing:"0.07em",paddingLeft:2}}>{item.subgroup}</div></div>);
+            if(!prefix2.length)return row;
+            return [...prefix2,row];
           });
         })()}
       </div>}
