@@ -5976,6 +5976,9 @@ export default function App(){
         const savedIds=new Set(v.map(x=>x.id));
         const missing=SEED_PRICING.filter(x=>!savedIds.has(x.id));
         if(missing.length>0)v=[...v,...missing];
+        // Re-sort to match seed order (seed items first in seed sequence, user-added items appended)
+        const seedOrder=Object.fromEntries(SEED_PRICING.map((x,i)=>[x.id,i]));
+        v.sort((a,b)=>{const ai=seedOrder[a?.id]??999999;const bi=seedOrder[b?.id]??999999;return ai-bi;});
       }
       if(k===K.jo&&Array.isArray(v)){
         v=v.map(j=>{if(!j)return j;if(j.stage==="Wax / Cast")return{...j,stage:"Manufacturing"};if(j.stage==="Render approval")return{...j,stage:"Design / CAD"};return j;});   // renamed/removed stages
