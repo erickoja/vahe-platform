@@ -447,7 +447,7 @@ const SEED_PRICING=[
   {id:"rp55",category:REPAIRS_CAT,group:"Band Replacements",subgroup:"Platinum — up to 3mm wide",name:"1/4 shank replacement — Platinum",unit:"job",baseCost:450,noMarkup:true},
   {id:"rp59",category:REPAIRS_CAT,group:"Band Replacements",subgroup:"Platinum — up to 3mm wide",name:"1/2 shank replacement — Platinum",unit:"job",baseCost:550,noMarkup:true},
   {id:"rp63",category:REPAIRS_CAT,group:"Band Replacements",subgroup:"Platinum — up to 3mm wide",name:"3/4 shank replacement — Platinum",unit:"job",baseCost:600,noMarkup:true},
-  {id:"rp66",category:REPAIRS_CAT,group:"Band Replacements",subgroup:"3mm+ wide — manual quote required",name:"Bands 3mm+ wide (all metals)",unit:"job",baseCost:0,noMarkup:true},
+  {id:"rpband3mm",category:REPAIRS_CAT,group:"Band Replacements",subgroup:"3mm+ wide — manual quote required",name:"Bands 3mm+ wide (all metals)",unit:"job",baseCost:0,noMarkup:true},
   {id:"rp65",category:REPAIRS_CAT,group:"Chain Repair",name:"Chain tumble polish",unit:"job",baseCost:15,noMarkup:true},
   {id:"rp66",category:REPAIRS_CAT,group:"Chain Repair",name:"Chain hand polish",unit:"job",baseCost:30,noMarkup:true},
   {id:"rp67",category:REPAIRS_CAT,group:"Chain Repair",name:"Solder & restore — small chain (per link)",unit:"job",baseCost:40,noMarkup:true},
