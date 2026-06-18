@@ -422,6 +422,7 @@ const SEED_PRICING=[
   {id:"rp37",category:REPAIRS_CAT,group:"Ring Resizing — 3mm+ wide",subgroup:"Platinum",name:"Resize up 2 sizes — Platinum (3mm+)",unit:"job",baseCost:220,noMarkup:true},
   {id:"rp38",category:REPAIRS_CAT,group:"Ring Resizing — 3mm+ wide",subgroup:"Platinum",name:"Resize up 3 sizes — Platinum (3mm+)",unit:"job",baseCost:330,noMarkup:true},
   {id:"rp39",category:REPAIRS_CAT,group:"Ring Resizing — 3mm+ wide",subgroup:"Platinum",name:"Each additional size — Platinum (3mm+)",unit:"job",baseCost:110,noMarkup:true},
+  {id:"rpresize_wide",category:REPAIRS_CAT,group:"Ring Resizing — 3mm+ wide",subgroup:"Very wide bands — manual quote required",name:"Very wide band resize (all metals)",unit:"job",baseCost:0,noMarkup:true,poa:true},
   {id:"rp43",category:REPAIRS_CAT,group:"Claw Re-tipping",subgroup:"Silver",name:"Re-tip 1 prong — Silver",unit:"job",baseCost:35,noMarkup:true},
   {id:"rp47",category:REPAIRS_CAT,group:"Claw Re-tipping",subgroup:"Silver",name:"Re-tip 6 prongs — Silver",unit:"job",baseCost:105,noMarkup:true},
   {id:"rp51",category:REPAIRS_CAT,group:"Claw Re-tipping",subgroup:"Silver",name:"Re-tip 12 prongs — Silver",unit:"job",baseCost:210,noMarkup:true},
