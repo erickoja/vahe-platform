@@ -5970,6 +5970,9 @@ export default function App(){
       if(v===null||v===undefined)return;
       if(k===K.pr&&Array.isArray(v)){
         v=v.map(it=>it&&it.category==="Findings / Components / Purchased Parts"?{...it,category:FINDINGS_CAT}:it);
+        // Sync structural fields from seed onto existing items (preserving only user-edited baseCost)
+        const seedById=Object.fromEntries(SEED_PRICING.map(x=>[x.id,x]));
+        v=v.map(it=>{if(!it)return it;const seed=seedById[it.id];if(!seed)return it;return{...seed,baseCost:it.baseCost};});
         const savedIds=new Set(v.map(x=>x.id));
         const missing=SEED_PRICING.filter(x=>!savedIds.has(x.id));
         if(missing.length>0)v=[...v,...missing];
