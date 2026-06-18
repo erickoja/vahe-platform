@@ -447,7 +447,7 @@ const SEED_PRICING=[
   {id:"rp55",category:REPAIRS_CAT,group:"Band Replacements",subgroup:"Platinum — up to 3mm wide",name:"1/4 shank replacement — Platinum",unit:"job",baseCost:450,noMarkup:true},
   {id:"rp59",category:REPAIRS_CAT,group:"Band Replacements",subgroup:"Platinum — up to 3mm wide",name:"1/2 shank replacement — Platinum",unit:"job",baseCost:550,noMarkup:true},
   {id:"rp63",category:REPAIRS_CAT,group:"Band Replacements",subgroup:"Platinum — up to 3mm wide",name:"3/4 shank replacement — Platinum",unit:"job",baseCost:600,noMarkup:true},
-  {id:"rpband3mm",category:REPAIRS_CAT,group:"Band Replacements",subgroup:"3mm+ wide — manual quote required",name:"Bands 3mm+ wide (all metals)",unit:"job",baseCost:0,noMarkup:true},
+  {id:"rpband3mm",category:REPAIRS_CAT,group:"Band Replacements",subgroup:"3mm+ wide — manual quote required",name:"Bands 3mm+ wide (all metals)",unit:"job",baseCost:0,noMarkup:true,poa:true},
   {id:"rp65",category:REPAIRS_CAT,group:"Chain Repair",name:"Chain tumble polish",unit:"job",baseCost:15,noMarkup:true},
   {id:"rp66",category:REPAIRS_CAT,group:"Chain Repair",name:"Chain hand polish",unit:"job",baseCost:30,noMarkup:true},
   {id:"rp67",category:REPAIRS_CAT,group:"Chain Repair",name:"Solder & restore — small chain (per link)",unit:"job",baseCost:40,noMarkup:true},
@@ -2988,7 +2988,7 @@ function QuoteBuilder({jobId:jobIdProp,editQuoteId,jobs,clients,quotes,setQuotes
                     const qtyStep=item.unit==="g"?"0.1":"1";
                     const qtyLabel=item.unit==="g"?"Grams":item.unit==="hr"?"Hours":item.unit==="pair"?"Pairs":item.unit==="item"?"Qty":isPrintCast?"Pieces":isCADRevision?"Hours":isDiamond||isSetting?"Stones":"Qty";
                     const previewCost=needsQty&&qty&&Number(qty)>0?(item.baseCost*Number(qty)).toFixed(2):null;
-                    const mode=pMode[item.id]||(item.baseCost===0&&item.unit==="stone"?"amt":"qty");
+                    const mode=pMode[item.id]||(item.poa||item.baseCost===0&&item.unit==="stone"?"amt":"qty");
                     const amtMode=mode==="amt";
                     const addNow=()=>amtMode?addManualAmount(item,qty):addFromDB(item,qty||1);
                     const timesAdded=addedIds[item.id]||0;
@@ -5175,11 +5175,13 @@ function PricingDB({pricing,setPricing,spotPrices,setSpotPrices,markupTable,cent
                 <div><Badge label={item.category} color={WG}/></div>
                 <div style={{fontSize:12,color:WG}}>/{item.unit}</div>
                 <div>
-                  {regularEditing
-                    ?<input type="number" value={regularEditPrices[item.id]||""} min="0" step="0.01" autoFocus={i===0}
-                        onChange={e=>setRegularEditPrices(p=>({...p,[item.id]:e.target.value}))}
-                        style={{width:"90px",padding:"5px 8px",borderRadius:7,border:`1px solid ${GOLD}`,fontSize:13,fontFamily:"inherit",color:GOLD_D,fontWeight:700,background:GOLD_L,outline:"none",textAlign:"right"}}/>
-                    :<span style={{fontSize:13,fontWeight:700,color:INK}}>{fmt(item.baseCost)}</span>}
+                  {item.poa
+                    ?<span style={{fontSize:11,fontWeight:700,color:"#7B5EA7",background:"rgba(123,94,167,0.12)",border:"1px solid rgba(123,94,167,0.3)",borderRadius:4,padding:"3px 8px",letterSpacing:"0.04em"}}>MANUAL QUOTE</span>
+                    :regularEditing
+                      ?<input type="number" value={regularEditPrices[item.id]||""} min="0" step="0.01" autoFocus={i===0}
+                          onChange={e=>setRegularEditPrices(p=>({...p,[item.id]:e.target.value}))}
+                          style={{width:"90px",padding:"5px 8px",borderRadius:7,border:`1px solid ${GOLD}`,fontSize:13,fontFamily:"inherit",color:GOLD_D,fontWeight:700,background:GOLD_L,outline:"none",textAlign:"right"}}/>
+                      :<span style={{fontSize:13,fontWeight:700,color:INK}}>{fmt(item.baseCost)}</span>}
                 </div>
                 <div style={{display:"flex",gap:4,justifyContent:"flex-end"}}>
                   {!regularEditing&&<Btn sm danger onClick={()=>del(item.id)}>×</Btn>}
