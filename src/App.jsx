@@ -1888,7 +1888,7 @@ function JobImages({job,setJobs}){
   </Card>;
 }
 
-function RepairIntakeCard({job,setJobs,biz,clients,markupTable}){
+function RepairIntakeCard({job,setJobs,biz,clients,markupTable,pricing=[]}){
   const c=clients.find(x=>x.id===job.clientId);
   const intake=job.intake||{};
   const blankIntakeItem=()=>({id:uid(),itemType:"",damage:"",condition:"",price:"",priceMode:"set"});
@@ -1921,6 +1921,19 @@ function RepairIntakeCard({job,setJobs,biz,clients,markupTable}){
   const repairTotal=items.reduce((s,i)=>s+itemClient(i),0);
   const setAsCharge=()=>{persistJob({totalOverride:repairTotal});alert(`Job charge set to ${fmt(repairTotal)} from the repair items.`);};
   const[saved,setSaved]=useState(false);
+  const[pricingFor,setPricingFor]=useState(null); // intake item id the lookup panel is open for
+  const[rpSearch,setRpSearch]=useState("");
+  const repairPricing=pricing.filter(p=>p.category===REPAIRS_CAT);
+  const rpFiltered=rpSearch.trim()
+    ?repairPricing.filter(p=>p.name.toLowerCase().includes(rpSearch.toLowerCase())||p.group?.toLowerCase().includes(rpSearch.toLowerCase()))
+    :repairPricing;
+  const pickRepairPrice=(item)=>{
+    if(item.poa||!pricingFor)return;
+    setItemField(pricingFor,"price",String(item.baseCost));
+    setItemField(pricingFor,"priceMode","set");
+    setTimeout(commit,0);
+    setPricingFor(null);setRpSearch("");
+  };
   // Shareable client link — reuses the public proposals table (same as invoices).
   const[linkBusy,setLinkBusy]=useState(false);
   const[linkCopied,setLinkCopied]=useState(false);
@@ -2004,6 +2017,8 @@ function RepairIntakeCard({job,setJobs,biz,clients,markupTable}){
                 <button key={m} onClick={()=>{setItemField(it.id,"priceMode",m);setTimeout(commit,0);}}
                   style={{flex:1,padding:"5px 6px",borderRadius:6,border:`1px solid ${it.priceMode===m?INK:BD}`,background:it.priceMode===m?INK:"transparent",color:it.priceMode===m?WHITE:WG,fontSize:10,fontWeight:700,cursor:"pointer",fontFamily:"inherit"}}>{lbl}</button>
               ))}
+              <button onClick={()=>{setPricingFor(it.id);setRpSearch("");}}
+                style={{padding:"5px 8px",borderRadius:6,border:`1px solid ${BD}`,background:"transparent",color:WG,fontSize:10,fontWeight:700,cursor:"pointer",fontFamily:"inherit",whiteSpace:"nowrap"}} title="Look up repair price">📋</button>
             </div>
             <div style={{position:"relative"}}>
               <span style={{position:"absolute",left:10,top:"50%",transform:"translateY(-50%)",fontSize:13,color:WG,pointerEvents:"none"}}>$</span>
@@ -2050,10 +2065,53 @@ function RepairIntakeCard({job,setJobs,biz,clients,markupTable}){
       <span style={{fontSize:12,color:WG,fontStyle:"italic"}}>Your changes save automatically.</span>
       <Btn onClick={saveNow}>{saved?"✓ Saved":"Save intake"}</Btn>
     </div>
+
+    {/* Repair pricing lookup panel */}
+    {pricingFor&&<div style={{position:"fixed",inset:0,background:"rgba(26,23,20,0.55)",zIndex:200,display:"flex",justifyContent:"flex-end"}} onClick={()=>{setPricingFor(null);setRpSearch("");}}>
+      <div style={{width:"100%",maxWidth:420,background:WHITE,height:"100%",display:"flex",flexDirection:"column",boxShadow:"-4px 0 32px rgba(0,0,0,0.18)"}} onClick={e=>e.stopPropagation()}>
+        {/* Header */}
+        <div style={{padding:"18px 20px 12px",borderBottom:`1px solid ${BD}`,flexShrink:0}}>
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}}>
+            <div style={{fontWeight:800,fontSize:15,color:INK}}>Repair price lookup</div>
+            <button onClick={()=>{setPricingFor(null);setRpSearch("");}} style={{background:"none",border:"none",fontSize:22,cursor:"pointer",color:WG,lineHeight:1,padding:0}}>×</button>
+          </div>
+          <input autoFocus value={rpSearch} onChange={e=>setRpSearch(e.target.value)} placeholder="Search repairs…" style={{...SS.inp,marginTop:0,fontSize:13}}/>
+          <div style={{fontSize:11,color:WG,marginTop:7}}>Tap a price to fill it in — or close to enter manually.</div>
+        </div>
+        {/* Items list */}
+        <div style={{flex:1,overflowY:"auto",padding:"8px 0"}}>
+          {(()=>{
+            let lastGroup=null;let lastSubgroup=null;
+            return rpFiltered.map(item=>{
+              const showGroup=!rpSearch.trim()&&item.group&&item.group!==lastGroup;
+              if(showGroup){lastGroup=item.group;lastSubgroup=null;}
+              const showSub=!rpSearch.trim()&&item.subgroup&&item.subgroup!==lastSubgroup;
+              if(showSub)lastSubgroup=item.subgroup;
+              const els=[];
+              if(showGroup)els.push(<div key={item.id+"_g"} style={{padding:"10px 20px 4px",background:PARCH,borderTop:`1px solid ${BD}`,borderBottom:`1px solid ${BD}`}}><span style={{fontSize:10,fontWeight:800,color:GOLD_D,textTransform:"uppercase",letterSpacing:"0.08em"}}>{item.group}</span></div>);
+              if(showSub)els.push(<div key={item.id+"_sg"} style={{padding:"6px 20px 2px"}}><span style={{fontSize:10,fontWeight:700,color:WG,textTransform:"uppercase",letterSpacing:"0.07em"}}>{item.subgroup}</span></div>);
+              els.push(
+                <div key={item.id} onClick={()=>pickRepairPrice(item)}
+                  style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"9px 20px",borderBottom:`1px solid ${BD}`,cursor:item.poa?"default":"pointer",background:"transparent",transition:"background 0.1s"}}
+                  onMouseEnter={e=>{if(!item.poa)e.currentTarget.style.background=GOLD_L;}}
+                  onMouseLeave={e=>{e.currentTarget.style.background="transparent";}}>
+                  <span style={{fontSize:13,color:INK,fontWeight:500,paddingRight:12}}>{item.name}</span>
+                  {item.poa
+                    ?<span style={{fontSize:10,fontWeight:700,color:"#7B5EA7",background:"rgba(123,94,167,0.12)",border:"1px solid rgba(123,94,167,0.3)",borderRadius:4,padding:"2px 7px",whiteSpace:"nowrap"}}>MANUAL QUOTE</span>
+                    :<span style={{fontSize:13,fontWeight:700,color:OK,whiteSpace:"nowrap"}}>{fmt(item.baseCost)}</span>}
+                </div>
+              );
+              return els;
+            });
+          })()}
+          {rpFiltered.length===0&&<div style={{padding:"32px 20px",textAlign:"center",color:WG,fontSize:13}}>No repair items match your search.</div>}
+        </div>
+      </div>
+    </div>}
   </Card>;
 }
 
-function JobDetail({jobId,jobs,setJobs,clients,quotes,setQuotes,payments,setPayments,notes,setNotes,invoices,setInvoices,proposals,setProposals,biz,markupTable,setView}){
+function JobDetail({jobId,jobs,setJobs,clients,quotes,setQuotes,payments,setPayments,notes,setNotes,invoices,setInvoices,proposals,setProposals,biz,markupTable,pricing=[],setView}){
   const job=jobs.find(j=>j.id===jobId);
   if(!job)return null;
   const c=clients.find(x=>x.id===job.clientId);
@@ -2142,7 +2200,7 @@ function JobDetail({jobId,jobs,setJobs,clients,quotes,setQuotes,payments,setPaym
       </div>
     </Card>}
     {job.description&&<Card><div style={{...SS.lbl,marginBottom:8}}>Description</div><div style={{fontSize:14,color:INK,lineHeight:1.7}}>{job.description}</div>{job.notes&&<div style={{marginTop:10,fontSize:13,color:WG,fontStyle:"italic",borderTop:`1px solid ${BD}`,paddingTop:10}}>Notes: {job.notes}</div>}</Card>}
-    {job.type==="Repair"&&<RepairIntakeCard job={job} setJobs={setJobs} biz={biz} clients={clients} markupTable={markupTable}/>}
+    {job.type==="Repair"&&<RepairIntakeCard job={job} setJobs={setJobs} biz={biz} clients={clients} markupTable={markupTable} pricing={pricing}/>}
     <JobImages job={job} setJobs={setJobs}/>
     <Card>
       <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:14}}>
@@ -6139,7 +6197,7 @@ export default function App(){
     if(view==="clients")return <Clients clients={clients} setClients={setClients} jobs={jobs} payments={payments} setView={setView} setSelClient={setSelClient}/>;
     if(view==="clientDetail")return <ClientDetail clientId={selClient} clients={clients} setClients={setClients} jobs={jobs} setJobs={setJobs} quotes={quotes} payments={payments} markupTable={markupTable} setView={setView} setSelJob={setSelJob}/>;
     if(view==="jobs")return <Jobs clients={clients} jobs={jobs} setJobs={setJobs} quotes={quotes} setQuotes={setQuotes} payments={payments} setPayments={setPayments} notes={notes} setNotes={setNotes} invoices={invoices} setInvoices={setInvoices} markupTable={markupTable} setView={setView} setSelJob={setSelJob}/>;
-    if(view==="jobDetail")return <JobDetail jobId={selJob} jobs={jobs} setJobs={setJobs} clients={clients} quotes={quotes} setQuotes={setQuotes} payments={payments} setPayments={setPayments} notes={notes} setNotes={setNotes} invoices={invoices} setInvoices={setInvoices} proposals={proposals} setProposals={setProposals} biz={biz} markupTable={markupTable} setView={setView}/>;
+    if(view==="jobDetail")return <JobDetail jobId={selJob} jobs={jobs} setJobs={setJobs} clients={clients} quotes={quotes} setQuotes={setQuotes} payments={payments} setPayments={setPayments} notes={notes} setNotes={setNotes} invoices={invoices} setInvoices={setInvoices} proposals={proposals} setProposals={setProposals} biz={biz} markupTable={markupTable} pricing={pricing} setView={setView}/>;
     if(view==="quotes")return <QuotesList quotes={quotes} jobs={jobs} clients={clients} markupTable={markupTable} biz={biz} setView={setView}/>;
     if(view.startsWith("quoteDetail_"))return <QuoteDetail quoteId={view.split("_")[1]} quotes={quotes} setQuotes={setQuotes} jobs={jobs} clients={clients} biz={biz} markupTable={markupTable} naturalStoneMarkup={naturalStoneMarkup} labStoneMarkup={labStoneMarkup} payments={payments} setView={setView}/>;
     if(view.startsWith("newQuote_"))return <QuoteBuilder jobId={view.split("_")[1]} jobs={jobs} clients={clients} quotes={quotes} setQuotes={setQuotes} pricing={pricing} setPricing={setPricing} markupTable={markupTable} naturalStoneMarkup={naturalStoneMarkup} labStoneMarkup={labStoneMarkup} centreRates={centreRates} setView={setView}/>;
