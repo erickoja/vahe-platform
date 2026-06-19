@@ -2858,14 +2858,14 @@ function QuoteBuilder({jobId:jobIdProp,editQuoteId,jobs,clients,quotes,setQuotes
 
       {/* ── Setting & manufacturing line items ── */}
       <div style={{fontSize:11,fontWeight:700,color:WG,textTransform:"uppercase",letterSpacing:"0.08em",marginBottom:12}}>Jewellery costs</div>
-      {(items.length>0||mfgAccents.length>0)&&<><div style={{display:"grid",gridTemplateColumns:"200px 1fr 120px 80px",gap:8,marginBottom:6,padding:"0 2px"}}>
+      {(items.length>0||mfgAccents.length>0)&&<><div style={{display:"grid",gridTemplateColumns:"minmax(240px,1.6fr) 1fr 120px 80px",gap:8,marginBottom:6,padding:"0 2px"}}>
         {["Item","Detail / calculation","Cost",""].map(h=><div key={h} style={{fontSize:10,fontWeight:700,color:WG,textTransform:"uppercase",letterSpacing:"0.04em"}}>{h}</div>)}
       </div>
       <div style={{fontSize:11,color:WG,marginBottom:10,lineHeight:1.5}}>Toggle <strong style={{color:"#7B5EA7"}}>No markup</strong> on any item to add it at exact cost after markup is applied.</div></>}
       {items.map((li,idx)=>{
         const cost=Number(li.costLow)||0;
         const totalStr=cost>0?fmt(cost):"—";
-        return <div key={li.id} style={{display:"grid",gridTemplateColumns:"200px 1fr 120px 80px",gap:8,marginBottom:8,alignItems:"center"}}>
+        return <div key={li.id} style={{display:"grid",gridTemplateColumns:"minmax(240px,1.6fr) 1fr 120px 80px",gap:8,marginBottom:8,alignItems:"center"}}>
           <input value={li.description} onChange={e=>setItem(li.id,"description",e.target.value)} placeholder="e.g. 9ct white gold" style={{...SS.inp,marginTop:0,fontSize:13,padding:"7px 10px"}}/>
           <input value={li.detail} onChange={e=>setItem(li.id,"detail",e.target.value)} placeholder="e.g. 5g × $110/g" style={{...SS.inp,marginTop:0,fontSize:13,padding:"7px 10px",color:WG}}/>
           <input type="number" value={li.costLow} onChange={e=>setItem(li.id,"costLow",e.target.value)} placeholder="0.00" min="0" step="0.01" style={{...SS.inp,marginTop:0,fontSize:13,padding:"7px 8px",textAlign:"right"}}/>
@@ -2884,7 +2884,7 @@ function QuoteBuilder({jobId:jobIdProp,editQuoteId,jobs,clients,quotes,setQuotes
       {/* Manufacturing-markup accent stones — folded into the jewellery costs list (editable) */}
       {mfgAccents.map(li=>{
         const cost=Number(li.costLow)||0;
-        return <div key={li.id} style={{display:"grid",gridTemplateColumns:"200px 1fr 120px 80px",gap:8,marginBottom:8,alignItems:"center"}}>
+        return <div key={li.id} style={{display:"grid",gridTemplateColumns:"minmax(240px,1.6fr) 1fr 120px 80px",gap:8,marginBottom:8,alignItems:"center"}}>
           <input value={li.description} onChange={e=>setAccentItem(li.id,"description",e.target.value)} placeholder="e.g. 4 × pear sapphire" style={{...SS.inp,marginTop:0,fontSize:13,padding:"7px 10px"}}/>
           <div style={{display:"flex",alignItems:"center",gap:6,minWidth:0}}>
             <span style={{background:"#EEF4FB",color:"#3B6E8F",fontSize:8,fontWeight:800,padding:"3px 5px",borderRadius:3,letterSpacing:"0.04em",flexShrink:0}} title="Accent / fancy stone">ACCENT</span>
@@ -2907,7 +2907,7 @@ function QuoteBuilder({jobId:jobIdProp,editQuoteId,jobs,clients,quotes,setQuotes
       {stoneMode==="sourcing"&&stoneType&&stoneItems.map(li=>{
         const stoneCost=Number(li.cost)||Number(li.costLow)||0;
         const accent=stoneType==="lab"?"#7B5EA7":"#3B6E8F";
-        return <div key={li.id} style={{display:"grid",gridTemplateColumns:"200px 1fr 120px 80px",gap:8,marginBottom:8,alignItems:"center"}}>
+        return <div key={li.id} style={{display:"grid",gridTemplateColumns:"minmax(240px,1.6fr) 1fr 120px 80px",gap:8,marginBottom:8,alignItems:"center"}}>
           <input value={li.description} onChange={e=>setStonItem(li.id,"description",e.target.value)} placeholder="e.g. 1.52ct oval sapphire" style={{...SS.inp,marginTop:0,fontSize:13,padding:"7px 10px",borderColor:stoneType==="lab"?"#C4A8F0":"#8EB5D4"}}/>
           <div style={{display:"flex",alignItems:"center",gap:6,minWidth:0}}>
             <span style={{background:accent+"18",color:accent,fontSize:8,fontWeight:800,padding:"3px 5px",borderRadius:3,letterSpacing:"0.04em",flexShrink:0,whiteSpace:"nowrap"}} title="Centre / feature stone — priced on the stone markup">CENTRE · {stoneType==="lab"?"LAB":"NAT"}</span>
