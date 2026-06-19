@@ -49,8 +49,12 @@ const TINTS={
 // ── Constants ─────────────────────────────────────────────────────────────
 const JOB_TYPES=["Engagement ring","Wedding band","Eternity ring","Dress ring","Custom pendant","Necklace","Earrings","Bracelet","Repair","Remodelling","Grillz","Chain","Custom","Other"];
 const JOB_TYPE_ICONS={"Engagement ring":"◇","Wedding band":"○","Eternity ring":"◉","Dress ring":"✧","Custom pendant":"✦","Necklace":"⌒","Earrings":"❖","Bracelet":"∞","Repair":"◆","Remodelling":"⟳","Grillz":"▦","Chain":"◈","Custom":"✶","Other":"◦"};
-const JOB_STAGES=["Enquiry","Consultation","Quoted","Approved","Design / CAD","Manufacturing","Stone setting","Polishing / Finish","QC check","Ready for collection","Collected"];
-const SC={"Enquiry":"#A0845C","Consultation":"#7A6C5D","Quoted":"#5B7FA6","Approved":"#3B6E8F","Design / CAD":"#7B5EA7","Manufacturing":"#B05C3A","Stone setting":"#C47A2E","Polishing / Finish":"#8B9E3A","QC check":"#4A8E6A","Ready for collection":"#2D7A4F","Collected":"#1A5C3A"};
+// "On the bench" is the active-work stage — fits a repair being worked on (and any workshop job).
+const REPAIR_WIP_STAGE="On the bench";
+const JOB_STAGES=["Enquiry","Consultation","Quoted","Approved","On the bench","Design / CAD","Manufacturing","Stone setting","Polishing / Finish","QC check","Ready for collection","Collected"];
+const SC={"Enquiry":"#A0845C","Consultation":"#7A6C5D","Quoted":"#5B7FA6","Approved":"#3B6E8F","On the bench":"#3E8E8E","Design / CAD":"#7B5EA7","Manufacturing":"#B05C3A","Stone setting":"#C47A2E","Polishing / Finish":"#8B9E3A","QC check":"#4A8E6A","Ready for collection":"#2D7A4F","Collected":"#1A5C3A"};
+// Advance a job to "On the bench" only if it isn't already at/past that point (never pull it back).
+const advanceToBench=stage=>{const i=JOB_STAGES.indexOf(stage),b=JOB_STAGES.indexOf(REPAIR_WIP_STAGE);return i<0||i<b?REPAIR_WIP_STAGE:stage;};
 const PAY_TYPES=["Diamond deposit","Diamond balance","Setting deposit","Deposit","CAD / Design stage","Production deposit","Progress payment","Final balance","Trade-in credit","Lay-by payment","Other"];
 const PAY_METHODS=["Bank transfer","Cash","Card (EFTPOS)","Card (credit)","PayID","Cheque","Gold/Silver trade in","Other"];
 const FINDINGS_CAT="Findings";
@@ -2039,7 +2043,12 @@ function RepairIntakeCard({job,setJobs,biz,clients,markupTable,pricing=[]}){
     if(!silent)setChecking(false);
     if(!data||!data.accepted_option){if(!silent)alert("No response yet — the client hasn't accepted or declined online.");return;}
     const r={decision:data.accepted_option,name:data.accepted_name||"",at:data.accepted_at||today(),seen:job.repairResponse?.seen||false};
-    if(JSON.stringify(job.repairResponse||null)!==JSON.stringify(r))persistJob({repairResponse:r});
+    if(JSON.stringify(job.repairResponse||null)!==JSON.stringify(r)){
+      // Move accepted repairs onto the bench automatically (declines leave the stage untouched).
+      const patch={repairResponse:r};
+      if(r.decision!=="declined"){const ns=advanceToBench(job.stage);if(ns!==job.stage)patch.stage=ns;}
+      persistJob(patch);
+    }
   };
   useEffect(()=>{if(!response)fetchResponse(true);},[job.repairToken]);   // eslint-disable-line
   const saveNow=()=>{saveIntake(items,instructions);setSaved(true);setTimeout(()=>setSaved(false),2000);};
@@ -6300,7 +6309,8 @@ export default function App(){
     if(!job||job.repairResponse)return;   // not a repair we track, or already recorded
     const declined=row.accepted_option==="declined";
     const resp={decision:row.accepted_option,name:row.accepted_name||"",at:row.accepted_at||today(),seen:false};
-    const nj=jobsRef.current.map(j=>j.id===job.id?{...j,repairResponse:resp}:j);
+    // On acceptance, move the repair onto the bench so it lands in the active-work column automatically.
+    const nj=jobsRef.current.map(j=>j.id===job.id?{...j,repairResponse:resp,stage:declined?j.stage:advanceToBench(j.stage)}:j);
     setJobs(nj);persist(K.jo,nj);
     setAcceptToast({title:declined?"Repair declined":"Repair accepted",color:declined?DANGER:OK,body:`${resp.name||"A client"} ${declined?"declined":"accepted"} the ${job.type||"repair"} online.`,jobId:job.id});
   },[]);
