@@ -71,7 +71,19 @@ const PCAT=["Metals","Labour","CAD Design",FINDINGS_CAT,PURCHASED_CAT,"Lab Grown
 // Per-category explanatory text for the "Manual override price" box in the pricing-DB popup.
 // Each category can carry its own wording; anything not listed falls back to the generic line.
 const MANUAL_OVERRIDE_DEFAULT="The prices in this database are a starting point. Pricing varies between jewellers depending on your suppliers and materials — enter your own label and price to add a custom line to the quote instead.";
+const DIAMOND_OVERRIDE_TEXT="Diamond pricing differs between suppliers depending on where you're sourcing from. We've added per-stone pricing for smaller rounds, as they're very commonly used in quoting jewellery. Please review the pricing and adjust it to your supplier's rates, or simply input your supplier price per quote.";
 const MANUAL_OVERRIDE_TEXT={
+  "Lab Grown Diamonds | D-E":DIAMOND_OVERRIDE_TEXT,
+  "Natural diamonds G-H SI1":DIAMOND_OVERRIDE_TEXT,
+  "Natural diamonds D-E VS":DIAMOND_OVERRIDE_TEXT,
+  "Metals":"Add a manual metal cost. Workshops vary in what they pay. Alloying the metal yourself costs less than buying a pre-cast piece from a caster with taxes included. Feel free to enter your own amount.",
+  "Labour":"Add a manual labour cost. Manufacturing rates vary between workshops and individual jewellers, so feel free to enter your own amount.",
+  "CAD Design":"The prices in this database are a starting point. CAD design costs vary widely, from low-cost overseas outsourcing to premium hourly rates in places like Australia, where you'll pay considerably more. We've provided a guide, but feel free to enter your own label and price to add a custom line to the quote instead.",
+  [FINDINGS_CAT]:"This one's a little tricky, as findings pricing changes often and there are thousands of variants. Butterfly clips, screw-back posts and so on. We recommend adding your commonly used findings with approximate supplier pricing to the database, and entering a manual price for anything more niche.",
+  [PURCHASED_CAT]:"Purchased components are items you don't make yourself but add to the piece. For example, a 45cm, 1.2mm gauge 9ct white gold box chain attached to a pendant that you are making. Add your supplier pricing to the database for common components, and enter a manual price for anything one-off.",
+  "Basic Setting":"These are average trade prices from across the industry. Every setter charges differently, so depending on who sets your pieces, review these and lock in your own rates or simply quote each piece manually. Basic setting refers to very simple work, such as micropavé on a cast item or a small claw setting.",
+  "Complex Setting":"These are average trade prices from across the industry. Every setter charges differently, so depending on who sets your pieces, review these and lock in your own rates or simply quote each piece manually. Complex setting refers to harder work, such as French pavé, channel setting, or setting into solid metal rather than cast pieces.",
+  [REPAIRS_CAT]:"These repair prices are based on average rates from Australian jewellery workshops, and everyone charges differently. The figures are generally retail-ready, so they don't necessarily need to be marked up. When quoting repairs, you'll have the option to skip the markup. Review all pricing, add your own job lines, or simply enter pricing manually each time.",
   [CENTRE_SET_CAT]:"The rates above are based on carat weight. Pricing varies between jewellers depending on stone size, stone type, and setting style, so feel free to enter your own price for this centre setting instead.",
   "3D Print & Cast":"Add your own 3D print & cast total instead of the per-piece figures if your supplier charges differently.",
 };
