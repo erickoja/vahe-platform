@@ -139,6 +139,9 @@ const DEFAULT_LAB_STONE_MARKUP=[
 
 // ── Pricing seed ─────────────────────────────────────────────────────────
 const SEED_SPOT={gold:105,platinum:148,silver:1.45,updatedAt:"2025-05-01"};
+// Seed pricing ids that have been retired from the catalogue — stripped from saved data on load
+// so they don't linger (and aren't re-added by the missing-seed merge).
+const RETIRED_PRICING_IDS=new Set(["p10"]);
 const SEED_PRICING=[
   {id:"p1",category:"Metals",name:"9ct yellow gold",unit:"g",baseCost:39.38,metalKey:"gold",purity:0.375},
   {id:"p2",category:"Metals",name:"18ct yellow gold",unit:"g",baseCost:78.75,metalKey:"gold",purity:0.75},
@@ -148,7 +151,6 @@ const SEED_PRICING=[
   {id:"p6",category:"Metals",name:"Platinum 950",unit:"g",baseCost:140.60,metalKey:"platinum",purity:0.95},
   {id:"p7",category:"Metals",name:"Silver 925",unit:"g",baseCost:1.34,metalKey:"silver",purity:0.925},
   {id:"p8",category:"Labour",name:"Bench Labour (Casting Assembly)",unit:"hr",baseCost:70},
-  {id:"p10",category:"Labour",name:"Custom Fabrication (Handmade)",unit:"job",baseCost:320},
 
   {id:"p19",category:FINDINGS_CAT,name:"Lobster clasp 18ct yellow",unit:"item",baseCost:22},
   {id:"p20",category:FINDINGS_CAT,name:"Earring posts + butterflies",unit:"pair",baseCost:18},
@@ -6316,6 +6318,8 @@ export default function App(){
     const applyLoaded=(k,v,setter)=>{
       if(v===null||v===undefined)return;
       if(k===K.pr&&Array.isArray(v)){
+        // Drop any retired catalogue items so they don't reappear after deletion
+        v=v.filter(it=>it&&!RETIRED_PRICING_IDS.has(it.id));
         v=v.map(it=>it&&it.category==="Findings / Components / Purchased Parts"?{...it,category:FINDINGS_CAT}:it);
         // Sync structural fields from seed onto existing items (preserving only user-edited baseCost)
         const seedById=Object.fromEntries(SEED_PRICING.map(x=>[x.id,x]));
