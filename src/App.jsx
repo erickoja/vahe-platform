@@ -799,6 +799,13 @@ const jobHasCharge=(job,quotes)=>Number(job?.totalOverride)>0||(quotes||[]).some
 // Short reference for a quote: the user's title if set, otherwise the random #ID tag
 const quoteRef=q=>"#"+(q?.id||"").slice(-4).toUpperCase();
 const quoteLabel=q=>(q?.title&&q.title.trim())?q.title.trim():"Quote "+quoteRef(q);
+// Copy of a quote as a fresh Draft — new id/date, "(copy)" appended to a set title, and
+// any approval/invoice-linking state dropped so it's safe to edit independently.
+const duplicateQuoteObj=q=>{
+  const{updatedAt,...rest}=q||{};
+  return{...rest,id:uid(),status:"Draft",createdAt:today(),
+    title:(q?.title&&q.title.trim())?q.title.trim()+" (copy)":""};
+};
 // Combined client display name — "Jessica & Richard" when a partner is set, else the primary name.
 const clientDisplayName=c=>{if(!c)return"";const p=(c.partnerName||"").trim();return p?`${c.name} & ${p}`:(c.name||"");};
 
@@ -2198,6 +2205,8 @@ function JobDetail({jobId,jobs,setJobs,clients,quotes,setQuotes,payments,setPaym
       supabase.from(PUBLIC_PROPOSALS_TABLE).update({data:snap}).eq("token",pr.token).then(()=>{}).catch(()=>{});
     });
   };
+  // Duplicate a quote as a fresh Draft on the same job, then open it in the editor.
+  const duplicateQuote=q=>{const dup=duplicateQuoteObj(q);setQuotes(p=>{const n=[...p,dup];persist(K.qu,n);return n;});setView("editQuote_"+dup.id);};
   const addPay=f=>{const n=[...payments,{...f,id:uid(),jobId,date:f.date||today()}];setPayments(n);persist(K.pa,n);refreshLinks(n);setPayModal(false);};
   const delPay=id=>{if(!confirm("Delete this payment?"))return;const n=payments.filter(x=>x.id!==id);setPayments(n);persist(K.pa,n);refreshLinks(n);};
   const delJob=()=>{
@@ -2318,6 +2327,7 @@ function JobDetail({jobId,jobs,setJobs,clients,quotes,setQuotes,payments,setPaym
           </div>
           <div style={{display:"flex",gap:10,alignItems:"center"}}>
             <Badge label={q.status} color={q.status==="Approved"?OK:q.status==="Draft"?WG:GOLD_D}/>
+            <Btn sm ghost onClick={()=>duplicateQuote(q)}>⧉ Duplicate</Btn>
             {q.status==="Approved"&&!hasInv&&<Btn sm onClick={()=>createInvoice(q.id)}>→ Invoice</Btn>}
           </div>
         </div>;
@@ -4009,6 +4019,7 @@ function QuoteDetail({quoteId,quotes,setQuotes,jobs,clients,biz,markupTable,natu
     setQuotes(p=>{const n=p.filter(x=>x.id!==quoteId);persist(K.qu,n);return n;});
     setView("jobDetail_"+q.jobId);
   };
+  const dupQuote=()=>{const dup=duplicateQuoteObj(q);setQuotes(p=>{const n=[...p,dup];persist(K.qu,n);return n;});setView("editQuote_"+dup.id);};
   const[showProposal,setShowProposal]=useState(false);
 
   return <div>
@@ -4021,6 +4032,7 @@ function QuoteDetail({quoteId,quotes,setQuotes,jobs,clients,biz,markupTable,natu
       <div style={{display:"flex",gap:10,alignItems:"center"}}>
         <Badge label={q.status} color={q.status==="Approved"?OK:q.status==="Draft"?WG:GOLD_D}/>
         <Btn sm ghost onClick={()=>setView("editQuote_"+q.id)}>✏ Edit quote</Btn>
+        <Btn sm ghost onClick={dupQuote}>⧉ Duplicate</Btn>
         <Btn sm danger onClick={delQuote}>Delete</Btn>
         <Btn sm onClick={()=>setShowProposal(true)}>📄 Preview &amp; Print proposal</Btn>
       </div>
