@@ -2861,6 +2861,7 @@ function QuoteBuilder({jobId:jobIdProp,editQuoteId,jobs,clients,quotes,setQuotes
       <div style={{background:GOLD_L+"55",border:`1px solid ${GOLD}55`,borderRadius:4,padding:"11px 14px",marginBottom:14,fontSize:12.5,color:INK,lineHeight:1.65}}>
         <strong>The pricing database is just a starting point.</strong> It holds the simple, most commonly-used items for quoting everyday jewellery — but every studio works with different suppliers and materials. Feel free to add your own <strong>manual costings</strong> any time with <strong>+ Add item</strong>; they mark up and total exactly the same way.
         <div style={{color:WG,marginTop:6}}>For example, making a wedding ring with 15 × 2mm blue sapphires? Call your supplier for your real cost, then add it here as a manual entry — that way your quote always reflects your actual pricing.</div>
+        <div style={{color:WG,marginTop:6}}>You can also do this straight from <strong>⊕ Pricing DB</strong> — the <strong>Quick manual amount</strong> box at the top lets you type a label and price and add it to the quote as its own line entry.</div>
       </div>
       {(items.length>0||mfgAccents.length>0)&&<><div style={{display:"grid",gridTemplateColumns:"minmax(240px,1.6fr) 1fr 120px 80px",gap:8,marginBottom:6,padding:"0 2px"}}>
         {["Item","Detail / calculation","Cost",""].map(h=><div key={h} style={{fontSize:10,fontWeight:700,color:WG,textTransform:"uppercase",letterSpacing:"0.04em"}}>{h}</div>)}
