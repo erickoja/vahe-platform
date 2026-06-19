@@ -831,21 +831,25 @@ const K={cl:"jlr4_clients",jo:"jlr4_jobs",qu:"jlr4_quotes",pa:"jlr4_payments",pr
 const PUBLIC_PROPOSALS_TABLE="public_proposals";
 // Build the frozen client-facing snapshot from the chosen option quotes. Stored in the
 // cloud at publish time so the client always sees exactly what was sent (no live data access).
-const buildProposalSnapshot=({proposal,job,client,biz,quotes,markupTable,payments})=>{
+const buildProposalSnapshot=({proposal,job,client,biz,quotes,markupTable,payments,photoMap})=>{
   const validityDays=biz?.quoteValidityDays||30;
   const created=proposal.createdAt||today();
   const paidTotal=(payments||[]).filter(p=>p.jobId===job?.id&&p.status==="Received").reduce((s,p)=>s+Number(p.amount),0);
+  const optPhotos=proposal.optionPhotos||{};
   const options=(proposal.optionIds||[]).map(qid=>{
     const q=quotes.find(x=>x.id===qid);
     if(!q)return null;
     const calc=calcQuote(q.lineItems,markupTable,q.markupOverride);
     const priceKnown=quoteIsManual(q)||!(calc.base>0&&!calc.bracket&&!calc.overridden);
+    // A chosen photo path is resolved to an inline data URL via photoMap at build time.
+    const photoPath=optPhotos[qid];
     return{
       id:q.id,
       label:quoteLabel(q),
       price:priceKnown?quoteGrandTotal(q,markupTable):null,
       description:q.clientDescription||job?.description||"",
       recommended:proposal.recommendedId===q.id,
+      photo:(photoPath&&photoMap&&photoMap[photoPath])||null,
     };
   }).filter(Boolean);
   return{
@@ -1060,9 +1064,16 @@ const jobImagesForPrint=async(job,max=6)=>{
     const signed=await signedImageUrl(img.path);
     if(!signed)continue;
     const dataUrl=await urlToDataUrl(signed);
-    out.push({url:dataUrl||signed,caption:img.caption||""});
+    out.push({path:img.path,url:dataUrl||signed,caption:img.caption||""});
   }
   return out;
+};
+// Resolve all of a job's images to a { path → inline data URL } map. Used to embed a chosen
+// photo per proposal option without storing the (large) data URLs in app state.
+const jobImageMap=async(job)=>{
+  const map={};
+  for(const p of await jobImagesForPrint(job,24))map[p.path]=p.url;
+  return map;
 };
 
 // ── Shared UI ─────────────────────────────────────────────────────────────
@@ -2194,14 +2205,17 @@ function JobDetail({jobId,jobs,setJobs,clients,quotes,setQuotes,payments,setPaym
   const moveStage=s=>{setJobs(p=>{const n=p.map(j=>j.id===jobId?{...j,stage:s}:j);persist(K.jo,n);return n;});setEditStage(false);};
   // Keep any live invoice/proposal link(s) for this job in sync after a payment change, so the
   // customer's link shows the updated Paid / Balance due instead of a stale snapshot.
-  const refreshLinks=(pmts)=>{
+  const refreshLinks=async(pmts)=>{
     if(!supabaseEnabled||!supabase)return;
     ji.filter(iv=>iv.publicToken).forEach(iv=>{
       const snap=buildInvoiceSnapshot({inv:iv,job,client:c,biz,payments:pmts});
       supabase.from(PUBLIC_PROPOSALS_TABLE).update({data:snap}).eq("token",iv.publicToken).then(()=>{}).catch(()=>{});
     });
-    (proposals||[]).filter(pr=>pr.jobId===jobId&&pr.token&&pr.status!=="accepted").forEach(pr=>{
-      const snap=buildProposalSnapshot({proposal:pr,job,client:c,biz,quotes,markupTable,payments:pmts});
+    const livePr=(proposals||[]).filter(pr=>pr.jobId===jobId&&pr.token&&pr.status!=="accepted");
+    if(!livePr.length)return;
+    const photoMap=await jobImageMap(job);
+    livePr.forEach(pr=>{
+      const snap=buildProposalSnapshot({proposal:pr,job,client:c,biz,quotes,markupTable,payments:pmts,photoMap});
       supabase.from(PUBLIC_PROPOSALS_TABLE).update({data:snap}).eq("token",pr.token).then(()=>{}).catch(()=>{});
     });
   };
@@ -3222,6 +3236,13 @@ function JobProposals({job,client,quotes,proposals,setProposals,setQuotes,biz,ma
   const [copied,setCopied]=useState("");
   const [checking,setChecking]=useState("");
   const [selectMode,setSelectMode]=useState("single");   // "single" = pick one, "multi" = pick any (bundle)
+  const [optPhotos,setOptPhotos]=useState({});            // quoteId → chosen job image path
+  const [jobPhotos,setJobPhotos]=useState([]);            // job's uploaded images as {path,url,caption}
+  useEffect(()=>{
+    let cancelled=false;
+    (async()=>{const ph=await jobImagesForPrint(job,24);if(!cancelled)setJobPhotos(ph);})();
+    return()=>{cancelled=true;};
+  },[job?.id,(job?.images||[]).map(i=>i.path).join(",")]);   // eslint-disable-line
 
   // Only quotes with a resolvable price can be sent as options
   const optionable=(quotes||[]).filter(q=>{
@@ -3232,7 +3253,8 @@ function JobProposals({job,client,quotes,proposals,setProposals,setQuotes,biz,ma
   const save=next=>{setProposals(next);persist(K.pp,next);};
 
   const toggle=id=>setSel(p=>p.includes(id)?p.filter(x=>x!==id):[...p,id]);
-  const openBuilder=()=>{setSel([]);setRecommended("");setIntro("");setSelectMode("single");setBuilder(true);};
+  const pickPhoto=(qid,path)=>setOptPhotos(p=>({...p,[qid]:p[qid]===path?undefined:path}));
+  const openBuilder=()=>{setSel([]);setRecommended("");setIntro("");setSelectMode("single");setOptPhotos({});setBuilder(true);};
 
   const createAndShare=async()=>{
     if(!sel.length)return alert("Pick at least one quote to include as an option.");
@@ -3240,8 +3262,10 @@ function JobProposals({job,client,quotes,proposals,setProposals,setQuotes,biz,ma
     setBusy(true);
     const id=uid(),token=proposalToken();
     const orderedIds=optionable.filter(q=>sel.includes(q.id)).map(q=>q.id);
-    const proposal={id,jobId:job.id,token,optionIds:orderedIds,recommendedId:selectMode==="multi"?"":(recommended||""),selectMode,intro:intro.trim(),createdAt:today(),status:"sent",acceptedQuoteId:null,acceptedName:"",acceptedAt:null};
-    const snapshot=buildProposalSnapshot({proposal,job,client,biz,quotes,markupTable,payments});
+    const optionPhotos={};orderedIds.forEach(qid=>{if(optPhotos[qid])optionPhotos[qid]=optPhotos[qid];});
+    const proposal={id,jobId:job.id,token,optionIds:orderedIds,optionPhotos,recommendedId:selectMode==="multi"?"":(recommended||""),selectMode,intro:intro.trim(),createdAt:today(),status:"sent",acceptedQuoteId:null,acceptedName:"",acceptedAt:null};
+    const photoMap=await jobImageMap(job);
+    const snapshot=buildProposalSnapshot({proposal,job,client,biz,quotes,markupTable,payments,photoMap});
     const{error}=await supabase.from(PUBLIC_PROPOSALS_TABLE).insert({token,data:snapshot,status:"sent",created_at:new Date().toISOString()});
     setBusy(false);
     if(error){alert("Couldn't publish the proposal: "+error.message+"\n\nIf this mentions a missing table, the one-time Supabase setup hasn't been run yet.");return;}
@@ -3274,10 +3298,15 @@ function JobProposals({job,client,quotes,proposals,setProposals,setQuotes,biz,ma
   // Keep sent proposals' link snapshots current (e.g. payments recorded since publishing) when the job opens
   useEffect(()=>{
     if(!supabaseEnabled||!supabase)return;
-    jobProposals.filter(p=>p.token&&p.status==="sent").forEach(p=>{
-      const snap=buildProposalSnapshot({proposal:p,job,client,biz,quotes,markupTable,payments});
-      supabase.from(PUBLIC_PROPOSALS_TABLE).update({data:snap}).eq("token",p.token).then(()=>{}).catch(()=>{});
-    });
+    const live=jobProposals.filter(p=>p.token&&p.status==="sent");
+    if(!live.length)return;
+    (async()=>{
+      const photoMap=await jobImageMap(job);
+      live.forEach(p=>{
+        const snap=buildProposalSnapshot({proposal:p,job,client,biz,quotes,markupTable,payments,photoMap});
+        supabase.from(PUBLIC_PROPOSALS_TABLE).update({data:snap}).eq("token",p.token).then(()=>{}).catch(()=>{});
+      });
+    })();
   },[job?.id]);   // eslint-disable-line
 
   const delProposal=async p=>{
@@ -3337,15 +3366,33 @@ function JobProposals({job,client,quotes,proposals,setProposals,setQuotes,biz,ma
       <div style={{fontSize:10,fontWeight:700,color:WG,textTransform:"uppercase",letterSpacing:"0.06em",marginBottom:8}}>Options</div>
       {optionable.map(q=>{
         const on=sel.includes(q.id);
-        return <div key={q.id} style={{display:"flex",alignItems:"center",gap:12,padding:"10px 12px",border:`1px solid ${on?GOLD:BD}`,borderRadius:4,marginBottom:8,background:on?GOLD_L+"55":WHITE}}>
-          <input type="checkbox" checked={on} onChange={()=>toggle(q.id)} style={{width:16,height:16,cursor:"pointer",accentColor:GOLD}}/>
-          <div style={{flex:1,cursor:"pointer"}} onClick={()=>toggle(q.id)}>
-            <div style={{fontWeight:700,fontSize:14,color:INK}}>{quoteLabel(q)}</div>
-            <div style={{fontSize:12,color:WG,marginTop:1}}>{fmtR(quoteGrandTotal(q,markupTable))} inc GST · {q.status}</div>
+        return <div key={q.id} style={{padding:"10px 12px",border:`1px solid ${on?GOLD:BD}`,borderRadius:4,marginBottom:8,background:on?GOLD_L+"55":WHITE}}>
+          <div style={{display:"flex",alignItems:"center",gap:12}}>
+            <input type="checkbox" checked={on} onChange={()=>toggle(q.id)} style={{width:16,height:16,cursor:"pointer",accentColor:GOLD}}/>
+            <div style={{flex:1,cursor:"pointer"}} onClick={()=>toggle(q.id)}>
+              <div style={{fontWeight:700,fontSize:14,color:INK}}>{quoteLabel(q)}</div>
+              <div style={{fontSize:12,color:WG,marginTop:1}}>{fmtR(quoteGrandTotal(q,markupTable))} inc GST · {q.status}</div>
+            </div>
+            {selectMode!=="multi"&&<button onClick={()=>setRecommended(r=>r===q.id?"":q.id)} disabled={!on}
+              title="Mark as recommended"
+              style={{background:recommended===q.id?GOLD:"none",border:`1px solid ${recommended===q.id?GOLD:BD}`,borderRadius:6,padding:"5px 11px",fontSize:12,fontWeight:700,color:recommended===q.id?WHITE:(on?GOLD_D:WG),cursor:on?"pointer":"not-allowed",fontFamily:"inherit",opacity:on?1:0.5}}>★ Recommend</button>}
           </div>
-          {selectMode!=="multi"&&<button onClick={()=>setRecommended(r=>r===q.id?"":q.id)} disabled={!on}
-            title="Mark as recommended"
-            style={{background:recommended===q.id?GOLD:"none",border:`1px solid ${recommended===q.id?GOLD:BD}`,borderRadius:6,padding:"5px 11px",fontSize:12,fontWeight:700,color:recommended===q.id?WHITE:(on?GOLD_D:WG),cursor:on?"pointer":"not-allowed",fontFamily:"inherit",opacity:on?1:0.5}}>★ Recommend</button>}
+          {on&&<div style={{marginTop:10,paddingLeft:28}}>
+            {jobPhotos.length===0
+              ?<div style={{fontSize:11,color:WG,fontStyle:"italic"}}>Upload images to this job to show a photo with this option.</div>
+              :<>
+                <div style={{fontSize:10,fontWeight:700,color:WG,textTransform:"uppercase",letterSpacing:"0.06em",marginBottom:6}}>Photo for this option <span style={{fontWeight:400,textTransform:"none",letterSpacing:0}}>(optional — tap to choose)</span></div>
+                <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
+                  {jobPhotos.map(ph=>{
+                    const picked=optPhotos[q.id]===ph.path;
+                    return <button key={ph.path} onClick={()=>pickPhoto(q.id,ph.path)} title={picked?"Selected — tap to remove":"Use this photo"}
+                      style={{padding:0,border:`2px solid ${picked?GOLD:BD}`,borderRadius:6,overflow:"hidden",cursor:"pointer",background:"none",lineHeight:0,boxShadow:picked?`0 0 0 2px ${GOLD_L}`:"none"}}>
+                      <img src={ph.url} alt={ph.caption||""} style={{width:54,height:54,objectFit:"cover",display:"block"}}/>
+                    </button>;
+                  })}
+                </div>
+              </>}
+          </div>}
         </div>;
       })}
       <div style={{marginTop:14}}>
@@ -3567,6 +3614,7 @@ function PublicProposalPage({token}){
   const [acceptedOption,setAcceptedOption]=useState("");
   const [acceptedName,setAcceptedName]=useState("");
   const [busy,setBusy]=useState(false);
+  const [photo,setPhoto]=useState(null);   // lightbox image url
 
   useEffect(()=>{
     (async()=>{
@@ -3661,6 +3709,8 @@ function PublicProposalPage({token}){
             style={{border:`2px solid ${isSel?GOLD:BD}`,borderRadius:5,padding:"16px 18px",cursor:accepted?"default":"pointer",background:isSel?GOLD_L+"44":WHITE,opacity:dim?0.5:1,transition:"all 0.15s",position:"relative"}}>
             {o.recommended&&<div style={{position:"absolute",top:-9,left:16,background:GOLD,color:WHITE,fontSize:9,fontWeight:800,letterSpacing:"0.08em",textTransform:"uppercase",padding:"2px 10px",borderRadius:3}}>Recommended</div>}
             <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:16}}>
+              {o.photo&&<img src={o.photo} alt={o.label} onClick={e=>{e.stopPropagation();setPhoto(o.photo);}}
+                style={{width:84,height:84,objectFit:"cover",borderRadius:6,border:`1px solid ${BD}`,flexShrink:0,cursor:"zoom-in"}}/>}
               <div style={{flex:1,minWidth:0}}>
                 <div style={{display:"flex",alignItems:"center",gap:10}}>
                   {!accepted&&<div style={{width:18,height:18,borderRadius:multi?4:"50%",border:`2px solid ${isSel?GOLD:BD}`,flexShrink:0,display:"flex",alignItems:"center",justifyContent:"center"}}>{isSel&&(multi?<span style={{color:GOLD,fontSize:13,fontWeight:900,lineHeight:1}}>✓</span>:<div style={{width:9,height:9,borderRadius:"50%",background:GOLD}}/>)}</div>}
@@ -3714,6 +3764,9 @@ function PublicProposalPage({token}){
       </div>}
       <div style={{textAlign:"center",fontSize:10,color:WG,marginTop:24}}>All prices inclusive of GST · Quoted in AUD</div>
     </div>
+    {photo&&<div onClick={()=>setPhoto(null)} style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.85)",zIndex:600,display:"flex",alignItems:"center",justifyContent:"center",padding:30,cursor:"zoom-out"}}>
+      <img src={photo} alt="" style={{maxWidth:"100%",maxHeight:"100%",borderRadius:4,boxShadow:"0 20px 80px rgba(0,0,0,0.6)"}}/>
+    </div>}
   </div>);
 }
 
@@ -4453,6 +4506,12 @@ function InvoiceDetail({invoiceId,invoices,setInvoices,jobs,clients,payments,biz
     setView("invoices");
   };
   const setDescOverride=v=>setInvoices(p=>{const n=p.map(x=>x.id===invoiceId?{...x,descriptionOverride:v}:x);persist(K.inv,n);return n;});
+  // The description box uses a local draft and commits on blur, so persisting/cloud-sync on
+  // every keystroke can't echo a stale value back mid-type (which made the cursor jump).
+  const descRef=useRef(null);
+  const[descDraft,setDescDraft]=useState(inv.descriptionOverride||"");
+  useEffect(()=>{if(document.activeElement!==descRef.current)setDescDraft(inv.descriptionOverride||"");},[inv.descriptionOverride]);
+  const commitDesc=()=>{if(descDraft!==(inv.descriptionOverride||""))setDescOverride(descDraft);};
   const setRequestAmount=v=>setInvoices(p=>{const n=p.map(x=>x.id===invoiceId?{...x,requestAmount:v}:x);persist(K.inv,n);return n;});
   const paidTotal=(payments||[]).filter(p=>p.jobId===inv.jobId&&p.status==="Received").reduce((s,p)=>s+Number(p.amount),0);
   const balance=Math.max(0,inv.totalIncGST-paidTotal);
@@ -4525,9 +4584,9 @@ function InvoiceDetail({invoiceId,invoices,setInvoices,jobs,clients,payments,biz
     <Card>
       <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:8}}>
         <label style={SS.lbl}>Customer-facing description (optional)</label>
-        <div style={{background:inv.descriptionOverride?.trim()?OK+"22":DANGER+"18",color:inv.descriptionOverride?.trim()?OK:DANGER,fontSize:10,fontWeight:700,padding:"2px 8px",borderRadius:4,letterSpacing:"0.04em"}}>{inv.descriptionOverride?.trim()?"SHOWN ON INVOICE":"BLANK — ADD ONE"}</div>
+        <div style={{background:descDraft.trim()?OK+"22":DANGER+"18",color:descDraft.trim()?OK:DANGER,fontSize:10,fontWeight:700,padding:"2px 8px",borderRadius:4,letterSpacing:"0.04em"}}>{descDraft.trim()?"SHOWN ON INVOICE":"BLANK — ADD ONE"}</div>
       </div>
-      <textarea value={inv.descriptionOverride||""} onChange={e=>setDescOverride(e.target.value)} rows={3}
+      <textarea ref={descRef} value={descDraft} onChange={e=>setDescDraft(e.target.value)} onBlur={commitDesc} rows={3}
         placeholder="e.g. Custom 18ct yellow gold bracelet — design, materials & handcrafting"
         style={{...SS.inp,marginTop:0,resize:"vertical",lineHeight:1.6}}/>
       <div style={{fontSize:11,color:WG,marginTop:6,lineHeight:1.5}}>This is the single line the customer sees on the invoice (with the total). The internal cost lines below are never shown to the customer. <strong>If you leave it blank, the invoice prints no description</strong> — so add what this job is (e.g. "Custom engagement ring", "Ring remodel", "Repair").</div>
