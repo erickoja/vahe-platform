@@ -52,6 +52,9 @@ const JOB_TYPE_ICONS={"Engagement ring":"◇","Wedding band":"○","Eternity rin
 // "On the bench" is the active-work stage — fits a repair being worked on (and any workshop job).
 const REPAIR_WIP_STAGE="On the bench";
 const JOB_STAGES=["Enquiry","Consultation","Quoted","Approved","On the bench","Design / CAD","Manufacturing","Stone setting","Polishing / Finish","QC check","Ready for collection","Collected"];
+// Finished/awaiting-pickup jobs — never treated as urgent (sorted last, not flagged overdue).
+const DONE_STAGES=["Ready for collection","Collected"];
+const jobIsDone=j=>DONE_STAGES.includes(j?.stage);
 const SC={"Enquiry":"#A0845C","Consultation":"#7A6C5D","Quoted":"#5B7FA6","Approved":"#3B6E8F","On the bench":"#3E8E8E","Design / CAD":"#7B5EA7","Manufacturing":"#B05C3A","Stone setting":"#C47A2E","Polishing / Finish":"#8B9E3A","QC check":"#4A8E6A","Ready for collection":"#2D7A4F","Collected":"#1A5C3A"};
 // Advance a job to "On the bench" only if it isn't already at/past that point (never pull it back).
 const advanceToBench=stage=>{const i=JOB_STAGES.indexOf(stage),b=JOB_STAGES.indexOf(REPAIR_WIP_STAGE);return i<0||i<b?REPAIR_WIP_STAGE:stage;};
@@ -1719,9 +1722,12 @@ function Jobs({clients,jobs,setJobs,quotes,setQuotes,payments,setPayments,notes,
       if(!hay.includes(q))return false;
     }
     return true;
-  // Most urgent first: soonest (and overdue) deadlines on top, undated jobs at the bottom.
+  // Most urgent first: soonest (and overdue) deadlines on top, undated jobs next, and finished
+  // jobs (ready for collection / collected) always at the very bottom regardless of due date.
   // Deadlines are ISO yyyy-mm-dd strings, so a plain string compare is chronological.
   }).sort((a,b)=>{
+    const ad_done=jobIsDone(a),bd_done=jobIsDone(b);
+    if(ad_done!==bd_done)return ad_done?1:-1;
     const ad=a.deadline||"",bd=b.deadline||"";
     if(!ad&&!bd)return 0;
     if(!ad)return 1;
@@ -1785,7 +1791,7 @@ function Jobs({clients,jobs,setJobs,quotes,setQuotes,payments,setPayments,notes,
             {col.length===0&&<div style={{fontSize:12,color:"#C8C4BE",textAlign:"center",padding:"14px 0"}}>No jobs</div>}
             {col.map(j=>{
               const c=clients.find(x=>x.id===j.clientId);
-              const od=j.deadline&&j.deadline<today()&&j.stage!=="Collected";
+              const od=j.deadline&&j.deadline<today()&&!jobIsDone(j);
               return <div key={j.id} draggable
                 onDragStart={e=>{e.dataTransfer.setData("text/plain",j.id);e.dataTransfer.effectAllowed="move";}}
                 onClick={()=>{setSelJob(j.id);setView("jobDetail");}}
@@ -1803,7 +1809,7 @@ function Jobs({clients,jobs,setJobs,quotes,setQuotes,payments,setPayments,notes,
     {mode==="list"&&filtered.length===0&&<Card><div style={{color:WG,fontSize:14,textAlign:"center",padding:"14px 0"}}>No jobs found{q?` for “${search.trim()}”`:""}.</div></Card>}
     {mode==="list"&&filtered.map(j=>{
       const c=clients.find(x=>x.id===j.clientId);
-      const od=j.deadline&&j.deadline<today()&&j.stage!=="Collected";
+      const od=j.deadline&&j.deadline<today()&&!jobIsDone(j);
       const total=jobChargeTotal(j,quotes,markupTable);
       const paid=payments.filter(p=>p.jobId===j.id&&p.status==="Received").reduce((s,p)=>s+Number(p.amount),0);
       const owing=total-paid;
