@@ -68,6 +68,14 @@ const REPAIR_GROUPS=["Cleaning & Polishing","Ring Repairs","Ring Resizing — up
 // Centre stone setting: fee = carat × per-ct rate (basic default $50/ct, complex default $75/ct)
 const DEFAULT_CENTRE_RATES={basicPerCt:50,complexPerCt:75};
 const PCAT=["Metals","Labour","CAD Design",FINDINGS_CAT,PURCHASED_CAT,"Lab Grown Diamonds | D-E","Natural diamonds G-H SI1","Natural diamonds D-E VS","Basic Setting","Complex Setting",CENTRE_SET_CAT,"3D Print & Cast","Accent Stones",REPAIRS_CAT];
+// Per-category explanatory text for the "Manual override price" box in the pricing-DB popup.
+// Each category can carry its own wording; anything not listed falls back to the generic line.
+const MANUAL_OVERRIDE_DEFAULT="The prices in this database are a starting point. Pricing varies between jewellers depending on your suppliers and materials — enter your own label and price to add a custom line to the quote instead.";
+const MANUAL_OVERRIDE_TEXT={
+  [CENTRE_SET_CAT]:"The rates above are based on carat weight. Pricing varies between jewellers depending on stone size, stone type, and setting style, so feel free to enter your own price for this centre setting instead.",
+  "3D Print & Cast":"Add your own 3D print & cast total instead of the per-piece figures if your supplier charges differently.",
+};
+const manualOverrideText=cat=>MANUAL_OVERRIDE_TEXT[cat]||MANUAL_OVERRIDE_DEFAULT;
 const DIAMOND_CATS=["Lab Grown Diamonds | D-E","Natural diamonds G-H SI1","Natural diamonds D-E VS"];
 const NOTE_TYPES=["General note","Client call","Client email","Client visit","Internal update","Approval received"];
 const GST_RATE=0.10;
@@ -1084,7 +1092,7 @@ const jobImageMap=async(job)=>{
 };
 
 // ── Shared UI ─────────────────────────────────────────────────────────────
-const SS={inp:{width:"100%",padding:"10px 13px",borderRadius:4,border:`1px solid ${BD}`,fontSize:13,fontFamily:"inherit",color:INK,background:WHITE,outline:"none",boxSizing:"border-box",marginTop:4},lbl:{fontSize:10,fontWeight:700,color:WG,letterSpacing:"0.1em",textTransform:"uppercase",display:"block"}};
+const SS={inp:{width:"100%",padding:"10px 13px",borderRadius:4,border:`1px solid ${BD}`,fontSize:13,fontFamily:"inherit",color:INK,background:WHITE,outline:"none",boxSizing:"border-box",marginTop:4},lbl:{fontSize:10,fontWeight:700,color:INK,letterSpacing:"0.1em",textTransform:"uppercase",display:"block"}};
 
 
 function StoneMarkupSummary({calc}){
@@ -2544,17 +2552,71 @@ const centreSettingFee=(ct,complex,rates=DEFAULT_CENTRE_RATES)=>{
   const perCt=complex?(Number(rates.complexPerCt)||0):(Number(rates.basicPerCt)||0);
   return w*perCt;
 };
-function CentreStonePicker({onAdd,centreRates=DEFAULT_CENTRE_RATES}){
+function CentreStonePicker({onAdd,onAddManual,centreRates=DEFAULT_CENTRE_RATES,setCentreRates}){
   const[ct,setCt]=useState("");
   const[complex,setComplex]=useState(false);
+  const[manFee,setManFee]=useState("");
+  const[editRates,setEditRates]=useState(false);
+  const[rateDraft,setRateDraft]=useState({basicPerCt:"",complexPerCt:""});
+  const startEditRates=()=>{setRateDraft({basicPerCt:String(centreRates.basicPerCt),complexPerCt:String(centreRates.complexPerCt)});setEditRates(true);};
+  const saveRates=()=>{
+    const nr={basicPerCt:Number(rateDraft.basicPerCt)||0,complexPerCt:Number(rateDraft.complexPerCt)||0};
+    setCentreRates&&setCentreRates(nr);persist(K.csr,nr);
+    setEditRates(false);
+  };
   const w=Number(ct)||0;
   const fee=centreSettingFee(ct,complex,centreRates);
   const perCt=complex?centreRates.complexPerCt:centreRates.basicPerCt;
   return <div>
-    <div style={{fontSize:12,color:WG,marginBottom:16,lineHeight:1.6}}>
-      Centre stones are larger and higher-risk to set. Enter the carat weight and choose the setting type — the fee is calculated automatically.
-      <br/><strong style={{color:INK}}>Basic</strong> = carat × {fmt(centreRates.basicPerCt)}/ct · <strong style={{color:INK}}>Complex</strong> = carat × {fmt(centreRates.complexPerCt)}/ct (pear claws, bezels, fragile stones, sapphires, etc.)
+    <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:12,marginBottom:16}}>
+      <div style={{fontSize:12,color:WG,lineHeight:1.6,flex:1}}>
+        Centre stones are larger and higher-risk to set. Enter the carat weight and choose the setting type — the fee is calculated automatically.
+        <br/><strong style={{color:INK}}>Basic</strong> = carat × {fmt(centreRates.basicPerCt)}/ct · <strong style={{color:INK}}>Complex</strong> = carat × {fmt(centreRates.complexPerCt)}/ct (pear claws, bezels, fragile stones, sapphires, etc.)
+      </div>
+      {setCentreRates&&!editRates&&<Btn sm ghost onClick={startEditRates}>✎ Change rates</Btn>}
     </div>
+    {/* Inline per-carat rate editor — saves globally (same rates everywhere) */}
+    {editRates&&<div style={{marginBottom:16,background:PARCH,border:`1px solid ${GOLD}`,borderRadius:4,padding:"14px 16px"}}>
+      <div style={{fontSize:11,fontWeight:700,color:GOLD_D,textTransform:"uppercase",letterSpacing:"0.06em",marginBottom:10}}>Change per-carat rates <span style={{fontWeight:400,textTransform:"none",letterSpacing:0,color:WG}}>(saved everywhere)</span></div>
+      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"0 16px"}}>
+        <div>
+          <label style={SS.lbl}>Basic setting ($ per carat)</label>
+          <div style={{position:"relative",marginTop:4}}>
+            <span style={{position:"absolute",left:10,top:"50%",transform:"translateY(-50%)",fontSize:12,color:WG,pointerEvents:"none"}}>$</span>
+            <input type="number" value={rateDraft.basicPerCt} min="0" step="1" onChange={e=>setRateDraft(d=>({...d,basicPerCt:e.target.value}))}
+              style={{...SS.inp,marginTop:0,padding:"8px 10px 8px 22px",fontSize:14,fontWeight:700}}/>
+          </div>
+        </div>
+        <div>
+          <label style={SS.lbl}>Complex setting ($ per carat)</label>
+          <div style={{position:"relative",marginTop:4}}>
+            <span style={{position:"absolute",left:10,top:"50%",transform:"translateY(-50%)",fontSize:12,color:WG,pointerEvents:"none"}}>$</span>
+            <input type="number" value={rateDraft.complexPerCt} min="0" step="1" onChange={e=>setRateDraft(d=>({...d,complexPerCt:e.target.value}))}
+              style={{...SS.inp,marginTop:0,padding:"8px 10px 8px 22px",fontSize:14,fontWeight:700}}/>
+          </div>
+        </div>
+      </div>
+      <div style={{display:"flex",gap:10,justifyContent:"flex-end",marginTop:14}}>
+        <Btn sm ghost onClick={()=>setEditRates(false)}>Cancel</Btn>
+        <Btn sm onClick={saveRates}>Save rates</Btn>
+      </div>
+    </div>}
+    {/* Manual override — encourage charging to your own rates (like 3D Print & Cast) */}
+    {onAddManual&&<div style={{background:GOLD_L+"66",border:`1px solid ${GOLD}55`,borderRadius:4,padding:"11px 14px",marginBottom:16}}>
+      <div style={{display:"flex",alignItems:"center",gap:12,flexWrap:"wrap"}}>
+        <div style={{flex:1,minWidth:180}}>
+          <div style={{fontSize:12,fontWeight:700,color:GOLD_D}}>Manual override price (Centre or Feature Stone Setting)</div>
+          <div style={{fontSize:11,color:WG,marginTop:2,lineHeight:1.5}}>The rates above are based on carat weight. Pricing varies between jewellers depending on stone size, stone type, and setting style, so feel free to enter your own price for this centre setting instead.</div>
+        </div>
+        <div style={{position:"relative"}}>
+          <span style={{position:"absolute",left:10,top:"50%",transform:"translateY(-50%)",fontSize:13,color:WG,pointerEvents:"none"}}>$</span>
+          <input type="number" value={manFee} min="0" step="0.01" placeholder="0.00"
+            onChange={e=>setManFee(e.target.value)} onKeyDown={e=>{if(e.key==="Enter"){onAddManual(manFee);setManFee("");}}}
+            style={{...SS.inp,marginTop:0,width:130,padding:"8px 10px 8px 22px",fontSize:14,fontWeight:700,textAlign:"right"}}/>
+        </div>
+        <Btn sm onClick={()=>{onAddManual(manFee);setManFee("");}}>Add to quote</Btn>
+      </div>
+    </div>}
     <div style={{display:"grid",gridTemplateColumns:"180px 1fr",gap:"0 20px",alignItems:"start"}}>
       <div>
         <label style={SS.lbl}>Centre stone carat weight</label>
@@ -2645,7 +2707,7 @@ function CADQuotePicker({pricing,selCAD,setSelCAD,pQty,setPQty,addFromDB}){
   </div>;
 }
 
-function QuoteBuilder({jobId:jobIdProp,editQuoteId,jobs,clients,quotes,setQuotes,pricing,setPricing,markupTable,naturalStoneMarkup,labStoneMarkup,centreRates=DEFAULT_CENTRE_RATES,setView}){
+function QuoteBuilder({jobId:jobIdProp,editQuoteId,jobs,clients,quotes,setQuotes,pricing,setPricing,markupTable,naturalStoneMarkup,labStoneMarkup,centreRates=DEFAULT_CENTRE_RATES,setCentreRates,setView}){
   const existingQuote=editQuoteId?quotes.find(q=>q.id===editQuoteId):null;
   const jobId=existingQuote?.jobId||jobIdProp;
   const job=jobs.find(j=>j.id===jobId);
@@ -2752,6 +2814,13 @@ function QuoteBuilder({jobId:jobIdProp,editQuoteId,jobs,clients,quotes,setQuotes
     const detail=`${ct}ct centre stone · ${complex?"complex":"basic"} setting (${fmt(perCt)}/ct)`;
     setItems(p=>[...p,{id:uid(),description:desc,detail,costLow:fee.toFixed(2),noMarkup:false}]);
     markAdded("centre-setting",fee);
+  };
+
+  const addCustomCentre=(price)=>{
+    const amt=Number(price)||0;
+    if(amt<=0)return alert("Enter a price.");
+    setItems(p=>[...p,{id:uid(),description:"Centre stone setting",detail:"Manual price",costLow:amt.toFixed(2),noMarkup:false}]);
+    markAdded("centre-manual",amt);
   };
 
   const addCustomPrintCast=()=>{
@@ -3125,35 +3194,25 @@ function QuoteBuilder({jobId:jobIdProp,editQuoteId,jobs,clients,quotes,setQuotes
           </div>
 
           <div style={{flex:1,display:"flex",flexDirection:"column",minHeight:0,padding:"0 24px"}}>
-            {/* Quick manual amount — add a custom labelled line */}
-            <div style={{flexShrink:0,display:"flex",alignItems:"center",gap:10,background:PARCH,border:`1px solid ${BD}`,borderRadius:4,padding:"8px 12px",margin:"12px 0 10px"}}>
-              <span style={{background:"#3B6E8F",color:WHITE,fontSize:10,fontWeight:700,padding:"4px 9px",borderRadius:5,letterSpacing:"0.06em",whiteSpace:"nowrap"}}>MANUAL AMOUNT</span>
-              <input value={manLabel} onChange={e=>setManLabel(e.target.value)} placeholder="Label (e.g. Labour)" onKeyDown={e=>{if(e.key==="Enter")addManual();}} style={{...SS.inp,marginTop:0,flex:1}}/>
-              <div style={{position:"relative",width:110,flexShrink:0}}>
-                <span style={{position:"absolute",left:10,top:"50%",transform:"translateY(-50%)",fontSize:13,color:WG,pointerEvents:"none"}}>$</span>
-                <input type="number" value={manAmt} onChange={e=>setManAmt(e.target.value)} min="0" step="0.01" placeholder="0.00" onKeyDown={e=>{if(e.key==="Enter")addManual();}} style={{...SS.inp,marginTop:0,padding:"9px 10px 9px 22px",textAlign:"right",width:"100%"}}/>
+            {/* Manual override price — available on every category (pinned above the list) */}
+            <div style={{flexShrink:0,background:GOLD_L+"66",border:`1px solid ${GOLD}55`,borderRadius:4,padding:"11px 14px",margin:"12px 0 10px"}}>
+              <div style={{fontSize:12,fontWeight:700,color:GOLD_D,marginBottom:2}}>Manual override price{!pSearching&&pCat!=="All"?` (${pCat})`:""}</div>
+              <div style={{fontSize:11,color:WG,lineHeight:1.5,marginBottom:9}}>{pSearching?MANUAL_OVERRIDE_DEFAULT:manualOverrideText(pCat)}</div>
+              <div style={{display:"flex",alignItems:"center",gap:10,flexWrap:"wrap"}}>
+                <input value={manLabel} onChange={e=>setManLabel(e.target.value)} placeholder="Label (e.g. 15 × 2mm blue sapphire)" onKeyDown={e=>{if(e.key==="Enter")addManual();}} style={{...SS.inp,marginTop:0,flex:1,minWidth:200}}/>
+                <div style={{position:"relative",width:120,flexShrink:0}}>
+                  <span style={{position:"absolute",left:10,top:"50%",transform:"translateY(-50%)",fontSize:13,color:WG,pointerEvents:"none"}}>$</span>
+                  <input type="number" value={manAmt} onChange={e=>setManAmt(e.target.value)} min="0" step="0.01" placeholder="0.00" onKeyDown={e=>{if(e.key==="Enter")addManual();}} style={{...SS.inp,marginTop:0,padding:"9px 10px 9px 22px",textAlign:"right",width:"100%"}}/>
+                </div>
+                <Btn sm onClick={addManual}>Add to quote</Btn>
               </div>
-              <Btn sm onClick={addManual}>Add</Btn>
             </div>
 
             {!pSearching&&pCat===CENTRE_SET_CAT
-              ? <div style={{flex:1,overflowY:"auto",paddingBottom:14}}><CentreStonePicker onAdd={addCentreSetting} centreRates={centreRates}/></div>
+              ? <div style={{flex:1,overflowY:"auto",paddingBottom:14}}><CentreStonePicker onAdd={addCentreSetting} centreRates={centreRates} setCentreRates={setCentreRates}/></div>
               : !pSearching&&pCat==="CAD Design"
               ? <div style={{flex:1,overflowY:"auto",paddingBottom:14}}><CADQuotePicker pricing={pricing} selCAD={selCAD} setSelCAD={setSelCAD} pQty={pQty} setPQty={setPQty} addFromDB={addFromDB}/></div>
               : <div style={{flex:1,overflowY:"auto",paddingBottom:14}}>
-                  {!pSearching&&pCat==="3D Print & Cast"&&<div style={{display:"flex",alignItems:"center",gap:12,padding:"10px 14px",marginBottom:8,background:GOLD_L+"66",border:`1px solid ${GOLD}55`,borderRadius:4,flexWrap:"wrap"}}>
-                    <div style={{flex:1,minWidth:180}}>
-                      <div style={{fontSize:12,fontWeight:700,color:GOLD_D}}>Manual override price</div>
-                      <div style={{fontSize:11,color:WG,marginTop:2}}>Add your own 3D print &amp; cast total instead of the per-piece figures.</div>
-                    </div>
-                    <div style={{position:"relative"}}>
-                      <span style={{position:"absolute",left:10,top:"50%",transform:"translateY(-50%)",fontSize:13,color:WG,pointerEvents:"none"}}>$</span>
-                      <input type="number" value={pcOverride} min="0" step="0.01" placeholder="0.00"
-                        onChange={e=>setPcOverride(e.target.value)}
-                        style={{...SS.inp,marginTop:0,width:130,padding:"8px 10px 8px 22px",fontSize:14,fontWeight:700,textAlign:"right"}}/>
-                    </div>
-                    <Btn sm onClick={addCustomPrintCast}>Add to quote</Btn>
-                  </div>}
                   {(()=>{
                     const visibleItems=fp.filter(item=>!(item.category==="CAD Design"&&item.cadTier)&&item.category!=="Accent Stones");
                     const isRepairsView=!pSearching&&pCat===REPAIRS_CAT;
@@ -5358,6 +5417,13 @@ function PricingDB({pricing,setPricing,spotPrices,setSpotPrices,markupTable,cent
             </div>
           </div>}
       </div>
+      <div style={{background:GOLD_L+"66",border:`1px solid ${GOLD}55`,borderRadius:4,padding:"11px 14px",marginBottom:14,display:"flex",alignItems:"center",gap:12,flexWrap:"wrap"}}>
+        <div style={{flex:1,minWidth:200,fontSize:12,color:INK,lineHeight:1.6}}>
+          <div style={{fontSize:12,fontWeight:700,color:GOLD_D,marginBottom:3}}>Manual override price (Centre or Feature Stone Setting)</div>
+          The rates above are based on carat weight. Pricing varies between jewellers depending on stone size, stone type, and setting style — set your own per-carat rates here, or enter your own price for this setting on any quote.
+        </div>
+        {!editRates&&<Btn sm onClick={startEditRates}>✎ Change rates</Btn>}
+      </div>
       <div style={{background:WHITE,border:`1px solid ${BD}`,borderRadius:5,padding:"18px 20px",marginBottom:16}}>
         <div style={{display:"grid",gridTemplateColumns:"180px 1fr",gap:"0 20px",alignItems:"start"}}>
           <div>
@@ -6420,8 +6486,8 @@ export default function App(){
     if(view==="jobDetail")return <JobDetail jobId={selJob} jobs={jobs} setJobs={setJobs} clients={clients} quotes={quotes} setQuotes={setQuotes} payments={payments} setPayments={setPayments} notes={notes} setNotes={setNotes} invoices={invoices} setInvoices={setInvoices} proposals={proposals} setProposals={setProposals} biz={biz} markupTable={markupTable} pricing={pricing} setView={setView}/>;
     if(view==="quotes")return <QuotesList quotes={quotes} jobs={jobs} clients={clients} markupTable={markupTable} biz={biz} setView={setView}/>;
     if(view.startsWith("quoteDetail_"))return <QuoteDetail quoteId={view.split("_")[1]} quotes={quotes} setQuotes={setQuotes} jobs={jobs} clients={clients} biz={biz} markupTable={markupTable} naturalStoneMarkup={naturalStoneMarkup} labStoneMarkup={labStoneMarkup} payments={payments} setView={setView}/>;
-    if(view.startsWith("newQuote_"))return <QuoteBuilder jobId={view.split("_")[1]} jobs={jobs} clients={clients} quotes={quotes} setQuotes={setQuotes} pricing={pricing} setPricing={setPricing} markupTable={markupTable} naturalStoneMarkup={naturalStoneMarkup} labStoneMarkup={labStoneMarkup} centreRates={centreRates} setView={setView}/>;
-    if(view.startsWith("editQuote_"))return <QuoteBuilder editQuoteId={view.split("_")[1]} jobs={jobs} clients={clients} quotes={quotes} setQuotes={setQuotes} pricing={pricing} setPricing={setPricing} markupTable={markupTable} naturalStoneMarkup={naturalStoneMarkup} labStoneMarkup={labStoneMarkup} centreRates={centreRates} setView={setView}/>;
+    if(view.startsWith("newQuote_"))return <QuoteBuilder jobId={view.split("_")[1]} jobs={jobs} clients={clients} quotes={quotes} setQuotes={setQuotes} pricing={pricing} setPricing={setPricing} markupTable={markupTable} naturalStoneMarkup={naturalStoneMarkup} labStoneMarkup={labStoneMarkup} centreRates={centreRates} setCentreRates={setCentreRates} setView={setView}/>;
+    if(view.startsWith("editQuote_"))return <QuoteBuilder editQuoteId={view.split("_")[1]} jobs={jobs} clients={clients} quotes={quotes} setQuotes={setQuotes} pricing={pricing} setPricing={setPricing} markupTable={markupTable} naturalStoneMarkup={naturalStoneMarkup} labStoneMarkup={labStoneMarkup} centreRates={centreRates} setCentreRates={setCentreRates} setView={setView}/>;
     if(view==="invoices")return <InvoicesList invoices={invoices} jobs={jobs} clients={clients} quotes={quotes} payments={payments} setInvoices={setInvoices} markupTable={markupTable} setView={setView}/>;
     if(view.startsWith("invoiceDetail_"))return <InvoiceDetail invoiceId={view.split("_")[1]} invoices={invoices} setInvoices={setInvoices} jobs={jobs} clients={clients} payments={payments} biz={biz} setView={setView}/>;
     if(view==="pricing")return <PricingDB pricing={pricing} setPricing={setPricing} spotPrices={spotPrices} setSpotPrices={setSpotPrices} markupTable={markupTable} centreRates={centreRates} setCentreRates={setCentreRates}/>;
