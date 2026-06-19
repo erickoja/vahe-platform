@@ -1719,6 +1719,14 @@ function Jobs({clients,jobs,setJobs,quotes,setQuotes,payments,setPayments,notes,
       if(!hay.includes(q))return false;
     }
     return true;
+  // Most urgent first: soonest (and overdue) deadlines on top, undated jobs at the bottom.
+  // Deadlines are ISO yyyy-mm-dd strings, so a plain string compare is chronological.
+  }).sort((a,b)=>{
+    const ad=a.deadline||"",bd=b.deadline||"";
+    if(!ad&&!bd)return 0;
+    if(!ad)return 1;
+    if(!bd)return -1;
+    return ad.localeCompare(bd);
   });
   const add=f=>{setJobs(p=>{const n=[...p,{...f,id:uid(),createdAt:today()}];persist(K.jo,n);return n;});setModal(null);};
   const delJob=(id,e)=>{
