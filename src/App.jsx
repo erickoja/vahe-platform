@@ -4306,33 +4306,60 @@ function QuotesList({quotes,jobs,clients,markupTable,biz,setView}){
       {shown.length===0&&<Card><div style={{color:WG,fontSize:14,textAlign:"center",padding:"18px 0"}}>No quotes match.</div></Card>}
     </>}
 
-    {shown.map(({q,job,cl,price,priceKnown,expired,daysSent,followUp,expiryISO})=>{
-      const manual=quoteIsManual(q);
-      const calc=calcQuote(q.lineItems,markupTable,q.markupOverride);
-      const priceStr=priceKnown?fmtR(price):"—";
-      return <Card key={q.id} onClick={()=>setView("quoteDetail_"+q.id)}>
-        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
-          <div>
-            <div style={{fontWeight:700,fontSize:15,color:INK}}>{quoteLabel(q)} {q.title?.trim()&&<span style={{fontWeight:400,color:WG,fontSize:12}}>· {quoteRef(q)}</span>}</div>
-            <div style={{fontSize:13,color:WG,marginTop:3}}>{job?.type} · {cl?.name} · {fmtDate(q.createdAt)}</div>
-            <div style={{display:"flex",gap:10,fontSize:12,color:WG,marginTop:2,flexWrap:"wrap"}}>
-              {manual?<span style={{color:GOLD_D,fontWeight:700}}>Manual quoted price</span>:<span>Setting: {calc.mult||"—"}× markup</span>}
-              {q.stoneMode==="sourcing"&&<span style={{color:"#7B5EA7"}}>+ {q.stoneType==="lab"?"Lab-Grown":"Natural"} stone (separate markup)</span>}
-              {q.stoneMode==="client"&&<span style={{color:"#7B5EA7"}}>+ Client supplying stone</span>}
+    {/* Group the shown quotes by job (newest-active group first, preserving the createdAt sort) */}
+    {(()=>{
+      const groups=[];const byJob=new Map();
+      shown.forEach(r=>{
+        const key=r.job?.id||"__none";
+        let g=byJob.get(key);
+        if(!g){g={key,job:r.job,cl:r.cl,rows:[]};byJob.set(key,g);groups.push(g);}
+        g.rows.push(r);
+      });
+      return groups.map(g=>(
+        <div key={g.key} style={{marginBottom:20}}>
+          {/* Group header — client · job · stage · count (click to open the job) */}
+          <div onClick={()=>g.job&&setView("jobDetail_"+g.job.id)}
+            style={{display:"flex",justifyContent:"space-between",alignItems:"center",gap:12,padding:"8px 4px 8px 12px",borderLeft:`3px solid ${GOLD}`,marginBottom:8,cursor:g.job?"pointer":"default"}}>
+            <div style={{display:"flex",alignItems:"baseline",gap:10,flexWrap:"wrap"}}>
+              <span style={{fontWeight:800,fontSize:15,color:INK}}>{g.cl?clientDisplayName(g.cl):"Unassigned"}</span>
+              {g.job&&<span style={{fontSize:13,color:WG}}>{g.job.type}</span>}
+              {g.job&&<Badge label={g.job.stage} color={SC[g.job.stage]||WG}/>}
             </div>
-            {/* Follow-up + expiry flags */}
-            {(followUp||expired)&&<div style={{display:"flex",gap:8,marginTop:6,flexWrap:"wrap"}}>
-              {followUp&&<span style={{background:GOLD_L,color:GOLD_D,border:`1px solid ${GOLD}55`,borderRadius:3,padding:"2px 10px",fontSize:11,fontWeight:700}}>🔔 Sent {daysSent} days ago — follow up?</span>}
-              {expired&&<span style={{background:DANGER+"14",color:DANGER,border:`1px solid ${DANGER}44`,borderRadius:3,padding:"2px 10px",fontSize:11,fontWeight:700}}>⚠ Expired {fmtDate(expiryISO)}</span>}
-            </div>}
+            <span style={{fontSize:11,color:WG,fontWeight:700,whiteSpace:"nowrap"}}>{g.rows.length} quote{g.rows.length!==1?"s":""}{g.job?" ›":""}</span>
           </div>
-          <div style={{display:"flex",gap:14,alignItems:"center"}}>
-            <Badge label={q.status} color={q.status==="Approved"?OK:q.status==="Draft"?WG:q.status==="Declined"?DANGER:GOLD_D}/>
-            <div style={{fontWeight:800,fontSize:17,color:OK,textAlign:"right"}}>{priceStr}</div>
+          {/* Quotes for this job, nested under the header */}
+          <div style={{display:"flex",flexDirection:"column",gap:8,paddingLeft:12}}>
+            {g.rows.map(({q,price,priceKnown,expired,daysSent,followUp,expiryISO})=>{
+              const manual=quoteIsManual(q);
+              const calc=calcQuote(q.lineItems,markupTable,q.markupOverride);
+              const priceStr=priceKnown?fmtR(price):"—";
+              return <Card key={q.id} onClick={()=>setView("quoteDetail_"+q.id)}>
+                <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+                  <div>
+                    <div style={{fontWeight:700,fontSize:14,color:INK}}>{quoteLabel(q)} {q.title?.trim()&&<span style={{fontWeight:400,color:WG,fontSize:12}}>· {quoteRef(q)}</span>}</div>
+                    <div style={{display:"flex",gap:10,fontSize:12,color:WG,marginTop:3,flexWrap:"wrap"}}>
+                      <span>{fmtDate(q.createdAt)}</span>
+                      {manual?<span style={{color:GOLD_D,fontWeight:700}}>Manual quoted price</span>:<span>Setting: {calc.mult||"—"}× markup</span>}
+                      {q.stoneMode==="sourcing"&&<span style={{color:"#7B5EA7"}}>+ {q.stoneType==="lab"?"Lab-Grown":"Natural"} stone</span>}
+                      {q.stoneMode==="client"&&<span style={{color:"#7B5EA7"}}>+ Client supplying stone</span>}
+                    </div>
+                    {/* Follow-up + expiry flags */}
+                    {(followUp||expired)&&<div style={{display:"flex",gap:8,marginTop:6,flexWrap:"wrap"}}>
+                      {followUp&&<span style={{background:GOLD_L,color:GOLD_D,border:`1px solid ${GOLD}55`,borderRadius:3,padding:"2px 10px",fontSize:11,fontWeight:700}}>🔔 Sent {daysSent} days ago — follow up?</span>}
+                      {expired&&<span style={{background:DANGER+"14",color:DANGER,border:`1px solid ${DANGER}44`,borderRadius:3,padding:"2px 10px",fontSize:11,fontWeight:700}}>⚠ Expired {fmtDate(expiryISO)}</span>}
+                    </div>}
+                  </div>
+                  <div style={{display:"flex",gap:14,alignItems:"center"}}>
+                    <Badge label={q.status} color={q.status==="Approved"?OK:q.status==="Draft"?WG:q.status==="Declined"?DANGER:GOLD_D}/>
+                    <div style={{fontWeight:800,fontSize:17,color:OK,textAlign:"right"}}>{priceStr}</div>
+                  </div>
+                </div>
+              </Card>;
+            })}
           </div>
         </div>
-      </Card>;
-    })}
+      ));
+    })()}
     {modal&&<Modal title="New Quote — Select Job" onClose={()=>setModal(false)}>
       <div style={{fontSize:13,color:WG,marginBottom:16,lineHeight:1.6}}>
         Quotes are built inside a job. Pick the client and job below — you'll be taken straight to the quote builder.
