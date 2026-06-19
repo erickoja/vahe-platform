@@ -1554,7 +1554,8 @@ function ClientForm({initial={},onSave,onCancel}){
 function Clients({clients,setClients,jobs,payments,setView,setSelClient}){
   const[modal,setModal]=useState(null);
   const[search,setSearch]=useState("");
-  const filtered=clients.filter(c=>{const s=search.toLowerCase();return [c.name,c.partnerName,c.email,c.partnerEmail].filter(Boolean).some(v=>v.toLowerCase().includes(s));});
+  const filtered=clients.filter(c=>{const s=search.toLowerCase();return [c.name,c.partnerName,c.email,c.partnerEmail].filter(Boolean).some(v=>v.toLowerCase().includes(s));})
+    .sort((a,b)=>(a.name||"").localeCompare(b.name||"",undefined,{sensitivity:"base"}));
   const save_=(f,id)=>{setClients(p=>{const n=id?p.map(c=>c.id===id?{...c,...f}:c):[...p,{...f,id:uid(),createdAt:today()}];persist(K.cl,n);return n;});setModal(null);};
   const del=id=>{
     const jobCount=jobs.filter(j=>j.clientId===id).length;
