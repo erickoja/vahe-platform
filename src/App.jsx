@@ -2207,6 +2207,16 @@ function JobDetail({jobId,jobs,setJobs,clients,quotes,setQuotes,payments,setPaym
   };
   // Duplicate a quote as a fresh Draft on the same job, then open it in the editor.
   const duplicateQuote=q=>{const dup=duplicateQuoteObj(q);setQuotes(p=>{const n=[...p,dup];persist(K.qu,n);return n;});setView("editQuote_"+dup.id);};
+  // Reorder a quote within this job (dir -1 = up, +1 = down). This order drives how options
+  // appear on new proposals, so the user can control the proposal layout from here.
+  const moveQuote=(id,dir)=>setQuotes(prev=>{
+    const order=prev.filter(q=>q.jobId===jobId).map(q=>q.id);
+    const i=order.indexOf(id),j=i+dir;
+    if(i<0||j<0||j>=order.length)return prev;
+    const ia=prev.findIndex(q=>q.id===id),ib=prev.findIndex(q=>q.id===order[j]);
+    const n=[...prev];[n[ia],n[ib]]=[n[ib],n[ia]];
+    persist(K.qu,n);return n;
+  });
   const addPay=f=>{const n=[...payments,{...f,id:uid(),jobId,date:f.date||today()}];setPayments(n);persist(K.pa,n);refreshLinks(n);setPayModal(false);};
   const delPay=id=>{if(!confirm("Delete this payment?"))return;const n=payments.filter(x=>x.id!==id);setPayments(n);persist(K.pa,n);refreshLinks(n);};
   const delJob=()=>{
@@ -2314,13 +2324,18 @@ function JobDetail({jobId,jobs,setJobs,clients,quotes,setQuotes,payments,setPaym
         <Btn sm onClick={()=>setView("newQuote_"+jobId)}>+ New quote</Btn>
       </div>
       {jq.length===0&&<div style={{color:WG,fontSize:14}}>No quotes yet.</div>}
-      {jq.map(q=>{
+      {jq.length>1&&<div style={{fontSize:11,color:WG,marginBottom:6}}>Order shown here is the order options appear on new proposals.</div>}
+      {jq.map((q,qi)=>{
         const calc=calcQuote(q.lineItems,markupTable,q.markupOverride);
         const hasInv=invoices.some(i=>i.quoteId===q.id);
         const manual=quoteIsManual(q);
         const stoneTotal=(q.stoneClientTotal||0)+(q.accentStoneTotal||0);
         const priceStr=manual?fmtR(Number(q.manualTotal)):(calc.base>0&&!calc.bracket&&!calc.overridden)?"—":fmtR(calc.finalLow+stoneTotal);
         return <div key={q.id} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"10px 0",borderBottom:`1px solid ${BD}`}}>
+          {jq.length>1&&<div style={{display:"flex",flexDirection:"column",marginRight:10}}>
+            <button onClick={()=>moveQuote(q.id,-1)} disabled={qi===0} title="Move up" style={{background:"none",border:"none",cursor:qi===0?"default":"pointer",color:qi===0?BD:WG,fontSize:11,lineHeight:1,padding:"1px 3px",fontFamily:"inherit"}}>▲</button>
+            <button onClick={()=>moveQuote(q.id,1)} disabled={qi===jq.length-1} title="Move down" style={{background:"none",border:"none",cursor:qi===jq.length-1?"default":"pointer",color:qi===jq.length-1?BD:WG,fontSize:11,lineHeight:1,padding:"1px 3px",fontFamily:"inherit"}}>▼</button>
+          </div>}
           <div style={{cursor:"pointer",flex:1}} onClick={()=>setView("quoteDetail_"+q.id)}>
             <div style={{fontWeight:600,fontSize:14,color:INK}}>{quoteLabel(q)} <span style={{fontWeight:400,color:WG,fontSize:12}}>{q.title?.trim()?quoteRef(q):""}</span></div>
             <div style={{fontSize:12,color:WG,marginTop:1}}>{manual?<>Manual quoted price → </>:<>Base: {fmt(calc.baseLow)} → {calc.mult}× → </>}<strong style={{color:OK}}>{priceStr}</strong></div>
