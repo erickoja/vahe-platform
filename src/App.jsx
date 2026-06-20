@@ -3195,7 +3195,7 @@ function QuoteBuilder({jobId:jobIdProp,editQuoteId,jobs,clients,quotes,setQuotes
 
         {/* ── Body: category sidebar + item list ── */}
         <div style={{flex:1,display:"flex",minHeight:0}}>
-          <div style={{width:188,flexShrink:0,borderRight:`1px solid ${BD}`,overflowY:"auto",padding:"10px 8px",background:PARCH}}>
+          <div style={{width:220,flexShrink:0,borderRight:`1px solid ${BD}`,overflowY:"auto",padding:"10px 8px",background:PARCH}}>
             {["All",...PCAT.filter(c=>c!=="Accent Stones")].map(cat=>{
               const n=cat==="All"?pricing.filter(p=>p.category!=="Accent Stones").length:pricing.filter(p=>p.category===cat).length;
               const active=!pSearching&&pCat===cat;
