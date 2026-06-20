@@ -89,6 +89,14 @@ const MANUAL_OVERRIDE_TEXT={
 };
 const manualOverrideText=cat=>MANUAL_OVERRIDE_TEXT[cat]||MANUAL_OVERRIDE_DEFAULT;
 const DIAMOND_CATS=["Lab Grown Diamonds | D-E","Natural diamonds G-H SI1","Natural diamonds D-E VS"];
+// Display titles for category nav/headers — the internal category id (used by pricing items,
+// filters, quotes) stays unchanged; only the shown title differs.
+const CAT_TITLE={
+  "Lab Grown Diamonds | D-E":"(Round) Lab Grown Diamonds: D-E/VS",
+  "Natural diamonds G-H SI1":"(Round) Natural Diamonds: G-H/SI",
+  "Natural diamonds D-E VS":"(Round) Natural Diamonds: D-E/VS",
+};
+const catTitle=cat=>CAT_TITLE[cat]||cat;
 const NOTE_TYPES=["General note","Client call","Client email","Client visit","Internal update","Approval received"];
 const GST_RATE=0.10;
 
@@ -3201,7 +3209,7 @@ function QuoteBuilder({jobId:jobIdProp,editQuoteId,jobs,clients,quotes,setQuotes
               const active=!pSearching&&pCat===cat;
               return <button key={cat} onClick={()=>{setPCat(cat);setSelCAD(null);setPSearch("");}}
                 style={{display:"flex",justifyContent:"space-between",alignItems:"center",gap:8,width:"100%",textAlign:"left",padding:"8px 12px",borderRadius:6,border:"none",background:active?GOLD:"transparent",color:active?WHITE:INK,fontSize:12,fontWeight:700,cursor:"pointer",fontFamily:"inherit",marginBottom:2}}>
-                <span>{cat}</span>
+                <span>{catTitle(cat)}</span>
                 {n>0&&<span style={{fontSize:10,fontWeight:700,color:active?"rgba(255,255,255,0.75)":WG}}>{n}</span>}
               </button>;
             })}
@@ -3210,7 +3218,7 @@ function QuoteBuilder({jobId:jobIdProp,editQuoteId,jobs,clients,quotes,setQuotes
           <div style={{flex:1,display:"flex",flexDirection:"column",minHeight:0,padding:"0 24px"}}>
             {/* Manual override price — available on every category (pinned above the list) */}
             <div style={{flexShrink:0,background:GOLD_L+"66",border:`1px solid ${GOLD}55`,borderRadius:4,padding:"11px 14px",margin:"12px 0 10px"}}>
-              <div style={{fontSize:12,fontWeight:700,color:GOLD_D,marginBottom:2}}>Manual override price{!pSearching&&pCat!=="All"?` (${pCat})`:""}</div>
+              <div style={{fontSize:12,fontWeight:700,color:GOLD_D,marginBottom:2}}>Manual override price{!pSearching&&pCat!=="All"?` (${catTitle(pCat)})`:""}</div>
               <div style={{fontSize:11,color:WG,lineHeight:1.5,marginBottom:9}}>{pSearching?MANUAL_OVERRIDE_DEFAULT:manualOverrideText(pCat)}</div>
               <div style={{display:"flex",alignItems:"center",gap:10,flexWrap:"wrap"}}>
                 <input value={manLabel} onChange={e=>setManLabel(e.target.value)} placeholder="Label (e.g. 15 × 2mm blue sapphire)" onKeyDown={e=>{if(e.key==="Enter")addManual();}} style={{...SS.inp,marginTop:0,flex:1,minWidth:200}}/>
@@ -3259,7 +3267,7 @@ function QuoteBuilder({jobId:jobIdProp,editQuoteId,jobs,clients,quotes,setQuotes
                           {timesAdded>0&&<span style={{background:flashing?OK:OK+"1A",color:flashing?WHITE:OK,fontSize:9,fontWeight:800,padding:"2px 8px",borderRadius:4,letterSpacing:"0.05em",whiteSpace:"nowrap",flexShrink:0,transition:"all 0.25s"}}>✓ {timesAdded>1?`ON QUOTE ×${timesAdded}`:"ON QUOTE"}</span>}
                         </div>
                         <div style={{fontSize:11,color:WG,marginTop:1,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>
-                          {showCat?`${item.category} · `:""}
+                          {showCat?`${catTitle(item.category)} · `:""}
                           {isDiamond?`${item.caratWeight}ct · ${fmt(item.baseCost)}/stone · ${fmt(item.pricePerCarat)}/ct`
                           :isSetting?`stone fits ${item.caratWeight}ct · ${fmt(item.baseCost)}/stone setting`
                           :isPrintCast?`${fmt(item.baseCost)}/piece`
@@ -5339,7 +5347,7 @@ function PricingDB({pricing,setPricing,spotPrices,setSpotPrices,markupTable,cent
 
     <div style={{display:"flex",gap:6,flexWrap:"wrap",marginBottom:16}}>
       {["All","Metals","Labour","CAD Design","Basic Setting","Complex Setting",CENTRE_SET_CAT,"3D Print & Cast",FINDINGS_CAT,PURCHASED_CAT,...DIAMOND_CATS,REPAIRS_CAT].map(cat=>(
-        <button key={cat} onClick={()=>setCf(cat)} style={{padding:"4px 11px",borderRadius:3,border:`1px solid ${cf===cat?(DCOLORS[cat]||GOLD):BD}`,background:cf===cat?(DCOLORS[cat]||GOLD):"transparent",color:cf===cat?WHITE:WG,fontSize:11,fontWeight:700,cursor:"pointer",fontFamily:"inherit"}}>{cat}</button>
+        <button key={cat} onClick={()=>setCf(cat)} style={{padding:"4px 11px",borderRadius:3,border:`1px solid ${cf===cat?(DCOLORS[cat]||GOLD):BD}`,background:cf===cat?(DCOLORS[cat]||GOLD):"transparent",color:cf===cat?WHITE:WG,fontSize:11,fontWeight:700,cursor:"pointer",fontFamily:"inherit"}}>{catTitle(cat)}</button>
       ))}
     </div>
 
@@ -5366,7 +5374,7 @@ function PricingDB({pricing,setPricing,spotPrices,setSpotPrices,markupTable,cent
     {/* Diamond view */}
     {isDiamondView&&<div>
       <div style={{background:WHITE,border:`1px solid ${BD}`,borderRadius:5,padding:"12px 16px",marginBottom:14,fontSize:13,lineHeight:1.5}}>
-        <strong style={{color:DCOLORS[cf]||INK}}>{cf}</strong>
+        <strong style={{color:DCOLORS[cf]||INK}}>{catTitle(cf)}</strong>
         <span style={{display:"block",marginTop:3,fontSize:12,color:WG}}>{DIAMOND_CAT_LABELS[cf]}</span>
         <span style={{display:"block",marginTop:3,fontSize:12,color:WG}}>Raw costs per stone — markup applied at quote time via multiplier table. Add a Basic Setting line separately for the setting labour cost.</span>
       </div>
@@ -5603,7 +5611,7 @@ function PricingDB({pricing,setPricing,spotPrices,setSpotPrices,markupTable,cent
             const col=DCOLORS[cat]||WG;
             return <div key={cat} onClick={()=>setCf(cat)} style={{background:WHITE,border:`1px solid ${col}44`,borderRadius:5,padding:"16px 18px",cursor:"pointer",transition:"border-color 0.15s"}}
               onMouseEnter={e=>e.currentTarget.style.borderColor=col} onMouseLeave={e=>e.currentTarget.style.borderColor=col+"44"}>
-              <div style={{fontSize:12,fontWeight:700,color:col,marginBottom:6}}>{cat}</div>
+              <div style={{fontSize:12,fontWeight:700,color:col,marginBottom:6}}>{catTitle(cat)}</div>
               <div style={{fontSize:11,color:WG,lineHeight:1.7}}>{its.length} sizes · {its[0]?.sizeMm}mm – {its[its.length-1]?.sizeMm}mm<br/>{fmt(its[0]?.baseCost)} – {fmt(its[its.length-1]?.baseCost)} per stone</div>
               <div style={{fontSize:11,color:col,fontWeight:700,marginTop:8}}>View chart →</div>
             </div>;
