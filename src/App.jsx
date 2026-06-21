@@ -78,7 +78,7 @@ const MANUAL_OVERRIDE_TEXT={
   "Natural diamonds D-E VS":DIAMOND_OVERRIDE_TEXT,
   "Metals":"Add a manual metal cost. Workshops vary in what they pay. Alloying the metal yourself costs less than buying a pre-cast piece from a caster with taxes included. Feel free to enter your own amount.",
   "Labour":"Add a manual labour cost. Manufacturing rates vary between workshops and individual jewellers, so feel free to enter your own amount.",
-  "CAD Design":"The prices in this database are a starting point. CAD design costs vary widely, from low-cost overseas outsourcing to premium hourly rates in places like Australia, where you'll pay considerably more. We've provided a guide, but feel free to enter your own label and price to add a custom line to the quote instead.",
+  "CAD Design":"Price CAD design by the hour (toggle # and enter hours against your hourly rate) or switch to $ to enter a manual flat price. CAD costs vary widely — from low-cost overseas outsourcing to premium local rates — so set the hourly rate that suits your workshop.",
   [FINDINGS_CAT]:"This one's a little tricky, as findings pricing changes often and there are thousands of variants. Butterfly clips, screw-back posts and so on. We recommend adding your commonly used findings with approximate supplier pricing to the database, and entering a manual price for anything more niche.",
   [PURCHASED_CAT]:"Purchased components are items you don't make yourself but add to the piece. For example, a 45cm, 1.2mm gauge 9ct white gold box chain attached to a pendant that you are making. Add your supplier pricing to the database for common components, and enter a manual price for anything one-off.",
   "Basic Setting":"These are average trade prices from across the industry. Every setter charges differently, so depending on who sets your pieces, review these and lock in your own rates or simply quote each piece manually. Basic setting refers to very simple work, such as micropavé on a cast item or a small claw setting.",
@@ -161,7 +161,7 @@ const DEFAULT_LAB_STONE_MARKUP=[
 const SEED_SPOT={gold:105,platinum:148,silver:1.45,updatedAt:"2025-05-01"};
 // Seed pricing ids that have been retired from the catalogue — stripped from saved data on load
 // so they don't linger (and aren't re-added by the missing-seed merge).
-const RETIRED_PRICING_IDS=new Set(["p10"]);
+const RETIRED_PRICING_IDS=new Set(["p10","cad0","cad1","cad2","cad3"]);   // cad0-3: old CAD design tiers, replaced by hourly rate (cad_hr)
 const SEED_PRICING=[
   {id:"p1",category:"Metals",name:"9ct yellow gold",unit:"g",baseCost:39.38,metalKey:"gold",purity:0.375},
   {id:"p2",category:"Metals",name:"18ct yellow gold",unit:"g",baseCost:78.75,metalKey:"gold",purity:0.75},
@@ -181,11 +181,8 @@ const SEED_PRICING=[
   {id:"pc1",category:"3D Print & Cast",name:"3D print fee",unit:"piece",baseCost:60},
   {id:"pc2",category:"3D Print & Cast",name:"Casting fee",unit:"piece",baseCost:15},
   // ── CAD Design ────────────────────────────────────────────────────────────
-  {id:"cad0",category:"CAD Design",name:"None (no charge)",unit:"job",baseCost:0,cadTier:true,revisions:2,additionalRate:70},
-  {id:"cad1",category:"CAD Design",name:"Simple Design",unit:"job",baseCost:250,cadTier:true,revisions:2,additionalRate:70},
-  {id:"cad2",category:"CAD Design",name:"Standard Design",unit:"job",baseCost:500,cadTier:true,revisions:2,additionalRate:70},
-  {id:"cad3",category:"CAD Design",name:"Complex Design",unit:"job",baseCost:750,cadTier:true,revisions:2,additionalRate:70},
-  {id:"cad4",category:"CAD Design",name:"Additional revision",unit:"hr",baseCost:70,cadRevision:true},
+  // Priced by the hour (set your hourly rate below) or as a manual flat price at quote time.
+  {id:"cad_hr",category:"CAD Design",name:"CAD design",unit:"hr",baseCost:90},
   // ── Lab-grown accent diamonds D-E VS ─────────────────────────────────────
   {id:"ld01",category:"Lab Grown Diamonds | D-E",name:"0.8mm",unit:"stone",baseCost:0.81,sizeMm:0.8,caratWeight:0.002,pricePerCarat:405.00},
   {id:"ld02",category:"Lab Grown Diamonds | D-E",name:"0.9mm",unit:"stone",baseCost:0.92,sizeMm:0.9,caratWeight:0.003,pricePerCarat:306.67},
@@ -862,7 +859,7 @@ const calcStoneQuote=(items,table)=>{
   return{totalCost,bracket,mult,markedUp,gst,clientTotal};
 };
 
-const K={cl:"jlr4_clients",jo:"jlr4_jobs",qu:"jlr4_quotes",pa:"jlr4_payments",pr:"jlr4_pricing_v9",biz:"jlr4_biz",no:"jlr4_notes",inv:"jlr4_invoices",spot:"jlr4_spot",mt:"jlr4_markup",smn:"jlr4_stone_nat",sml:"jlr4_stone_lab",csr:"jlr4_centre_rates",ap:"jlr4_appointments",pp:"jlr4_proposals"};
+const K={cl:"jlr4_clients",jo:"jlr4_jobs",qu:"jlr4_quotes",pa:"jlr4_payments",pr:"jlr4_pricing_v9",biz:"jlr4_biz",no:"jlr4_notes",inv:"jlr4_invoices",spot:"jlr4_spot",mt:"jlr4_markup",smn:"jlr4_stone_nat",sml:"jlr4_stone_lab",csr:"jlr4_centre_rates",ap:"jlr4_appointments",pp:"jlr4_proposals",td:"jlr4_todos"};
 
 // Name of the public, anon-readable table holding immutable proposal snapshots for client links.
 const PUBLIC_PROPOSALS_TABLE="public_proposals";
@@ -2457,8 +2454,6 @@ function PaymentForm({onSave,onCancel,suggestedAmount}){
 }
 
 // ── Quote Builder ─────────────────────────────────────────────────────────
-const CAD_TIER_COLORS={"None (no charge)":WG,"Simple Design":"#5B7FA6","Standard Design":GOLD_D,"Complex Design":"#7B5EA7"};
-
 // ── Accent Stone Modal ────────────────────────────────────────────────────
 const STONE_SHAPES=["Round","Marquise","Pear","Oval","Princess","Emerald","Cushion","Baguette","Trillion","Asscher","Radiant","Heart","Other"];
 function AccentStoneModal({pricing,setPricing,naturalStoneMarkup,labStoneMarkup,onAdd,onClose}){
@@ -2677,58 +2672,6 @@ function CentreStonePicker({onAdd,onAddManual,centreRates=DEFAULT_CENTRE_RATES,s
   </div>;
 }
 
-function CADQuotePicker({pricing,selCAD,setSelCAD,pQty,setPQty,addFromDB}){
-  const cadTiers=pricing.filter(p=>p.category==="CAD Design"&&p.cadTier);
-  const cadRev=pricing.find(p=>p.category==="CAD Design"&&p.cadRevision);
-  const revQty=pQty[cadRev?.id]||"";
-  return <div>
-    <div style={{fontSize:12,color:WG,marginBottom:14,lineHeight:1.6}}>
-      Select a design tier — each includes 2 major revisions + unlimited minor revisions. Only one tier per quote.
-    </div>
-    <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(148px,1fr))",gap:10,marginBottom:20}}>
-      {cadTiers.map(tier=>{
-        const col=CAD_TIER_COLORS[tier.name]||WG;
-        const sel=selCAD?.id===tier.id;
-        const isNone=tier.baseCost===0;
-        return <button key={tier.id}
-          onClick={()=>setSelCAD(sel?null:tier)}
-          style={{border:`2px solid ${sel?col:BD}`,borderRadius:5,padding:"14px",cursor:"pointer",background:sel?col+"18":WHITE,transition:"all 0.12s",textAlign:"left",fontFamily:"inherit"}}>
-          <div style={{width:10,height:10,borderRadius:"50%",background:sel?col:BD,marginBottom:8,transition:"background 0.12s"}}/>
-          <div style={{fontSize:13,fontWeight:700,color:sel?col:INK,marginBottom:4}}>{tier.name}</div>
-          <div style={{fontSize:18,fontWeight:800,color:sel?col:isNone?WG:INK}}>{isNone?"—":fmt(tier.baseCost)}</div>
-          <div style={{fontSize:11,color:WG,marginTop:2}}>{isNone?"no charge":"per job"}</div>
-        </button>;
-      })}
-    </div>
-    {selCAD&&<div style={{background:selCAD.baseCost>0?OK+"11":PARCH,border:`1px solid ${selCAD.baseCost>0?OK:BD}`,borderRadius:4,padding:"12px 16px",marginBottom:16,display:"flex",justifyContent:"space-between",alignItems:"center",gap:12}}>
-      <div>
-        <div style={{fontSize:13,fontWeight:700,color:INK}}>CAD Design — {selCAD.name}</div>
-        <div style={{fontSize:12,color:WG,marginTop:2}}>{selCAD.baseCost>0?"Incl. 2 major revisions + unlimited minor revisions":"No design fee charged"}</div>
-      </div>
-      <div style={{display:"flex",gap:10,alignItems:"center",flexShrink:0}}>
-        <div style={{fontSize:16,fontWeight:800,color:selCAD.baseCost>0?OK:WG}}>{selCAD.baseCost>0?fmt(selCAD.baseCost):"$0.00"}</div>
-        <Btn onClick={()=>{addFromDB(selCAD,1);setSelCAD(null);}}>Add to quote</Btn>
-      </div>
-    </div>}
-    {cadRev&&<div style={{borderTop:`1px solid ${BD}`,paddingTop:16}}>
-      <div style={{fontSize:11,fontWeight:700,color:WG,textTransform:"uppercase",letterSpacing:"0.06em",marginBottom:10}}>Additional revision (optional)</div>
-      <div style={{display:"flex",alignItems:"center",gap:12,background:PARCH,borderRadius:4,padding:"12px 14px"}}>
-        <div style={{flex:1}}>
-          <div style={{fontSize:13,fontWeight:700,color:INK}}>Additional revision</div>
-          <div style={{fontSize:12,color:WG,marginTop:2}}>{fmt(cadRev.baseCost)}/hr · major revisions beyond the 2 included</div>
-        </div>
-        <div style={{display:"flex",alignItems:"center",gap:8}}>
-          <input type="number" value={revQty} min="1" step="1" placeholder="hrs"
-            onChange={e=>setPQty(p=>({...p,[cadRev.id]:e.target.value}))}
-            style={{...SS.inp,marginTop:0,width:70,padding:"7px 10px",fontSize:14,textAlign:"center"}}/>
-          {revQty&&Number(revQty)>0&&<div style={{fontSize:13,fontWeight:800,color:OK,whiteSpace:"nowrap"}}>= {fmt(cadRev.baseCost*Number(revQty))}</div>}
-          <Btn sm onClick={()=>addFromDB(cadRev,revQty||1)}>Add</Btn>
-        </div>
-      </div>
-    </div>}
-  </div>;
-}
-
 function QuoteBuilder({jobId:jobIdProp,editQuoteId,jobs,clients,quotes,setQuotes,pricing,setPricing,markupTable,naturalStoneMarkup,labStoneMarkup,centreRates=DEFAULT_CENTRE_RATES,setCentreRates,setView}){
   const existingQuote=editQuoteId?quotes.find(q=>q.id===editQuoteId):null;
   const jobId=existingQuote?.jobId||jobIdProp;
@@ -2751,7 +2694,6 @@ function QuoteBuilder({jobId:jobIdProp,editQuoteId,jobs,clients,quotes,setQuotes
   const[pSearch,setPSearch]=useState("");
   const[pCat,setPCat]=useState("All");
   const[pQty,setPQty]=useState({});
-  const[selCAD,setSelCAD]=useState(null);
   const[pcOverride,setPcOverride]=useState("");
   const[pMode,setPMode]=useState({});   // per-item: "qty" (default) or "amt" (manual figure)
   const[manLabel,setManLabel]=useState("");
@@ -2763,15 +2705,15 @@ function QuoteBuilder({jobId:jobIdProp,editQuoteId,jobs,clients,quotes,setQuotes
   const markAdded=(id,cost)=>{setAddedIds(p=>({...p,[id]:(p[id]||0)+1}));setSessionAdds(p=>[...p,Number(cost)||0]);setPFlash(id);setTimeout(()=>setPFlash(f=>f===id?null:f),1400);};
   const openPricing=()=>{
     setAddedIds({});setSessionAdds([]);
-    // Don't reopen stuck on a picker-only category (Centre Stone Setting / CAD) that hides the
+    // Don't reopen stuck on a picker-only category (Centre Stone Setting) that hides the
     // browsable item list — return to "All" so you can always add ordinary items.
-    if(pCat===CENTRE_SET_CAT||pCat==="CAD Design"){setPCat("All");setSelCAD(null);}
+    if(pCat===CENTRE_SET_CAT){setPCat("All");}
     setPricingModal(true);
   };
-  const closePricing=()=>{setPricingModal(false);setSelCAD(null);};
+  const closePricing=()=>{setPricingModal(false);};
   useEffect(()=>{
     if(!pricingModal)return;
-    const h=e=>{if(e.key==="Escape"){setPricingModal(false);setSelCAD(null);}};
+    const h=e=>{if(e.key==="Escape"){setPricingModal(false);}};
     window.addEventListener("keydown",h);
     return()=>window.removeEventListener("keydown",h);
   },[pricingModal]);
@@ -2799,13 +2741,9 @@ function QuoteBuilder({jobId:jobIdProp,editQuoteId,jobs,clients,quotes,setQuotes
     const isDiamond=DIAMOND_CATS.includes(item.category);
     const isSetting=item.category==="Basic Setting"||item.category==="Complex Setting";
     const isPrintCast=item.category==="3D Print & Cast";
-    const isCAD=item.category==="CAD Design";
-    const isCADRevision=item.cadRevision;
     const desc=isDiamond?`${item.category} ${item.sizeMm}mm`
       :isSetting?(item.category==="Complex Setting"?`Complex setting ${item.sizeMm}mm`:`Basic setting ${item.sizeMm}mm`)
       :isPrintCast?`${item.name} (${q} piece${q!==1?"s":""})`
-      :isCAD&&isCADRevision?`CAD revision (${q} hr${q!==1?"s":""})`
-      :isCAD?`CAD Design — ${item.name}`
       :item.name;
     const totalCost=(item.baseCost*q).toFixed(2);
     const detail=isDiamond
@@ -2814,12 +2752,6 @@ function QuoteBuilder({jobId:jobIdProp,editQuoteId,jobs,clients,quotes,setQuotes
       ?`${q} stone${q!==1?"s":""} × ${fmt(item.baseCost)}/stone setting`
       :isPrintCast
       ?`${q} piece${q!==1?"s":""} × ${fmt(item.baseCost)}/piece`
-      :isCAD&&isCADRevision
-      ?`${q} hr × ${fmt(item.baseCost)}/hr`
-      :isCAD&&item.baseCost>0
-      ?`Incl. 2 major revisions + unlimited minor revisions`
-      :isCAD
-      ?"No design fee charged"
       :item.unit==="hr"?`${q} hr × ${fmt(item.baseCost)}/hr`
       :item.unit==="g"?`${q}g × ${fmt(item.baseCost)}/g`
       :item.unit==="piece"?`${q} piece${q!==1?"s":""}`
@@ -3199,6 +3131,7 @@ function QuoteBuilder({jobId:jobIdProp,editQuoteId,jobs,clients,quotes,setQuotes
             <button onClick={closePricing} style={{background:"none",border:"none",fontSize:24,cursor:"pointer",color:WG,lineHeight:1,padding:0}}>×</button>
           </div>
           <input autoFocus value={pSearch} onChange={e=>setPSearch(e.target.value)} placeholder="Search the whole pricing DB…  (Esc closes)" style={{...SS.inp,marginTop:0}}/>
+          <div style={{marginTop:8,fontSize:11.5,color:WG,lineHeight:1.5}}>These are your cost prices, the mark-up is applied automatically by the multiplier table. The one exception is the repair prices that are already shown as a retail guide.</div>
         </div>
 
         {/* ── Body: category sidebar + item list ── */}
@@ -3221,7 +3154,7 @@ function QuoteBuilder({jobId:jobIdProp,editQuoteId,jobs,clients,quotes,setQuotes
               <div style={{fontSize:12,fontWeight:700,color:GOLD_D,marginBottom:2}}>Manual override price{!pSearching&&pCat!=="All"?` (${catTitle(pCat)})`:""}</div>
               <div style={{fontSize:11,color:WG,lineHeight:1.5,marginBottom:9}}>{pSearching?MANUAL_OVERRIDE_DEFAULT:manualOverrideText(pCat)}</div>
               <div style={{display:"flex",alignItems:"center",gap:10,flexWrap:"wrap"}}>
-                <input value={manLabel} onChange={e=>setManLabel(e.target.value)} placeholder="Label (e.g. 15 × 2mm blue sapphire)" onKeyDown={e=>{if(e.key==="Enter")addManual();}} style={{...SS.inp,marginTop:0,flex:1,minWidth:200}}/>
+                <input value={manLabel} onChange={e=>setManLabel(e.target.value)} placeholder="Label" onKeyDown={e=>{if(e.key==="Enter")addManual();}} style={{...SS.inp,marginTop:0,flex:1,minWidth:200}}/>
                 <div style={{position:"relative",width:120,flexShrink:0}}>
                   <span style={{position:"absolute",left:10,top:"50%",transform:"translateY(-50%)",fontSize:13,color:WG,pointerEvents:"none"}}>$</span>
                   <input type="number" value={manAmt} onChange={e=>setManAmt(e.target.value)} min="0" step="0.01" placeholder="0.00" onKeyDown={e=>{if(e.key==="Enter")addManual();}} style={{...SS.inp,marginTop:0,padding:"9px 10px 9px 22px",textAlign:"right",width:"100%"}}/>
@@ -3232,11 +3165,9 @@ function QuoteBuilder({jobId:jobIdProp,editQuoteId,jobs,clients,quotes,setQuotes
 
             {!pSearching&&pCat===CENTRE_SET_CAT
               ? <div style={{flex:1,overflowY:"auto",paddingBottom:14}}><CentreStonePicker onAdd={addCentreSetting} centreRates={centreRates} setCentreRates={setCentreRates}/></div>
-              : !pSearching&&pCat==="CAD Design"
-              ? <div style={{flex:1,overflowY:"auto",paddingBottom:14}}><CADQuotePicker pricing={pricing} selCAD={selCAD} setSelCAD={setSelCAD} pQty={pQty} setPQty={setPQty} addFromDB={addFromDB}/></div>
               : <div style={{flex:1,overflowY:"auto",paddingBottom:14}}>
                   {(()=>{
-                    const visibleItems=fp.filter(item=>!(item.category==="CAD Design"&&item.cadTier)&&item.category!=="Accent Stones");
+                    const visibleItems=fp.filter(item=>item.category!=="Accent Stones");
                     const isRepairsView=!pSearching&&pCat===REPAIRS_CAT;
                     const showCat=pSearching||pCat==="All";
                     let lastGroup=null;let lastSubgroup=null;
@@ -3248,12 +3179,11 @@ function QuoteBuilder({jobId:jobIdProp,editQuoteId,jobs,clients,quotes,setQuotes
                     const isDiamond=DIAMOND_CATS.includes(item.category);
                     const isSetting=item.category==="Basic Setting"||item.category==="Complex Setting";
                     const isPrintCast=item.category==="3D Print & Cast";
-                    const isCADRevision=item.cadRevision;
-                    const isFixedJob=item.unit==="job"&&!isCADRevision;
-                    const needsQty=!isFixedJob&&!item.cadTier;
+                    const isFixedJob=item.unit==="job";
+                    const needsQty=!isFixedJob;
                     const qty=pQty[item.id]||"";
                     const qtyStep=item.unit==="g"?"0.1":"1";
-                    const qtyLabel=item.unit==="g"?"Grams":item.unit==="hr"?"Hours":item.unit==="pair"?"Pairs":item.unit==="item"?"Qty":isPrintCast?"Pieces":isCADRevision?"Hours":isDiamond||isSetting?"Stones":"Qty";
+                    const qtyLabel=item.unit==="g"?"Grams":item.unit==="hr"?"Hours":item.unit==="pair"?"Pairs":item.unit==="item"?"Qty":isPrintCast?"Pieces":isDiamond||isSetting?"Stones":"Qty";
                     const previewCost=needsQty&&qty&&Number(qty)>0?(item.baseCost*Number(qty)).toFixed(2):null;
                     const mode=pMode[item.id]||(item.poa||item.baseCost===0&&item.unit==="stone"?"amt":"qty");
                     const amtMode=mode==="amt";
@@ -3271,7 +3201,6 @@ function QuoteBuilder({jobId:jobIdProp,editQuoteId,jobs,clients,quotes,setQuotes
                           {isDiamond?`${item.caratWeight}ct · ${fmt(item.baseCost)}/stone · ${fmt(item.pricePerCarat)}/ct`
                           :isSetting?`stone fits ${item.caratWeight}ct · ${fmt(item.baseCost)}/stone setting`
                           :isPrintCast?`${fmt(item.baseCost)}/piece`
-                          :isCADRevision?`${fmt(item.baseCost)}/hr · additional major revisions`
                           :`${fmt(item.baseCost)} per ${item.unit}`}
                         </div>
                       </div>
@@ -5026,128 +4955,6 @@ function SettingTable({items,onSavePrices,label="Basic Setting",onQtyChange}){
   </div>;
 }
 
-function CADDesignTable({items,onSavePrices,onQtyChange}){
-  const tiers=items.filter(x=>x.cadTier);
-  const revItem=items.find(x=>x.cadRevision);
-  const[editing,setEditing]=useState(false);
-  const[fees,setFees]=useState(()=>{const m={};tiers.forEach(t=>{m[t.id]=String(t.baseCost);});return m;});
-  const[addRate,setAddRate]=useState(String(revItem?.baseCost||70));
-  const[selectedTier,setSelectedTier]=useState(null);
-  const[revQty,setRevQty]=useState("");
-
-  const startEdit=()=>{
-    const m={};tiers.forEach(t=>{m[t.id]=String(t.baseCost);});
-    setFees(m);setAddRate(String(revItem?.baseCost||70));setEditing(true);
-  };
-  const cancelEdit=()=>setEditing(false);
-  const saveEdit=()=>{
-    const updated=items.map(item=>{
-      if(item.cadTier&&fees[item.id]!==undefined)return{...item,baseCost:Number(fees[item.id])||0};
-      if(item.cadRevision)return{...item,baseCost:Number(addRate)||0};
-      return item;
-    });
-    onSavePrices(updated);setEditing(false);
-  };
-
-  const selectTier=(tier)=>{
-    const next=selectedTier?.id===tier.id?null:tier;
-    setSelectedTier(next);
-    if(onQtyChange){
-      // clear any previously selected tier first
-      tiers.forEach(t=>onQtyChange("cad_tier_"+t.id,"0",{...t,name:`CAD Design — ${t.name}`}));
-      if(next&&next.id){
-        onQtyChange("cad_tier_"+next.id,"1",{...next,name:`CAD Design — ${next.name}`});
-      }
-    }
-  };
-
-  const handleRevQty=(v)=>{
-    setRevQty(v);
-    const hrs=Number(v)||0;
-    const rate=Number(addRate)||revItem?.baseCost||70;
-    if(onQtyChange&&revItem){
-      onQtyChange("cad_revision",String(hrs),{...revItem,name:"CAD Additional revision",baseCost:rate});
-    }
-  };
-
-  const TIER_COLORS={
-    "None (no charge)":WG,
-    "Simple Design":"#5B7FA6",
-    "Standard Design":GOLD_D,
-    "Complex Design":"#7B5EA7",
-  };
-
-  return <div style={{background:WHITE,borderRadius:5,border:`1px solid ${editing?GOLD:BD}`,overflow:"hidden",transition:"border-color 0.15s"}}>
-    {/* Toolbar */}
-    <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"12px 18px",background:editing?GOLD_L:PARCH,borderBottom:`1px solid ${editing?GOLD+"55":BD}`}}>
-      <div style={{fontSize:11,fontWeight:700,color:editing?GOLD_D:WG,textTransform:"uppercase",letterSpacing:"0.06em"}}>
-        {editing?"Editing fees — update then save":"CAD Design · select a tier for the calculator"}
-      </div>
-      <div style={{display:"flex",gap:8}}>
-        {editing
-          ?<><Btn sm ghost onClick={cancelEdit}>Cancel</Btn><Btn sm onClick={saveEdit}>Save fees</Btn></>
-          :<Btn sm ghost onClick={startEdit}>✎ Edit fees</Btn>}
-      </div>
-    </div>
-
-    {/* Policy note */}
-    <div style={{padding:"12px 18px",borderBottom:`1px solid ${BD}`,background:GOLD_L+"55",fontSize:12,color:GOLD_D,lineHeight:1.6}}>
-      Each tier includes CAD design, renderings & 3D model · <strong>2 major revisions</strong> + unlimited minor revisions · Further major revisions charged at the additional hourly rate below.
-    </div>
-
-    {/* Tier cards — clickable to select */}
-    <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(160px,1fr))",gap:0,borderBottom:`1px solid ${BD}`}}>
-      {tiers.map((tier,i)=>{
-        const col=TIER_COLORS[tier.name]||WG;
-        const isNone=tier.baseCost===0&&!editing;
-        const sel=selectedTier?.id===tier.id;
-        return <div key={tier.id} onClick={()=>!editing&&selectTier(tier)}
-          style={{padding:"18px 18px",borderRight:i<tiers.length-1?`1px solid ${BD}`:"none",
-            background:sel?(col+"18"):WHITE,cursor:editing?"default":"pointer",
-            outline:sel?`2px solid ${col}`:"none",outlineOffset:"-2px",transition:"all 0.12s"}}>
-          <div style={{display:"flex",alignItems:"center",gap:6,marginBottom:10}}>
-            <div style={{width:8,height:8,borderRadius:"50%",background:sel?col:BD,transition:"background 0.12s",flexShrink:0}}/>
-            <div style={{fontSize:12,fontWeight:700,color:sel?col:WG}}>{tier.name}</div>
-            {sel&&!editing&&<span style={{marginLeft:"auto",fontSize:10,fontWeight:800,color:col,background:col+"22",padding:"1px 6px",borderRadius:4}}>✓ selected</span>}
-          </div>
-          {editing
-            ?<input type="number" value={fees[tier.id]||""} min="0" step="1"
-                onClick={e=>e.stopPropagation()}
-                onChange={e=>setFees(p=>({...p,[tier.id]:e.target.value}))}
-                style={{...SS.inp,marginTop:0,fontSize:18,fontWeight:800,padding:"8px 10px",color:GOLD_D,border:`1px solid ${GOLD}`,width:"100%"}}/>
-            :<div style={{fontSize:22,fontWeight:800,color:isNone?WG:sel?col:INK}}>{isNone?"—":fmt(tier.baseCost)}</div>}
-          {!editing&&<div style={{fontSize:11,color:sel?col:WG,marginTop:4}}>{isNone?"no charge":"per job"}</div>}
-        </div>;
-      })}
-    </div>
-
-    {/* Additional revision — rate + qty input */}
-    <div style={{padding:"14px 18px",display:"flex",alignItems:"center",justifyContent:"space-between",gap:16,flexWrap:"wrap"}}>
-      <div>
-        <div style={{fontSize:12,fontWeight:700,color:INK}}>Additional revision</div>
-        <div style={{fontSize:11,color:WG,marginTop:2}}>Major revisions beyond the 2 included · charged per hour</div>
-      </div>
-      <div style={{display:"flex",alignItems:"center",gap:12,flexWrap:"wrap"}}>
-        {editing
-          ?<div style={{display:"flex",alignItems:"center",gap:6}}>
-              <span style={{fontSize:12,color:WG}}>Rate:</span>
-              <input type="number" value={addRate} min="0" step="1"
-                onChange={e=>setAddRate(e.target.value)}
-                style={{...SS.inp,marginTop:0,fontSize:14,fontWeight:800,padding:"6px 10px",color:GOLD_D,border:`1px solid ${GOLD}`,width:90,textAlign:"right"}}/>
-              <span style={{fontSize:12,color:WG}}>/hr</span>
-            </div>
-          :<span style={{fontSize:14,fontWeight:800,color:INK}}>{fmt(Number(addRate)||revItem?.baseCost||70)}<span style={{fontSize:11,fontWeight:400,color:WG}}>/hr</span></span>}
-        {!editing&&<div style={{display:"flex",alignItems:"center",gap:8,background:PARCH,borderRadius:4,padding:"8px 12px",border:`1px solid ${revQty&&Number(revQty)>0?GOLD:BD}`}}>
-          <label style={{fontSize:11,fontWeight:700,color:WG,whiteSpace:"nowrap"}}>Hrs:</label>
-          <input type="number" value={revQty} min="0" step="1" placeholder="0"
-            onChange={e=>handleRevQty(e.target.value)}
-            style={{width:60,padding:"4px 6px",borderRadius:6,border:`1px solid ${revQty&&Number(revQty)>0?GOLD:BD}`,fontSize:14,fontWeight:800,fontFamily:"inherit",color:INK,background:WHITE,outline:"none",textAlign:"center"}}/>
-          {revQty&&Number(revQty)>0&&<span style={{fontSize:13,fontWeight:800,color:OK,whiteSpace:"nowrap"}}>= {fmt((Number(addRate)||70)*Number(revQty))}</span>}
-        </div>}
-      </div>
-    </div>
-  </div>;
-}
 
 function PrintCastTable({items,onSavePrices,onQtyChange}){
   const printItem=items.find(x=>x.name==="3D print fee")||{baseCost:60};
@@ -5300,17 +5107,15 @@ function PricingDB({pricing,setPricing,spotPrices,setSpotPrices,markupTable,cent
   const isSettingView=cf==="Basic Setting";
   const isComplexSettingView=cf==="Complex Setting";
   const isPrintCastView=cf==="3D Print & Cast";
-  const isCADView=cf==="CAD Design";
   const isCentreView=cf===CENTRE_SET_CAT;
   const isAllView=cf==="All";
-  const specialCats=[...DIAMOND_CATS,"Basic Setting","Complex Setting","3D Print & Cast","CAD Design"];
+  const specialCats=[...DIAMOND_CATS,"Basic Setting","Complex Setting","3D Print & Cast"];
   const regularItems=pricing.filter(p=>!specialCats.includes(p.category));
-  const filteredRegular=isAllView?regularItems:(!isDiamondView&&!isSettingView&&!isComplexSettingView&&!isPrintCastView&&!isCADView?regularItems.filter(p=>p.category===cf):[]);
+  const filteredRegular=isAllView?regularItems:(!isDiamondView&&!isSettingView&&!isComplexSettingView&&!isPrintCastView?regularItems.filter(p=>p.category===cf):[]);
   const filteredDiamond=isDiamondView?pricing.filter(p=>p.category===cf):[];
   const filteredSetting=isSettingView?pricing.filter(p=>p.category==="Basic Setting"):[];
   const filteredComplex=isComplexSettingView?pricing.filter(p=>p.category==="Complex Setting"):[];
   const filteredPrintCast=pricing.filter(p=>p.category==="3D Print & Cast");
-  const filteredCAD=pricing.filter(p=>p.category==="CAD Design");
 
   const saveItem=(f,id)=>{setPricing(p=>{const n=id?p.map(x=>x.id===id?{...x,...f}:x):[...p,{...f,id:uid()}];persist(K.pr,n);return n;});setModal(null);};
   const del=id=>{if(!confirm("Delete?"))return;setPricing(p=>{const n=p.filter(x=>x.id!==id);persist(K.pr,n);return n;});};
@@ -5351,6 +5156,11 @@ function PricingDB({pricing,setPricing,spotPrices,setSpotPrices,markupTable,cent
       ))}
     </div>
 
+    {/* Global cost-price note — applies to every Pricing DB view */}
+    <div style={{background:WHITE,border:`1px solid ${BD}`,borderRadius:5,padding:"11px 16px",marginBottom:14,fontSize:13,color:WG,lineHeight:1.6}}>
+      <strong style={{color:INK}}>These are your cost prices, the mark-up is applied automatically by the multiplier table.</strong> The one exception is the repair prices that are already shown as a retail guide.
+    </div>
+
     {/* Basic Setting view */}
     {isSettingView&&<div>
       <div style={{background:WHITE,border:`1px solid ${BD}`,borderRadius:5,padding:"12px 16px",marginBottom:14,fontSize:13,lineHeight:1.5}}>
@@ -5388,15 +5198,6 @@ function PricingDB({pricing,setPricing,spotPrices,setSpotPrices,markupTable,cent
         <span style={{display:"block",marginTop:3,fontSize:12,color:WG}}>Fixed fees per piece — edit your rates any time. Both print and cast fees should appear as separate lines in your quote.</span>
       </div>
       <PrintCastTable items={filteredPrintCast} onSavePrices={saveSettingPrices}/>
-    </div>}
-
-    {/* CAD Design view */}
-    {isCADView&&<div>
-      <div style={{background:WHITE,border:`1px solid ${BD}`,borderRadius:5,padding:"12px 16px",marginBottom:14,fontSize:13,lineHeight:1.5}}>
-        <strong style={{color:INK}}>CAD Design — fee tiers</strong>
-        <span style={{display:"block",marginTop:3,fontSize:12,color:WG}}>Select a tier per job · includes CAD design, renderings & 3D model · Fees and revision rate are editable</span>
-      </div>
-      <CADDesignTable items={filteredCAD} onSavePrices={saveSettingPrices}/>
     </div>}
 
     {/* Centre Stone Setting view — interactive calculator feeding live calc */}
@@ -5493,10 +5294,7 @@ function PricingDB({pricing,setPricing,spotPrices,setSpotPrices,markupTable,cent
     </div>}
 
     {/* Regular items view */}
-    {!isDiamondView&&!isSettingView&&!isComplexSettingView&&!isPrintCastView&&!isCADView&&!isCentreView&&<>
-      {isAllView&&<div style={{background:WHITE,borderRadius:4,border:`1px solid ${BD}`,padding:"11px 16px",marginBottom:14,fontSize:13,color:WG,lineHeight:1.6}}>
-        Raw costs — no markup applied here. The multiplier table handles that at quote time. Select a diamond category or "Basic Setting" to view those price charts.
-      </div>}
+    {!isDiamondView&&!isSettingView&&!isComplexSettingView&&!isPrintCastView&&!isCentreView&&<>
       {filteredRegular.length>0&&<div style={{background:WHITE,borderRadius:5,border:`1px solid ${regularEditing?GOLD:BD}`,overflow:"hidden",marginBottom:16,transition:"border-color 0.15s"}}>
         {/* Table header bar with edit button */}
         <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"10px 16px",background:regularEditing?GOLD_L:PARCH,borderBottom:`1px solid ${regularEditing?GOLD+"55":BD}`}}>
@@ -5564,17 +5362,6 @@ function PricingDB({pricing,setPricing,spotPrices,setSpotPrices,markupTable,cent
       {isAllView&&<div style={{marginTop:4}}>
         <div style={{fontSize:11,fontWeight:700,color:WG,textTransform:"uppercase",letterSpacing:"0.06em",marginBottom:10}}>Setting &amp; diamond price tables</div>
         <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(220px,1fr))",gap:12}}>
-          {/* CAD Design card */}
-          {(()=>{
-            const tiers=pricing.filter(p=>p.cadTier&&p.baseCost>0);
-            const rev=pricing.find(p=>p.cadRevision);
-            return <div onClick={()=>setCf("CAD Design")} style={{background:WHITE,border:`1px solid ${BD}`,borderRadius:5,padding:"16px 18px",cursor:"pointer",transition:"border-color 0.15s"}}
-              onMouseEnter={e=>e.currentTarget.style.borderColor=GOLD} onMouseLeave={e=>e.currentTarget.style.borderColor=BD}>
-              <div style={{fontSize:12,fontWeight:700,color:INK,marginBottom:6}}>CAD Design</div>
-              <div style={{fontSize:11,color:WG,lineHeight:1.7}}>{tiers.length} tiers · {fmt(tiers[0]?.baseCost)} – {fmt(tiers[tiers.length-1]?.baseCost)}<br/>2 major revisions included · {fmt(rev?.baseCost||70)}/hr after<br/><span style={{color:WG}}>Includes None (no charge) option</span></div>
-              <div style={{fontSize:11,color:GOLD_D,fontWeight:700,marginTop:8}}>View tiers →</div>
-            </div>;
-          })()}
           {/* 3D Print & Cast card */}
           {(()=>{
             const pc=pricing.find(p=>p.name==="3D print fee");
@@ -6200,6 +5987,7 @@ function Appointments({appointments,setAppointments,clients,setClients,jobs=[],s
 // ── Nav + App shell ───────────────────────────────────────────────────────
 const NAV=[
   {id:"dashboard",label:"Dashboard"},
+  {id:"todo",label:"To-do"},
   {id:"appointments",label:"Appointments"},
   {id:"clients",label:"Clients"},
   {id:"jobs",label:"Jobs"},
@@ -6211,7 +5999,7 @@ const NAV=[
 ];
 const NAV_MAP=Object.fromEntries(NAV.map(n=>[n.id,n]));
 const NAV_GROUPS=[
-  {label:null,ids:["dashboard"]},
+  {label:null,ids:["dashboard","todo"]},
   {label:"Workflow",ids:["appointments","clients","jobs","quotes","invoices"]},
   {label:"Studio",ids:["pricing","reports","settings"]},
 ];
@@ -6220,6 +6008,7 @@ function NavIcon({name,size=17}){
   const p={width:size,height:size,viewBox:"0 0 24 24",fill:"none",stroke:"currentColor",strokeWidth:1.6,strokeLinecap:"round",strokeLinejoin:"round",style:{display:"block",flexShrink:0}};
   switch(name){
     case "dashboard": return <svg {...p}><rect x="3.5" y="3.5" width="7" height="7" rx="1.4"/><rect x="13.5" y="3.5" width="7" height="7" rx="1.4"/><rect x="3.5" y="13.5" width="7" height="7" rx="1.4"/><rect x="13.5" y="13.5" width="7" height="7" rx="1.4"/></svg>;
+    case "todo": return <svg {...p}><rect x="4" y="3.5" width="16" height="17" rx="2"/><path d="M8 9l1.6 1.6L12.5 7.5"/><line x1="14.5" y1="9" x2="17" y2="9"/><path d="M8 15l1.6 1.6L12.5 13.5"/><line x1="14.5" y1="15" x2="17" y2="15"/></svg>;
     case "appointments": return <svg {...p}><rect x="3.5" y="5" width="17" height="15.5" rx="2"/><line x1="3.5" y1="9.5" x2="20.5" y2="9.5"/><line x1="8" y1="3" x2="8" y2="6.5"/><line x1="16" y1="3" x2="16" y2="6.5"/></svg>;
     case "clients": return <svg {...p}><circle cx="8.5" cy="8" r="3"/><path d="M3 19c0-3.2 2.3-5.5 5.5-5.5s5.5 2.3 5.5 5.5"/><path d="M16 5.4a3 3 0 0 1 0 5.2"/><path d="M16.6 13.6c2.5.2 4.4 2.4 4.4 5.4"/></svg>;
     case "jobs": return <svg {...p}><path d="M6 4H18L21 9L12 20L3 9Z"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="9" y1="9" x2="12" y2="20"/><line x1="15" y1="9" x2="12" y2="20"/><line x1="9" y1="9" x2="6" y2="4"/><line x1="15" y1="9" x2="18" y2="4"/></svg>;
@@ -6266,6 +6055,135 @@ function Login(){
   </div>;
 }
 
+// ── To-do board (per-person running checklists, shared across the studio) ──
+function TodoBoard({todos,setTodos}){
+  const people=todos?.people||[];
+  const items=todos?.items||[];
+  const[newPerson,setNewPerson]=useState("");
+  const[draft,setDraft]=useState({});
+  const[editId,setEditId]=useState(null);   // task currently open in the detail editor
+  const[editText,setEditText]=useState("");
+  const[editNotes,setEditNotes]=useState("");
+  const save=next=>{setTodos(next);persist(K.td,next);};
+  const addPerson=()=>{const name=newPerson.trim();if(!name)return;save({people:[...people,{id:uid(),name}],items});setNewPerson("");};
+  const removePerson=id=>{const p=people.find(x=>x.id===id);if(!confirm(`Remove ${p?.name||"this person"} and their whole list?`))return;save({people:people.filter(x=>x.id!==id),items:items.filter(i=>i.personId!==id)});};
+  const setDraftFor=(pid,v)=>setDraft(d=>({...d,[pid]:v}));
+  const addItem=pid=>{const t=(draft[pid]||"").trim();if(!t)return;save({people,items:[...items,{id:uid(),personId:pid,text:t,notes:"",done:false,createdAt:new Date().toISOString()}]});setDraftFor(pid,"");};
+  const toggle=id=>save({people,items:items.map(i=>i.id===id?{...i,done:!i.done}:i)});
+  const removeItem=id=>save({people,items:items.filter(i=>i.id!==id)});
+  const clearDone=pid=>save({people,items:items.filter(i=>!(i.personId===pid&&i.done))});
+  // Detail editor (title + longer notes)
+  const openEdit=it=>{setEditId(it.id);setEditText(it.text||"");setEditNotes(it.notes||"");};
+  const closeEdit=()=>setEditId(null);
+  const saveEdit=()=>{const t=editText.trim();if(!t)return;save({people,items:items.map(i=>i.id===editId?{...i,text:t,notes:editNotes.trim()}:i)});setEditId(null);};
+  const editingItem=items.find(i=>i.id===editId)||null;
+  const editingPerson=editingItem?people.find(p=>p.id===editingItem.personId):null;
+
+  const totalOpen=items.filter(i=>!i.done).length;
+  const totalDone=items.filter(i=>i.done).length;
+
+  return <div>
+    {/* Editorial header — matches the rest of the app */}
+    <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-end",flexWrap:"wrap",gap:16,marginBottom:24}}>
+      <div>
+        <div style={{fontSize:11,fontWeight:700,color:WG,letterSpacing:"0.14em",textTransform:"uppercase",marginBottom:5}}>Team tasks</div>
+        <h1 style={{margin:0,fontSize:32,fontWeight:500,color:INK,letterSpacing:"-0.01em"}}>To-do</h1>
+        <div style={{color:WG,fontSize:14,marginTop:4}}>A running task list for each person in the workshop.</div>
+      </div>
+      <div style={{display:"flex",gap:8,alignItems:"center",background:WHITE,border:`1px solid ${BD_SOFT}`,borderRadius:RADIUS,padding:"8px 10px",boxShadow:SHADOW}}>
+        <input value={newPerson} onChange={e=>setNewPerson(e.target.value)} onKeyDown={e=>{if(e.key==="Enter")addPerson();}} placeholder="New person's name…" style={{...SS.inp,marginTop:0,width:200}}/>
+        <Btn onClick={addPerson}>+ Add person</Btn>
+      </div>
+    </div>
+
+    {people.length===0
+      ? <Card style={{marginTop:4}}><div style={{color:WG,fontSize:14,textAlign:"center",padding:"40px 0"}}>
+          <div style={{fontSize:38,marginBottom:12}}>📝</div>
+          <div style={{fontWeight:700,fontSize:16,color:INK,marginBottom:6}}>No lists yet</div>
+          <div style={{maxWidth:360,margin:"0 auto",lineHeight:1.55}}>Type a name in the box above (e.g. “Eric”, “Sarah”) and press <strong style={{color:INK}}>+ Add person</strong> to start their to-do list.</div>
+        </div></Card>
+      : <>
+          {/* Summary tiles */}
+          <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(150px,1fr))",gap:14,marginBottom:24}}>
+            <Stat label="People" value={people.length} tint="blue" icon="♦"/>
+            <Stat label="Open tasks" value={totalOpen} tint={totalOpen>0?"gold":"mint"} icon="○"/>
+            <Stat label="Completed" value={totalDone} tint="mint" icon="✓"/>
+          </div>
+
+          {/* Person cards — responsive grid that fills the width */}
+          <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(320px,1fr))",gap:16,alignItems:"start"}}>
+            {people.map(person=>{
+              const list=items.filter(i=>i.personId===person.id);
+              const open=list.filter(i=>!i.done);
+              const done=list.filter(i=>i.done);
+              const pct=list.length?Math.round(done.length/list.length*100):0;
+              return <div key={person.id} style={{background:WHITE,border:`1px solid ${BD_SOFT}`,borderRadius:RADIUS,boxShadow:SHADOW,padding:"18px 20px 20px",display:"flex",flexDirection:"column"}}>
+                {/* Person header */}
+                <div style={{display:"flex",alignItems:"center",gap:11,marginBottom:14}}>
+                  <div style={{width:34,height:34,borderRadius:"50%",background:GOLD_L,color:GOLD_D,display:"flex",alignItems:"center",justifyContent:"center",fontSize:14,fontWeight:800,flexShrink:0}}>{(person.name||"?").slice(0,1).toUpperCase()}</div>
+                  <div style={{flex:1,minWidth:0}}>
+                    <div style={{fontWeight:800,fontSize:15,color:INK,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{person.name}</div>
+                    <div style={{fontSize:11,color:WG,marginTop:1}}>{open.length} open{done.length?` · ${done.length} done`:""}</div>
+                  </div>
+                  <button onClick={()=>removePerson(person.id)} title="Remove person" style={{background:"none",border:"none",cursor:"pointer",color:WG,fontSize:18,lineHeight:1,padding:0,flexShrink:0}}>×</button>
+                </div>
+
+                {/* Progress bar */}
+                {list.length>0&&<div style={{height:6,background:BD,borderRadius:3,overflow:"hidden",marginBottom:14}}>
+                  <div style={{width:`${pct}%`,height:"100%",background:OK,transition:"width 0.25s"}}/>
+                </div>}
+
+                {/* Add task */}
+                <div style={{display:"flex",gap:6,marginBottom:list.length?12:0}}>
+                  <input value={draft[person.id]||""} onChange={e=>setDraftFor(person.id,e.target.value)} onKeyDown={e=>{if(e.key==="Enter")addItem(person.id);}} placeholder="Add a task…" style={{...SS.inp,marginTop:0,flex:1,padding:"8px 10px",fontSize:13}}/>
+                  <Btn sm onClick={()=>addItem(person.id)}>Add</Btn>
+                </div>
+
+                {/* Tasks */}
+                {list.length===0
+                  ? <div style={{fontSize:12.5,color:WG,fontStyle:"italic",padding:"12px 0 4px",textAlign:"center"}}>No tasks yet — add one above.</div>
+                  : <div style={{display:"flex",flexDirection:"column",gap:7}}>
+                      {[...open,...done].map(it=>(
+                        <div key={it.id} style={{display:"flex",alignItems:"flex-start",gap:9,background:PARCH,border:`1px solid ${BD}`,borderRadius:5,padding:"9px 11px"}}>
+                          <button onClick={()=>toggle(it.id)} title={it.done?"Mark as not done":"Mark as done"} style={{flexShrink:0,marginTop:1,width:18,height:18,borderRadius:5,border:`2px solid ${it.done?OK:"#C9C9CD"}`,background:it.done?OK:WHITE,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",padding:0}}>{it.done&&<span style={{color:WHITE,fontSize:11,fontWeight:900,lineHeight:1}}>✓</span>}</button>
+                          <div onClick={()=>openEdit(it)} title="Open task details" style={{flex:1,minWidth:0,cursor:"pointer"}}>
+                            <div style={{display:"flex",alignItems:"center",gap:6,fontSize:13,color:it.done?WG:INK,textDecoration:it.done?"line-through":"none",lineHeight:1.45,wordBreak:"break-word"}}>
+                              {it.text}
+                              {it.notes&&it.notes.trim()&&<span title="Has notes" style={{flexShrink:0,fontSize:11,opacity:0.55}}>📝</span>}
+                            </div>
+                            {it.notes&&it.notes.trim()&&<div style={{fontSize:11.5,color:WG,marginTop:2,lineHeight:1.4,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{it.notes.trim()}</div>}
+                          </div>
+                          <button onClick={()=>removeItem(it.id)} title="Delete task" style={{flexShrink:0,background:"none",border:"none",cursor:"pointer",color:WG,fontSize:15,lineHeight:1,padding:0}}>×</button>
+                        </div>
+                      ))}
+                    </div>}
+
+                {done.length>0&&<button onClick={()=>clearDone(person.id)} style={{marginTop:14,alignSelf:"flex-start",background:"none",border:`1px solid ${BD}`,borderRadius:6,padding:"5px 11px",fontSize:11,fontWeight:700,color:WG,cursor:"pointer",fontFamily:"inherit"}}>Clear {done.length} completed</button>}
+              </div>;
+            })}
+          </div>
+        </>}
+
+    {/* Task detail editor */}
+    {editingItem&&<Modal title="Task details" onClose={closeEdit}>
+      <div style={{fontSize:11,fontWeight:700,color:WG,letterSpacing:"0.08em",textTransform:"uppercase",marginBottom:14}}>
+        {editingPerson?.name||"Unassigned"}{editingItem.createdAt?` · added ${fmtDate(editingItem.createdAt.slice(0,10))}`:""}
+      </div>
+      <label style={{...SS.lbl,marginBottom:4}}>Task</label>
+      <input value={editText} onChange={e=>setEditText(e.target.value)} onKeyDown={e=>{if(e.key==="Enter")saveEdit();}} placeholder="Task title" style={{...SS.inp,marginTop:0,marginBottom:16}}/>
+      <label style={{...SS.lbl,marginBottom:4}}>Notes / details</label>
+      <textarea value={editNotes} onChange={e=>setEditNotes(e.target.value)} rows={6} placeholder="Add any extra detail — specs, measurements, links, reminders…" style={{...SS.inp,marginTop:0,resize:"vertical",lineHeight:1.5,fontFamily:"inherit"}}/>
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",gap:10,marginTop:22}}>
+        <Btn sm danger onClick={()=>{removeItem(editingItem.id);closeEdit();}}>Delete task</Btn>
+        <div style={{display:"flex",gap:10}}>
+          <Btn sm ghost onClick={closeEdit}>Cancel</Btn>
+          <Btn sm onClick={saveEdit}>Save</Btn>
+        </div>
+      </div>
+    </Modal>}
+  </div>;
+}
+
 export default function App(){
   // Public client-facing proposal link (?p=<token>) — render the standalone proposal page,
   // outside the auth gate and the studio shell. Derived from the URL (constant per page load).
@@ -6287,6 +6205,7 @@ export default function App(){
   const[naturalStoneMarkup,setNaturalStoneMarkup]=useState(DEFAULT_NATURAL_STONE_MARKUP);
   const[labStoneMarkup,setLabStoneMarkup]=useState(DEFAULT_LAB_STONE_MARKUP);
   const[centreRates,setCentreRates]=useState(DEFAULT_CENTRE_RATES);
+  const[todos,setTodos]=useState({people:[],items:[]});
   const[view,setViewRaw]=useState("dashboard");
   const[selClient,setSelClient]=useState(null);
   const[selJob,setSelJob]=useState(null);
@@ -6332,7 +6251,7 @@ export default function App(){
       [K.cl]:setClients,[K.jo]:setJobs,[K.qu]:setQuotes,[K.pa]:setPayments,
       [K.pr]:setPricing,[K.biz]:setBiz,[K.no]:setNotes,[K.inv]:setInvoices,
       [K.mt]:setMarkupTable,[K.smn]:setNaturalStoneMarkup,[K.sml]:setLabStoneMarkup,[K.csr]:setCentreRates,
-      [K.ap]:setAppointments,[K.pp]:setProposals,
+      [K.ap]:setAppointments,[K.pp]:setProposals,[K.td]:setTodos,
     };
     // Normalise legacy values before applying to state
     const applyLoaded=(k,v,setter)=>{
@@ -6503,6 +6422,7 @@ export default function App(){
 
   const render=()=>{
     if(view==="dashboard")return <Dashboard clients={clients} jobs={jobs} quotes={quotes} payments={payments} invoices={invoices} appointments={appointments} proposals={proposals} markProposalSeen={markProposalSeen} markRepairSeen={markRepairSeen} markupTable={markupTable} setView={setView} setSelClient={setSelClient}/>;
+    if(view==="todo")return <TodoBoard todos={todos} setTodos={setTodos}/>;
     if(view==="appointments")return <Appointments appointments={appointments} setAppointments={setAppointments} clients={clients} setClients={setClients} jobs={jobs} setJobs={setJobs} setView={setView} setSelClient={setSelClient} setSelJob={setSelJob}/>;
     if(view==="clients")return <Clients clients={clients} setClients={setClients} jobs={jobs} payments={payments} setView={setView} setSelClient={setSelClient}/>;
     if(view==="clientDetail")return <ClientDetail clientId={selClient} clients={clients} setClients={setClients} jobs={jobs} setJobs={setJobs} quotes={quotes} payments={payments} markupTable={markupTable} setView={setView} setSelJob={setSelJob}/>;
