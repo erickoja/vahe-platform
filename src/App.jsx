@@ -3633,7 +3633,6 @@ function PublicInvoiceBody({snap}){
     <div style={{background:WHITE,borderRadius:`0 0 ${RADIUS}px ${RADIUS}px`,border:`1px solid ${BD}`,borderTop:"none",padding:"28px 32px 32px",boxShadow:SHADOW}}>
       <div style={{fontSize:9,fontWeight:700,color:WG,letterSpacing:"0.16em",textTransform:"uppercase",marginBottom:6}}>Billed to</div>
       <div style={{fontSize:18,fontWeight:700,color:INK}}>{snap.clientName||"—"}</div>
-      {snap.jobType&&<div style={{fontSize:13,color:WG,marginTop:2}}>{snap.jobType}</div>}
 
       {/* Customer-facing lines — never the internal cost breakdown. Combined invoices itemise
           each option; single invoices show one description line. */}
