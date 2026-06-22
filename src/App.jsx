@@ -5060,8 +5060,9 @@ function PrintCastTable({items,onSavePrices,onQtyChange}){
       />
     </div>
 
-    {/* Manual override price */}
-    <div style={{padding:"14px 18px",borderBottom:`1px solid ${BD}`,background:usingOverride?GOLD_L+"66":WHITE,display:"flex",alignItems:"center",gap:14,flexWrap:"wrap"}}>
+    {/* Manual override price — only in the quote-builder selector (onQtyChange present), not on
+       the Pricing Database page where there's no quote to feed. */}
+    {onQtyChange&&<div style={{padding:"14px 18px",borderBottom:`1px solid ${BD}`,background:usingOverride?GOLD_L+"66":WHITE,display:"flex",alignItems:"center",gap:14,flexWrap:"wrap"}}>
       <div style={{flex:1,minWidth:200}}>
         <div style={{fontSize:11,fontWeight:700,color:usingOverride?GOLD_D:WG,textTransform:"uppercase",letterSpacing:"0.06em"}}>Manual override price</div>
         <div style={{fontSize:11,color:WG,marginTop:2}}>Enter your own total to ignore the per-piece figures above. Leave blank to use the calculator.</div>
@@ -5072,7 +5073,7 @@ function PrintCastTable({items,onSavePrices,onQtyChange}){
           onChange={e=>handleOverrideChange(e.target.value)}
           style={{...SS.inp,marginTop:0,width:150,fontSize:16,fontWeight:800,padding:"8px 12px 8px 24px",textAlign:"right",border:`1px solid ${usingOverride?GOLD:BD}`,color:INK}}/>
       </div>
-    </div>
+    </div>}
 
     {/* Result breakdown */}
     <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr 1fr",padding:"0"}}>
