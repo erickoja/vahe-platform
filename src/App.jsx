@@ -67,7 +67,12 @@ const REPAIRS_CAT="Repairs";
 const REPAIR_GROUPS=["Cleaning & Polishing","Ring Repairs","Ring Resizing — up to 3mm wide","Ring Resizing — 3mm+ wide","Claw Re-tipping","Band Replacements","Chain Repair","Stone Setting (Repair)","Stone Tightening","Diamond Replacement"];
 // Centre stone setting: fee = carat × per-ct rate (basic default $50/ct, complex default $75/ct)
 const DEFAULT_CENTRE_RATES={basicPerCt:50,complexPerCt:75};
-const PCAT=["Metals","Labour","CAD Design",FINDINGS_CAT,PURCHASED_CAT,"Lab Grown Diamonds | D-E","Natural diamonds G-H SI1","Natural diamonds D-E VS","Basic Setting","Complex Setting",CENTRE_SET_CAT,"3D Print & Cast","Accent Stones",REPAIRS_CAT];
+// Single source of truth for category order — drives BOTH the Pricing Database page tabs
+// and the quote-builder pricing picker sidebar, so the two stay identical.
+const PCAT=["Metals","Labour","CAD Design","Basic Setting","Complex Setting",CENTRE_SET_CAT,"3D Print & Cast",FINDINGS_CAT,PURCHASED_CAT,"Lab Grown Diamonds | D-E","Natural diamonds G-H SI1","Natural diamonds D-E VS","Accent Stones",REPAIRS_CAT];
+// "Accent Stones" is added via its own modal, not browsed as a category, so it's hidden from
+// the category navigation in both places.
+const NAV_CATS=["All",...PCAT.filter(c=>c!=="Accent Stones")];
 // Per-category explanatory text for the "Manual override price" box in the pricing-DB popup.
 // Each category can carry its own wording; anything not listed falls back to the generic line.
 const MANUAL_OVERRIDE_DEFAULT="The prices in this database are a starting point. Pricing varies between jewellers depending on your suppliers and materials — enter your own label and price to add a custom line to the quote instead.";
@@ -78,7 +83,7 @@ const MANUAL_OVERRIDE_TEXT={
   "Natural diamonds D-E VS":DIAMOND_OVERRIDE_TEXT,
   "Metals":"Add a manual metal cost. Workshops vary in what they pay. Alloying the metal yourself costs less than buying a pre-cast piece from a caster with taxes included. Feel free to enter your own amount.",
   "Labour":"Add a manual labour cost. Manufacturing rates vary between workshops and individual jewellers, so feel free to enter your own amount.",
-  "CAD Design":"Price CAD design by the hour (toggle # and enter hours against your hourly rate) or switch to $ to enter a manual flat price. CAD costs vary widely — from low-cost overseas outsourcing to premium local rates — so set the hourly rate that suits your workshop.",
+  "CAD Design":"Pick the design method that fits the job — CAD, hand sketch, basic design or outsourced CAD. Price by the hour (toggle # and enter hours against the method's rate) or switch to $ for a manual flat price. Add or rename methods any time to match how you work.",
   [FINDINGS_CAT]:"This one's a little tricky, as findings pricing changes often and there are thousands of variants. Butterfly clips, screw-back posts and so on. We recommend adding your commonly used findings with approximate supplier pricing to the database, and entering a manual price for anything more niche.",
   [PURCHASED_CAT]:"Purchased components are items you don't make yourself but add to the piece. For example, a 45cm, 1.2mm gauge 9ct white gold box chain attached to a pendant that you are making. Add your supplier pricing to the database for common components, and enter a manual price for anything one-off.",
   "Basic Setting":"These are average trade prices from across the industry. Every setter charges differently, so depending on who sets your pieces, review these and lock in your own rates or simply quote each piece manually. Basic setting refers to very simple work, such as micropavé on a cast item or a small claw setting.",
@@ -92,6 +97,7 @@ const DIAMOND_CATS=["Lab Grown Diamonds | D-E","Natural diamonds G-H SI1","Natur
 // Display titles for category nav/headers — the internal category id (used by pricing items,
 // filters, quotes) stays unchanged; only the shown title differs.
 const CAT_TITLE={
+  "CAD Design":"Design & CAD",   // broadened — holds CAD, sketch, basic & outsourced design methods
   "Lab Grown Diamonds | D-E":"(Round) Lab Grown Diamonds: D-E/VS",
   "Natural diamonds G-H SI1":"(Round) Natural Diamonds: G-H/SI",
   "Natural diamonds D-E VS":"(Round) Natural Diamonds: D-E/VS",
@@ -180,9 +186,13 @@ const SEED_PRICING=[
   // ── 3D Printing & Casting ─────────────────────────────────────────────────
   {id:"pc1",category:"3D Print & Cast",name:"3D print fee",unit:"piece",baseCost:60},
   {id:"pc2",category:"3D Print & Cast",name:"Casting fee",unit:"piece",baseCost:15},
-  // ── CAD Design ────────────────────────────────────────────────────────────
-  // Priced by the hour (set your hourly rate below) or as a manual flat price at quote time.
+  // ── Design & CAD ──────────────────────────────────────────────────────────
+  // Each design method is priced by the hour (set the rate here) or as a manual flat price at
+  // quote time via the #/$ toggle. Add/rename/remove methods freely in the Pricing Database.
   {id:"cad_hr",category:"CAD Design",name:"CAD design",unit:"hr",baseCost:90},
+  {id:"dsg_sketch",category:"CAD Design",name:"Hand sketch",unit:"hr",baseCost:60},
+  {id:"dsg_basic",category:"CAD Design",name:"Basic design",unit:"hr",baseCost:70},
+  {id:"dsg_outsourced",category:"CAD Design",name:"Outsourced CAD",unit:"hr",baseCost:50},
   // ── Lab-grown accent diamonds D-E VS ─────────────────────────────────────
   {id:"ld01",category:"Lab Grown Diamonds | D-E",name:"0.8mm",unit:"stone",baseCost:0.81,sizeMm:0.8,caratWeight:0.002,pricePerCarat:405.00},
   {id:"ld02",category:"Lab Grown Diamonds | D-E",name:"0.9mm",unit:"stone",baseCost:0.92,sizeMm:0.9,caratWeight:0.003,pricePerCarat:306.67},
@@ -3137,7 +3147,7 @@ function QuoteBuilder({jobId:jobIdProp,editQuoteId,jobs,clients,quotes,setQuotes
         {/* ── Body: category sidebar + item list ── */}
         <div style={{flex:1,display:"flex",minHeight:0}}>
           <div style={{width:220,flexShrink:0,borderRight:`1px solid ${BD}`,overflowY:"auto",padding:"10px 8px",background:PARCH}}>
-            {["All",...PCAT.filter(c=>c!=="Accent Stones")].map(cat=>{
+            {NAV_CATS.map(cat=>{
               const n=cat==="All"?pricing.filter(p=>p.category!=="Accent Stones").length:pricing.filter(p=>p.category===cat).length;
               const active=!pSearching&&pCat===cat;
               return <button key={cat} onClick={()=>{setPCat(cat);setSelCAD(null);setPSearch("");}}
@@ -5151,7 +5161,7 @@ function PricingDB({pricing,setPricing,spotPrices,setSpotPrices,markupTable,cent
     </div>}
 
     <div style={{display:"flex",gap:6,flexWrap:"wrap",marginBottom:16}}>
-      {["All","Metals","Labour","CAD Design","Basic Setting","Complex Setting",CENTRE_SET_CAT,"3D Print & Cast",FINDINGS_CAT,PURCHASED_CAT,...DIAMOND_CATS,REPAIRS_CAT].map(cat=>(
+      {NAV_CATS.map(cat=>(
         <button key={cat} onClick={()=>setCf(cat)} style={{padding:"4px 11px",borderRadius:3,border:`1px solid ${cf===cat?(DCOLORS[cat]||GOLD):BD}`,background:cf===cat?(DCOLORS[cat]||GOLD):"transparent",color:cf===cat?WHITE:WG,fontSize:11,fontWeight:700,cursor:"pointer",fontFamily:"inherit"}}>{catTitle(cat)}</button>
       ))}
     </div>
@@ -5422,7 +5432,7 @@ function PricingItemForm({initial={},onSave,onCancel}){
   const isRepair=f.category===REPAIRS_CAT;
   return <div>
     <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"0 16px"}}>
-      <Input label="Category" value={f.category} onChange={v=>{setF(p=>({...p,category:v,group:""}));}} as="select" options={PCAT.filter(c=>c!=="Accent Stones"||f.category==="Accent Stones")}/>
+      <Input label="Category" value={f.category} onChange={v=>{setF(p=>({...p,category:v,group:""}));}} as="select" options={PCAT.filter(c=>c!=="Accent Stones"||f.category==="Accent Stones").map(c=>({value:c,label:catTitle(c)}))}/>
       {!isAccent&&<Input label="Unit" value={f.unit} onChange={set("unit")} as="select" options={["job","g","stone","ct","item","pair","hr","piece","set"]}/>}
     </div>
     {isRepair&&<Input label="Group" value={f.group||""} onChange={set("group")} as="select" options={["(no group)",...REPAIR_GROUPS]}/>}
