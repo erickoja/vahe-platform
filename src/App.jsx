@@ -6306,12 +6306,17 @@ export default function App(){
         // fields (price, and any custom name/detail they've set) so renames/edits aren't reverted.
         const seedById=Object.fromEntries(SEED_PRICING.map(x=>[x.id,x]));
         v=v.map(it=>{if(!it)return it;const seed=seedById[it.id];if(!seed)return it;return{...seed,baseCost:it.baseCost,name:it.name??seed.name,detail:it.detail??seed.detail};});
-        const savedIds=new Set(v.map(x=>x.id));
-        const missing=SEED_PRICING.filter(x=>!savedIds.has(x.id));
-        if(missing.length>0)v=[...v,...missing];
-        // Re-sort to match seed order (seed items first in seed sequence, user-added items appended)
-        const seedOrder=Object.fromEntries(SEED_PRICING.map((x,i)=>[x.id,i]));
-        v.sort((a,b)=>{const ai=seedOrder[a?.id]??999999;const bi=seedOrder[b?.id]??999999;return ai-bi;});
+        // Preserve the user's saved order so drag-reorder sticks. Insert only brand-new seed
+        // items, slotting each beside its nearest preceding seed neighbour rather than
+        // re-sorting the whole list (which would undo any manual reordering).
+        const present=new Set(v.map(x=>x.id));
+        SEED_PRICING.forEach((m,seedIdx)=>{
+          if(present.has(m.id))return;
+          let pos=v.length;   // fallback: append at the end
+          for(let i=seedIdx-1;i>=0;i--){const j=v.findIndex(x=>x.id===SEED_PRICING[i].id);if(j>=0){pos=j+1;break;}}
+          v.splice(pos,0,m);
+          present.add(m.id);
+        });
       }
       if(k===K.jo&&Array.isArray(v)){
         v=v.map(j=>{if(!j)return j;if(j.stage==="Wax / Cast")return{...j,stage:"Manufacturing"};if(j.stage==="Render approval")return{...j,stage:"Design / CAD"};return j;});   // renamed/removed stages
