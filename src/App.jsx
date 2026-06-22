@@ -6064,20 +6064,34 @@ function TodoBoard({todos,setTodos}){
   const[editId,setEditId]=useState(null);   // task currently open in the detail editor
   const[editText,setEditText]=useState("");
   const[editNotes,setEditNotes]=useState("");
+  const[editDue,setEditDue]=useState("");
   const save=next=>{setTodos(next);persist(K.td,next);};
   const addPerson=()=>{const name=newPerson.trim();if(!name)return;save({people:[...people,{id:uid(),name}],items});setNewPerson("");};
   const removePerson=id=>{const p=people.find(x=>x.id===id);if(!confirm(`Remove ${p?.name||"this person"} and their whole list?`))return;save({people:people.filter(x=>x.id!==id),items:items.filter(i=>i.personId!==id)});};
   const setDraftFor=(pid,v)=>setDraft(d=>({...d,[pid]:v}));
-  const addItem=pid=>{const t=(draft[pid]||"").trim();if(!t)return;save({people,items:[...items,{id:uid(),personId:pid,text:t,notes:"",done:false,createdAt:new Date().toISOString()}]});setDraftFor(pid,"");};
+  const addItem=pid=>{const t=(draft[pid]||"").trim();if(!t)return;save({people,items:[...items,{id:uid(),personId:pid,text:t,notes:"",due:"",done:false,createdAt:new Date().toISOString()}]});setDraftFor(pid,"");};
   const toggle=id=>save({people,items:items.map(i=>i.id===id?{...i,done:!i.done}:i)});
   const removeItem=id=>save({people,items:items.filter(i=>i.id!==id)});
   const clearDone=pid=>save({people,items:items.filter(i=>!(i.personId===pid&&i.done))});
-  // Detail editor (title + longer notes)
-  const openEdit=it=>{setEditId(it.id);setEditText(it.text||"");setEditNotes(it.notes||"");};
+  // Detail editor (title + longer notes + due date)
+  const openEdit=it=>{setEditId(it.id);setEditText(it.text||"");setEditNotes(it.notes||"");setEditDue(it.due||"");};
   const closeEdit=()=>setEditId(null);
-  const saveEdit=()=>{const t=editText.trim();if(!t)return;save({people,items:items.map(i=>i.id===editId?{...i,text:t,notes:editNotes.trim()}:i)});setEditId(null);};
+  const saveEdit=()=>{const t=editText.trim();if(!t)return;save({people,items:items.map(i=>i.id===editId?{...i,text:t,notes:editNotes.trim(),due:editDue||""}:i)});setEditId(null);};
   const editingItem=items.find(i=>i.id===editId)||null;
   const editingPerson=editingItem?people.find(p=>p.id===editingItem.personId):null;
+
+  // Due-date helpers — colour cues + urgency sort
+  const tISO=localToday();
+  const dueChip=due=>{
+    if(!due)return null;
+    const overdue=due<tISO,isToday=due===tISO,soon=!overdue&&!isToday&&due<=addDays(tISO,2);
+    const compact=parseISO(due).toLocaleDateString("en-AU",{day:"numeric",month:"short"});
+    return{overdue,
+      color:overdue?DANGER:(isToday||soon)?GOLD_D:WG,
+      bg:overdue?"#FBEBE9":(isToday||soon)?GOLD_L:PARCH,
+      label:overdue?`Overdue · ${compact}`:isToday?"Due today":due===addDays(tISO,1)?"Due tomorrow":`Due ${compact}`};
+  };
+  const sortByDue=arr=>[...arr].sort((a,b)=>(a.due||"9999-12-31").localeCompare(b.due||"9999-12-31"));
 
   const totalOpen=items.filter(i=>!i.done).length;
   const totalDone=items.filter(i=>i.done).length;
@@ -6114,16 +6128,17 @@ function TodoBoard({todos,setTodos}){
           <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(320px,1fr))",gap:16,alignItems:"start"}}>
             {people.map(person=>{
               const list=items.filter(i=>i.personId===person.id);
-              const open=list.filter(i=>!i.done);
+              const open=sortByDue(list.filter(i=>!i.done));
               const done=list.filter(i=>i.done);
               const pct=list.length?Math.round(done.length/list.length*100):0;
+              const overdueCount=open.filter(i=>i.due&&i.due<tISO).length;
               return <div key={person.id} style={{background:WHITE,border:`1px solid ${BD_SOFT}`,borderRadius:RADIUS,boxShadow:SHADOW,padding:"18px 20px 20px",display:"flex",flexDirection:"column"}}>
                 {/* Person header */}
                 <div style={{display:"flex",alignItems:"center",gap:11,marginBottom:14}}>
                   <div style={{width:34,height:34,borderRadius:"50%",background:GOLD_L,color:GOLD_D,display:"flex",alignItems:"center",justifyContent:"center",fontSize:14,fontWeight:800,flexShrink:0}}>{(person.name||"?").slice(0,1).toUpperCase()}</div>
                   <div style={{flex:1,minWidth:0}}>
                     <div style={{fontWeight:800,fontSize:15,color:INK,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{person.name}</div>
-                    <div style={{fontSize:11,color:WG,marginTop:1}}>{open.length} open{done.length?` · ${done.length} done`:""}</div>
+                    <div style={{fontSize:11,color:WG,marginTop:1}}>{open.length} open{done.length?` · ${done.length} done`:""}{overdueCount>0&&<span style={{color:DANGER,fontWeight:700}}> · {overdueCount} overdue</span>}</div>
                   </div>
                   <button onClick={()=>removePerson(person.id)} title="Remove person" style={{background:"none",border:"none",cursor:"pointer",color:WG,fontSize:18,lineHeight:1,padding:0,flexShrink:0}}>×</button>
                 </div>
@@ -6143,19 +6158,21 @@ function TodoBoard({todos,setTodos}){
                 {list.length===0
                   ? <div style={{fontSize:12.5,color:WG,fontStyle:"italic",padding:"12px 0 4px",textAlign:"center"}}>No tasks yet — add one above.</div>
                   : <div style={{display:"flex",flexDirection:"column",gap:7}}>
-                      {[...open,...done].map(it=>(
-                        <div key={it.id} style={{display:"flex",alignItems:"flex-start",gap:9,background:PARCH,border:`1px solid ${BD}`,borderRadius:5,padding:"9px 11px"}}>
+                      {[...open,...done].map(it=>{
+                        const ch=!it.done&&it.due?dueChip(it.due):null;
+                        return <div key={it.id} style={{display:"flex",alignItems:"flex-start",gap:9,background:PARCH,border:`1px solid ${ch?.overdue?DANGER+"55":BD}`,borderRadius:5,padding:"9px 11px"}}>
                           <button onClick={()=>toggle(it.id)} title={it.done?"Mark as not done":"Mark as done"} style={{flexShrink:0,marginTop:1,width:18,height:18,borderRadius:5,border:`2px solid ${it.done?OK:"#C9C9CD"}`,background:it.done?OK:WHITE,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",padding:0}}>{it.done&&<span style={{color:WHITE,fontSize:11,fontWeight:900,lineHeight:1}}>✓</span>}</button>
                           <div onClick={()=>openEdit(it)} title="Open task details" style={{flex:1,minWidth:0,cursor:"pointer"}}>
                             <div style={{display:"flex",alignItems:"center",gap:6,fontSize:13,color:it.done?WG:INK,textDecoration:it.done?"line-through":"none",lineHeight:1.45,wordBreak:"break-word"}}>
                               {it.text}
                               {it.notes&&it.notes.trim()&&<span title="Has notes" style={{flexShrink:0,fontSize:11,opacity:0.55}}>📝</span>}
                             </div>
-                            {it.notes&&it.notes.trim()&&<div style={{fontSize:11.5,color:WG,marginTop:2,lineHeight:1.4,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{it.notes.trim()}</div>}
+                            {ch&&<span style={{display:"inline-block",marginTop:5,fontSize:10.5,fontWeight:700,color:ch.color,background:ch.bg,border:`1px solid ${ch.color}33`,borderRadius:4,padding:"2px 7px",letterSpacing:"0.02em"}}>{ch.label}</span>}
+                            {it.notes&&it.notes.trim()&&<div style={{fontSize:11.5,color:WG,marginTop:ch?5:2,lineHeight:1.4,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{it.notes.trim()}</div>}
                           </div>
                           <button onClick={()=>removeItem(it.id)} title="Delete task" style={{flexShrink:0,background:"none",border:"none",cursor:"pointer",color:WG,fontSize:15,lineHeight:1,padding:0}}>×</button>
-                        </div>
-                      ))}
+                        </div>;
+                      })}
                     </div>}
 
                 {done.length>0&&<button onClick={()=>clearDone(person.id)} style={{marginTop:14,alignSelf:"flex-start",background:"none",border:`1px solid ${BD}`,borderRadius:6,padding:"5px 11px",fontSize:11,fontWeight:700,color:WG,cursor:"pointer",fontFamily:"inherit"}}>Clear {done.length} completed</button>}
@@ -6171,6 +6188,11 @@ function TodoBoard({todos,setTodos}){
       </div>
       <label style={{...SS.lbl,marginBottom:4}}>Task</label>
       <input value={editText} onChange={e=>setEditText(e.target.value)} onKeyDown={e=>{if(e.key==="Enter")saveEdit();}} placeholder="Task title" style={{...SS.inp,marginTop:0,marginBottom:16}}/>
+      <label style={{...SS.lbl,marginBottom:4}}>Due date <span style={{textTransform:"none",letterSpacing:0,fontWeight:400,color:WG}}>(optional)</span></label>
+      <div style={{display:"flex",gap:8,alignItems:"center",marginBottom:16}}>
+        <input type="date" value={editDue} onChange={e=>setEditDue(e.target.value)} style={{...SS.inp,marginTop:0,width:200}}/>
+        {editDue&&<Btn sm ghost onClick={()=>setEditDue("")}>Clear</Btn>}
+      </div>
       <label style={{...SS.lbl,marginBottom:4}}>Notes / details</label>
       <textarea value={editNotes} onChange={e=>setEditNotes(e.target.value)} rows={6} placeholder="Add any extra detail — specs, measurements, links, reminders…" style={{...SS.inp,marginTop:0,resize:"vertical",lineHeight:1.5,fontFamily:"inherit"}}/>
       <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",gap:10,marginTop:22}}>
