@@ -5019,7 +5019,7 @@ function PrintCastTable({items,onSavePrices,onQtyChange}){
     {/* Toolbar */}
     <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"12px 18px",background:editing?GOLD_L:PARCH,borderBottom:`1px solid ${editing?GOLD+"55":BD}`,transition:"background 0.15s"}}>
       <div style={{fontSize:11,fontWeight:700,color:editing?GOLD_D:WG,textTransform:"uppercase",letterSpacing:"0.06em"}}>
-        {editing?"Editing rates — update then save":"3D Print & Cast · fee calculator"}
+        {editing?"Editing rates — update then save":onQtyChange?"3D Print & Cast · fee calculator":"3D Print & Cast · per-piece fees"}
       </div>
       <div style={{display:"flex",gap:8}}>
         {editing
@@ -5029,7 +5029,7 @@ function PrintCastTable({items,onSavePrices,onQtyChange}){
     </div>
 
     {/* Rate editor */}
-    <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:16,padding:"16px 18px",borderBottom:`1px solid ${BD}`,background:editing?GOLD_L+"66":WHITE}}>
+    <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:16,padding:"16px 18px",borderBottom:onQtyChange?`1px solid ${BD}`:"none",background:editing?GOLD_L+"66":WHITE}}>
       <div>
         <div style={{fontSize:10,fontWeight:700,color:WG,textTransform:"uppercase",letterSpacing:"0.06em",marginBottom:6}}>Print fee per piece ($)</div>
         {editing
@@ -5046,8 +5046,8 @@ function PrintCastTable({items,onSavePrices,onQtyChange}){
       </div>
     </div>
 
-    {/* Quantity input */}
-    <div style={{padding:"16px 18px",borderBottom:`1px solid ${BD}`,background:PARCH+"88",display:"flex",alignItems:"center",gap:16}}>
+    {/* Quantity input — quote-builder selector only */}
+    {onQtyChange&&<div style={{padding:"16px 18px",borderBottom:`1px solid ${BD}`,background:PARCH+"88",display:"flex",alignItems:"center",gap:16}}>
       <div style={{fontSize:11,fontWeight:700,color:WG,textTransform:"uppercase",letterSpacing:"0.06em",whiteSpace:"nowrap"}}>Number of pieces</div>
       <input
         type="number"
@@ -5058,7 +5058,7 @@ function PrintCastTable({items,onSavePrices,onQtyChange}){
         disabled={usingOverride}
         style={{...SS.inp,marginTop:0,width:100,fontSize:18,fontWeight:800,padding:"8px 12px",textAlign:"center",border:`1px solid ${pieces>0&&!usingOverride?GOLD:BD}`,color:INK,opacity:usingOverride?0.5:1}}
       />
-    </div>
+    </div>}
 
     {/* Manual override price — only in the quote-builder selector (onQtyChange present), not on
        the Pricing Database page where there's no quote to feed. */}
@@ -5075,8 +5075,8 @@ function PrintCastTable({items,onSavePrices,onQtyChange}){
       </div>
     </div>}
 
-    {/* Result breakdown */}
-    <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr 1fr",padding:"0"}}>
+    {/* Result breakdown — quote-builder selector only */}
+    {onQtyChange&&<div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr 1fr",padding:"0"}}>
       {[
         ["Pieces",usingOverride?"—":(pieces===0?"—":String(pieces)),WG,false],
         ["Print cost",usingOverride?"—":(pieces===0?"—":fmt(printTotal)),INK,false],
@@ -5088,7 +5088,7 @@ function PrintCastTable({items,onSavePrices,onQtyChange}){
           <div style={{fontSize:accent?22:18,fontWeight:800,color:total===0&&!accent?WG:(accent?(total>0?col:WG):col)}}>{value}</div>
         </div>
       ))}
-    </div>
+    </div>}
   </div>;
 }
 
