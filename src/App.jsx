@@ -3438,10 +3438,12 @@ function JobProposals({job,client,quotes,proposals,setProposals,setQuotes,biz,ma
                 <div style={{fontSize:10,fontWeight:700,color:WG,textTransform:"uppercase",letterSpacing:"0.06em",marginBottom:6}}>Photos for this option <span style={{fontWeight:400,textTransform:"none",letterSpacing:0}}>(optional — tap to select one or more{(optPhotos[q.id]||[]).length?` · ${(optPhotos[q.id]||[]).length} selected`:""})</span></div>
                 <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
                   {jobPhotos.map(ph=>{
-                    const picked=(optPhotos[q.id]||[]).includes(ph.path);
-                    return <button key={ph.path} onClick={()=>pickPhoto(q.id,ph.path)} title={picked?"Selected — tap to remove":"Use this photo"}
-                      style={{padding:0,border:`2px solid ${picked?GOLD:BD}`,borderRadius:6,overflow:"hidden",cursor:"pointer",background:"none",lineHeight:0,boxShadow:picked?`0 0 0 2px ${GOLD_L}`:"none"}}>
+                    const order=(optPhotos[q.id]||[]).indexOf(ph.path);
+                    const picked=order>=0;
+                    return <button key={ph.path} onClick={()=>pickPhoto(q.id,ph.path)} title={picked?`Position ${order+1} — tap to remove`:"Use this photo"}
+                      style={{position:"relative",padding:0,border:`2px solid ${picked?GOLD:BD}`,borderRadius:6,overflow:"hidden",cursor:"pointer",background:"none",lineHeight:0,boxShadow:picked?`0 0 0 2px ${GOLD_L}`:"none"}}>
                       <img src={ph.url} alt={ph.caption||""} style={{width:54,height:54,objectFit:"cover",display:"block"}}/>
+                      {picked&&<span style={{position:"absolute",top:3,left:3,minWidth:16,height:16,padding:"0 3px",boxSizing:"border-box",background:GOLD,color:WHITE,fontSize:10,fontWeight:800,lineHeight:"16px",textAlign:"center",borderRadius:8,boxShadow:"0 1px 3px rgba(0,0,0,0.3)"}}>{order+1}</span>}
                     </button>;
                   })}
                 </div>
