@@ -2652,26 +2652,26 @@ function CentreStonePicker({onAdd,onAddManual,centreRates=DEFAULT_CENTRE_RATES,s
         <Btn sm onClick={()=>{onAddManual(manFee);setManFee("");}}>Add to quote</Btn>
       </div>
     </div>}
-    <div style={{display:"grid",gridTemplateColumns:"180px 1fr",gap:"0 20px",alignItems:"start"}}>
+    <div style={{display:"grid",gridTemplateColumns:"220px 1fr",gap:"0 20px",alignItems:"start"}}>
       <div>
         <label style={SS.lbl}>Centre stone carat weight</label>
-        <div style={{position:"relative",marginTop:4}}>
+        <div style={{position:"relative",marginTop:6}}>
           <input type="number" value={ct} min="0" step="0.01" placeholder="e.g. 1.50" onChange={e=>setCt(e.target.value)}
-            style={{...SS.inp,marginTop:0,paddingRight:34,fontSize:15,fontWeight:700,textAlign:"right"}}/>
-          <span style={{position:"absolute",right:12,top:"50%",transform:"translateY(-50%)",fontSize:12,color:WG,pointerEvents:"none"}}>ct</span>
+            style={{...SS.inp,marginTop:0,padding:"18px 42px 18px 14px",fontSize:16,fontWeight:800,textAlign:"left"}}/>
+          <span style={{position:"absolute",right:14,top:"50%",transform:"translateY(-50%)",fontSize:13,fontWeight:600,color:WG,pointerEvents:"none"}}>ct</span>
         </div>
       </div>
       <div>
         <label style={SS.lbl}>Setting type</label>
-        <div style={{display:"flex",gap:10,marginTop:4}}>
+        <div style={{display:"flex",gap:10,marginTop:6}}>
           {[[false,"Basic","Round diamond, standard claw"],[true,"Complex","Pear claws, bezels, fragile / sapphire"]].map(([val,label,sub])=>(
             <button key={label} onClick={()=>setComplex(val)} style={{
-              flex:1,padding:"10px 14px",borderRadius:4,cursor:"pointer",fontFamily:"inherit",textAlign:"left",
+              flex:1,padding:"11px 14px",borderRadius:4,cursor:"pointer",fontFamily:"inherit",textAlign:"left",
               border:`2px solid ${complex===val?(val?"#B05C3A":"#4A8E6A"):BD}`,
               background:complex===val?(val?"#B05C3A11":"#4A8E6A11"):"transparent",transition:"all 0.12s"
             }}>
               <div style={{fontSize:13,fontWeight:700,color:complex===val?(val?"#B05C3A":"#4A8E6A"):INK}}>{label}</div>
-              <div style={{fontSize:10,color:WG,marginTop:2,lineHeight:1.3}}>{sub}</div>
+              <div style={{fontSize:10.5,color:WG,marginTop:2,lineHeight:1.3}}>{sub}</div>
             </button>
           ))}
         </div>
@@ -5223,8 +5223,8 @@ function PricingDB({pricing,setPricing,spotPrices,setSpotPrices,markupTable,cent
     {/* 3D Print & Cast view */}
     {isPrintCastView&&<div>
       <div style={{background:WHITE,border:`1px solid ${BD}`,borderRadius:5,padding:"12px 16px",marginBottom:14,fontSize:13,lineHeight:1.5}}>
-        <strong style={{color:INK}}>3D Printing & Casting — fee calculator</strong>
-        <span style={{display:"block",marginTop:3,fontSize:12,color:WG}}>Fixed fees per piece — edit your rates any time. Both print and cast fees should appear as separate lines in your quote.</span>
+        <strong style={{color:INK}}>3D Printing & Casting — per-piece fees</strong>
+        <span style={{display:"block",marginTop:3,fontSize:12,color:WG}}>Set your print and cast fees per piece — edit any time. At quote time these are multiplied by the number of pieces and added as separate lines.</span>
       </div>
       <PrintCastTable items={filteredPrintCast} onSavePrices={saveSettingPrices}/>
     </div>}
@@ -5277,27 +5277,27 @@ function PricingDB({pricing,setPricing,spotPrices,setSpotPrices,markupTable,cent
         {!editRates&&<Btn sm onClick={startEditRates}>✎ Change rates</Btn>}
       </div>
       <div style={{background:WHITE,border:`1px solid ${BD}`,borderRadius:5,padding:"18px 20px",marginBottom:16}}>
-        <div style={{display:"grid",gridTemplateColumns:"180px 1fr",gap:"0 20px",alignItems:"start"}}>
+        <div style={{display:"grid",gridTemplateColumns:"220px 1fr",gap:"0 20px",alignItems:"start"}}>
           <div>
             <label style={SS.lbl}>Centre stone carat weight</label>
-            <div style={{position:"relative",marginTop:4}}>
+            <div style={{position:"relative",marginTop:6}}>
               <input type="number" value={centreCt} min="0" step="0.01" placeholder="e.g. 1.50"
                 onChange={e=>setCentreCt(e.target.value)}
-                style={{...SS.inp,marginTop:0,paddingRight:34,fontSize:15,fontWeight:700,textAlign:"right"}}/>
-              <span style={{position:"absolute",right:12,top:"50%",transform:"translateY(-50%)",fontSize:12,color:WG,pointerEvents:"none"}}>ct</span>
+                style={{...SS.inp,marginTop:0,padding:"18px 42px 18px 14px",fontSize:16,fontWeight:800,textAlign:"left"}}/>
+              <span style={{position:"absolute",right:14,top:"50%",transform:"translateY(-50%)",fontSize:13,fontWeight:600,color:WG,pointerEvents:"none"}}>ct</span>
             </div>
           </div>
           <div>
             <label style={SS.lbl}>Setting type</label>
-            <div style={{display:"flex",gap:10,marginTop:4}}>
+            <div style={{display:"flex",gap:10,marginTop:6}}>
               {[[false,"Basic","Round diamond, standard claw"],[true,"Complex","Pear claws, bezels, fragile / sapphire"]].map(([val,label,sub])=>(
                 <button key={label} onClick={()=>setCentreComplex(val)} style={{
-                  flex:1,padding:"10px 14px",borderRadius:4,cursor:"pointer",fontFamily:"inherit",textAlign:"left",
+                  flex:1,padding:"11px 14px",borderRadius:4,cursor:"pointer",fontFamily:"inherit",textAlign:"left",
                   border:`2px solid ${centreComplex===val?(val?"#B05C3A":"#4A8E6A"):BD}`,
                   background:centreComplex===val?(val?"#B05C3A11":"#4A8E6A11"):"transparent",transition:"all 0.12s"
                 }}>
                   <div style={{fontSize:13,fontWeight:700,color:centreComplex===val?(val?"#B05C3A":"#4A8E6A"):INK}}>{label}</div>
-                  <div style={{fontSize:10,color:WG,marginTop:2,lineHeight:1.3}}>{sub}</div>
+                  <div style={{fontSize:10.5,color:WG,marginTop:2,lineHeight:1.3}}>{sub}</div>
                 </button>
               ))}
             </div>
