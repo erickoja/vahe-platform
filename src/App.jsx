@@ -942,6 +942,7 @@ const buildInvoiceSnapshot=({inv,job,client,biz,payments})=>{
     date:inv.date,
     jobType:job?.type||"",
     descriptionOverride:inv.descriptionOverride||"",
+    customerLines:inv.customerLines||null,   // per-option breakdown for combined invoices
     lineItems:(inv.lineItems||[]).map(li=>({description:li.description,detail:li.detail||"",amount:lineCostLow(li)})),
     gst:inv.gst,
     totalIncGST:inv.totalIncGST,
@@ -3634,12 +3635,20 @@ function PublicInvoiceBody({snap}){
       <div style={{fontSize:18,fontWeight:700,color:INK}}>{snap.clientName||"—"}</div>
       {snap.jobType&&<div style={{fontSize:13,color:WG,marginTop:2}}>{snap.jobType}</div>}
 
-      {/* Single customer-facing line — never the internal cost breakdown. */}
+      {/* Customer-facing lines — never the internal cost breakdown. Combined invoices itemise
+          each option; single invoices show one description line. */}
       <div style={{marginTop:22,borderTop:`1px solid ${BD}`}}>
-        <div style={{display:"flex",justifyContent:"space-between",gap:16,padding:"12px 0",borderBottom:`1px solid ${BD}`}}>
-          <div style={{flex:1,fontSize:14,color:INK,lineHeight:1.6}}>{(snap.descriptionOverride||"").trim()}</div>
-          <div style={{fontSize:14,fontWeight:700,color:INK,whiteSpace:"nowrap"}}>{fmt(snap.totalIncGST)}</div>
-        </div>
+        {snap.customerLines&&snap.customerLines.length
+          ?snap.customerLines.map((l,i)=>(
+            <div key={l.id||i} style={{display:"flex",justifyContent:"space-between",gap:16,padding:"12px 0",borderBottom:`1px solid ${BD}`}}>
+              <div style={{flex:1,fontSize:14,color:INK,lineHeight:1.6}}>{(l.description||"").trim()}</div>
+              <div style={{fontSize:14,fontWeight:700,color:INK,whiteSpace:"nowrap"}}>{fmt(l.amount)}</div>
+            </div>
+          ))
+          :<div style={{display:"flex",justifyContent:"space-between",gap:16,padding:"12px 0",borderBottom:`1px solid ${BD}`}}>
+            <div style={{flex:1,fontSize:14,color:INK,lineHeight:1.6}}>{(snap.descriptionOverride||"").trim()}</div>
+            <div style={{fontSize:14,fontWeight:700,color:INK,whiteSpace:"nowrap"}}>{fmt(snap.totalIncGST)}</div>
+          </div>}
       </div>
 
       {/* Totals */}
@@ -4515,13 +4524,21 @@ function InvoicePrintView({inv,job,client,biz,payments,onClose}){
               </tr>
             </thead>
             <tbody>
-              {/* Customer-facing invoice never shows internal cost lines. Shows only the typed
-                  description (blank if none — the studio is expected to fill it in). */}
-              <tr style={{borderBottom:`1px solid ${BD_SOFT}`}}>
-                <td style={{padding:"18px 0",color:INK,lineHeight:1.65,whiteSpace:"pre-wrap",fontWeight:500}}>{(inv.descriptionOverride||"").trim()}</td>
-                <td style={{padding:"18px 0",textAlign:"center",color:WG,fontSize:12}}>GST</td>
-                <td style={{padding:"18px 0",textAlign:"right",fontWeight:700,color:INK}}>{fmt(inv.totalIncGST)}</td>
-              </tr>
+              {/* Customer-facing invoice never shows internal cost lines. Combined invoices
+                  itemise each option; otherwise it's the single typed description. */}
+              {inv.customerLines&&inv.customerLines.length
+                ?inv.customerLines.map((l,i)=>(
+                  <tr key={l.id||i} style={{borderBottom:`1px solid ${BD_SOFT}`}}>
+                    <td style={{padding:"18px 0",color:INK,lineHeight:1.65,whiteSpace:"pre-wrap",fontWeight:500}}>{(l.description||"").trim()}</td>
+                    <td style={{padding:"18px 0",textAlign:"center",color:WG,fontSize:12}}>GST</td>
+                    <td style={{padding:"18px 0",textAlign:"right",fontWeight:700,color:INK}}>{fmt(l.amount)}</td>
+                  </tr>
+                ))
+                :<tr style={{borderBottom:`1px solid ${BD_SOFT}`}}>
+                  <td style={{padding:"18px 0",color:INK,lineHeight:1.65,whiteSpace:"pre-wrap",fontWeight:500}}>{(inv.descriptionOverride||"").trim()}</td>
+                  <td style={{padding:"18px 0",textAlign:"center",color:WG,fontSize:12}}>GST</td>
+                  <td style={{padding:"18px 0",textAlign:"right",fontWeight:700,color:INK}}>{fmt(inv.totalIncGST)}</td>
+                </tr>}
             </tbody>
           </table>
         </div>
@@ -4611,6 +4628,9 @@ function InvoiceDetail({invoiceId,invoices,setInvoices,jobs,clients,payments,biz
   const[descDraft,setDescDraft]=useState(inv.descriptionOverride||"");
   useEffect(()=>{if(document.activeElement!==descRef.current)setDescDraft(inv.descriptionOverride||"");},[inv.descriptionOverride]);
   const commitDesc=()=>{if(descDraft!==(inv.descriptionOverride||""))setDescOverride(descDraft);};
+  // Combined invoices itemise per option — let the studio rename each customer-facing line.
+  const setCustomerLineDesc=(lineId,v)=>setInvoices(p=>{const n=p.map(x=>x.id===invoiceId?{...x,customerLines:(x.customerLines||[]).map(l=>l.id===lineId?{...l,description:v}:l)}:x);persist(K.inv,n);return n;});
+  const hasCustomerLines=Array.isArray(inv.customerLines)&&inv.customerLines.length>0;
   const setRequestAmount=v=>setInvoices(p=>{const n=p.map(x=>x.id===invoiceId?{...x,requestAmount:v}:x);persist(K.inv,n);return n;});
   const paidTotal=(payments||[]).filter(p=>p.jobId===inv.jobId&&p.status==="Received").reduce((s,p)=>s+Number(p.amount),0);
   const balance=Math.max(0,inv.totalIncGST-paidTotal);
@@ -4681,14 +4701,30 @@ function InvoiceDetail({invoiceId,invoices,setInvoices,jobs,clients,payments,biz
       <div style={{fontSize:11,color:GOLD_D,marginTop:8}}>After changing this, click <strong>🔗 Copy link</strong> above to refresh what the client sees.</div>
     </Card>
     <Card>
-      <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:8}}>
-        <label style={SS.lbl}>Customer-facing description (optional)</label>
-        <div style={{background:descDraft.trim()?OK+"22":DANGER+"18",color:descDraft.trim()?OK:DANGER,fontSize:10,fontWeight:700,padding:"2px 8px",borderRadius:4,letterSpacing:"0.04em"}}>{descDraft.trim()?"SHOWN ON INVOICE":"BLANK — ADD ONE"}</div>
-      </div>
-      <textarea ref={descRef} value={descDraft} onChange={e=>setDescDraft(e.target.value)} onBlur={commitDesc} rows={3}
-        placeholder="e.g. Custom 18ct yellow gold bracelet — design, materials & handcrafting"
-        style={{...SS.inp,marginTop:0,resize:"vertical",lineHeight:1.6}}/>
-      <div style={{fontSize:11,color:WG,marginTop:6,lineHeight:1.5}}>This is the single line the customer sees on the invoice (with the total). The internal cost lines below are never shown to the customer. <strong>If you leave it blank, the invoice prints no description</strong> — so add what this job is (e.g. "Custom engagement ring", "Ring remodel", "Repair").</div>
+      {hasCustomerLines
+        ?<>
+          <label style={SS.lbl}>Customer-facing lines <span style={{fontWeight:400,color:WG,textTransform:"none",letterSpacing:0}}>(one per accepted option — shown on the invoice with the combined total)</span></label>
+          <div style={{marginTop:8,display:"flex",flexDirection:"column",gap:8}}>
+            {inv.customerLines.map(l=>(
+              <div key={l.id} style={{display:"flex",alignItems:"center",gap:10}}>
+                <input defaultValue={l.description} onBlur={e=>setCustomerLineDesc(l.id,e.target.value)} placeholder="Description shown to the customer"
+                  style={{...SS.inp,marginTop:0,flex:1}}/>
+                <div style={{fontSize:14,fontWeight:700,color:INK,whiteSpace:"nowrap",minWidth:90,textAlign:"right"}}>{fmt(l.amount)}</div>
+              </div>
+            ))}
+          </div>
+          <div style={{fontSize:11,color:WG,marginTop:8,lineHeight:1.5}}>Each option appears as its own line on the customer's invoice, with the prices adding up to the total. Edit the wording so it reads well for the client (e.g. "Platinum wedding band", "18ct yellow gold wedding band"). The internal cost lines below are never shown to the customer.</div>
+        </>
+        :<>
+          <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:8}}>
+            <label style={SS.lbl}>Customer-facing description (optional)</label>
+            <div style={{background:descDraft.trim()?OK+"22":DANGER+"18",color:descDraft.trim()?OK:DANGER,fontSize:10,fontWeight:700,padding:"2px 8px",borderRadius:4,letterSpacing:"0.04em"}}>{descDraft.trim()?"SHOWN ON INVOICE":"BLANK — ADD ONE"}</div>
+          </div>
+          <textarea ref={descRef} value={descDraft} onChange={e=>setDescDraft(e.target.value)} onBlur={commitDesc} rows={3}
+            placeholder="e.g. Custom 18ct yellow gold bracelet — design, materials & handcrafting"
+            style={{...SS.inp,marginTop:0,resize:"vertical",lineHeight:1.6}}/>
+          <div style={{fontSize:11,color:WG,marginTop:6,lineHeight:1.5}}>This is the single line the customer sees on the invoice (with the total). The internal cost lines below are never shown to the customer. <strong>If you leave it blank, the invoice prints no description</strong> — so add what this job is (e.g. "Custom engagement ring", "Ring remodel", "Repair").</div>
+        </>}
     </Card>
     <Card>
       <div style={{display:"grid",gridTemplateColumns:"1fr 100px 120px",gap:6,marginBottom:8,paddingBottom:8,borderBottom:`1px solid ${BD}`}}>
@@ -4756,7 +4792,10 @@ function InvoicesList({invoices,jobs,clients,quotes,payments,setInvoices,markupT
       ?(qs[0].clientDescription||jb?.description||"")
       :(jb?.description||qs.map(q=>q.clientDescription||quoteLabel(q)).filter(Boolean).join(" + "));
     const notes=qs.map(q=>q.notes).filter(Boolean).join("\n");
-    const inv={id:uid(),jobId:selJob,quoteId:qs[0].id,quoteIds:qs.map(q=>q.id),number:num,date:today(),status:"Unpaid",exGST,gst,totalIncGST,lineItems,notes,descriptionOverride};
+    // For a combined invoice, itemise per option on the customer-facing invoice (one line each,
+    // with that option's price). Single-quote invoices keep the one-line descriptionOverride.
+    const customerLines=qs.length>1?qs.map(q=>({id:uid(),description:(q.clientDescription||"").trim()||jb?.description||quoteLabel(q),amount:quoteGrandTotal(q,markupTable)})):null;
+    const inv={id:uid(),jobId:selJob,quoteId:qs[0].id,quoteIds:qs.map(q=>q.id),number:num,date:today(),status:"Unpaid",exGST,gst,totalIncGST,lineItems,notes,descriptionOverride,customerLines};
     setInvoices(p=>{const n=[...p,inv];persist(K.inv,n);return n;});
     setModal(false);
     setView("invoiceDetail_"+inv.id);
