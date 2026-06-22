@@ -168,6 +168,9 @@ const SEED_SPOT={gold:105,platinum:148,silver:1.45,updatedAt:"2025-05-01"};
 // Seed pricing ids that have been retired from the catalogue — stripped from saved data on load
 // so they don't linger (and aren't re-added by the missing-seed merge).
 const RETIRED_PRICING_IDS=new Set(["p10","cad0","cad1","cad2","cad3"]);   // cad0-3: old CAD design tiers, replaced by hourly rate (cad_hr)
+// Built-in (seed) items the user has deleted. Loaded from storage at startup; the missing-seed
+// merge skips these so a deleted built-in item doesn't reappear. (SEED_PRICING_IDS defined after the seed array.)
+const _deletedSeedIds=new Set();
 const SEED_PRICING=[
   {id:"p1",category:"Metals",name:"9ct yellow gold",unit:"g",baseCost:39.38,metalKey:"gold",purity:0.375},
   {id:"p2",category:"Metals",name:"18ct yellow gold",unit:"g",baseCost:78.75,metalKey:"gold",purity:0.75},
@@ -712,6 +715,7 @@ const SEED_PRICING=[
   {id:"rmdf02",category:REPAIRS_CAT,group:"Diamond Replacement",subgroup:"Fancy shapes — princess, oval, pear, marquise etc. — add stone replacement",name:"Fancy shape — Natural G-H SI1",unit:"stone",baseCost:0,noMarkup:true,poa:true},
   {id:"rmdf03",category:REPAIRS_CAT,group:"Diamond Replacement",subgroup:"Fancy shapes — princess, oval, pear, marquise etc. — add stone replacement",name:"Fancy shape — Natural D-E VS",unit:"stone",baseCost:0,noMarkup:true,poa:true},
 ];
+const SEED_PRICING_IDS=new Set(SEED_PRICING.map(x=>x.id));   // which pricing ids are built-in (vs user-added)
 const SEED_CLIENTS=[
   {id:"c1",name:"Sarah Mitchell",email:"sarah@example.com",phone:"0412 345 678",ringSize:"N",metalPref:"18ct white gold",stonePref:"Diamond",budget:"8000",anniversary:"2019-03-14",notes:"Prefers modern minimal. Allergic to nickel.",createdAt:"2024-10-01"},
   {id:"c2",name:"James Nguyen",email:"james@example.com",phone:"0421 987 654",ringSize:"T",metalPref:"Platinum",stonePref:"Sapphire",budget:"12000",anniversary:"",notes:"Open to coloured stones. Wants something unique.",createdAt:"2024-11-15"},
@@ -869,7 +873,7 @@ const calcStoneQuote=(items,table)=>{
   return{totalCost,bracket,mult,markedUp,gst,clientTotal};
 };
 
-const K={cl:"jlr4_clients",jo:"jlr4_jobs",qu:"jlr4_quotes",pa:"jlr4_payments",pr:"jlr4_pricing_v9",biz:"jlr4_biz",no:"jlr4_notes",inv:"jlr4_invoices",spot:"jlr4_spot",mt:"jlr4_markup",smn:"jlr4_stone_nat",sml:"jlr4_stone_lab",csr:"jlr4_centre_rates",ap:"jlr4_appointments",pp:"jlr4_proposals",td:"jlr4_todos"};
+const K={cl:"jlr4_clients",jo:"jlr4_jobs",qu:"jlr4_quotes",pa:"jlr4_payments",pr:"jlr4_pricing_v9",biz:"jlr4_biz",no:"jlr4_notes",inv:"jlr4_invoices",spot:"jlr4_spot",mt:"jlr4_markup",smn:"jlr4_stone_nat",sml:"jlr4_stone_lab",csr:"jlr4_centre_rates",ap:"jlr4_appointments",pp:"jlr4_proposals",td:"jlr4_todos",delpr:"jlr4_deleted_pricing"};
 
 // Name of the public, anon-readable table holding immutable proposal snapshots for client links.
 const PUBLIC_PROPOSALS_TABLE="public_proposals";
@@ -5139,7 +5143,11 @@ function PricingDB({pricing,setPricing,spotPrices,setSpotPrices,markupTable,cent
   const filteredPrintCast=pricing.filter(p=>p.category==="3D Print & Cast");
 
   const saveItem=(f,id)=>{setPricing(p=>{const n=id?p.map(x=>x.id===id?{...x,...f}:x):[...p,{...f,id:uid()}];persist(K.pr,n);return n;});setModal(null);};
-  const del=id=>{if(!confirm("Delete?"))return;setPricing(p=>{const n=p.filter(x=>x.id!==id);persist(K.pr,n);return n;});};
+  const del=id=>{if(!confirm("Delete?"))return;
+    // Built-in items would be re-added by the missing-seed merge on next load — remember the
+    // deletion so it sticks (and survives the realtime echo of this save).
+    if(SEED_PRICING_IDS.has(id)){_deletedSeedIds.add(id);persist(K.delpr,[..._deletedSeedIds]);}
+    setPricing(p=>{const n=p.filter(x=>x.id!==id);persist(K.pr,n);return n;});};
   // Drag-reorder regular items: reorder within the currently-shown filtered set, keeping
   // every other item in its original slot in the flat pricing array.
   const reorderRegular=(draggedId,targetId)=>{
@@ -6312,7 +6320,7 @@ export default function App(){
         // re-sorting the whole list (which would undo any manual reordering).
         const present=new Set(v.map(x=>x.id));
         SEED_PRICING.forEach((m,seedIdx)=>{
-          if(present.has(m.id))return;
+          if(present.has(m.id)||_deletedSeedIds.has(m.id))return;   // skip items the user has deleted
           let pos=v.length;   // fallback: append at the end
           for(let i=seedIdx-1;i>=0;i--){const j=v.findIndex(x=>x.id===SEED_PRICING[i].id);if(j>=0){pos=j+1;break;}}
           v.splice(pos,0,m);
@@ -6333,6 +6341,8 @@ export default function App(){
     },9000);
     const init=async()=>{
       setLoadError(false);
+      // Load the user's deleted built-in items before the pricing reconcile, so they aren't re-added.
+      try{const dl=await (cloudMode?_cloudGet(K.delpr):_localGet(K.delpr));_deletedSeedIds.clear();if(Array.isArray(dl))dl.forEach(id=>_deletedSeedIds.add(id));}catch(e){}
       if(cloudMode){
         // Strict load: ALL keys must read from the cloud before we allow any cloud writes.
         // If the cloud can't be reached, we block the app instead of risking an overwrite.
