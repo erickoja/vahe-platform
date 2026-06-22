@@ -885,15 +885,19 @@ const buildProposalSnapshot=({proposal,job,client,biz,quotes,markupTable,payment
     if(!q)return null;
     const calc=calcQuote(q.lineItems,markupTable,q.markupOverride);
     const priceKnown=quoteIsManual(q)||!(calc.base>0&&!calc.bracket&&!calc.overridden);
-    // A chosen photo path is resolved to an inline data URL via photoMap at build time.
-    const photoPath=optPhotos[qid];
+    // Chosen photo path(s) resolved to inline data URLs via photoMap at build time.
+    // Back-compat: older proposals stored a single path string instead of an array.
+    const sel=optPhotos[qid];
+    const paths=Array.isArray(sel)?sel:(sel?[sel]:[]);
+    const photos=paths.map(pp=>photoMap&&photoMap[pp]).filter(Boolean);
     return{
       id:q.id,
       label:quoteLabel(q),
       price:priceKnown?quoteGrandTotal(q,markupTable):null,
       description:q.clientDescription||job?.description||"",
       recommended:proposal.recommendedId===q.id,
-      photo:(photoPath&&photoMap&&photoMap[photoPath])||null,
+      photo:photos[0]||null,   // back-compat: first image
+      photos,
     };
   }).filter(Boolean);
   return{
@@ -3302,7 +3306,8 @@ function JobProposals({job,client,quotes,proposals,setProposals,setQuotes,biz,ma
   const save=next=>{setProposals(next);persist(K.pp,next);};
 
   const toggle=id=>setSel(p=>p.includes(id)?p.filter(x=>x!==id):[...p,id]);
-  const pickPhoto=(qid,path)=>setOptPhotos(p=>({...p,[qid]:p[qid]===path?undefined:path}));
+  // optPhotos[qid] is an array of chosen image paths — tap toggles a photo in/out of the option.
+  const pickPhoto=(qid,path)=>setOptPhotos(p=>{const cur=p[qid]||[];return{...p,[qid]:cur.includes(path)?cur.filter(x=>x!==path):[...cur,path]};});
   const openBuilder=()=>{setSel([]);setRecommended("");setIntro("");setSelectMode("single");setOptPhotos({});setBuilder(true);};
 
   const createAndShare=async()=>{
@@ -3311,7 +3316,7 @@ function JobProposals({job,client,quotes,proposals,setProposals,setQuotes,biz,ma
     setBusy(true);
     const id=uid(),token=proposalToken();
     const orderedIds=optionable.filter(q=>sel.includes(q.id)).map(q=>q.id);
-    const optionPhotos={};orderedIds.forEach(qid=>{if(optPhotos[qid])optionPhotos[qid]=optPhotos[qid];});
+    const optionPhotos={};orderedIds.forEach(qid=>{const arr=optPhotos[qid];if(arr&&arr.length)optionPhotos[qid]=arr;});
     const proposal={id,jobId:job.id,token,optionIds:orderedIds,optionPhotos,recommendedId:selectMode==="multi"?"":(recommended||""),selectMode,intro:intro.trim(),createdAt:today(),status:"sent",acceptedQuoteId:null,acceptedName:"",acceptedAt:null};
     const photoMap=await jobImageMap(job);
     const snapshot=buildProposalSnapshot({proposal,job,client,biz,quotes,markupTable,payments,photoMap});
@@ -3430,10 +3435,10 @@ function JobProposals({job,client,quotes,proposals,setProposals,setQuotes,biz,ma
             {jobPhotos.length===0
               ?<div style={{fontSize:11,color:WG,fontStyle:"italic"}}>Upload images to this job to show a photo with this option.</div>
               :<>
-                <div style={{fontSize:10,fontWeight:700,color:WG,textTransform:"uppercase",letterSpacing:"0.06em",marginBottom:6}}>Photo for this option <span style={{fontWeight:400,textTransform:"none",letterSpacing:0}}>(optional — tap to choose)</span></div>
+                <div style={{fontSize:10,fontWeight:700,color:WG,textTransform:"uppercase",letterSpacing:"0.06em",marginBottom:6}}>Photos for this option <span style={{fontWeight:400,textTransform:"none",letterSpacing:0}}>(optional — tap to select one or more{(optPhotos[q.id]||[]).length?` · ${(optPhotos[q.id]||[]).length} selected`:""})</span></div>
                 <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
                   {jobPhotos.map(ph=>{
-                    const picked=optPhotos[q.id]===ph.path;
+                    const picked=(optPhotos[q.id]||[]).includes(ph.path);
                     return <button key={ph.path} onClick={()=>pickPhoto(q.id,ph.path)} title={picked?"Selected — tap to remove":"Use this photo"}
                       style={{padding:0,border:`2px solid ${picked?GOLD:BD}`,borderRadius:6,overflow:"hidden",cursor:"pointer",background:"none",lineHeight:0,boxShadow:picked?`0 0 0 2px ${GOLD_L}`:"none"}}>
                       <img src={ph.url} alt={ph.caption||""} style={{width:54,height:54,objectFit:"cover",display:"block"}}/>
@@ -3758,8 +3763,6 @@ function PublicProposalPage({token}){
             style={{border:`2px solid ${isSel?GOLD:BD}`,borderRadius:5,padding:"16px 18px",cursor:accepted?"default":"pointer",background:isSel?GOLD_L+"44":WHITE,opacity:dim?0.5:1,transition:"all 0.15s",position:"relative"}}>
             {o.recommended&&<div style={{position:"absolute",top:-9,left:16,background:GOLD,color:WHITE,fontSize:9,fontWeight:800,letterSpacing:"0.08em",textTransform:"uppercase",padding:"2px 10px",borderRadius:3}}>Recommended</div>}
             <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:16}}>
-              {o.photo&&<img src={o.photo} alt={o.label} onClick={e=>{e.stopPropagation();setPhoto(o.photo);}}
-                style={{width:84,height:84,objectFit:"cover",borderRadius:6,border:`1px solid ${BD}`,flexShrink:0,cursor:"zoom-in"}}/>}
               <div style={{flex:1,minWidth:0}}>
                 <div style={{display:"flex",alignItems:"center",gap:10}}>
                   {!accepted&&<div style={{width:18,height:18,borderRadius:multi?4:"50%",border:`2px solid ${isSel?GOLD:BD}`,flexShrink:0,display:"flex",alignItems:"center",justifyContent:"center"}}>{isSel&&(multi?<span style={{color:GOLD,fontSize:13,fontWeight:900,lineHeight:1}}>✓</span>:<div style={{width:9,height:9,borderRadius:"50%",background:GOLD}}/>)}</div>}
@@ -3772,6 +3775,11 @@ function PublicProposalPage({token}){
                 <div style={{fontSize:10,color:WG}}>inc GST</div>
               </div>
             </div>
+            {(()=>{const photos=o.photos&&o.photos.length?o.photos:(o.photo?[o.photo]:[]);return photos.length>0&&
+              <div style={{display:"flex",gap:8,flexWrap:"wrap",marginTop:14}}>
+                {photos.map((src,i)=><img key={i} src={src} alt={`${o.label} ${i+1}`} onClick={e=>{e.stopPropagation();setPhoto(src);}}
+                  style={{width:84,height:84,objectFit:"cover",borderRadius:6,border:`1px solid ${BD}`,cursor:"zoom-in"}}/>)}
+              </div>;})()}
           </div>;
         })}
       </div>
