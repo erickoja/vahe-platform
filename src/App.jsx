@@ -5334,7 +5334,7 @@ function PricingDB({pricing,setPricing,spotPrices,setSpotPrices,markupTable,cent
           </div>
         </div>
         {/* Column headers */}
-        <div style={{display:"grid",gridTemplateColumns:"2fr 1fr 60px 110px 60px",padding:"9px 16px",background:PARCH,borderBottom:`1px solid ${BD}`}}>
+        <div style={{display:"grid",gridTemplateColumns:"2fr 1fr 60px 110px 92px",padding:"9px 16px",background:PARCH,borderBottom:`1px solid ${BD}`}}>
           {["Item","Category","Unit","Your cost",""].map(h=><div key={h} style={{fontSize:10,fontWeight:700,color:WG,textTransform:"uppercase",letterSpacing:"0.05em"}}>{h}</div>)}
         </div>
         {(()=>{
@@ -5354,7 +5354,7 @@ function PricingDB({pricing,setPricing,spotPrices,setSpotPrices,markupTable,cent
                 onDragLeave={canDrag?(()=>setDragOverId(o=>o===item.id?null:o)):undefined}
                 onDrop={canDrag?(e=>{e.preventDefault();reorderRegular(dragId,item.id);setDragId(null);setDragOverId(null);}):undefined}
                 onDragEnd={()=>{setDragId(null);setDragOverId(null);}}
-                style={{display:"grid",gridTemplateColumns:"2fr 1fr 60px 110px 60px",padding:"10px 16px",borderBottom:i<filteredRegular.length-1?`1px solid ${BD}`:"none",borderTop:isDragTarget?`2px solid ${GOLD}`:"2px solid transparent",alignItems:"center",opacity:dragId===item.id?0.4:1,background:isDragTarget?GOLD_L+"66":"transparent",transition:"background 0.1s"}}>
+                style={{display:"grid",gridTemplateColumns:"2fr 1fr 60px 110px 92px",padding:"10px 16px",borderBottom:i<filteredRegular.length-1?`1px solid ${BD}`:"none",borderTop:isDragTarget?`2px solid ${GOLD}`:"2px solid transparent",alignItems:"center",opacity:dragId===item.id?0.4:1,background:isDragTarget?GOLD_L+"66":"transparent",transition:"background 0.1s"}}>
                 <div style={{fontWeight:600,fontSize:13,color:INK,display:"flex",alignItems:"center",gap:8}}>{canDrag&&<span title="Drag to reorder" style={{cursor:"grab",color:WG,fontSize:14,lineHeight:1,flexShrink:0}}>⠿</span>}{item.name}</div>
                 <div><Badge label={item.category} color={WG}/></div>
                 <div style={{fontSize:12,color:WG}}>/{item.unit}</div>
@@ -5368,12 +5368,12 @@ function PricingDB({pricing,setPricing,spotPrices,setSpotPrices,markupTable,cent
                       :<span style={{fontSize:13,fontWeight:700,color:INK}}>{fmt(item.baseCost)}</span>}
                 </div>
                 <div style={{display:"flex",gap:4,justifyContent:"flex-end"}}>
-                  {!regularEditing&&<Btn sm danger onClick={()=>del(item.id)}>×</Btn>}
+                  {!regularEditing&&<><Btn sm ghost onClick={()=>setModal(item)} title="Edit item — rename, change unit or cost">✎</Btn><Btn sm danger onClick={()=>del(item.id)} title="Delete item">×</Btn></>}
                 </div>
               </div>;
             const prefix2=[];
-            if(showGroupHeader)prefix2.push(<div key={item.id+"_g"} style={{display:"grid",gridTemplateColumns:"2fr 1fr 60px 110px 60px",padding:"7px 16px",background:PARCH,borderTop:i>0?`1px solid ${BD}`:"none",borderBottom:`1px solid ${BD}`}}><div style={{gridColumn:"1/-1",fontSize:10,fontWeight:800,color:GOLD_D,textTransform:"uppercase",letterSpacing:"0.08em"}}>{item.group}</div></div>);
-            if(showSubgroupHeader)prefix2.push(<div key={item.id+"_sg"} style={{display:"grid",gridTemplateColumns:"2fr 1fr 60px 110px 60px",padding:"5px 16px",background:"transparent",borderBottom:`1px solid ${BD}`}}><div style={{gridColumn:"1/-1",fontSize:10,fontWeight:700,color:WG,textTransform:"uppercase",letterSpacing:"0.07em",paddingLeft:2}}>{item.subgroup}</div></div>);
+            if(showGroupHeader)prefix2.push(<div key={item.id+"_g"} style={{display:"grid",gridTemplateColumns:"2fr 1fr 60px 110px 92px",padding:"7px 16px",background:PARCH,borderTop:i>0?`1px solid ${BD}`:"none",borderBottom:`1px solid ${BD}`}}><div style={{gridColumn:"1/-1",fontSize:10,fontWeight:800,color:GOLD_D,textTransform:"uppercase",letterSpacing:"0.08em"}}>{item.group}</div></div>);
+            if(showSubgroupHeader)prefix2.push(<div key={item.id+"_sg"} style={{display:"grid",gridTemplateColumns:"2fr 1fr 60px 110px 92px",padding:"5px 16px",background:"transparent",borderBottom:`1px solid ${BD}`}}><div style={{gridColumn:"1/-1",fontSize:10,fontWeight:700,color:WG,textTransform:"uppercase",letterSpacing:"0.07em",paddingLeft:2}}>{item.subgroup}</div></div>);
             if(!prefix2.length)return row;
             return [...prefix2,row];
           });
@@ -6302,9 +6302,10 @@ export default function App(){
         // Drop any retired catalogue items so they don't reappear after deletion
         v=v.filter(it=>it&&!RETIRED_PRICING_IDS.has(it.id));
         v=v.map(it=>it&&it.category==="Findings / Components / Purchased Parts"?{...it,category:FINDINGS_CAT}:it);
-        // Sync structural fields from seed onto existing items (preserving only user-edited baseCost)
+        // Sync structural fields from seed onto existing items, preserving the user's editable
+        // fields (price, and any custom name/detail they've set) so renames/edits aren't reverted.
         const seedById=Object.fromEntries(SEED_PRICING.map(x=>[x.id,x]));
-        v=v.map(it=>{if(!it)return it;const seed=seedById[it.id];if(!seed)return it;return{...seed,baseCost:it.baseCost};});
+        v=v.map(it=>{if(!it)return it;const seed=seedById[it.id];if(!seed)return it;return{...seed,baseCost:it.baseCost,name:it.name??seed.name,detail:it.detail??seed.detail};});
         const savedIds=new Set(v.map(x=>x.id));
         const missing=SEED_PRICING.filter(x=>!savedIds.has(x.id));
         if(missing.length>0)v=[...v,...missing];
