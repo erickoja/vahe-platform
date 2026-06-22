@@ -2640,7 +2640,7 @@ function CentreStonePicker({onAdd,onAddManual,centreRates=DEFAULT_CENTRE_RATES,s
     {onAddManual&&<div style={{background:GOLD_L+"66",border:`1px solid ${GOLD}55`,borderRadius:4,padding:"11px 14px",marginBottom:16}}>
       <div style={{display:"flex",alignItems:"center",gap:12,flexWrap:"wrap"}}>
         <div style={{flex:1,minWidth:180}}>
-          <div style={{fontSize:12,fontWeight:700,color:GOLD_D}}>Manual override price (Centre or Feature Stone Setting)</div>
+          <div style={{fontSize:12,fontWeight:700,color:GOLD_D}}>Manual price (Centre or Feature Stone Setting)</div>
           <div style={{fontSize:11,color:WG,marginTop:2,lineHeight:1.5}}>The rates above are based on carat weight. Pricing varies between jewellers depending on stone size, stone type, and setting style, so feel free to enter your own price for this centre setting instead.</div>
         </div>
         <div style={{position:"relative"}}>
@@ -2753,6 +2753,7 @@ function QuoteBuilder({jobId:jobIdProp,editQuoteId,jobs,clients,quotes,setQuotes
   const moveItem=(id,dir)=>{
     setItems(p=>{const i=p.findIndex(x=>x.id===id);if(i<0)return p;const n=[...p];const t=n[i+dir];if(!t)return p;n[i+dir]=n[i];n[i]=t;return n;});
   };
+  const duplicateItem=id=>setItems(p=>{const i=p.findIndex(x=>x.id===id);if(i<0)return p;const n=[...p];n.splice(i+1,0,{...p[i],id:uid()});return n;});
 
   const addFromDB=(item,qty)=>{
     const q=Math.max(1,Number(qty)||1);
@@ -2807,7 +2808,7 @@ function QuoteBuilder({jobId:jobIdProp,editQuoteId,jobs,clients,quotes,setQuotes
   const addManual=()=>{
     const amt=Number(manAmt)||0;
     if(amt<=0)return alert("Enter an amount.");
-    setItems(p=>[...p,{id:uid(),description:manLabel.trim()||"Manual amount",detail:"Manual amount",costLow:amt.toFixed(2),noMarkup:false}]);
+    setItems(p=>[...p,{id:uid(),description:manLabel.trim()||"Manual price",detail:"Manual price",costLow:amt.toFixed(2),noMarkup:false}]);
     setManLabel("");setManAmt("");
     markAdded("manual-line",amt);
   };
@@ -2820,7 +2821,7 @@ function QuoteBuilder({jobId:jobIdProp,editQuoteId,jobs,clients,quotes,setQuotes
     const desc=isD?`${item.category} ${item.sizeMm}mm`
       :isS?(item.category==="Complex Setting"?`Complex setting ${item.sizeMm}mm`:`Basic setting ${item.sizeMm}mm`)
       :item.name;
-    setItems(p=>[...p,{id:uid(),description:desc,detail:"Manual amount",costLow:amt.toFixed(2),noMarkup:false}]);
+    setItems(p=>[...p,{id:uid(),description:desc,detail:"Manual price",costLow:amt.toFixed(2),noMarkup:false}]);
     setPQty(p=>({...p,[item.id]:""}));   // clear this row only; popup stays open for more adds
     markAdded(item.id,amt);
   };
@@ -2902,16 +2903,20 @@ function QuoteBuilder({jobId:jobIdProp,editQuoteId,jobs,clients,quotes,setQuotes
       <div style={{background:GOLD_L+"55",border:`1px solid ${GOLD}55`,borderRadius:4,padding:"11px 14px",marginBottom:14,fontSize:12.5,color:INK,lineHeight:1.65}}>
         <strong>The pricing database is just a starting point.</strong> It holds the simple, most commonly-used items for quoting everyday jewellery — but every studio works with different suppliers and materials. Feel free to add your own <strong>manual costings</strong> any time with <strong>+ Add item</strong>; they mark up and total exactly the same way.
         <div style={{color:WG,marginTop:6}}>For example, making a wedding ring with 15 × 2mm blue sapphires? Call your supplier for your real cost, then add it here as a manual entry — that way your quote always reflects your actual pricing.</div>
-        <div style={{color:WG,marginTop:6}}>You can also do this straight from <strong>⊕ Pricing DB</strong> — the <strong>Quick manual amount</strong> box at the top lets you type a label and price and add it to the quote as its own line entry.</div>
+        <div style={{color:WG,marginTop:6}}>You can also do this straight from <strong>⊕ Pricing DB</strong> — the <strong>Manual price</strong> box at the top lets you type a label and price and add it to the quote as its own line entry.</div>
       </div>
-      {(items.length>0||mfgAccents.length>0)&&<><div style={{display:"grid",gridTemplateColumns:"minmax(240px,1.6fr) 1fr 120px 80px",gap:8,marginBottom:6,padding:"0 2px"}}>
+      {(items.length>0||mfgAccents.length>0)&&<><div style={{display:"grid",gridTemplateColumns:"minmax(240px,1.6fr) 1fr 120px 104px",gap:8,marginBottom:6,padding:"0 2px"}}>
         {["Item","Detail / calculation","Cost",""].map(h=><div key={h} style={{fontSize:10,fontWeight:700,color:WG,textTransform:"uppercase",letterSpacing:"0.04em"}}>{h}</div>)}
       </div>
       <div style={{fontSize:11,color:WG,marginBottom:10,lineHeight:1.5}}>Toggle <strong style={{color:"#7B5EA7"}}>No markup</strong> on any item to add it at exact cost after markup is applied.</div></>}
+      {items.length===0&&mfgAccents.length===0&&!(stoneMode==="sourcing"&&stoneType&&stoneItems.length>0)&&
+        <div style={{border:`1px dashed ${BD}`,borderRadius:5,padding:"16px 18px",marginBottom:12,fontSize:12.5,color:WG,lineHeight:1.6,textAlign:"center"}}>
+          No line items yet. Add from your <strong style={{color:GOLD_D}}>⊕ Pricing DB</strong>, or hit <strong style={{color:GOLD_D}}>+ Add item</strong> to type your own — both mark up and total the same way.
+        </div>}
       {items.map((li,idx)=>{
         const cost=Number(li.costLow)||0;
         const totalStr=cost>0?fmt(cost):"—";
-        return <div key={li.id} style={{display:"grid",gridTemplateColumns:"minmax(240px,1.6fr) 1fr 120px 80px",gap:8,marginBottom:8,alignItems:"center"}}>
+        return <div key={li.id} style={{display:"grid",gridTemplateColumns:"minmax(240px,1.6fr) 1fr 120px 104px",gap:8,marginBottom:8,alignItems:"center"}}>
           <input value={li.description} onChange={e=>setItem(li.id,"description",e.target.value)} placeholder="e.g. 9ct white gold" style={{...SS.inp,marginTop:0,fontSize:13,padding:"7px 10px"}}/>
           <input value={li.detail} onChange={e=>setItem(li.id,"detail",e.target.value)} placeholder="e.g. 5g × $110/g" style={{...SS.inp,marginTop:0,fontSize:13,padding:"7px 10px",color:WG}}/>
           <input type="number" value={li.costLow} onChange={e=>setItem(li.id,"costLow",e.target.value)} placeholder="0.00" min="0" step="0.01" style={{...SS.inp,marginTop:0,fontSize:13,padding:"7px 8px",textAlign:"right"}}/>
@@ -2923,14 +2928,15 @@ function QuoteBuilder({jobId:jobIdProp,editQuoteId,jobs,clients,quotes,setQuotes
               style={{background:li.noMarkup?"#7B5EA7":"transparent",border:`1px solid ${li.noMarkup?"#7B5EA7":BD}`,borderRadius:2,padding:"1px 5px",fontSize:9,fontWeight:700,color:li.noMarkup?WHITE:WG,cursor:"pointer",letterSpacing:"0.04em",lineHeight:"16px",whiteSpace:"nowrap"}}>
               {li.noMarkup?"NO MU":"MU"}
             </button>
-            <button onClick={()=>removeItem(li.id)} style={{background:"none",border:"none",cursor:"pointer",color:DANGER,fontSize:17,padding:0,lineHeight:1}}>×</button>
-            {idx>0&&<button onClick={()=>moveItem(li.id,-1)} style={{background:"none",border:"none",cursor:"pointer",color:WG,fontSize:13,padding:"0 2px"}}>↑</button>}
+            <button onClick={()=>duplicateItem(li.id)} title="Duplicate this line" style={{background:"none",border:"none",cursor:"pointer",color:WG,fontSize:13,padding:"0 2px"}}>⧉</button>
+            <button onClick={()=>removeItem(li.id)} title="Delete this line" style={{background:"none",border:"none",cursor:"pointer",color:DANGER,fontSize:17,padding:0,lineHeight:1}}>×</button>
+            {idx>0&&<button onClick={()=>moveItem(li.id,-1)} title="Move up" style={{background:"none",border:"none",cursor:"pointer",color:WG,fontSize:13,padding:"0 2px"}}>↑</button>}
           </div>
         </div>;})}
       {/* Manufacturing-markup accent stones — folded into the jewellery costs list (editable) */}
       {mfgAccents.map(li=>{
         const cost=Number(li.costLow)||0;
-        return <div key={li.id} style={{display:"grid",gridTemplateColumns:"minmax(240px,1.6fr) 1fr 120px 80px",gap:8,marginBottom:8,alignItems:"center"}}>
+        return <div key={li.id} style={{display:"grid",gridTemplateColumns:"minmax(240px,1.6fr) 1fr 120px 104px",gap:8,marginBottom:8,alignItems:"center"}}>
           <input value={li.description} onChange={e=>setAccentItem(li.id,"description",e.target.value)} placeholder="e.g. 4 × pear sapphire" style={{...SS.inp,marginTop:0,fontSize:13,padding:"7px 10px"}}/>
           <div style={{display:"flex",alignItems:"center",gap:6,minWidth:0}}>
             <span style={{background:"#EEF4FB",color:"#3B6E8F",fontSize:8,fontWeight:800,padding:"3px 5px",borderRadius:3,letterSpacing:"0.04em",flexShrink:0}} title="Accent / fancy stone">ACCENT</span>
@@ -2953,7 +2959,7 @@ function QuoteBuilder({jobId:jobIdProp,editQuoteId,jobs,clients,quotes,setQuotes
       {stoneMode==="sourcing"&&stoneType&&stoneItems.map(li=>{
         const stoneCost=Number(li.cost)||Number(li.costLow)||0;
         const accent=stoneType==="lab"?"#7B5EA7":"#3B6E8F";
-        return <div key={li.id} style={{display:"grid",gridTemplateColumns:"minmax(240px,1.6fr) 1fr 120px 80px",gap:8,marginBottom:8,alignItems:"center"}}>
+        return <div key={li.id} style={{display:"grid",gridTemplateColumns:"minmax(240px,1.6fr) 1fr 120px 104px",gap:8,marginBottom:8,alignItems:"center"}}>
           <input value={li.description} onChange={e=>setStonItem(li.id,"description",e.target.value)} placeholder="e.g. 1.52ct oval sapphire" style={{...SS.inp,marginTop:0,fontSize:13,padding:"7px 10px",borderColor:stoneType==="lab"?"#C4A8F0":"#8EB5D4"}}/>
           <div style={{display:"flex",alignItems:"center",gap:6,minWidth:0}}>
             <span style={{background:accent+"18",color:accent,fontSize:8,fontWeight:800,padding:"3px 5px",borderRadius:3,letterSpacing:"0.04em",flexShrink:0,whiteSpace:"nowrap"}} title="Centre / feature stone — priced on the stone markup">CENTRE · {stoneType==="lab"?"LAB":"NAT"}</span>
@@ -3169,7 +3175,7 @@ function QuoteBuilder({jobId:jobIdProp,editQuoteId,jobs,clients,quotes,setQuotes
           <div style={{flex:1,display:"flex",flexDirection:"column",minHeight:0,padding:"0 24px"}}>
             {/* Manual override price — available on every category (pinned above the list) */}
             <div style={{flexShrink:0,background:GOLD_L+"66",border:`1px solid ${GOLD}55`,borderRadius:4,padding:"11px 14px",margin:"12px 0 10px"}}>
-              <div style={{fontSize:12,fontWeight:700,color:GOLD_D,marginBottom:2}}>Manual override price{!pSearching&&pCat!=="All"?` (${catTitle(pCat)})`:""}</div>
+              <div style={{fontSize:12,fontWeight:700,color:GOLD_D,marginBottom:2}}>Manual price{!pSearching&&pCat!=="All"?` (${catTitle(pCat)})`:""}</div>
               <div style={{fontSize:11,color:WG,lineHeight:1.5,marginBottom:9}}>{pSearching?MANUAL_OVERRIDE_DEFAULT:manualOverrideText(pCat)}</div>
               <div style={{display:"flex",alignItems:"center",gap:10,flexWrap:"wrap"}}>
                 <input value={manLabel} onChange={e=>setManLabel(e.target.value)} placeholder="Label" onKeyDown={e=>{if(e.key==="Enter")addManual();}} style={{...SS.inp,marginTop:0,flex:1,minWidth:200}}/>
@@ -3228,17 +3234,17 @@ function QuoteBuilder({jobId:jobIdProp,editQuoteId,jobs,clients,quotes,setQuotes
                           <Btn sm onClick={()=>addFromDB(item,1)}>Add</Btn>
                         </>
                         :needsQty&&<>
-                          <div title={amtMode?"Entering a manual $ amount — click # to enter "+qtyLabel.toLowerCase():"Entering "+qtyLabel.toLowerCase()+" — click $ to enter a manual amount"}
+                          <div title={amtMode?"Typing your own price — click Qty to use the preset rate × quantity instead":"Using the preset rate × quantity — click $ Price to type your own price instead"}
                             style={{display:"flex",borderRadius:6,overflow:"hidden",border:`1px solid ${BD}`,flexShrink:0}}>
-                            {[["qty","#"],["amt","$"]].map(([m,lab])=>(
+                            {[["qty","Qty"],["amt","$ Price"]].map(([m,lab])=>(
                               <button key={m} onClick={()=>setPMode(p=>({...p,[item.id]:m}))}
-                                style={{padding:"4px 9px",border:"none",background:mode===m?INK:"transparent",color:mode===m?WHITE:WG,fontSize:11,fontWeight:800,cursor:"pointer",fontFamily:"inherit",lineHeight:"16px"}}>{lab}</button>
+                                style={{padding:"4px 9px",border:"none",background:mode===m?INK:"transparent",color:mode===m?WHITE:WG,fontSize:11,fontWeight:800,cursor:"pointer",fontFamily:"inherit",lineHeight:"16px",whiteSpace:"nowrap"}}>{lab}</button>
                             ))}
                           </div>
                           <input type="number" value={qty} min="0" step={amtMode?"0.01":qtyStep}
                             onChange={e=>setPQty(p=>({...p,[item.id]:e.target.value}))}
                             onKeyDown={e=>{if(e.key==="Enter")addNow();}}
-                            placeholder={amtMode?"$ amount":qtyLabel}
+                            placeholder={amtMode?"$ price":qtyLabel}
                             style={{...SS.inp,marginTop:0,width:96,padding:"6px 9px",fontSize:13,textAlign:"right",flexShrink:0}}/>
                           <span style={{fontSize:12,fontWeight:800,color:OK,whiteSpace:"nowrap",width:84,textAlign:"right",flexShrink:0}}>{amtMode?(Number(qty)>0?`= ${fmt(qty)}`:""):previewCost?`= ${fmt(previewCost)}`:""}</span>
                           <Btn sm onClick={addNow}>Add</Btn>
@@ -3251,7 +3257,7 @@ function QuoteBuilder({jobId:jobIdProp,editQuoteId,jobs,clients,quotes,setQuotes
                     return [...prefix,row];
                   });
                   })()}
-                  {fp.length===0&&<div style={{color:WG,fontSize:14,padding:"10px 0"}}>No items found.</div>}
+                  {fp.length===0&&<div style={{color:WG,fontSize:13,padding:"14px 0",lineHeight:1.6}}>{pSearching?"No matches for your search.":"No preset items in this category yet."}<br/><span style={{fontSize:12}}>That's fine — use the <strong style={{color:GOLD_D}}>Manual price</strong> box above to type a label and price, and add it straight to the quote.</span></div>}
                 </div>
             }
           </div>
@@ -5271,7 +5277,7 @@ function PricingDB({pricing,setPricing,spotPrices,setSpotPrices,markupTable,cent
       </div>
       <div style={{background:GOLD_L+"66",border:`1px solid ${GOLD}55`,borderRadius:4,padding:"11px 14px",marginBottom:14,display:"flex",alignItems:"center",gap:12,flexWrap:"wrap"}}>
         <div style={{flex:1,minWidth:200,fontSize:12,color:INK,lineHeight:1.6}}>
-          <div style={{fontSize:12,fontWeight:700,color:GOLD_D,marginBottom:3}}>Manual override price (Centre or Feature Stone Setting)</div>
+          <div style={{fontSize:12,fontWeight:700,color:GOLD_D,marginBottom:3}}>Manual price (Centre or Feature Stone Setting)</div>
           The rates above are based on carat weight. Pricing varies between jewellers depending on stone size, stone type, and setting style — set your own per-carat rates here, or enter your own price for this setting on any quote.
         </div>
         {!editRates&&<Btn sm onClick={startEditRates}>✎ Change rates</Btn>}
