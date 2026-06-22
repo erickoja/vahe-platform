@@ -828,6 +828,9 @@ const calcQuote=(items,table,overrideMult)=>{
 // Manual quoted price (verbal phone / in-person quotes): when q.manualTotal is set (>0)
 // it IS the customer price (inc GST) and replaces the calculated grand total everywhere.
 const quoteIsManual=q=>Number(q?.manualTotal)>0;
+// A quote counts as invoiced if any invoice references it. Combined invoices list several ids in
+// quoteIds; older single-quote invoices store one quoteId.
+const quoteHasInvoice=(invoices,qid)=>(invoices||[]).some(i=>(i.quoteIds||(i.quoteId?[i.quoteId]:[])).includes(qid));
 // Grand total for a quote, inc GST — manual price wins; else jewellery + centre stone + stone-markup accents.
 const quoteGrandTotal=(q,markupTable)=>{
   if(quoteIsManual(q))return Number(q.manualTotal);
@@ -2336,7 +2339,7 @@ function JobDetail({jobId,jobs,setJobs,clients,quotes,setQuotes,payments,setPaym
     }
     // A manual-price quote may have no line items — give the invoice one so it isn't blank
     if(!lineItems.length)lineItems.push({id:uid(),description:quoteLabel(q),detail:"As quoted",costLow:totalIncGST.toFixed(2),noMarkup:true});
-    const inv={id:uid(),jobId,quoteId:qid,number:num,date:today(),status:"Unpaid",exGST,gst,totalIncGST,lineItems,notes:q.notes||"",descriptionOverride,calc};
+    const inv={id:uid(),jobId,quoteId:qid,quoteIds:[qid],number:num,date:today(),status:"Unpaid",exGST,gst,totalIncGST,lineItems,notes:q.notes||"",descriptionOverride,calc};
     setInvoices(p=>{const n=[...p,inv];persist(K.inv,n);return n;});
     setView("invoiceDetail_"+inv.id);
   };
@@ -2410,7 +2413,7 @@ function JobDetail({jobId,jobs,setJobs,clients,quotes,setQuotes,payments,setPaym
       {jq.length>1&&<div style={{fontSize:11,color:WG,marginBottom:6}}>Order shown here is the order options appear on new proposals.</div>}
       {jq.map((q,qi)=>{
         const calc=calcQuote(q.lineItems,markupTable,q.markupOverride);
-        const hasInv=invoices.some(i=>i.quoteId===q.id);
+        const hasInv=quoteHasInvoice(invoices,q.id);
         const manual=quoteIsManual(q);
         const stoneTotal=(q.stoneClientTotal||0)+(q.accentStoneTotal||0);
         const priceStr=manual?fmtR(Number(q.manualTotal)):(calc.base>0&&!calc.bracket&&!calc.overridden)?"—":fmtR(calc.finalLow+stoneTotal);
@@ -4719,22 +4722,15 @@ function InvoicesList({invoices,jobs,clients,quotes,payments,setInvoices,markupT
   const[modal,setModal]=useState(false);
   const[selClient,setSelClient]=useState("");
   const[selJob,setSelJob]=useState("");
-  const[selQuote,setSelQuote]=useState("");
+  const[selQuotes,setSelQuotes]=useState([]);   // approved quote ids to combine into one invoice
   const clientJobs=selClient?jobs.filter(j=>j.clientId===selClient):[];
-  const jobQuotes=selJob?quotes.filter(q=>q.jobId===selJob&&q.status==="Approved"&&!invoices.some(i=>i.quoteId===q.id)):[];
-  const openModal=()=>{setSelClient("");setSelJob("");setSelQuote("");setModal(true);};
-  const createInv=()=>{
-    if(!selQuote)return;
-    const q=quotes.find(x=>x.id===selQuote);
-    if(!q)return;
-    const calc=calcQuote(q.lineItems,markupTable,q.markupOverride);
-    const jb=jobs.find(j=>j.id===selJob);
-    const totalIncGST=quoteGrandTotal(q,markupTable);        // manual quoted price wins when set
-    const gst=totalIncGST-totalIncGST/(1+GST_RATE);          // GST component (= total ÷ 11)
-    const exGST=totalIncGST-gst;
-    const num=nextInvoiceNumber(invoices);
-    const descriptionOverride=q.clientDescription||jb?.description||"";
-    const lineItems=[...q.lineItems];   // accent stones already live in lineItems; only the centre stone needs adding
+  const jobQuotes=selJob?quotes.filter(q=>q.jobId===selJob&&q.status==="Approved"&&!quoteHasInvoice(invoices,q.id)):[];
+  const toggleQuote=qid=>setSelQuotes(p=>p.includes(qid)?p.filter(x=>x!==qid):[...p,qid]);
+  const combinedTotal=selQuotes.reduce((s,qid)=>{const q=quotes.find(x=>x.id===qid);return s+(q?quoteGrandTotal(q,markupTable):0);},0);
+  const openModal=()=>{setSelClient("");setSelJob("");setSelQuotes([]);setModal(true);};
+  // Cost line items for one quote (incl. its centre stone, or a fallback line for manual-price quotes).
+  const quoteLineItems=q=>{
+    const lineItems=q.lineItems.map(li=>({...li,id:uid()}));   // fresh ids so combined items never collide
     const centreInc=q.stoneClientTotal||0;
     if(centreInc>0){
       const sDescs=(q.stoneItems||[]).map(s=>(s.description||"").trim()).filter(Boolean);
@@ -4744,9 +4740,23 @@ function InvoicesList({invoices,jobs,clients,quotes,payments,setInvoices,markupT
         detail:sDetails.length?sDetails.join(" · "):"Supplied & set",
         costLow:centreInc.toFixed(2),noMarkup:true});
     }
-    // A manual-price quote may have no line items — give the invoice one so it isn't blank
-    if(!lineItems.length)lineItems.push({id:uid(),description:quoteLabel(q),detail:"As quoted",costLow:totalIncGST.toFixed(2),noMarkup:true});
-    const inv={id:uid(),jobId:selJob,quoteId:selQuote,number:num,date:today(),status:"Unpaid",exGST,gst,totalIncGST,lineItems,notes:q.notes||"",descriptionOverride,calc};
+    if(!lineItems.length)lineItems.push({id:uid(),description:quoteLabel(q),detail:"As quoted",costLow:quoteGrandTotal(q,markupTable).toFixed(2),noMarkup:true});
+    return lineItems;
+  };
+  const createInv=()=>{
+    const qs=selQuotes.map(id=>quotes.find(x=>x.id===id)).filter(Boolean);
+    if(!qs.length)return;
+    const jb=jobs.find(j=>j.id===selJob);
+    const totalIncGST=qs.reduce((s,q)=>s+quoteGrandTotal(q,markupTable),0);   // manual price wins per quote
+    const gst=totalIncGST-totalIncGST/(1+GST_RATE);          // GST component (= total ÷ 11)
+    const exGST=totalIncGST-gst;
+    const num=nextInvoiceNumber(invoices);
+    const lineItems=qs.flatMap(quoteLineItems);
+    const descriptionOverride=qs.length===1
+      ?(qs[0].clientDescription||jb?.description||"")
+      :(jb?.description||qs.map(q=>q.clientDescription||quoteLabel(q)).filter(Boolean).join(" + "));
+    const notes=qs.map(q=>q.notes).filter(Boolean).join("\n");
+    const inv={id:uid(),jobId:selJob,quoteId:qs[0].id,quoteIds:qs.map(q=>q.id),number:num,date:today(),status:"Unpaid",exGST,gst,totalIncGST,lineItems,notes,descriptionOverride};
     setInvoices(p=>{const n=[...p,inv];persist(K.inv,n);return n;});
     setModal(false);
     setView("invoiceDetail_"+inv.id);
@@ -4793,38 +4803,43 @@ function InvoicesList({invoices,jobs,clients,quotes,payments,setInvoices,markupT
       </Card>;
     })}
     {modal&&<Modal title="New Invoice" onClose={()=>setModal(false)}>
-      <div style={{marginBottom:6,fontSize:13,color:WG,lineHeight:1.6}}>Create an invoice from an approved quote. Only approved quotes without an existing invoice are shown.</div>
+      <div style={{marginBottom:6,fontSize:13,color:WG,lineHeight:1.6}}>Create an invoice from one approved quote — or tick several from the same job to combine them into a single invoice (handy when a client accepts more than one option). Only approved quotes without an existing invoice are shown.</div>
       <div style={{height:1,background:BD,margin:"14px 0"}}/>
       <div style={{marginBottom:14}}>
         <label style={SS.lbl}>Client</label>
-        <select value={selClient} onChange={e=>{setSelClient(e.target.value);setSelJob("");setSelQuote("");}} style={{...SS.inp,marginTop:4}}>
+        <select value={selClient} onChange={e=>{setSelClient(e.target.value);setSelJob("");setSelQuotes([]);}} style={{...SS.inp,marginTop:4}}>
           <option value="">— Select client —</option>
-          {clients.filter(cl=>jobs.some(j=>j.clientId===cl.id&&quotes.some(q=>q.jobId===j.id&&q.status==="Approved"&&!invoices.some(i=>i.quoteId===q.id)))).map(cl=><option key={cl.id} value={cl.id}>{cl.name}</option>)}
+          {clients.filter(cl=>jobs.some(j=>j.clientId===cl.id&&quotes.some(q=>q.jobId===j.id&&q.status==="Approved"&&!quoteHasInvoice(invoices,q.id)))).map(cl=><option key={cl.id} value={cl.id}>{cl.name}</option>)}
         </select>
       </div>
       {selClient&&<div style={{marginBottom:14}}>
         <label style={SS.lbl}>Job</label>
-        <select value={selJob} onChange={e=>{setSelJob(e.target.value);setSelQuote("");}} style={{...SS.inp,marginTop:4}}>
+        <select value={selJob} onChange={e=>{setSelJob(e.target.value);setSelQuotes([]);}} style={{...SS.inp,marginTop:4}}>
           <option value="">— Select job —</option>
-          {clientJobs.filter(j=>quotes.some(q=>q.jobId===j.id&&q.status==="Approved"&&!invoices.some(i=>i.quoteId===q.id))).map(j=><option key={j.id} value={j.id}>{j.type} · {j.stage}</option>)}
+          {clientJobs.filter(j=>quotes.some(q=>q.jobId===j.id&&q.status==="Approved"&&!quoteHasInvoice(invoices,q.id))).map(j=><option key={j.id} value={j.id}>{j.type} · {j.stage}</option>)}
         </select>
       </div>}
       {selJob&&<div style={{marginBottom:18}}>
-        <label style={SS.lbl}>Approved Quote</label>
+        <label style={SS.lbl}>Approved quotes to invoice <span style={{fontWeight:400,color:WG,textTransform:"none",letterSpacing:0}}>(tick one, or several to combine into one invoice)</span></label>
         {jobQuotes.length===0?<div style={{background:"#FFF8E1",border:"1px solid #F0C040",borderRadius:4,padding:"10px 14px",fontSize:13,color:WARN,marginTop:6}}>No approved quotes without an invoice. Go to the job and approve a quote first.</div>
-        :<select value={selQuote} onChange={e=>setSelQuote(e.target.value)} style={{...SS.inp,marginTop:4}}>
-          <option value="">— Select quote —</option>
-          {jobQuotes.map(q=>{const calc=calcQuote(q.lineItems,markupTable,q.markupOverride);const price=quoteIsManual(q)||calc.bracket||calc.overridden||!(calc.base>0)?fmtR(quoteGrandTotal(q,markupTable)):"?";return <option key={q.id} value={q.id}>{quoteLabel(q)} · {price} inc GST</option>;})}
-        </select>}
+        :<div style={{marginTop:6,display:"flex",flexDirection:"column",gap:8}}>
+          {jobQuotes.map(q=>{
+            const on=selQuotes.includes(q.id);
+            return <button key={q.id} onClick={()=>toggleQuote(q.id)} style={{display:"flex",alignItems:"center",gap:12,padding:"10px 12px",border:`1px solid ${on?GOLD:BD}`,borderRadius:4,background:on?GOLD_L+"55":WHITE,cursor:"pointer",fontFamily:"inherit",textAlign:"left"}}>
+              <div style={{width:18,height:18,borderRadius:4,border:`2px solid ${on?GOLD:BD}`,background:on?GOLD:"transparent",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>{on&&<span style={{color:WHITE,fontSize:12,fontWeight:900,lineHeight:1}}>✓</span>}</div>
+              <div style={{flex:1,minWidth:0}}><div style={{fontWeight:700,fontSize:13,color:INK}}>{quoteLabel(q)}</div>{quoteIsManual(q)&&<div style={{fontSize:11,color:GOLD_D,fontWeight:600}}>Manual quoted price</div>}</div>
+              <div style={{fontWeight:800,fontSize:13,color:INK,whiteSpace:"nowrap"}}>{fmtR(quoteGrandTotal(q,markupTable))}<span style={{fontSize:10,color:WG,fontWeight:400}}> inc GST</span></div>
+            </button>;
+          })}
+          {selQuotes.length>0&&<div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginTop:4,padding:"11px 14px",background:OK+"11",border:`1px solid ${OK}44`,borderRadius:4}}>
+            <span style={{fontSize:12,color:WG}}>Invoice <strong style={{color:INK}}>{nextInvoiceNumber(invoices)}</strong> · {selQuotes.length} quote{selQuotes.length!==1?"s":""}{selQuotes.length>1?" combined":""}</span>
+            <span style={{fontSize:16,fontWeight:800,color:OK}}>{fmtR(combinedTotal)}<span style={{fontSize:11,color:WG,fontWeight:400}}> inc GST</span></span>
+          </div>}
+        </div>}
       </div>}
-      {selQuote&&(()=>{const q=quotes.find(x=>x.id===selQuote);const calc=q?calcQuote(q.lineItems,markupTable,q.markupOverride):null;return calc&&<div style={{background:OK+"11",border:`1px solid ${OK}44`,borderRadius:4,padding:"12px 16px",marginBottom:18,fontSize:13}}>
-        <div style={{fontWeight:700,color:INK,marginBottom:4}}>Invoice summary</div>
-        <div style={{color:WG}}>Next invoice number: <strong style={{color:INK}}>{nextInvoiceNumber(invoices)}</strong></div>
-        <div style={{color:WG,marginTop:2}}>Amount: <strong style={{color:OK,fontSize:15}}>{fmtR(quoteGrandTotal(q,markupTable))}</strong> inc GST{quoteIsManual(q)&&<span style={{color:GOLD_D,fontWeight:700}}> · manual quoted price</span>}</div>
-      </div>;})()}
       <div style={{display:"flex",gap:10,justifyContent:"flex-end"}}>
         <Btn ghost onClick={()=>setModal(false)}>Cancel</Btn>
-        <Btn disabled={!selQuote} onClick={createInv}>Create Invoice</Btn>
+        <Btn disabled={!selQuotes.length} onClick={createInv}>{selQuotes.length>1?`Create combined invoice (${selQuotes.length})`:"Create Invoice"}</Btn>
       </div>
     </Modal>}
   </div>;
