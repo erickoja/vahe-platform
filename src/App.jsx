@@ -3311,6 +3311,7 @@ function JobProposals({job,client,quotes,proposals,setProposals,setQuotes,biz,ma
   const [selectMode,setSelectMode]=useState("single");   // "single" = pick one, "multi" = pick any (bundle)
   const [optPhotos,setOptPhotos]=useState({});            // quoteId → chosen job image path
   const [jobPhotos,setJobPhotos]=useState([]);            // job's uploaded images as {path,url,caption}
+  const [preview,setPreview]=useState(null);              // {url,caption} shown full-size while choosing photos
   useEffect(()=>{
     let cancelled=false;
     (async()=>{const ph=await jobImagesForPrint(job,24);if(!cancelled)setJobPhotos(ph);})();
@@ -3455,16 +3456,20 @@ function JobProposals({job,client,quotes,proposals,setProposals,setQuotes,biz,ma
             {jobPhotos.length===0
               ?<div style={{fontSize:11,color:WG,fontStyle:"italic"}}>Upload images to this job to show a photo with this option.</div>
               :<>
-                <div style={{fontSize:10,fontWeight:700,color:WG,textTransform:"uppercase",letterSpacing:"0.06em",marginBottom:6}}>Photos for this option <span style={{fontWeight:400,textTransform:"none",letterSpacing:0}}>(optional — tap to select one or more{(optPhotos[q.id]||[]).length?` · ${(optPhotos[q.id]||[]).length} selected`:""})</span></div>
-                <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
-                  {jobPhotos.map(ph=>{
+                <div style={{fontSize:10,fontWeight:700,color:WG,textTransform:"uppercase",letterSpacing:"0.06em",marginBottom:6}}>Photos for this option <span style={{fontWeight:400,textTransform:"none",letterSpacing:0}}>(tap to select · 🔍 to view full size{(optPhotos[q.id]||[]).length?` · ${(optPhotos[q.id]||[]).length} selected`:""})</span></div>
+                <div style={{display:"flex",gap:10,flexWrap:"wrap"}}>
+                  {jobPhotos.map((ph,idx)=>{
                     const order=(optPhotos[q.id]||[]).indexOf(ph.path);
                     const picked=order>=0;
-                    return <button key={ph.path} onClick={()=>pickPhoto(q.id,ph.path)} title={picked?`Position ${order+1} — tap to remove`:"Use this photo"}
-                      style={{position:"relative",padding:0,border:`2px solid ${picked?GOLD:BD}`,borderRadius:6,overflow:"hidden",cursor:"pointer",background:"none",lineHeight:0,boxShadow:picked?`0 0 0 2px ${GOLD_L}`:"none"}}>
-                      <img src={ph.url} alt={ph.caption||""} style={{width:54,height:54,objectFit:"cover",display:"block"}}/>
-                      {picked&&<span style={{position:"absolute",top:3,left:3,minWidth:16,height:16,padding:"0 3px",boxSizing:"border-box",background:GOLD,color:WHITE,fontSize:10,fontWeight:800,lineHeight:"16px",textAlign:"center",borderRadius:8,boxShadow:"0 1px 3px rgba(0,0,0,0.3)"}}>{order+1}</span>}
-                    </button>;
+                    return <div key={ph.path} style={{width:96}}>
+                      <button onClick={()=>pickPhoto(q.id,ph.path)} title={picked?`Position ${order+1} — tap to remove`:"Tap to use this photo"}
+                        style={{position:"relative",width:"100%",padding:0,border:`2px solid ${picked?GOLD:BD}`,borderRadius:6,overflow:"hidden",cursor:"pointer",background:"none",lineHeight:0,boxShadow:picked?`0 0 0 2px ${GOLD_L}`:"none",display:"block"}}>
+                        <img src={ph.url} alt={ph.caption||""} style={{width:"100%",height:96,objectFit:"cover",display:"block"}}/>
+                        {picked&&<span style={{position:"absolute",top:4,left:4,minWidth:18,height:18,padding:"0 4px",boxSizing:"border-box",background:GOLD,color:WHITE,fontSize:11,fontWeight:800,lineHeight:"18px",textAlign:"center",borderRadius:9,boxShadow:"0 1px 3px rgba(0,0,0,0.3)"}}>{order+1}</span>}
+                        <span onClick={e=>{e.stopPropagation();setPreview(ph);}} title="View full size" style={{position:"absolute",bottom:4,right:4,width:24,height:24,borderRadius:"50%",background:"rgba(0,0,0,0.6)",color:WHITE,fontSize:12,lineHeight:0,display:"flex",alignItems:"center",justifyContent:"center",cursor:"zoom-in"}}>🔍</span>
+                      </button>
+                      <div style={{fontSize:10,color:WG,marginTop:4,lineHeight:1.3,wordBreak:"break-word"}}>{(ph.caption||"").trim()||<span style={{fontStyle:"italic",opacity:0.7}}>Photo {idx+1}</span>}</div>
+                    </div>;
                   })}
                 </div>
               </>}
@@ -3481,6 +3486,11 @@ function JobProposals({job,client,quotes,proposals,setProposals,setQuotes,biz,ma
         <Btn onClick={createAndShare} disabled={busy||!sel.length}>{busy?"Publishing…":"Publish & copy link"}</Btn>
       </div>
     </Modal>}
+    {preview&&<div onClick={()=>setPreview(null)} style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.85)",zIndex:700,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",gap:12,padding:"30px 16px",cursor:"zoom-out"}}>
+      <button onClick={e=>{e.stopPropagation();setPreview(null);}} aria-label="Close image" style={{position:"fixed",top:14,right:14,width:46,height:46,borderRadius:"50%",background:"rgba(0,0,0,0.6)",border:"1px solid rgba(255,255,255,0.5)",color:WHITE,fontSize:26,lineHeight:1,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",zIndex:701}}>×</button>
+      <img src={preview.url} alt="" style={{maxWidth:"100%",maxHeight:"82vh",borderRadius:6,boxShadow:"0 20px 80px rgba(0,0,0,0.6)"}}/>
+      <div style={{color:"rgba(255,255,255,0.85)",fontSize:13,textAlign:"center",maxWidth:680}}>{(preview.caption||"").trim()||"Tap the image or ✕ to close"}</div>
+    </div>}
   </Card>;
 }
 
