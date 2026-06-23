@@ -839,11 +839,12 @@ const quoteGrandTotal=(q,markupTable)=>{
 };
 // Total agreed charge for a job, used by every financial view.
 // Uses the manual Total Charge Override when set; otherwise sums approved quotes.
-const jobChargeTotal=(job,quotes,markupTable)=>{
+const jobChargeTotal=(job,quotes,markupTable,invoices)=>{
   const ov=Number(job?.totalOverride);
-  if(ov>0)return ov;
-  const aq=(quotes||[]).filter(q=>q.jobId===job.id&&q.status==="Approved");
-  return aq.reduce((s,q)=>s+quoteGrandTotal(q,markupTable),0);
+  const base=ov>0?ov:(quotes||[]).filter(q=>q.jobId===job.id&&q.status==="Approved").reduce((s,q)=>s+quoteGrandTotal(q,markupTable),0);
+  // Subtract any discounts applied on this job's invoices so "amount owing" matches the billed total.
+  const disc=(invoices||[]).filter(i=>i.jobId===job.id).reduce((s,i)=>s+(Number(i.discount)||0),0);
+  return Math.max(0,base-disc);
 };
 // True if the job has any agreed charge (override or approved quote)
 const jobHasCharge=(job,quotes)=>Number(job?.totalOverride)>0||(quotes||[]).some(q=>q.jobId===job.id&&q.status==="Approved");
@@ -1462,7 +1463,7 @@ function Dashboard({clients,jobs,quotes,payments,invoices,appointments=[],propos
   const monthReceived=payments.filter(p=>p.status==="Received"&&p.date?.startsWith(thisMonth)).reduce((s,p)=>s+Number(p.amount),0);
   const balanceOwing=jobs.map(j=>{
     if(!jobHasCharge(j,quotes))return null;
-    const total=jobChargeTotal(j,quotes,markupTable);
+    const total=jobChargeTotal(j,quotes,markupTable,invoices);
     const paid=payments.filter(p=>p.jobId===j.id&&p.status==="Received").reduce((s,p)=>s+Number(p.amount),0);
     const bal=total-paid;
     return bal>1?{job:j,balance:bal}:null;
@@ -1653,7 +1654,7 @@ function Clients({clients,setClients,jobs,payments,setView,setSelClient}){
   </div>;
 }
 
-function ClientDetail({clientId,clients,setClients,jobs,setJobs,quotes,payments,markupTable,setView,setSelJob}){
+function ClientDetail({clientId,clients,setClients,jobs,setJobs,quotes,payments,invoices,markupTable,setView,setSelJob}){
   const c=clients.find(x=>x.id===clientId);
   const[jobModal,setJobModal]=useState(false);
   const[editModal,setEditModal]=useState(false);
@@ -1662,7 +1663,7 @@ function ClientDetail({clientId,clients,setClients,jobs,setJobs,quotes,payments,
   const addJob=f=>{const id=uid();setJobs(p=>{const n=[...p,{...f,id,createdAt:today()}];persist(K.jo,n);return n;});setJobModal(false);setSelJob(id);setView("jobDetail");};
   const cj=jobs.filter(j=>j.clientId===clientId);
   const spent=cj.flatMap(j=>payments.filter(p=>p.jobId===j.id&&p.status==="Received")).reduce((s,p)=>s+Number(p.amount),0);
-  const charged=cj.reduce((s,j)=>s+jobChargeTotal(j,quotes,markupTable),0);
+  const charged=cj.reduce((s,j)=>s+jobChargeTotal(j,quotes,markupTable,invoices),0);
   const owing=Math.max(0,charged-spent);
   return <div>
     <button onClick={()=>setView("clients")} style={{background:"none",border:"none",cursor:"pointer",color:GOLD,fontSize:13,fontWeight:700,fontFamily:"inherit",marginBottom:18,padding:0}}>← Back to clients</button>
@@ -1862,7 +1863,7 @@ function Jobs({clients,jobs,setJobs,quotes,setQuotes,payments,setPayments,notes,
     {mode==="list"&&filtered.map(j=>{
       const c=clients.find(x=>x.id===j.clientId);
       const od=j.deadline&&j.deadline<today()&&!jobIsDone(j);
-      const total=jobChargeTotal(j,quotes,markupTable);
+      const total=jobChargeTotal(j,quotes,markupTable,invoices);
       const paid=payments.filter(p=>p.jobId===j.id&&p.status==="Received").reduce((s,p)=>s+Number(p.amount),0);
       const owing=total-paid;
       const isOverride=Number(j.totalOverride)>0;
@@ -2275,7 +2276,7 @@ function JobDetail({jobId,jobs,setJobs,clients,quotes,setQuotes,payments,setPaym
   const ji=invoices.filter(i=>i.jobId===jobId);
   const paidTotal=jp.filter(p=>p.status==="Received").reduce((s,p)=>s+Number(p.amount),0);
   const usingOverride=Number(job.totalOverride)>0;
-  const jobTotal=jobChargeTotal(job,quotes,markupTable);
+  const jobTotal=jobChargeTotal(job,quotes,markupTable,invoices);
   const balance=jobTotal-paidTotal;
   const[editStage,setEditStage]=useState(false);
   const[editJobModal,setEditJobModal]=useState(false);
@@ -6583,7 +6584,7 @@ export default function App(){
     if(view==="todo")return <TodoBoard todos={todos} setTodos={setTodos}/>;
     if(view==="appointments")return <Appointments appointments={appointments} setAppointments={setAppointments} clients={clients} setClients={setClients} jobs={jobs} setJobs={setJobs} setView={setView} setSelClient={setSelClient} setSelJob={setSelJob}/>;
     if(view==="clients")return <Clients clients={clients} setClients={setClients} jobs={jobs} payments={payments} setView={setView} setSelClient={setSelClient}/>;
-    if(view==="clientDetail")return <ClientDetail clientId={selClient} clients={clients} setClients={setClients} jobs={jobs} setJobs={setJobs} quotes={quotes} payments={payments} markupTable={markupTable} setView={setView} setSelJob={setSelJob}/>;
+    if(view==="clientDetail")return <ClientDetail clientId={selClient} clients={clients} setClients={setClients} jobs={jobs} setJobs={setJobs} quotes={quotes} payments={payments} invoices={invoices} markupTable={markupTable} setView={setView} setSelJob={setSelJob}/>;
     if(view==="jobs")return <Jobs clients={clients} jobs={jobs} setJobs={setJobs} quotes={quotes} setQuotes={setQuotes} payments={payments} setPayments={setPayments} notes={notes} setNotes={setNotes} invoices={invoices} setInvoices={setInvoices} markupTable={markupTable} setView={setView} setSelJob={setSelJob}/>;
     if(view==="jobDetail")return <JobDetail jobId={selJob} jobs={jobs} setJobs={setJobs} clients={clients} quotes={quotes} setQuotes={setQuotes} payments={payments} setPayments={setPayments} notes={notes} setNotes={setNotes} invoices={invoices} setInvoices={setInvoices} proposals={proposals} setProposals={setProposals} biz={biz} markupTable={markupTable} pricing={pricing} setView={setView}/>;
     if(view==="quotes")return <QuotesList quotes={quotes} jobs={jobs} clients={clients} markupTable={markupTable} biz={biz} setView={setView}/>;
