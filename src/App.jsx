@@ -943,6 +943,9 @@ const buildInvoiceSnapshot=({inv,job,client,biz,payments})=>{
     jobType:job?.type||"",
     descriptionOverride:inv.descriptionOverride||"",
     customerLines:inv.customerLines||null,   // per-option breakdown for combined invoices
+    subtotalIncGST:inv.subtotalIncGST??inv.totalIncGST,   // gross before discount
+    discount:Number(inv.discount)||0,
+    discountLabel:inv.discountLabel||"Discount",
     lineItems:(inv.lineItems||[]).map(li=>({description:li.description,detail:li.detail||"",amount:lineCostLow(li)})),
     gst:inv.gst,
     totalIncGST:inv.totalIncGST,
@@ -3646,13 +3649,15 @@ function PublicInvoiceBody({snap}){
           ))
           :<div style={{display:"flex",justifyContent:"space-between",gap:16,padding:"12px 0",borderBottom:`1px solid ${BD}`}}>
             <div style={{flex:1,fontSize:14,color:INK,lineHeight:1.6}}>{(snap.descriptionOverride||"").trim()}</div>
-            <div style={{fontSize:14,fontWeight:700,color:INK,whiteSpace:"nowrap"}}>{fmt(snap.totalIncGST)}</div>
+            <div style={{fontSize:14,fontWeight:700,color:INK,whiteSpace:"nowrap"}}>{fmt(snap.discount>0?snap.subtotalIncGST:snap.totalIncGST)}</div>
           </div>}
       </div>
 
       {/* Totals */}
       <div style={{display:"flex",justifyContent:"flex-end",marginTop:16}}>
         <div style={{minWidth:240}}>
+          {snap.discount>0&&<div style={{display:"flex",justifyContent:"space-between",fontSize:13,color:WG,padding:"3px 0"}}><span>Subtotal</span><span>{fmt(snap.subtotalIncGST)}</span></div>}
+          {snap.discount>0&&<div style={{display:"flex",justifyContent:"space-between",fontSize:13,color:OK,padding:"3px 0"}}><span>{snap.discountLabel||"Discount"}</span><span>−{fmt(snap.discount)}</span></div>}
           <div style={{display:"flex",justifyContent:"space-between",fontSize:13,color:WG,padding:"3px 0"}}><span>Includes GST</span><span>{fmt(snap.gst)}</span></div>
           <div style={{display:"flex",justifyContent:"space-between",fontSize:17,fontWeight:800,color:INK,borderTop:`2px solid ${INK}`,marginTop:8,paddingTop:10}}><span>Total (inc GST)</span><span>{fmt(snap.totalIncGST)}</span></div>
           {snap.paidTotal>0&&<div style={{display:"flex",justifyContent:"space-between",fontSize:13,color:OK,padding:"6px 0 3px"}}><span>Paid to date</span><span>−{fmt(snap.paidTotal)}</span></div>}
@@ -4454,6 +4459,8 @@ const nextInvoiceNumber=(invoices)=>{
 // ── Invoice print view ───────────────────────────────────────────────────
 function InvoicePrintView({inv,job,client,biz,payments,onClose}){
   const paidTotal=(payments||[]).filter(p=>p.jobId===inv.jobId&&p.status==="Received").reduce((s,p)=>s+Number(p.amount),0);
+  const invDiscount=Number(inv.discount)||0;
+  const invSubtotal=inv.subtotalIncGST??inv.totalIncGST;
   const balance=Math.max(0,inv.totalIncGST-paidTotal);
   const requestAmount=Number(inv.requestAmount)||0;
   const staged=requestAmount>0;
@@ -4536,7 +4543,7 @@ function InvoicePrintView({inv,job,client,biz,payments,onClose}){
                 :<tr style={{borderBottom:`1px solid ${BD_SOFT}`}}>
                   <td style={{padding:"18px 0",color:INK,lineHeight:1.65,whiteSpace:"pre-wrap",fontWeight:500}}>{(inv.descriptionOverride||"").trim()}</td>
                   <td style={{padding:"18px 0",textAlign:"center",color:WG,fontSize:12}}>GST</td>
-                  <td style={{padding:"18px 0",textAlign:"right",fontWeight:700,color:INK}}>{fmt(inv.totalIncGST)}</td>
+                  <td style={{padding:"18px 0",textAlign:"right",fontWeight:700,color:INK}}>{fmt(invDiscount>0?invSubtotal:inv.totalIncGST)}</td>
                 </tr>}
             </tbody>
           </table>
@@ -4545,7 +4552,7 @@ function InvoicePrintView({inv,job,client,biz,payments,onClose}){
         {/* totals */}
         <div style={{padding:"28px 56px 40px",display:"flex",justifyContent:"flex-end"}}>
           <div style={{minWidth:300}}>
-            {[["Total (incl. GST)",fmt(inv.totalIncGST)],["Includes GST",fmt(inv.gst)],["Paid to date",fmt(paidTotal)],...(staged?[["Balance outstanding",fmt(balance)]]:[])].map(([l,v])=>(
+            {[...(invDiscount>0?[["Subtotal",fmt(invSubtotal)],[inv.discountLabel||"Discount","−"+fmt(invDiscount)]]:[]),["Total (incl. GST)",fmt(inv.totalIncGST)],["Includes GST",fmt(inv.gst)],["Paid to date",fmt(paidTotal)],...(staged?[["Balance outstanding",fmt(balance)]]:[])].map(([l,v])=>(
               <div key={l} style={{display:"flex",justifyContent:"space-between",fontSize:13,padding:"8px 0",borderBottom:`1px solid ${BD_SOFT}`}}>
                 <span style={{color:WG}}>{l}</span><span style={{fontWeight:600,color:INK}}>{v}</span>
               </div>
@@ -4631,6 +4638,17 @@ function InvoiceDetail({invoiceId,invoices,setInvoices,jobs,clients,payments,biz
   const setCustomerLineDesc=(lineId,v)=>setInvoices(p=>{const n=p.map(x=>x.id===invoiceId?{...x,customerLines:(x.customerLines||[]).map(l=>l.id===lineId?{...l,description:v}:l)}:x);persist(K.inv,n);return n;});
   const hasCustomerLines=Array.isArray(inv.customerLines)&&inv.customerLines.length>0;
   const setRequestAmount=v=>setInvoices(p=>{const n=p.map(x=>x.id===invoiceId?{...x,requestAmount:v}:x);persist(K.inv,n);return n;});
+  // Discount: subtotalIncGST is the gross baseline; totalIncGST/gst become the discounted (net)
+  // figures so every existing consumer (balances, summaries, links) reflects the discount.
+  const setDiscount=(amt,label)=>setInvoices(p=>{const n=p.map(x=>{
+    if(x.id!==invoiceId)return x;
+    const sub=x.subtotalIncGST??x.totalIncGST;   // capture gross once (old invoices: their total is the gross)
+    const disc=Math.min(Math.max(0,Number(amt)||0),sub);
+    const net=sub-disc;
+    return{...x,subtotalIncGST:sub,discount:disc,discountLabel:label!==undefined?label:(x.discountLabel||"Discount"),totalIncGST:net,gst:net-net/(1+GST_RATE)};
+  });persist(K.inv,n);return n;});
+  const subtotalIncGST=inv.subtotalIncGST??inv.totalIncGST;
+  const discount=Number(inv.discount)||0;
   const paidTotal=(payments||[]).filter(p=>p.jobId===inv.jobId&&p.status==="Received").reduce((s,p)=>s+Number(p.amount),0);
   const balance=Math.max(0,inv.totalIncGST-paidTotal);
   // Staged request: optionally request only a specific amount now (e.g. the diamond balance),
@@ -4700,6 +4718,22 @@ function InvoiceDetail({invoiceId,invoices,setInvoices,jobs,clients,payments,biz
       <div style={{fontSize:11,color:GOLD_D,marginTop:8}}>After changing this, click <strong>🔗 Copy link</strong> above to refresh what the client sees.</div>
     </Card>
     <Card>
+      <label style={SS.lbl}>Discount <span style={{fontWeight:400,color:WG,textTransform:"none",letterSpacing:0}}>(optional)</span></label>
+      <div style={{display:"flex",gap:10,alignItems:"center",marginTop:6,flexWrap:"wrap"}}>
+        <input value={inv.discountLabel||"Discount"} onChange={e=>setDiscount(discount,e.target.value)} placeholder="Label (e.g. Loyalty discount)" style={{...SS.inp,marginTop:0,flex:1,minWidth:180}}/>
+        <div style={{position:"relative",width:170}}>
+          <span style={{position:"absolute",left:10,top:"50%",transform:"translateY(-50%)",fontSize:13,color:WG,pointerEvents:"none"}}>− $</span>
+          <input type="number" min="0" step="0.01" value={inv.discount||""} onChange={e=>setDiscount(e.target.value,inv.discountLabel)} placeholder="0.00"
+            style={{...SS.inp,marginTop:0,padding:"9px 10px 9px 32px",textAlign:"right",fontWeight:discount>0?700:400,borderColor:discount>0?GOLD:BD}}/>
+        </div>
+        {discount>0&&<Btn sm ghost onClick={()=>setDiscount(0,inv.discountLabel)}>Clear</Btn>}
+      </div>
+      {discount>0
+        ?<div style={{fontSize:12,color:WG,marginTop:8,lineHeight:1.6}}>Subtotal <strong style={{color:INK}}>{fmt(subtotalIncGST)}</strong> − {(inv.discountLabel||"Discount").toLowerCase()} <strong style={{color:INK}}>{fmt(discount)}</strong> = total <strong style={{color:OK}}>{fmt(inv.totalIncGST)}</strong> inc GST (GST {fmt(inv.gst)}). Shows as a line on the customer's invoice.</div>
+        :<div style={{fontSize:11,color:WG,marginTop:8,lineHeight:1.5}}>Enter an amount to take off the total — it appears as its own line on the customer's invoice, and the total, GST and balance recalculate automatically.</div>}
+      {discount>0&&<div style={{fontSize:11,color:GOLD_D,marginTop:8}}>After changing this, click <strong>🔗 Copy link</strong> above to refresh what the client sees.</div>}
+    </Card>
+    <Card>
       {hasCustomerLines
         ?<>
           <label style={SS.lbl}>Customer-facing lines <span style={{fontWeight:400,color:WG,textTransform:"none",letterSpacing:0}}>(one per accepted option — shown on the invoice with the combined total)</span></label>
@@ -4738,9 +4772,9 @@ function InvoiceDetail({invoiceId,invoices,setInvoices,jobs,clients,payments,biz
       ))}
       <div style={{display:"flex",justifyContent:"flex-end",marginTop:16}}>
         <div style={{minWidth:280}}>
-          {[["Includes GST",fmt(inv.gst)]].map(([l,v])=>(
-            <div key={l} style={{display:"flex",justifyContent:"space-between",fontSize:13,padding:"4px 0",color:WG}}><span>{l}</span><span>{v}</span></div>
-          ))}
+          {discount>0&&<div style={{display:"flex",justifyContent:"space-between",fontSize:13,padding:"4px 0",color:WG}}><span>Subtotal</span><span>{fmt(subtotalIncGST)}</span></div>}
+          {discount>0&&<div style={{display:"flex",justifyContent:"space-between",fontSize:13,padding:"4px 0",color:OK}}><span>{inv.discountLabel||"Discount"}</span><span>−{fmt(discount)}</span></div>}
+          <div style={{display:"flex",justifyContent:"space-between",fontSize:13,padding:"4px 0",color:WG}}><span>Includes GST</span><span>{fmt(inv.gst)}</span></div>
           <div style={{display:"flex",justifyContent:"space-between",fontSize:17,fontWeight:800,color:INK,borderTop:`2px solid ${INK}`,marginTop:8,paddingTop:10}}><span>Total (incl. GST)</span><span>{fmt(inv.totalIncGST)}</span></div>
         </div>
       </div>
