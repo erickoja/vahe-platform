@@ -5294,10 +5294,7 @@ function PricingDB({pricing,setPricing,spotPrices,setSpotPrices,markupTable,cent
     {isSettingView&&<div>
       <div style={{background:WHITE,border:`1px solid ${BD}`,borderRadius:5,padding:"12px 16px",marginBottom:14,fontSize:13,lineHeight:1.5}}>
         <strong style={{color:INK}}>Basic Setting — labour cost per stone</strong>
-        <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(300px,1fr))",gap:"4px 28px",marginTop:4,fontSize:12,color:WG,lineHeight:1.5}}>
-          <span>Fixed setting fee by stone size (AUD) · Applies to all round stones regardless of type — lab grown or natural</span>
-          <span>This is a separate cost from the stone price — both lines should appear in your quote.</span>
-        </div>
+        <div style={{marginTop:4,fontSize:12,color:WG,lineHeight:1.6}}>Fixed setting fee by stone size (AUD) · Applies to all round stones regardless of type — lab grown or natural · This is a separate cost from the stone price — both lines should appear in your quote.</div>
       </div>
       <SettingTable items={filteredSetting} onSavePrices={saveSettingPrices} label="Basic Setting"/>
     </div>}
@@ -5306,10 +5303,7 @@ function PricingDB({pricing,setPricing,spotPrices,setSpotPrices,markupTable,cent
     {isComplexSettingView&&<div>
       <div style={{background:WHITE,border:`1px solid ${BD}`,borderRadius:5,padding:"12px 16px",marginBottom:14,fontSize:13,lineHeight:1.5}}>
         <strong style={{color:INK}}>Complex Setting — French Pavé / Channel / Bezel</strong>
-        <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(300px,1fr))",gap:"4px 28px",marginTop:4,fontSize:12,color:WG,lineHeight:1.5}}>
-          <span>Fixed setting fee by stone size (AUD) · For complex setting styles requiring extra bench time</span>
-          <span>This is a separate cost from the stone price — both lines should appear in your quote.</span>
-        </div>
+        <div style={{marginTop:4,fontSize:12,color:WG,lineHeight:1.6}}>Fixed setting fee by stone size (AUD) · For complex setting styles requiring extra bench time · This is a separate cost from the stone price — both lines should appear in your quote.</div>
       </div>
       <SettingTable items={filteredComplex} onSavePrices={saveSettingPrices} label="Complex Setting"/>
     </div>}
