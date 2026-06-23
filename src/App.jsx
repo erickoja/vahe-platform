@@ -2020,7 +2020,7 @@ function JobImages({job,setJobs}){
   </Card>;
 }
 
-function RepairIntakeCard({job,setJobs,biz,clients,markupTable,pricing=[]}){
+function RepairIntakeCard({job,setJobs,biz,clients,markupTable,pricing=[],invoices=[],setInvoices,setView}){
   const c=clients.find(x=>x.id===job.clientId);
   const intake=job.intake||{};
   const blankIntakeItem=()=>({id:uid(),itemType:"",damage:"",condition:"",price:"",priceMode:"set"});
@@ -2070,6 +2070,23 @@ function RepairIntakeCard({job,setJobs,biz,clients,markupTable,pricing=[]}){
   const moveItem=(id,dir)=>{const i=items.findIndex(x=>x.id===id),j=i+dir;if(i<0||j<0||j>=items.length)return;const ni=[...items];[ni[i],ni[j]]=[ni[j],ni[i]];setItems(ni);saveIntake(ni,instructions);};
   const repairTotal=items.reduce((s,i)=>s+itemClient(i),0);
   const setAsCharge=()=>{persistJob({totalOverride:repairTotal});alert(`Job charge set to ${fmt(repairTotal)} from the repair items.`);};
+  // Build a tax invoice straight from the repair items — each item becomes a customer-facing line.
+  const createRepairInvoice=()=>{
+    if(!setInvoices)return;
+    if(repairTotal<=0)return alert("Add at least one repair item with a price first.");
+    if(!confirm(`Create an invoice for ${fmt(repairTotal)} from these repair items?`))return;
+    commit();   // make sure the latest intake is saved first
+    const priced=items.filter(it=>itemClient(it)>0);
+    const customerLines=priced.map(it=>({id:uid(),description:[it.itemType,it.damage].map(s=>(s||"").trim()).filter(Boolean).join(" — ")||"Repair",amount:itemClient(it)}));
+    const lineItems=priced.map(it=>({id:uid(),description:[it.itemType,it.damage].map(s=>(s||"").trim()).filter(Boolean).join(" — ")||"Repair",detail:(it.condition||"").trim(),costLow:itemClient(it).toFixed(2),noMarkup:true}));
+    const totalIncGST=repairTotal;
+    const gst=totalIncGST-totalIncGST/(1+GST_RATE);
+    const exGST=totalIncGST-gst;
+    const inv={id:uid(),jobId:job.id,quoteId:null,quoteIds:[],fromRepair:true,number:nextInvoiceNumber(invoices),date:today(),status:"Unpaid",exGST,gst,totalIncGST,subtotalIncGST:totalIncGST,discount:0,discountLabel:"Discount",lineItems,customerLines,notes:instructions||"",descriptionOverride:""};
+    persistJob({totalOverride:repairTotal});   // keep the job's amount owing in sync with the invoice
+    setInvoices(p=>{const n=[...p,inv];persist(K.inv,n);return n;});
+    if(setView)setView("invoiceDetail_"+inv.id);
+  };
   const[saved,setSaved]=useState(false);
   const[pricingFor,setPricingFor]=useState(null); // intake item id the lookup panel is open for
   const[rpSearch,setRpSearch]=useState("");
@@ -2207,7 +2224,10 @@ function RepairIntakeCard({job,setJobs,biz,clients,markupTable,pricing=[]}){
         <div style={{fontSize:10,fontWeight:700,color:"rgba(255,255,255,0.5)",textTransform:"uppercase",letterSpacing:"0.08em"}}>Repair total{items.filter(i=>Number(i.price)>0).length>1?` · ${items.filter(i=>Number(i.price)>0).length} items`:""}</div>
         <div style={{fontSize:22,fontWeight:800,color:WHITE,marginTop:2}}>{fmt(repairTotal)} <span style={{fontSize:12,fontWeight:400,color:"rgba(255,255,255,0.5)"}}>inc GST</span></div>
       </div>
-      <button onClick={setAsCharge} style={{background:GOLD,border:"none",borderRadius:4,padding:"9px 16px",color:WHITE,fontSize:12,fontWeight:700,cursor:"pointer",fontFamily:"inherit"}}>Set as job charge →</button>
+      <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
+        <button onClick={setAsCharge} style={{background:"none",border:"1px solid rgba(255,255,255,0.4)",borderRadius:4,padding:"9px 16px",color:WHITE,fontSize:12,fontWeight:700,cursor:"pointer",fontFamily:"inherit"}}>Set as job charge</button>
+        <button onClick={createRepairInvoice} style={{background:GOLD,border:"none",borderRadius:4,padding:"9px 16px",color:WHITE,fontSize:12,fontWeight:700,cursor:"pointer",fontFamily:"inherit"}}>Invoice this repair →</button>
+      </div>
     </div>}
 
     <div style={{marginBottom:16}}>
@@ -2371,7 +2391,7 @@ function JobDetail({jobId,jobs,setJobs,clients,quotes,setQuotes,payments,setPaym
       </div>
     </Card>}
     {job.description&&<Card><div style={{...SS.lbl,marginBottom:8}}>Description</div><div style={{fontSize:14,color:INK,lineHeight:1.7}}>{job.description}</div>{job.notes&&<div style={{marginTop:10,fontSize:13,color:WG,fontStyle:"italic",borderTop:`1px solid ${BD}`,paddingTop:10}}>Notes: {job.notes}</div>}</Card>}
-    {job.type==="Repair"&&<RepairIntakeCard job={job} setJobs={setJobs} biz={biz} clients={clients} markupTable={markupTable} pricing={pricing}/>}
+    {job.type==="Repair"&&<RepairIntakeCard job={job} setJobs={setJobs} biz={biz} clients={clients} markupTable={markupTable} pricing={pricing} invoices={invoices} setInvoices={setInvoices} setView={setView}/>}
     <JobImages job={job} setJobs={setJobs}/>
     <Card>
       <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:14}}>
