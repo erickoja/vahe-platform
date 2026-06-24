@@ -1457,7 +1457,9 @@ function Dashboard({clients,jobs,quotes,payments,invoices,appointments=[],propos
   const upcomingAppts=[...appointments].filter(a=>(!a.status||a.status==="Scheduled")&&a.date>=tISO).sort((a,b)=>String(a.date+(a.time||"")).localeCompare(String(b.date+(b.time||"")))).slice(0,6);
   const todaysAppts=appointments.filter(a=>a.date===tISO&&(!a.status||a.status==="Scheduled"));
   const ready=jobs.filter(j=>j.stage==="Ready for collection");
-  const overdue=active.filter(j=>j.deadline&&j.deadline<today());
+  // Overdue = past deadline AND not finished/awaiting pickup — consistent with the Jobs list flag
+  // (a "Ready for collection" job is done, so it's never counted as overdue).
+  const overdue=active.filter(j=>!jobIsDone(j)&&j.deadline&&j.deadline<today());
   const thisMonth=new Date().toISOString().slice(0,7);
   // Cash-received view: actual payments received this month (deposits included), regardless of invoicing
   const monthReceived=payments.filter(p=>p.status==="Received"&&p.date?.startsWith(thisMonth)).reduce((s,p)=>s+Number(p.amount),0);
