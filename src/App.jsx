@@ -6230,14 +6230,10 @@ function TodoBoard({todos,setTodos}){
   const removePerson=id=>{const p=people.find(x=>x.id===id);if(!confirm(`Remove ${p?.name||"this person"} and their whole list?`))return;save({people:people.filter(x=>x.id!==id),items:items.filter(i=>i.personId!==id)});};
   const setDraftFor=(pid,v)=>setDraft(d=>({...d,[pid]:v}));
   const addItem=pid=>{const t=(draft[pid]||"").trim();if(!t)return;save({people,items:[...items,{id:uid(),personId:pid,text:t,notes:"",due:"",done:false,status:"open",createdAt:new Date().toISOString()}]});setDraftFor(pid,"");};
-  // A task moves through three states; clicking the box cycles: not started → in progress → done → not started.
+  // Two independent controls: the square box marks done; the round dot flags in progress.
   const isDoing=i=>!i.done&&i.status==="doing";
-  const cycle=id=>save({people,items:items.map(i=>{
-    if(i.id!==id)return i;
-    if(i.done)return{...i,done:false,status:"open"};      // done → not started
-    if(i.status==="doing")return{...i,done:true};          // in progress → done
-    return{...i,status:"doing"};                           // not started → in progress
-  })});
+  const toggleDone=id=>save({people,items:items.map(i=>i.id===id?{...i,done:!i.done,status:i.done?"open":"done"}:i)});
+  const toggleDoing=id=>save({people,items:items.map(i=>i.id!==id||i.done?i:{...i,status:i.status==="doing"?"open":"doing"})});
   const removeItem=id=>save({people,items:items.filter(i=>i.id!==id)});
   const clearDone=pid=>save({people,items:items.filter(i=>!(i.personId===pid&&i.done))});
   // Detail editor (title + longer notes + due date)
@@ -6333,7 +6329,8 @@ function TodoBoard({todos,setTodos}){
                         const ch=!it.done&&it.due?dueChip(it.due):null;
                         const doingIt=isDoing(it);
                         return <div key={it.id} style={{display:"flex",alignItems:"flex-start",gap:9,background:PARCH,border:`1px solid ${ch?.overdue?DANGER+"55":doingIt?WARN+"55":BD}`,borderRadius:5,padding:"9px 11px"}}>
-                          <button onClick={()=>cycle(it.id)} title={it.done?"Mark as not started":doingIt?"Mark as done":"Mark as in progress"} style={{flexShrink:0,marginTop:1,width:18,height:18,borderRadius:5,border:`2px solid ${it.done?OK:doingIt?WARN:"#C9C9CD"}`,background:it.done?OK:doingIt?GOLD_L:WHITE,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",padding:0}}>{it.done?<span style={{color:WHITE,fontSize:11,fontWeight:900,lineHeight:1}}>✓</span>:doingIt?<span style={{width:8,height:8,borderRadius:"50%",background:WARN,display:"block"}}/>:null}</button>
+                          <button onClick={()=>toggleDone(it.id)} title={it.done?"Mark as not done":"Mark as done"} style={{flexShrink:0,marginTop:1,width:18,height:18,borderRadius:5,border:`2px solid ${it.done?OK:"#C9C9CD"}`,background:it.done?OK:WHITE,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",padding:0}}>{it.done&&<span style={{color:WHITE,fontSize:11,fontWeight:900,lineHeight:1}}>✓</span>}</button>
+                          {!it.done&&<button onClick={()=>toggleDoing(it.id)} title={doingIt?"Mark as not in progress":"Mark as in progress"} style={{flexShrink:0,marginTop:1,width:18,height:18,borderRadius:"50%",border:`2px solid ${doingIt?WARN:"#C9C9CD"}`,background:doingIt?GOLD_L:WHITE,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",padding:0}}>{doingIt&&<span style={{width:8,height:8,borderRadius:"50%",background:WARN,display:"block"}}/>}</button>}
                           <div onClick={()=>openEdit(it)} title="Open task details" style={{flex:1,minWidth:0,cursor:"pointer"}}>
                             <div style={{display:"flex",alignItems:"center",gap:6,fontSize:13,color:it.done?WG:INK,textDecoration:it.done?"line-through":"none",lineHeight:1.45,wordBreak:"break-word"}}>
                               {it.text}
