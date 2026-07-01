@@ -4833,6 +4833,10 @@ function InvoicesList({invoices,jobs,clients,quotes,payments,setInvoices,markupT
   const[selQuotes,setSelQuotes]=useState([]);   // approved quote ids to combine into one invoice
   const clientJobs=selClient?jobs.filter(j=>j.clientId===selClient):[];
   const jobQuotes=selJob?quotes.filter(q=>q.jobId===selJob&&q.status==="Approved"&&!quoteHasInvoice(invoices,q.id)):[];
+  // Approved quotes on this job that are hidden from the tick list because they're already on an
+  // invoice — surfaced (greyed out) so a "missing" option isn't a silent mystery.
+  const invoicedQuotes=selJob?quotes.filter(q=>q.jobId===selJob&&q.status==="Approved"&&quoteHasInvoice(invoices,q.id)):[];
+  const invoiceForQuote=qid=>invoices.find(i=>(i.quoteIds||(i.quoteId?[i.quoteId]:[])).includes(qid));
   const toggleQuote=qid=>setSelQuotes(p=>p.includes(qid)?p.filter(x=>x!==qid):[...p,qid]);
   const combinedTotal=selQuotes.reduce((s,qid)=>{const q=quotes.find(x=>x.id===qid);return s+(q?quoteGrandTotal(q,markupTable):0);},0);
   const openModal=()=>{setSelClient("");setSelJob("");setSelQuotes([]);setModal(true);};
@@ -4932,7 +4936,7 @@ function InvoicesList({invoices,jobs,clients,quotes,payments,setInvoices,markupT
       </div>}
       {selJob&&<div style={{marginBottom:18}}>
         <label style={SS.lbl}>Approved quotes to invoice <span style={{fontWeight:400,color:WG,textTransform:"none",letterSpacing:0}}>(tick one, or several to combine into one invoice)</span></label>
-        {jobQuotes.length===0?<div style={{background:"#FFF8E1",border:"1px solid #F0C040",borderRadius:4,padding:"10px 14px",fontSize:13,color:WARN,marginTop:6}}>No approved quotes without an invoice. Go to the job and approve a quote first.</div>
+        {jobQuotes.length===0&&invoicedQuotes.length===0?<div style={{background:"#FFF8E1",border:"1px solid #F0C040",borderRadius:4,padding:"10px 14px",fontSize:13,color:WARN,marginTop:6}}>No approved quotes without an invoice. Go to the job and approve a quote first.</div>
         :<div style={{marginTop:6,display:"flex",flexDirection:"column",gap:8}}>
           {jobQuotes.map(q=>{
             const on=selQuotes.includes(q.id);
@@ -4945,6 +4949,13 @@ function InvoicesList({invoices,jobs,clients,quotes,payments,setInvoices,markupT
           {selQuotes.length>0&&<div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginTop:4,padding:"11px 14px",background:OK+"11",border:`1px solid ${OK}44`,borderRadius:4}}>
             <span style={{fontSize:12,color:WG}}>Invoice <strong style={{color:INK}}>{nextInvoiceNumber(invoices)}</strong> · {selQuotes.length} quote{selQuotes.length!==1?"s":""}{selQuotes.length>1?" combined":""}</span>
             <span style={{fontSize:16,fontWeight:800,color:OK}}>{fmtR(combinedTotal)}<span style={{fontSize:11,color:WG,fontWeight:400}}> inc GST</span></span>
+          </div>}
+          {invoicedQuotes.length>0&&<div style={{marginTop:jobQuotes.length?8:2}}>
+            <div style={{fontSize:11,color:WG,lineHeight:1.5,marginBottom:6}}>Already on an invoice — delete that invoice first to include it in a combined one.</div>
+            {invoicedQuotes.map(q=>{const iv=invoiceForQuote(q.id);return <div key={q.id} style={{display:"flex",alignItems:"center",gap:12,padding:"10px 12px",border:`1px dashed ${BD}`,borderRadius:4,background:PARCH,opacity:0.75,marginBottom:6}}>
+              <div style={{flex:1,minWidth:0}}><div style={{fontWeight:700,fontSize:13,color:WG,textDecoration:"line-through"}}>{quoteLabel(q)}</div><div style={{fontSize:11,color:WG,fontWeight:600}}>On invoice {iv?.number||"—"}{iv&&<button onClick={()=>{setModal(false);setView("invoiceDetail_"+iv.id);}} style={{background:"none",border:"none",padding:"0 0 0 6px",color:GOLD_D,fontWeight:700,fontSize:11,cursor:"pointer",fontFamily:"inherit",textDecoration:"underline"}}>view</button>}</div></div>
+              <div style={{fontWeight:800,fontSize:13,color:WG,whiteSpace:"nowrap"}}>{fmtR(quoteGrandTotal(q,markupTable))}<span style={{fontSize:10,color:WG,fontWeight:400}}> inc GST</span></div>
+            </div>;})}
           </div>}
         </div>}
       </div>}
