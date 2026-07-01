@@ -4197,13 +4197,11 @@ function QuoteDetail({quoteId,quotes,setQuotes,jobs,clients,biz,markupTable,natu
   // quote (no line items → base 0) is a valid total, not an undefined one.
   const markupUndef=!manual&&calc.base>0&&!calc.bracket&&!calc.overridden;
   const grandStr=markupUndef?"—":fmtR(grandTotal);
+  // Set this quote's status only — other quotes on the job are left untouched, so a job can hold
+  // several approved quotes at once (needed when a client accepts a multi-item bundle proposal).
+  // The job's agreed charge sums every approved quote, so multiple approvals total up correctly.
   const setStatus=s=>setQuotes(p=>{
-    // Only one approved quote per job: demote any other currently-approved quote on this job
-    const n=p.map(x=>{
-      if(x.id===quoteId)return{...x,status:s};
-      if(s==="Approved"&&x.jobId===q.jobId&&x.status==="Approved")return{...x,status:"Declined"};
-      return x;
-    });
+    const n=p.map(x=>x.id===quoteId?{...x,status:s}:x);
     persist(K.qu,n);return n;
   });
   const delQuote=()=>{
