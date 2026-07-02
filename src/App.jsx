@@ -877,7 +877,7 @@ const calcStoneQuote=(items,table)=>{
   return{totalCost,bracket,mult,markedUp,gst,clientTotal};
 };
 
-const K={cl:"jlr4_clients",jo:"jlr4_jobs",qu:"jlr4_quotes",pa:"jlr4_payments",pr:"jlr4_pricing_v9",biz:"jlr4_biz",no:"jlr4_notes",inv:"jlr4_invoices",spot:"jlr4_spot",mt:"jlr4_markup",smn:"jlr4_stone_nat",sml:"jlr4_stone_lab",csr:"jlr4_centre_rates",ap:"jlr4_appointments",pp:"jlr4_proposals",td:"jlr4_todos",delpr:"jlr4_deleted_pricing"};
+const K={cl:"jlr4_clients",jo:"jlr4_jobs",qu:"jlr4_quotes",pa:"jlr4_payments",pr:"jlr4_pricing_v9",biz:"jlr4_biz",no:"jlr4_notes",inv:"jlr4_invoices",spot:"jlr4_spot",mt:"jlr4_markup",smn:"jlr4_stone_nat",sml:"jlr4_stone_lab",csr:"jlr4_centre_rates",ap:"jlr4_appointments",pp:"jlr4_proposals",td:"jlr4_todos",st:"jlr4_stock",delpr:"jlr4_deleted_pricing"};
 
 // Name of the public, anon-readable table holding immutable proposal snapshots for client links.
 const PUBLIC_PROPOSALS_TABLE="public_proposals";
@@ -2722,8 +2722,12 @@ function CentreStonePicker({onAdd,onAddManual,centreRates=DEFAULT_CENTRE_RATES,s
   </div>;
 }
 
-function QuoteBuilder({jobId:jobIdProp,editQuoteId,jobs,clients,quotes,setQuotes,pricing,setPricing,markupTable,naturalStoneMarkup,labStoneMarkup,centreRates=DEFAULT_CENTRE_RATES,setCentreRates,setView}){
+function QuoteBuilder({jobId:jobIdProp,editQuoteId,stockId,stock,setStock,jobs,clients,quotes,setQuotes,pricing,setPricing,markupTable,naturalStoneMarkup,labStoneMarkup,centreRates=DEFAULT_CENTRE_RATES,setCentreRates,setView}){
   const existingQuote=editQuoteId?quotes.find(q=>q.id===editQuoteId):null;
+  // Stock-pricing mode: same builder, but the total becomes a stock piece's price (no quote/proposal chrome).
+  const stockMode=!!stockId;
+  const stockItem=stockMode?(stock||[]).find(s=>s.id===stockId):null;
+  const seed=existingQuote||(stockMode?stockItem?.pricing:null);   // re-pricing seeds from the saved payload
   const jobId=existingQuote?.jobId||jobIdProp;
   const job=jobs.find(j=>j.id===jobId);
   const c=job?clients.find(x=>x.id===job.clientId):null;
@@ -2731,15 +2735,15 @@ function QuoteBuilder({jobId:jobIdProp,editQuoteId,jobs,clients,quotes,setQuotes
   const blankItem=()=>({id:uid(),description:"",detail:"",costLow:"",noMarkup:false});
   // Findings are no longer a separate section — fold any legacy finding:true items back
   // into the main line items (stripping the flag) so old quotes keep them, editable as normal.
-  const[items,setItems]=useState(()=>existingQuote?.lineItems?.length?existingQuote.lineItems.filter(i=>!i.accentStone).map(({finding,...i})=>({...i})):[]);
-  const[accentItems,setAccentItems]=useState(()=>existingQuote?.lineItems?.length?existingQuote.lineItems.filter(i=>i.accentStone).map(i=>({...i})):[]);
-  const[notes,setNotes]=useState(existingQuote?.notes||"");
-  const[clientDescription,setClientDescription]=useState(existingQuote?.clientDescription||"");
-  const[title,setTitle]=useState(existingQuote?.title??(job?.type||""));   // prefill new quotes with the job type
-  const[pieceTitle,setPieceTitle]=useState(existingQuote?.pieceTitle||"");  // custom piece name on documents; blank = use job type
-  const[markupOverride,setMarkupOverride]=useState(existingQuote?.markupOverride?String(existingQuote.markupOverride):"");
-  const[manualTotal,setManualTotal]=useState(existingQuote?.manualTotal?String(existingQuote.manualTotal):"");
-  const[validUntil,setValidUntil]=useState(existingQuote?.validUntil||"");
+  const[items,setItems]=useState(()=>seed?.lineItems?.length?seed.lineItems.filter(i=>!i.accentStone).map(({finding,...i})=>({...i})):[]);
+  const[accentItems,setAccentItems]=useState(()=>seed?.lineItems?.length?seed.lineItems.filter(i=>i.accentStone).map(i=>({...i})):[]);
+  const[notes,setNotes]=useState(seed?.notes||"");
+  const[clientDescription,setClientDescription]=useState(seed?.clientDescription||"");
+  const[title,setTitle]=useState(seed?.title??(job?.type||""));   // prefill new quotes with the job type
+  const[pieceTitle,setPieceTitle]=useState(seed?.pieceTitle||"");  // custom piece name on documents; blank = use job type
+  const[markupOverride,setMarkupOverride]=useState(seed?.markupOverride?String(seed.markupOverride):"");
+  const[manualTotal,setManualTotal]=useState(seed?.manualTotal?String(seed.manualTotal):"");
+  const[validUntil,setValidUntil]=useState(seed?.validUntil||"");
   const[pricingModal,setPricingModal]=useState(false);
   const[pSearch,setPSearch]=useState("");
   const[pCat,setPCat]=useState("All");
@@ -2769,10 +2773,10 @@ function QuoteBuilder({jobId:jobIdProp,editQuoteId,jobs,clients,quotes,setQuotes
   },[pricingModal]);
   const[accentModal,setAccentModal]=useState(false);
   // Centre stone section
-  const[stoneMode,setStoneMode]=useState(existingQuote?.stoneMode||"none");
-  const[stoneType,setStoneType]=useState(existingQuote?.stoneType||"");
-  const[stoneItems,setStoneItems]=useState(()=>existingQuote?.stoneItems?.length?existingQuote.stoneItems.map(i=>({...i})):[]);
-  const[stoneNotes,setStoneNotes]=useState(existingQuote?.stoneNotes||"");
+  const[stoneMode,setStoneMode]=useState(seed?.stoneMode||"none");
+  const[stoneType,setStoneType]=useState(seed?.stoneType||"");
+  const[stoneItems,setStoneItems]=useState(()=>seed?.stoneItems?.length?seed.stoneItems.map(i=>({...i})):[]);
+  const[stoneNotes,setStoneNotes]=useState(seed?.stoneNotes||"");
   const setStonItem=(id,k,v)=>setStoneItems(p=>p.map(i=>i.id===id?{...i,[k]:v}:i));
   const addStoneItem=()=>setStoneItems(p=>[...p,blankStoneItem()]);
   const removeStoneItem=id=>setStoneItems(p=>p.filter(i=>i.id!==id));
@@ -2879,6 +2883,19 @@ function QuoteBuilder({jobId:jobIdProp,editQuoteId,jobs,clients,quotes,setQuotes
     const baseValidItems=items.filter(i=>i.description.trim()&&Number(i.costLow)>0);
     const hasSourcedStones=stoneMode==="sourcing"&&validStoneItems.length>0;
     if(!baseValidItems.length&&!validAccentItems.length&&!hasSourcedStones&&!manualOn)return alert("Add at least one cost item — a line item, a sourced stone, or a manual quoted price.");
+    if(stockMode){
+      // Persist the full pricing payload (so it can be reopened & re-priced), plus the resulting
+      // cost + retail (inc GST) onto the stock piece. Retail auto-fills but stays editable in Stock.
+      const payload={title:title.trim(),markupOverride:Number(markupOverride)||0,manualTotal:Number(manualTotal)||0,notes,lineItems:validItems,
+        stoneMode,stoneType:stoneMode==="sourcing"?stoneType:"",stoneItems:stoneMode==="sourcing"?validStoneItems:[],
+        stoneNotes,stoneClientTotal:stoneCalc?.clientTotal||0,accentStoneTotal};
+      const sourcedStoneCost=stoneMode==="sourcing"?validStoneItems.reduce((s,i)=>s+(Number(i.cost)||Number(i.costLow)||0),0):0;
+      const costTotal=calc.totalCost+sourcedStoneCost;
+      const retail=manualOn?Number(manualTotal):grandTotal;
+      setStock(p=>{const n=p.map(s=>s.id===stockId?{...s,pricing:payload,cost:Math.round(costTotal),price:Math.round(retail),pricedAt:today()}:s);persist(K.st,n);return n;});
+      setView("stock");
+      return;
+    }
     if(isEditing){
       // Update existing quote — preserve id, jobId, createdAt
       const updated={...existingQuote,status,title:title.trim(),pieceTitle:pieceTitle.trim(),markupOverride:Number(markupOverride)||0,manualTotal:Number(manualTotal)||0,validUntil,notes,lineItems:validItems,
@@ -2901,33 +2918,38 @@ function QuoteBuilder({jobId:jobIdProp,editQuoteId,jobs,clients,quotes,setQuotes
     :pricing.filter(p=>pCat==="All"||p.category===pCat);
 
   return <div>
-    <button onClick={()=>setView("jobDetail_"+jobId)} style={{background:"none",border:"none",cursor:"pointer",color:GOLD,fontSize:13,fontWeight:700,fontFamily:"inherit",marginBottom:18,padding:0}}>← Back to job</button>
+    <button onClick={()=>setView(stockMode?"stock":"jobDetail_"+jobId)} style={{background:"none",border:"none",cursor:"pointer",color:GOLD,fontSize:13,fontWeight:700,fontFamily:"inherit",marginBottom:18,padding:0}}>{stockMode?"← Back to stock":"← Back to job"}</button>
     <div style={{marginBottom:20}}>
-      <h1 style={{margin:0,fontSize:24,fontWeight:700,color:INK}}>{isEditing?"Edit quote":"New quote"}{title.trim()?`: ${title.trim()}`:""}</h1>
+      <h1 style={{margin:0,fontSize:24,fontWeight:700,color:INK}}>{stockMode?(seed?"Update price":"Generate price"):(isEditing?"Edit quote":"New quote")}{title.trim()?`: ${title.trim()}`:(stockMode&&stockItem?.title?`: ${stockItem.title}`:"")}</h1>
       {job&&<div style={{color:WG,fontSize:13,marginTop:3}}>{job.type} · {clientDisplayName(c)}</div>}
-      {isEditing&&<div style={{fontSize:12,color:WG,marginTop:2}}>Quote {quoteRef(existingQuote)} · created {fmtDate(existingQuote.createdAt)}</div>}
+      {stockMode&&<div style={{color:WG,fontSize:13,marginTop:3}}>Pricing a stock piece — builds like a quote, but the total becomes this piece's price.</div>}
+      {isEditing&&!stockMode&&<div style={{fontSize:12,color:WG,marginTop:2}}>Quote {quoteRef(existingQuote)} · created {fmtDate(existingQuote.createdAt)}</div>}
     </div>
 
     <Card>
-      {/* ── Quote title + expiry + client description ── */}
-      <div style={{marginBottom:20}}>
-        <div style={{display:"grid",gridTemplateColumns:"1fr 200px",gap:"0 24px",marginBottom:16}}>
-          <Input label="Quote title / label" value={title} onChange={setTitle} placeholder="e.g. Engagement ring, Diamond upgrade, Repair…"/>
-          <Input label="Quote expiry date" value={validUntil} onChange={setValidUntil} type="date"/>
-        </div>
-        <div style={{marginBottom:16}}>
-          <Input label="Piece name on documents (optional)" value={pieceTitle} onChange={setPieceTitle} placeholder={`Heading for the piece — blank uses the job type${job?.type?` (“${job.type}”)`:""}. e.g. Solitaire engagement ring`}/>
-        </div>
-        <div>
-          <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:6}}>
-            <label style={SS.lbl}>Description for client</label>
-            <div style={{background:OK+"22",color:OK,fontSize:10,fontWeight:700,padding:"2px 8px",borderRadius:4,letterSpacing:"0.04em"}}>APPEARS ON PROPOSAL</div>
+      {/* ── Quote title + expiry + client description (quotes only; stock shows just an internal label) ── */}
+      {stockMode
+        ? <div style={{marginBottom:20}}>
+            <Input label="Price label (optional)" value={title} onChange={setTitle} placeholder="What this pricing covers — for your reference only"/>
           </div>
-          <textarea value={clientDescription} onChange={e=>setClientDescription(e.target.value)} rows={4}
-            placeholder="e.g. Custom 18ct white gold engagement ring featuring a 1.52ct oval-cut sapphire with a diamond pavé halo. All stones hand-selected and set in our studio."
-            style={{...SS.inp,marginTop:0,resize:"vertical",lineHeight:1.6,fontSize:13}}/>
-        </div>
-      </div>
+        : <div style={{marginBottom:20}}>
+            <div style={{display:"grid",gridTemplateColumns:"1fr 200px",gap:"0 24px",marginBottom:16}}>
+              <Input label="Quote title / label" value={title} onChange={setTitle} placeholder="e.g. Engagement ring, Diamond upgrade, Repair…"/>
+              <Input label="Quote expiry date" value={validUntil} onChange={setValidUntil} type="date"/>
+            </div>
+            <div style={{marginBottom:16}}>
+              <Input label="Piece name on documents (optional)" value={pieceTitle} onChange={setPieceTitle} placeholder={`Heading for the piece — blank uses the job type${job?.type?` (“${job.type}”)`:""}. e.g. Solitaire engagement ring`}/>
+            </div>
+            <div>
+              <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:6}}>
+                <label style={SS.lbl}>Description for client</label>
+                <div style={{background:OK+"22",color:OK,fontSize:10,fontWeight:700,padding:"2px 8px",borderRadius:4,letterSpacing:"0.04em"}}>APPEARS ON PROPOSAL</div>
+              </div>
+              <textarea value={clientDescription} onChange={e=>setClientDescription(e.target.value)} rows={4}
+                placeholder="e.g. Custom 18ct white gold engagement ring featuring a 1.52ct oval-cut sapphire with a diamond pavé halo. All stones hand-selected and set in our studio."
+                style={{...SS.inp,marginTop:0,resize:"vertical",lineHeight:1.6,fontSize:13}}/>
+            </div>
+          </div>}
       <div style={{borderTop:`1px solid ${BD}`,margin:"0 0 20px"}}/>
 
       {/* ── Setting & manufacturing line items ── */}
@@ -3171,8 +3193,8 @@ function QuoteBuilder({jobId:jobIdProp,editQuoteId,jobs,clients,quotes,setQuotes
         </div>
       </div>
       <div style={{display:"flex",gap:10,justifyContent:"flex-end",alignItems:"center"}}>
-        <Btn ghost onClick={()=>setView("jobDetail_"+jobId)}>Cancel</Btn>
-        <Btn onClick={()=>save_(isEditing?existingQuote.status:"Draft")}>{isEditing?"Save changes":"Save quote"}</Btn>
+        <Btn ghost onClick={()=>setView(stockMode?"stock":"jobDetail_"+jobId)}>Cancel</Btn>
+        <Btn onClick={()=>save_(isEditing?existingQuote.status:"Draft")}>{stockMode?"Save price":isEditing?"Save changes":"Save quote"}</Btn>
       </div>
     </Card>
 
@@ -6161,6 +6183,7 @@ const NAV=[
   {id:"jobs",label:"Jobs"},
   {id:"quotes",label:"Quotes"},
   {id:"invoices",label:"Invoices"},
+  {id:"stock",label:"Stock"},
   {id:"pricing",label:"Pricing DB"},
   {id:"reports",label:"Reports"},
   {id:"settings",label:"Settings"},
@@ -6169,7 +6192,7 @@ const NAV_MAP=Object.fromEntries(NAV.map(n=>[n.id,n]));
 const NAV_GROUPS=[
   {label:null,ids:["dashboard","todo"]},
   {label:"Workflow",ids:["appointments","clients","jobs","quotes","invoices"]},
-  {label:"Studio",ids:["pricing","reports","settings"]},
+  {label:"Studio",ids:["stock","pricing","reports","settings"]},
 ];
 // Cohesive line-icon set for the sidebar (single 24-grid, 1.6 stroke, inherits color).
 function NavIcon({name,size=17}){
@@ -6184,6 +6207,7 @@ function NavIcon({name,size=17}){
     case "invoices": return <svg {...p}><path d="M6 2.5H18V21.5L15 19.7L12 21.5L9 19.7L6 21.5Z"/><line x1="9" y1="8" x2="15" y2="8"/><line x1="9" y1="12" x2="15" y2="12"/></svg>;
     case "pricing": return <svg {...p}><path d="M20.6 11.4 12.6 3.4a2 2 0 0 0-1.4-.6H4.5a1 1 0 0 0-1 1v6.7a2 2 0 0 0 .6 1.4l8 8a1.9 1.9 0 0 0 2.7 0l5.8-5.8a1.9 1.9 0 0 0 0-2.7Z"/><circle cx="7.8" cy="7.8" r="1.4"/></svg>;
     case "reports": return <svg {...p}><line x1="3.5" y1="20.5" x2="20.5" y2="20.5"/><rect x="5" y="12" width="3.4" height="7" rx="0.6"/><rect x="10.3" y="8" width="3.4" height="11" rx="0.6"/><rect x="15.6" y="4.5" width="3.4" height="14.5" rx="0.6"/></svg>;
+    case "stock": return <svg {...p}><path d="M12 2.8 21 7.4v9.2L12 21.2 3 16.6V7.4Z"/><path d="M3 7.4 12 12l9-4.6"/><line x1="12" y1="12" x2="12" y2="21.2"/><path d="M7.5 5.1 16.5 9.7"/></svg>;
     case "settings": return <svg {...p}><line x1="4" y1="8" x2="20" y2="8"/><circle cx="9" cy="8" r="2.3"/><line x1="4" y1="16" x2="20" y2="16"/><circle cx="15" cy="16" r="2.3"/></svg>;
     default: return null;
   }
@@ -6394,6 +6418,256 @@ function TodoBoard({todos,setTodos}){
   </div>;
 }
 
+// ── Stock / inventory ─────────────────────────────────────────────────────
+const STOCK_CATEGORIES=[
+  {name:"Ring",prefix:"RNG"},{name:"Necklace",prefix:"NCK"},{name:"Pendant",prefix:"PND"},
+  {name:"Earrings",prefix:"EAR"},{name:"Bracelet",prefix:"BRC"},{name:"Bangle",prefix:"BNG"},
+  {name:"Chain",prefix:"CHN"},{name:"Brooch",prefix:"BRO"},{name:"Cufflinks",prefix:"CFL"},
+  {name:"Loose stone",prefix:"STN"},{name:"Other",prefix:"GEN"},
+];
+const STOCK_STATUS=[
+  {name:"Available",color:OK},{name:"Reserved",color:WARN},{name:"On display",color:GOLD_D},
+  {name:"Consignment",color:"#7B5EA7"},{name:"Sold",color:WG},
+];
+const stockStatusColor=s=>(STOCK_STATUS.find(x=>x.name===s)||{}).color||WG;
+
+function StockBoard({stock,setStock,pricing,setView}){
+  const metals=(pricing||[]).filter(p=>p.category==="Metals");
+  const save=next=>{setStock(next);persist(K.st,next);};
+
+  const[q,setQ]=useState("");
+  const[filterCat,setFilterCat]=useState("All");
+  const[filterStatus,setFilterStatus]=useState("All");
+  const[thumbs,setThumbs]=useState({});       // itemId → signed url of first photo (grid)
+  const[editId,setEditId]=useState(null);
+  const[isNew,setIsNew]=useState(false);
+  const[draft,setDraft]=useState({});
+  const[modalUrls,setModalUrls]=useState({}); // path → signed url (editor)
+  const[busy,setBusy]=useState(false);
+  const[err,setErr]=useState("");
+
+  // Resolve a signed URL for each piece's first photo (grid thumbnails)
+  useEffect(()=>{
+    let cancelled=false;
+    (async()=>{
+      if(!imagesEnabled())return;
+      const map={};
+      for(const it of stock){const first=(it.images||[])[0];if(first){const u=await signedImageUrl(first.path);if(u)map[it.id]=u;}}
+      if(!cancelled)setThumbs(map);
+    })();
+    return()=>{cancelled=true;};
+  },[stock.map(it=>it.id+":"+((it.images||[])[0]?.path||"")).join(",")]);   // eslint-disable-line
+
+  // Resolve signed URLs for the piece currently open in the editor
+  useEffect(()=>{
+    let cancelled=false;
+    (async()=>{
+      const item=stock.find(x=>x.id===editId);
+      if(!item||!imagesEnabled())return;
+      const map={};
+      for(const img of (item.images||[])){const u=await signedImageUrl(img.path);if(u)map[img.path]=u;}
+      if(!cancelled)setModalUrls(map);
+    })();
+    return()=>{cancelled=true;};
+  },[editId]);   // eslint-disable-line
+
+  const fields=it=>({title:it.title||"",sku:it.sku||"",category:it.category||"Ring",description:it.description||"",
+    metal:it.metal||"",stones:it.stones||"",cost:it.cost||"",price:it.price||"",status:it.status||"Available",location:it.location||"",qty:it.qty||1});
+  const draftFields=d=>({title:(d.title||"").trim(),sku:(d.sku||"").trim(),category:d.category,description:(d.description||"").trim(),
+    metal:d.metal||"",stones:(d.stones||"").trim(),cost:d.cost,price:d.price,status:d.status,location:(d.location||"").trim(),qty:Number(d.qty)||1});
+  const openEdit=it=>{setEditId(it.id);setIsNew(false);setDraft(fields(it));setErr("");setModalUrls({});};
+  const openNew=()=>{
+    const it={id:uid(),status:"Available",category:"Ring",qty:1,images:[],createdAt:today(),sku:""};
+    save([...stock,it]);
+    setEditId(it.id);setIsNew(true);setDraft(fields(it));setErr("");setModalUrls({});
+  };
+  const closeEditor=()=>{
+    const item=stock.find(x=>x.id===editId);
+    if(isNew&&item&&!(item.title||"").trim()&&!(item.images||[]).length)save(stock.filter(x=>x.id!==editId));
+    setEditId(null);setIsNew(false);
+  };
+  const saveText=()=>{save(stock.map(x=>x.id===editId?{...x,...draftFields(draft)}:x));setIsNew(false);setEditId(null);};
+  // Commit the piece, then hand off to the quote-engine builder to price it
+  const goPrice=()=>{save(stock.map(x=>x.id===editId?{...x,...draftFields(draft)}:x));setIsNew(false);setView("stockPrice_"+editId);};
+  const deletePiece=()=>{
+    const item=stock.find(x=>x.id===editId);
+    if(!confirm("Delete this stock piece? This can't be undone."))return;
+    (item?.images||[]).forEach(img=>deleteJobImage(img.path));
+    save(stock.filter(x=>x.id!==editId));setEditId(null);setIsNew(false);
+  };
+
+  // Photo handling on the piece currently open (mirrors the Jobs image flow)
+  const onFiles=async(fileList)=>{
+    const item=stock.find(x=>x.id===editId);if(!item)return;
+    const files=Array.from(fileList||[]).filter(f=>f.type.startsWith("image/"));
+    if(!files.length)return;
+    setBusy(true);setErr("");
+    try{
+      const added=[];
+      for(const file of files){
+        const blob=await compressImage(file);
+        const path=await uploadJobImage(item.id,blob);
+        const u=await signedImageUrl(path);
+        added.push({id:uid(),path,uploadedAt:new Date().toISOString()});
+        if(u)setModalUrls(prev=>({...prev,[path]:u}));
+      }
+      save(stock.map(x=>x.id===item.id?{...x,images:[...(x.images||[]),...added]}:x));
+    }catch(e){setErr(e.message||"Upload failed.");}
+    setBusy(false);
+  };
+  const removeImg=img=>{
+    if(!confirm("Remove this photo?"))return;
+    save(stock.map(x=>x.id===editId?{...x,images:(x.images||[]).filter(i=>i.id!==img.id)}:x));
+    deleteJobImage(img.path);
+  };
+
+  // Summary — value on hand excludes sold pieces
+  const live=stock.filter(it=>(it.status||"Available")!=="Sold");
+  const retailVal=live.reduce((s,it)=>s+Number(it.price||0)*Number(it.qty||1),0);
+  const costVal=live.reduce((s,it)=>s+Number(it.cost||0)*Number(it.qty||1),0);
+  const availCount=stock.filter(it=>(it.status||"Available")==="Available").length;
+
+  const cats=["All",...STOCK_CATEGORIES.map(c=>c.name).filter(n=>stock.some(s=>s.category===n))];
+  const shown=stock.filter(it=>{
+    if(filterCat!=="All"&&it.category!==filterCat)return false;
+    if(filterStatus!=="All"&&(it.status||"Available")!==filterStatus)return false;
+    if(q){const s=`${it.title||""} ${it.sku||""} ${it.description||""} ${it.metal||""} ${it.stones||""}`.toLowerCase();if(!s.includes(q.toLowerCase()))return false;}
+    return true;
+  }).sort((a,b)=>{
+    const as=(a.status||"")==="Sold"?1:0,bs=(b.status||"")==="Sold"?1:0;
+    if(as!==bs)return as-bs;
+    return String(b.createdAt||"").localeCompare(String(a.createdAt||""));
+  });
+
+  const editingItem=stock.find(x=>x.id===editId)||null;
+
+  return <div>
+    {/* Header */}
+    <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-end",flexWrap:"wrap",gap:16,marginBottom:24}}>
+      <div>
+        <div style={{fontSize:11,fontWeight:700,color:WG,letterSpacing:"0.14em",textTransform:"uppercase",marginBottom:5}}>Inventory</div>
+        <h1 style={{margin:0,fontSize:32,fontWeight:500,color:INK,letterSpacing:"-0.01em"}}>Stock</h1>
+        <div style={{color:WG,fontSize:14,marginTop:4}}>Your ready-to-sell and display pieces, with photos, SKUs and pricing.</div>
+      </div>
+      <Btn onClick={openNew}>+ Add piece</Btn>
+    </div>
+
+    {stock.length===0
+      ? <Card style={{marginTop:4}}><div style={{color:WG,fontSize:14,textAlign:"center",padding:"46px 0"}}>
+          <div style={{fontSize:38,marginBottom:12}}>💍</div>
+          <div style={{fontWeight:700,fontSize:16,color:INK,marginBottom:6}}>No stock pieces yet</div>
+          <div style={{maxWidth:380,margin:"0 auto 18px",lineHeight:1.55}}>Add your first ready-to-sell or display piece — photos, a description, your own SKU and a generated price.</div>
+          <Btn onClick={openNew}>+ Add your first piece</Btn>
+        </div></Card>
+      : <>
+          {/* Summary tiles */}
+          <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(150px,1fr))",gap:14,marginBottom:20}}>
+            <Stat label="Pieces" value={stock.length} tint="blue" icon="◈"/>
+            <Stat label="Available" value={availCount} tint={availCount>0?"mint":"gold"} icon="✓"/>
+            <Stat label="Retail value" value={fmtR(retailVal)} tint="gold" icon="$" sub="excludes sold"/>
+            <Stat label="Potential margin" value={fmtR(retailVal-costVal)} tint="lilac" icon="▲" sub={`cost ${fmtR(costVal)}`}/>
+          </div>
+
+          {/* Filter bar */}
+          <div style={{display:"flex",gap:10,flexWrap:"wrap",alignItems:"center",marginBottom:18}}>
+            <input value={q} onChange={e=>setQ(e.target.value)} placeholder="Search title, SKU, metal, stone…" style={{...SS.inp,marginTop:0,flex:"1 1 240px",maxWidth:340}}/>
+            <select value={filterCat} onChange={e=>setFilterCat(e.target.value)} style={{...SS.inp,marginTop:0,width:"auto"}}>{cats.map(c=><option key={c} value={c}>{c==="All"?"All categories":c}</option>)}</select>
+            <select value={filterStatus} onChange={e=>setFilterStatus(e.target.value)} style={{...SS.inp,marginTop:0,width:"auto"}}><option value="All">All statuses</option>{STOCK_STATUS.map(s=><option key={s.name} value={s.name}>{s.name}</option>)}</select>
+          </div>
+
+          {shown.length===0
+            ? <div style={{fontSize:13,color:WG,fontStyle:"italic",padding:"24px 0",textAlign:"center"}}>No pieces match your search or filters.</div>
+            : <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(230px,1fr))",gap:16,alignItems:"start"}}>
+                {shown.map(it=>{
+                  const url=thumbs[it.id];
+                  const margin=it.price&&it.cost?Math.round((Number(it.price)-Number(it.cost))/Number(it.price)*100):null;
+                  const sc=stockStatusColor(it.status);
+                  const sold=(it.status||"")==="Sold";
+                  return <div key={it.id} onClick={()=>openEdit(it)} style={{background:WHITE,border:`1px solid ${BD_SOFT}`,borderRadius:RADIUS,boxShadow:SHADOW,overflow:"hidden",cursor:"pointer",opacity:sold?0.72:1}}>
+                    <div style={{position:"relative",width:"100%",aspectRatio:"1 / 1",background:`${PARCH} center/cover no-repeat`,backgroundImage:url?`url(${url})`:"none",display:"flex",alignItems:"center",justifyContent:"center"}}>
+                      {!url&&<span style={{fontSize:40,color:BD}}>◈</span>}
+                      <span style={{position:"absolute",top:9,left:9}}><Badge label={it.status||"Available"} color={sc}/></span>
+                    </div>
+                    <div style={{padding:"12px 13px 14px"}}>
+                      <div style={{fontWeight:700,fontSize:14,color:INK,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{(it.title||"").trim()||"Untitled piece"}</div>
+                      <div style={{fontSize:11,color:WG,fontFamily:"ui-monospace,Menlo,monospace",marginTop:2}}>{it.sku||"—"}</div>
+                      <div style={{fontSize:11.5,color:WG,marginTop:6,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{[it.category,it.metal].filter(Boolean).join(" · ")||"—"}</div>
+                      <div style={{display:"flex",alignItems:"baseline",justifyContent:"space-between",gap:8,marginTop:8}}>
+                        <span style={{fontSize:16,fontWeight:800,color:INK}}>{it.price?fmtR(it.price):"—"}</span>
+                        {margin!=null&&<span style={{fontSize:11,fontWeight:700,color:margin>=0?OK:DANGER}}>{margin}% margin</span>}
+                      </div>
+                    </div>
+                  </div>;
+                })}
+              </div>}
+        </>}
+
+    {/* Add / edit piece */}
+    {editingItem&&<Modal title={isNew?"New stock piece":"Edit stock piece"} onClose={closeEditor} wide>
+      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"0 22px"}}>
+        {/* Left column */}
+        <div>
+          <Input label="Title" value={draft.title} onChange={v=>setDraft(d=>({...d,title:v}))} placeholder="e.g. Round diamond solitaire"/>
+          <Input label="Category" as="select" value={draft.category} onChange={v=>setDraft(d=>({...d,category:v}))} options={STOCK_CATEGORIES.map(c=>c.name)}/>
+          <Input label="SKU / item code" value={draft.sku} onChange={v=>setDraft(d=>({...d,sku:v}))} placeholder="e.g. RNG-001 (your own code)"/>
+          <Input label="Description" as="textarea" rows={4} value={draft.description} onChange={v=>setDraft(d=>({...d,description:v}))} placeholder="Style, finish, notable features…"/>
+          <Input label="Status" as="select" value={draft.status} onChange={v=>setDraft(d=>({...d,status:v}))} options={STOCK_STATUS.map(s=>s.name)}/>
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:14}}>
+            <Input label="Location" value={draft.location} onChange={v=>setDraft(d=>({...d,location:v}))} placeholder="e.g. Cabinet A / safe"/>
+            <Input label="Quantity" type="number" min="1" value={draft.qty} onChange={v=>setDraft(d=>({...d,qty:v}))}/>
+          </div>
+        </div>
+        {/* Right column */}
+        <div>
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:14}}>
+            <Input label="Cost price ($)" type="number" min="0" value={draft.cost} onChange={v=>setDraft(d=>({...d,cost:v}))}/>
+            <Input label="Retail price ($)" type="number" min="0" value={draft.price} onChange={v=>setDraft(d=>({...d,price:v}))}/>
+          </div>
+          {(Number(draft.price)>0&&Number(draft.cost)>0)&&<div style={{fontSize:12,color:WG,marginTop:-4,marginBottom:10}}>Margin: <strong style={{color:OK}}>{fmtR(Number(draft.price)-Number(draft.cost))}</strong> · {Math.round((Number(draft.price)-Number(draft.cost))/Number(draft.price)*100)}%</div>}
+          {/* Build the price with the same engine as quotes (materials + labour + stones + your markup) */}
+          <div style={{background:PARCH,border:`1px solid ${BD}`,borderRadius:5,padding:"12px 14px",marginBottom:14}}>
+            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",gap:10,flexWrap:"wrap"}}>
+              <div style={{fontSize:12,color:WG,lineHeight:1.5,flex:"1 1 150px"}}>Build the price the same way you make a quote — it fills in cost &amp; retail above.</div>
+              <Btn sm onClick={goPrice}>{editingItem.pricedAt?"Update price":"Generate price"}</Btn>
+            </div>
+            {editingItem.pricedAt&&<div style={{fontSize:11,color:WG,marginTop:8}}>Priced on {fmtDate(editingItem.pricedAt)} · re-generate if metal or costs have moved.</div>}
+          </div>
+          <Input label="Metal" as="select" value={draft.metal} onChange={v=>setDraft(d=>({...d,metal:v}))} options={["",...metals.map(m=>m.name)]}/>
+          <Input label="Stone(s)" value={draft.stones} onChange={v=>setDraft(d=>({...d,stones:v}))} placeholder="e.g. 0.50ct D VS1 (for the listing)"/>
+
+          {/* Photos */}
+          <label style={SS.lbl}>Photos</label>
+          {!imagesEnabled()
+            ? <div style={{fontSize:12,color:WG,lineHeight:1.55,marginTop:4}}>Photo uploads need the cloud backend — sign in on the deployed app to add photos.</div>
+            : <div style={{marginTop:6}}>
+                <label style={{display:"inline-block",background:GOLD,color:WHITE,borderRadius:4,padding:"7px 15px",fontSize:12,fontWeight:700,cursor:busy?"default":"pointer",letterSpacing:"0.02em",opacity:busy?0.6:1}}>
+                  {busy?"Uploading…":"+ Upload photos"}
+                  <input type="file" accept="image/*" multiple disabled={busy} onChange={e=>{onFiles(e.target.files);e.target.value="";}} style={{display:"none"}}/>
+                </label>
+                {err&&<div style={{color:DANGER,fontSize:12,marginTop:8}}>{err}</div>}
+                {(editingItem.images||[]).length>0&&<div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(84px,1fr))",gap:8,marginTop:10}}>
+                  {(editingItem.images||[]).map(img=>(
+                    <div key={img.id} style={{position:"relative",aspectRatio:"1 / 1",borderRadius:4,overflow:"hidden",border:`1px solid ${BD}`,background:`${PARCH} center/cover no-repeat`,backgroundImage:modalUrls[img.path]?`url(${modalUrls[img.path]})`:"none"}}>
+                      {!modalUrls[img.path]&&<span style={{position:"absolute",inset:0,display:"flex",alignItems:"center",justifyContent:"center",fontSize:10,color:WG}}>loading…</span>}
+                      <button onClick={()=>removeImg(img)} title="Remove photo" style={{position:"absolute",top:3,right:3,width:20,height:20,borderRadius:"50%",border:"none",background:"rgba(0,0,0,0.55)",color:WHITE,fontSize:13,lineHeight:1,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",padding:0}}>×</button>
+                    </div>
+                  ))}
+                </div>}
+              </div>}
+        </div>
+      </div>
+
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",gap:10,marginTop:24,paddingTop:18,borderTop:`1px solid ${BD}`}}>
+        <Btn sm danger onClick={deletePiece}>Delete piece</Btn>
+        <div style={{display:"flex",gap:10}}>
+          <Btn sm ghost onClick={closeEditor}>Cancel</Btn>
+          <Btn sm onClick={saveText}>Save piece</Btn>
+        </div>
+      </div>
+    </Modal>}
+  </div>;
+}
+
 export default function App(){
   // Public client-facing proposal link (?p=<token>) — render the standalone proposal page,
   // outside the auth gate and the studio shell. Derived from the URL (constant per page load).
@@ -6416,6 +6690,7 @@ export default function App(){
   const[labStoneMarkup,setLabStoneMarkup]=useState(DEFAULT_LAB_STONE_MARKUP);
   const[centreRates,setCentreRates]=useState(DEFAULT_CENTRE_RATES);
   const[todos,setTodos]=useState({people:[],items:[]});
+  const[stock,setStock]=useState([]);
   const[view,setViewRaw]=useState("dashboard");
   const[selClient,setSelClient]=useState(null);
   const[selJob,setSelJob]=useState(null);
@@ -6461,7 +6736,7 @@ export default function App(){
       [K.cl]:setClients,[K.jo]:setJobs,[K.qu]:setQuotes,[K.pa]:setPayments,
       [K.pr]:setPricing,[K.biz]:setBiz,[K.no]:setNotes,[K.inv]:setInvoices,
       [K.mt]:setMarkupTable,[K.smn]:setNaturalStoneMarkup,[K.sml]:setLabStoneMarkup,[K.csr]:setCentreRates,
-      [K.ap]:setAppointments,[K.pp]:setProposals,[K.td]:setTodos,
+      [K.ap]:setAppointments,[K.pp]:setProposals,[K.td]:setTodos,[K.st]:setStock,
     };
     // Normalise legacy values before applying to state
     const applyLoaded=(k,v,setter)=>{
@@ -6634,6 +6909,7 @@ export default function App(){
     if(view.startsWith("quoteDetail")||view==="quotes")return "quotes";
     if(view.startsWith("invoiceDetail")||view==="invoices")return "invoices";
     if(view.startsWith("newQuote")||view.startsWith("editQuote")||view.startsWith("jobDetail")||view==="jobs")return "jobs";
+    if(view.startsWith("stockPrice")||view==="stock")return "stock";
     if(view==="clientDetail")return "clients";
     return view;
   },[view]);
@@ -6652,6 +6928,8 @@ export default function App(){
     if(view.startsWith("editQuote_"))return <QuoteBuilder editQuoteId={view.split("_")[1]} jobs={jobs} clients={clients} quotes={quotes} setQuotes={setQuotes} pricing={pricing} setPricing={setPricing} markupTable={markupTable} naturalStoneMarkup={naturalStoneMarkup} labStoneMarkup={labStoneMarkup} centreRates={centreRates} setCentreRates={setCentreRates} setView={setView}/>;
     if(view==="invoices")return <InvoicesList invoices={invoices} jobs={jobs} clients={clients} quotes={quotes} payments={payments} setInvoices={setInvoices} markupTable={markupTable} setView={setView}/>;
     if(view.startsWith("invoiceDetail_"))return <InvoiceDetail invoiceId={view.split("_")[1]} invoices={invoices} setInvoices={setInvoices} jobs={jobs} clients={clients} payments={payments} biz={biz} setView={setView}/>;
+    if(view==="stock")return <StockBoard stock={stock} setStock={setStock} pricing={pricing} setView={setView}/>;
+    if(view.startsWith("stockPrice_"))return <QuoteBuilder stockId={view.split("_")[1]} stock={stock} setStock={setStock} jobs={jobs} clients={clients} quotes={quotes} setQuotes={setQuotes} pricing={pricing} setPricing={setPricing} markupTable={markupTable} naturalStoneMarkup={naturalStoneMarkup} labStoneMarkup={labStoneMarkup} centreRates={centreRates} setCentreRates={setCentreRates} setView={setView}/>;
     if(view==="pricing")return <PricingDB pricing={pricing} setPricing={setPricing} spotPrices={spotPrices} setSpotPrices={setSpotPrices} markupTable={markupTable} centreRates={centreRates} setCentreRates={setCentreRates}/>;
     if(view==="reports")return <Reports jobs={jobs} clients={clients} quotes={quotes} payments={payments} invoices={invoices} markupTable={markupTable}/>;
     if(view==="settings")return <Settings biz={biz} setBiz={setBiz} markupTable={markupTable} setMarkupTable={setMarkupTable} naturalStoneMarkup={naturalStoneMarkup} setNaturalStoneMarkup={setNaturalStoneMarkup} labStoneMarkup={labStoneMarkup} setLabStoneMarkup={setLabStoneMarkup}/>;
