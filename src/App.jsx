@@ -6429,6 +6429,7 @@ const STOCK_STATUS=[
   {name:"Available",color:OK},{name:"Reserved",color:WARN},{name:"On display",color:GOLD_D},
   {name:"Consignment",color:"#7B5EA7"},{name:"Sold",color:WG},
 ];
+const STOCK_MAKE=["Overseas made","Cast & assembly made","Handmade","Custom made"];
 const stockStatusColor=s=>(STOCK_STATUS.find(x=>x.name===s)||{}).color||WG;
 
 function StockBoard({stock,setStock,pricing,setView}){
@@ -6472,9 +6473,9 @@ function StockBoard({stock,setStock,pricing,setView}){
   },[editId]);   // eslint-disable-line
 
   const fields=it=>({title:it.title||"",sku:it.sku||"",category:it.category||"Ring",description:it.description||"",
-    metal:it.metal||"",stones:it.stones||"",cost:it.cost||"",price:it.price||"",status:it.status||"Available",location:it.location||"",qty:it.qty||1});
+    metal:it.metal||"",metal2:it.metal2||"",make:it.make||"",stones:it.stones||"",cost:it.cost||"",price:it.price||"",status:it.status||"Available",location:it.location||"",qty:it.qty||1});
   const draftFields=d=>({title:(d.title||"").trim(),sku:(d.sku||"").trim(),category:d.category,description:(d.description||"").trim(),
-    metal:d.metal||"",stones:(d.stones||"").trim(),cost:d.cost,price:d.price,status:d.status,location:(d.location||"").trim(),qty:Number(d.qty)||1});
+    metal:d.metal||"",metal2:d.metal2||"",make:d.make||"",stones:(d.stones||"").trim(),cost:d.cost,price:d.price,status:d.status,location:(d.location||"").trim(),qty:Number(d.qty)||1});
   const openEdit=it=>{setEditId(it.id);setIsNew(false);setDraft(fields(it));setErr("");setModalUrls({});};
   const openNew=()=>{
     const it={id:uid(),status:"Available",category:"Ring",qty:1,images:[],createdAt:today(),sku:""};
@@ -6531,7 +6532,7 @@ function StockBoard({stock,setStock,pricing,setView}){
   const shown=stock.filter(it=>{
     if(filterCat!=="All"&&it.category!==filterCat)return false;
     if(filterStatus!=="All"&&(it.status||"Available")!==filterStatus)return false;
-    if(q){const s=`${it.title||""} ${it.sku||""} ${it.description||""} ${it.metal||""} ${it.stones||""}`.toLowerCase();if(!s.includes(q.toLowerCase()))return false;}
+    if(q){const s=`${it.title||""} ${it.sku||""} ${it.description||""} ${it.metal||""} ${it.metal2||""} ${it.make||""} ${it.stones||""}`.toLowerCase();if(!s.includes(q.toLowerCase()))return false;}
     return true;
   }).sort((a,b)=>{
     const as=(a.status||"")==="Sold"?1:0,bs=(b.status||"")==="Sold"?1:0;
@@ -6591,7 +6592,8 @@ function StockBoard({stock,setStock,pricing,setView}){
                     <div style={{padding:"12px 13px 14px"}}>
                       <div style={{fontWeight:700,fontSize:14,color:INK,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{(it.title||"").trim()||"Untitled piece"}</div>
                       <div style={{fontSize:11,color:WG,fontFamily:"ui-monospace,Menlo,monospace",marginTop:2}}>{it.sku||"—"}</div>
-                      <div style={{fontSize:11.5,color:WG,marginTop:6,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{[it.category,it.metal].filter(Boolean).join(" · ")||"—"}</div>
+                      <div style={{fontSize:11.5,color:WG,marginTop:6,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{[it.category,[it.metal,it.metal2].filter(Boolean).join(" / ")].filter(Boolean).join(" · ")||"—"}</div>
+                      {it.make&&<span style={{display:"inline-block",marginTop:7,fontSize:10,fontWeight:700,color:GOLD_D,background:GOLD_L,borderRadius:3,padding:"2px 7px",letterSpacing:"0.02em"}}>{it.make}</span>}
                       <div style={{display:"flex",alignItems:"baseline",justifyContent:"space-between",gap:8,marginTop:8}}>
                         <span style={{fontSize:16,fontWeight:800,color:INK}}>{it.price?fmtR(it.price):"—"}</span>
                         {margin!=null&&<span style={{fontSize:11,fontWeight:700,color:margin>=0?OK:DANGER}}>{margin}% margin</span>}
@@ -6609,6 +6611,7 @@ function StockBoard({stock,setStock,pricing,setView}){
         <div>
           <Input label="Title" value={draft.title} onChange={v=>setDraft(d=>({...d,title:v}))} placeholder="e.g. Round diamond solitaire"/>
           <Input label="Category" as="select" value={draft.category} onChange={v=>setDraft(d=>({...d,category:v}))} options={STOCK_CATEGORIES.map(c=>c.name)}/>
+          <Input label="Make" as="select" value={draft.make} onChange={v=>setDraft(d=>({...d,make:v}))} options={["",...STOCK_MAKE]}/>
           <Input label="SKU / item code" value={draft.sku} onChange={v=>setDraft(d=>({...d,sku:v}))} placeholder="e.g. RNG-001 (your own code)"/>
           <Input label="Description" as="textarea" rows={4} value={draft.description} onChange={v=>setDraft(d=>({...d,description:v}))} placeholder="Style, finish, notable features…"/>
           <Input label="Status" as="select" value={draft.status} onChange={v=>setDraft(d=>({...d,status:v}))} options={STOCK_STATUS.map(s=>s.name)}/>
@@ -6632,7 +6635,11 @@ function StockBoard({stock,setStock,pricing,setView}){
             </div>
             {editingItem.pricedAt&&<div style={{fontSize:11,color:WG,marginTop:8}}>Priced on {fmtDate(editingItem.pricedAt)} · re-generate if metal or costs have moved.</div>}
           </div>
-          <Input label="Metal" as="select" value={draft.metal} onChange={v=>setDraft(d=>({...d,metal:v}))} options={["",...metals.map(m=>m.name)]}/>
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:14}}>
+            <Input label="Metal" as="select" value={draft.metal} onChange={v=>setDraft(d=>({...d,metal:v}))} options={["",...metals.map(m=>m.name)]}/>
+            <Input label="Second metal" as="select" value={draft.metal2} onChange={v=>setDraft(d=>({...d,metal2:v}))} options={["",...metals.map(m=>m.name)]}/>
+          </div>
+          <div style={{fontSize:11,color:WG,marginTop:-4,marginBottom:10}}>Add a second metal for two-tone pieces — e.g. 18ct white &amp; yellow gold.</div>
           <Input label="Stone(s)" value={draft.stones} onChange={v=>setDraft(d=>({...d,stones:v}))} placeholder="e.g. 0.50ct D VS1 (for the listing)"/>
 
           {/* Photos */}
