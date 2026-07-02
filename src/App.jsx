@@ -2890,7 +2890,8 @@ function QuoteBuilder({jobId:jobIdProp,editQuoteId,stockId,stock,setStock,jobs,c
         stoneMode,stoneType:stoneMode==="sourcing"?stoneType:"",stoneItems:stoneMode==="sourcing"?validStoneItems:[],
         stoneNotes,stoneClientTotal:stoneCalc?.clientTotal||0,accentStoneTotal};
       const sourcedStoneCost=stoneMode==="sourcing"?validStoneItems.reduce((s,i)=>s+(Number(i.cost)||Number(i.costLow)||0),0):0;
-      const costTotal=calc.totalCost+sourcedStoneCost;
+      // Your true cost = marked-up items' cost (base) + at-cost items (flatTotal) + any sourced stones.
+      const costTotal=calc.base+calc.flatTotal+sourcedStoneCost;
       const retail=manualOn?Number(manualTotal):grandTotal;
       setStock(p=>{const n=p.map(s=>s.id===stockId?{...s,pricing:payload,cost:Math.round(costTotal),price:Math.round(retail),pricedAt:today()}:s);persist(K.st,n);return n;});
       setView("stock");
