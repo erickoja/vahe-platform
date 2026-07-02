@@ -1527,7 +1527,7 @@ function Dashboard({clients,jobs,quotes,payments,invoices,appointments=[],propos
         {active.slice(0,8).map(j=>{
           const c=clients.find(x=>x.id===j.clientId);
           const od=j.deadline&&j.deadline<today();
-          return <div key={j.id} style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"9px 0",borderBottom:`1px solid ${BD}`}}>
+          return <div key={j.id} onClick={()=>setView("jobDetail_"+j.id)} style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"9px 0",borderBottom:`1px solid ${BD}`,cursor:"pointer"}}>
             <div><div style={{fontWeight:600,fontSize:13,color:INK}}>{j.type} <span style={{color:WG,fontWeight:400}}>· {clientDisplayName(c)}</span></div>
             <div style={{fontSize:12,color:od?DANGER:WG,marginTop:1}}>Due {fmtDate(j.deadline)}{od?" — OVERDUE":""}</div></div>
             <Badge label={j.stage} color={SC[j.stage]||WG}/>
@@ -1556,7 +1556,7 @@ function Dashboard({clients,jobs,quotes,payments,invoices,appointments=[],propos
           <div style={{fontWeight:700,fontSize:15,color:INK,marginBottom:14}}>Balance owing by job</div>
           {balanceOwing.map(({job,balance})=>{
             const c=clients.find(x=>x.id===job.clientId);
-            return <div key={job.id} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"9px 0",borderBottom:`1px solid ${BD}`}}>
+            return <div key={job.id} onClick={()=>setView("jobDetail_"+job.id)} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"9px 0",borderBottom:`1px solid ${BD}`,cursor:"pointer"}}>
               <div><div style={{fontWeight:600,fontSize:13,color:INK}}>{job.type} · {clientDisplayName(c)}</div><div style={{fontSize:12,color:WG}}>{job.stage}</div></div>
               <div style={{fontWeight:800,fontSize:15,color:WARN}}>{fmt(balance)} owing</div>
             </div>;
@@ -1566,7 +1566,7 @@ function Dashboard({clients,jobs,quotes,payments,invoices,appointments=[],propos
           <div style={{fontWeight:700,fontSize:15,color:INK,marginBottom:14}}>Anniversary reminders</div>
           {clients.filter(c=>c.anniversary).length===0?<div style={{color:WG,fontSize:14}}>None recorded.</div>
           :clients.filter(c=>c.anniversary).sort((a,b)=>a.anniversary.slice(5).localeCompare(b.anniversary.slice(5))).map(c=>(
-            <div key={c.id} style={{display:"flex",justifyContent:"space-between",padding:"8px 0",borderBottom:`1px solid ${BD}`,fontSize:13}}>
+            <div key={c.id} onClick={()=>{setSelClient&&setSelClient(c.id);setView("clientDetail");}} style={{display:"flex",justifyContent:"space-between",padding:"8px 0",borderBottom:`1px solid ${BD}`,fontSize:13,cursor:"pointer"}}>
               <span style={{fontWeight:600,color:INK}}>{c.name}</span><span style={{color:WG}}>{fmtDate(c.anniversary)}</span>
             </div>
           ))}
