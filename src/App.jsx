@@ -991,6 +991,10 @@ const setCloudActive=(v)=>{_cloudActive=v;};
 // This prevents a stale/empty boot (seed data) from overwriting good cloud data.
 let _cloudLoaded=false;
 const setCloudLoaded=(v)=>{_cloudLoaded=v;};
+// Per-key timestamp of THIS client's last cloud write. The realtime channel echoes
+// our own writes back; without this we can re-apply a stale/older echo on top of
+// fresh state and get stuck (e.g. wrong "balance owing" until the next reload).
+const _lastWriteAt={};
 // Strict cloud read — throws on error (no silent fallback) so the loader can tell
 // the difference between "no data yet" (null) and "couldn't reach the cloud" (throw).
 const _cloudGet=async(k)=>{
@@ -1033,7 +1037,9 @@ const persist=(k,v)=>{
     // SAFETY GUARD: never push to the cloud until we've confirmed a successful
     // cloud read this session. Stops a stale/seed boot from wiping real data.
     if(!_cloudLoaded){console.warn("Skipped cloud save for",k,"— cloud not loaded yet");return;}
-    supabase.from(STATE_TABLE).upsert({key:k,value:v,updated_at:new Date().toISOString()},{onConflict:"key"}).then(({error})=>{
+    const ts=new Date().toISOString();
+    _lastWriteAt[k]=ts;   // remember our own write so its realtime echo can be ignored
+    supabase.from(STATE_TABLE).upsert({key:k,value:v,updated_at:ts},{onConflict:"key"}).then(({error})=>{
       if(error)console.warn("Cloud save failed for",k,error.message);
     });
   }
@@ -6809,6 +6815,11 @@ export default function App(){
         .on("postgres_changes",{event:"*",schema:"public",table:STATE_TABLE},(payload)=>{
           const row=payload.new&&Object.keys(payload.new).length?payload.new:null;
           if(!row)return;
+          // Ignore echoes of our own writes (and any snapshot at/older than our last write
+          // for this key) — otherwise a stale echo overwrites fresh state and sticks until
+          // reload. Genuine changes from another device carry a newer timestamp and apply.
+          const mine=_lastWriteAt[row.key];
+          if(mine&&row.updated_at&&new Date(row.updated_at).getTime()<=new Date(mine).getTime())return;
           const setter=keyToSetter[row.key];
           if(setter)applyLoaded(row.key,row.value,setter);
         })
