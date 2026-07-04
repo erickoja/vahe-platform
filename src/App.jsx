@@ -848,6 +848,21 @@ const jobChargeTotal=(job,quotes,markupTable,invoices)=>{
 };
 // True if the job has any agreed charge (override or approved quote)
 const jobHasCharge=(job,quotes)=>Number(job?.totalOverride)>0||(quotes||[]).some(q=>q.jobId===job.id&&q.status==="Approved");
+// Effective invoice status for display/aggregation. A manual "Paid" always wins. Otherwise, when
+// a job has a single invoice and its recorded payments cover the total, it auto-shows Paid.
+// Payments link to the job (not the invoice), so we only auto-pay when it's unambiguous — a job
+// with multiple invoices keeps its manual status to avoid crediting one payment against both.
+const invoicePaidByPayments=(inv,payments,invoices)=>{
+  if(!inv||inv.status==="Paid")return inv?.status==="Paid";
+  if((invoices||[]).filter(i=>i.jobId===inv.jobId).length>1)return false;
+  const paid=(payments||[]).filter(p=>p.jobId===inv.jobId&&p.status==="Received").reduce((s,p)=>s+Number(p.amount),0);
+  return Number(inv.totalIncGST)>0&&paid>=Number(inv.totalIncGST)-0.5;
+};
+const invoiceEffectiveStatus=(inv,payments,invoices)=>{
+  if(inv?.status==="Paid")return "Paid";
+  if(invoicePaidByPayments(inv,payments,invoices))return "Paid";
+  return inv?.status||"Unpaid";
+};
 // Short reference for a quote: the user's title if set, otherwise the random #ID tag
 const quoteRef=q=>"#"+(q?.id||"").slice(-4).toUpperCase();
 const quoteLabel=q=>(q?.title&&q.title.trim())?q.title.trim():"Quote "+quoteRef(q);
@@ -2429,15 +2444,16 @@ function JobDetail({jobId,jobs,setJobs,clients,quotes,setQuotes,payments,setPaym
     <Card>
       <div style={{fontWeight:700,fontSize:15,color:INK,marginBottom:14}}>Invoices ({ji.length})</div>
       {ji.length===0&&<div style={{color:WG,fontSize:14}}>No invoices yet. Create one from an approved quote below.</div>}
-      {ji.map(inv=>(
-        <div key={inv.id} onClick={()=>setView("invoiceDetail_"+inv.id)} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"9px 0",borderBottom:`1px solid ${BD}`,cursor:"pointer"}}>
+      {ji.map(inv=>{
+        const es=invoiceEffectiveStatus(inv,payments,invoices);
+        return <div key={inv.id} onClick={()=>setView("invoiceDetail_"+inv.id)} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"9px 0",borderBottom:`1px solid ${BD}`,cursor:"pointer"}}>
           <div><div style={{fontWeight:600,fontSize:14,color:INK}}>{inv.number}</div><div style={{fontSize:12,color:WG,marginTop:1}}>{fmtDate(inv.date)}</div></div>
           <div style={{display:"flex",gap:12,alignItems:"center"}}>
-            <Badge label={inv.status} color={inv.status==="Paid"?OK:WARN}/>
+            <Badge label={es} color={es==="Paid"?OK:es==="Overdue"?DANGER:WARN}/>
             <div style={{fontWeight:800,fontSize:14,color:INK}}>{fmt(inv.totalIncGST)} <span style={{fontSize:11,color:WG,fontWeight:400}}>inc GST</span></div>
           </div>
-        </div>
-      ))}
+        </div>;
+      })}
     </Card>
     <Card>
       <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:14}}>
@@ -4686,6 +4702,8 @@ function InvoiceDetail({invoiceId,invoices,setInvoices,jobs,clients,payments,biz
   if(!inv)return null;
   const job=jobs.find(j=>j.id===inv.jobId);
   const c=job?clients.find(x=>x.id===job.clientId):null;
+  const es=invoiceEffectiveStatus(inv,payments,invoices);
+  const autoPaid=es==="Paid"&&inv.status!=="Paid";   // covered by recorded payments, not manually set
   const[showPrint,setShowPrint]=useState(false);
   const setStatus=s=>setInvoices(p=>{const n=p.map(x=>x.id===invoiceId?{...x,status:s}:x);persist(K.inv,n);return n;});
   const del=()=>{
@@ -4752,7 +4770,7 @@ function InvoiceDetail({invoiceId,invoices,setInvoices,jobs,clients,payments,biz
         <div style={{color:WG,fontSize:13,marginTop:3}}>{job?.type} · {clientDisplayName(c)} · {fmtDate(inv.date)}</div>
       </div>
       <div style={{display:"flex",gap:10,alignItems:"center"}}>
-        <Badge label={inv.status} color={inv.status==="Paid"?OK:inv.status==="Overdue"?DANGER:WARN} size="lg"/>
+        <Badge label={es} color={es==="Paid"?OK:es==="Overdue"?DANGER:WARN} size="lg"/>
         <Btn sm onClick={shareInvoice}>{linkBusy?"Creating…":linkCopied?"✓ Link copied":inv.publicToken?"🔗 Copy link":"🔗 Create link"}</Btn>
         {inv.publicToken&&<Btn sm ghost onClick={()=>window.open(invLink,"_blank")}>Preview</Btn>}
         <Btn sm onClick={()=>setShowPrint(true)}>🖨 Preview &amp; Print</Btn>
@@ -4849,6 +4867,7 @@ function InvoiceDetail({invoiceId,invoices,setInvoices,jobs,clients,payments,biz
         <span style={{fontSize:11,color:WG,fontWeight:700,textTransform:"uppercase",letterSpacing:"0.06em"}}>Mark as:</span>
         {["Unpaid","Paid","Overdue"].map(s=><Btn key={s} sm ghost={inv.status!==s} onClick={()=>setStatus(s)}>{inv.status===s?"✓ ":""}{s}</Btn>)}
       </div>
+      {autoPaid&&<div style={{fontSize:12,color:OK,marginTop:10}}>✓ Automatically marked <strong>Paid</strong> — recorded payments cover this invoice.</div>}
     </Card>
   </div>;
 }
@@ -4904,8 +4923,8 @@ function InvoicesList({invoices,jobs,clients,quotes,payments,setInvoices,markupT
     setView("invoiceDetail_"+inv.id);
   };
   const delInv=(id,e)=>{e.stopPropagation();const iv=invoices.find(x=>x.id===id);if(!confirm(`Delete invoice ${iv?.number||""}? This can't be undone. Payments and the quote are not affected.`))return;setInvoices(p=>{const n=p.filter(x=>x.id!==id);persist(K.inv,n);return n;});};
-  const totalOut=invoices.filter(i=>i.status!=="Paid").reduce((s,i)=>s+i.totalIncGST,0);
-  const totalPaid=invoices.filter(i=>i.status==="Paid").reduce((s,i)=>s+i.totalIncGST,0);
+  const totalOut=invoices.filter(i=>invoiceEffectiveStatus(i,payments,invoices)!=="Paid").reduce((s,i)=>s+i.totalIncGST,0);
+  const totalPaid=invoices.filter(i=>invoiceEffectiveStatus(i,payments,invoices)==="Paid").reduce((s,i)=>s+i.totalIncGST,0);
   return <div>
     <SectionHeader title="Invoices" action={<Btn onClick={openModal}>+ New Invoice</Btn>}/>
     {invoices.length>0&&<div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:12,marginBottom:18}}>
@@ -4927,15 +4946,16 @@ function InvoicesList({invoices,jobs,clients,quotes,payments,setInvoices,markupT
       const cl=job?clients.find(x=>x.id===job.clientId):null;
       const paid=(payments||[]).filter(p=>p.jobId===inv.jobId&&p.status==="Received").reduce((s,p)=>s+Number(p.amount),0);
       const bal=Math.max(0,inv.totalIncGST-paid);
+      const es=invoiceEffectiveStatus(inv,payments,invoices);
       return <Card key={inv.id} onClick={()=>setView("invoiceDetail_"+inv.id)}>
         <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
           <div>
             <div style={{fontWeight:700,fontSize:15,color:INK}}>{inv.number}</div>
             <div style={{fontSize:13,color:WG,marginTop:3}}>{job?.type} · {cl?.name} · {fmtDate(inv.date)}</div>
-            {bal>0&&inv.status!=="Paid"&&<div style={{fontSize:12,color:WARN,marginTop:2,fontWeight:600}}>Balance owing: {fmt(bal)}</div>}
+            {bal>0&&es!=="Paid"&&<div style={{fontSize:12,color:WARN,marginTop:2,fontWeight:600}}>Balance owing: {fmt(bal)}</div>}
           </div>
           <div style={{display:"flex",gap:14,alignItems:"center"}}>
-            <Badge label={inv.status} color={inv.status==="Paid"?OK:inv.status==="Overdue"?DANGER:WARN}/>
+            <Badge label={es} color={es==="Paid"?OK:es==="Overdue"?DANGER:WARN}/>
             <div style={{fontWeight:800,fontSize:17,color:INK,textAlign:"right"}}>
               {fmt(inv.totalIncGST)}<div style={{fontSize:11,color:WG,fontWeight:400}}>inc GST</div>
             </div>
