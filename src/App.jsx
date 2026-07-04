@@ -3940,7 +3940,7 @@ function PublicProposalPage({token}){
 }
 
 // ── Quote Proposal Preview ────────────────────────────────────────────────
-function ProposalPreview({quote,job,clients=[],biz,calc,payments=[],onClose}){
+function ProposalPreview({quote,job,clients=[],biz,calc,payments=[],reconcilePayments=true,onClose}){
   const client=clients.find(x=>x.id===job?.clientId)||null;
   const quoteNum="QT-"+quote.id.slice(-6).toUpperCase();
   const issuedDate=new Date(quote.createdAt).toLocaleDateString("en-AU",{day:"numeric",month:"long",year:"numeric"});
@@ -3956,8 +3956,10 @@ function ProposalPreview({quote,job,clients=[],biz,calc,payments=[],onClose}){
   const grandProposalTotal=manual?Number(quote.manualTotal):settingTotal+stoneTotal+(quote.accentStoneTotal||0);
   const priceDisplay=markupUndef?"Quote pending":fmtR(grandProposalTotal);
   const depositAmt=markupUndef?null:fmtR(grandProposalTotal*deposit/100);
-  // Payments already recorded against this job → outstanding balance the proposal should request.
-  const paidTotal=(payments||[]).filter(p=>p.jobId===job?.id&&p.status==="Received").reduce((s,p)=>s+Number(p.amount),0);
+  // Payments already recorded against this job → outstanding balance to request. Payments are
+  // job-level, so we only net them against THIS quote when it's the job's sole billable quote —
+  // otherwise a multi-piece deposit would be wrongly credited against one piece's total.
+  const paidTotal=reconcilePayments?(payments||[]).filter(p=>p.jobId===job?.id&&p.status==="Received").reduce((s,p)=>s+Number(p.amount),0):0;
   const hasPaid=paidTotal>0.005;
   const outstanding=Math.max(0,grandProposalTotal-paidTotal);
   const paidInFull=hasPaid&&outstanding<=0.005;
@@ -4025,7 +4027,7 @@ function ProposalPreview({quote,job,clients=[],biz,calc,payments=[],onClose}){
     <div style={{background:INK,padding:"10px 24px",display:"flex",alignItems:"center",justifyContent:"space-between",flexShrink:0,borderBottom:"1px solid rgba(255,255,255,0.08)"}}>
       <div style={{display:"flex",alignItems:"center",gap:14}}>
         <button onClick={onClose} style={{background:"none",border:"1px solid rgba(255,255,255,0.18)",borderRadius:6,padding:"6px 14px",color:"rgba(255,255,255,0.65)",fontSize:12,fontWeight:700,cursor:"pointer",fontFamily:"inherit",letterSpacing:"0.02em"}}>← Back</button>
-        <span style={{fontSize:13,fontWeight:700,color:"rgba(255,255,255,0.85)",letterSpacing:"0.05em"}}>Proposal · {quoteNum}</span>
+        <span style={{fontSize:13,fontWeight:700,color:"rgba(255,255,255,0.85)",letterSpacing:"0.05em"}}>Quote · {quoteNum}</span>
       </div>
       <div style={{display:"flex",gap:10}}>
         <button onClick={copyEmailText} style={{background:copied?"#2D7A4F22":"rgba(255,255,255,0.06)",border:`1px solid ${copied?"#2D7A4F":"rgba(255,255,255,0.15)"}`,borderRadius:4,padding:"6px 16px",color:copied?"#4CAF84":"rgba(255,255,255,0.7)",fontSize:12,fontWeight:700,cursor:"pointer",fontFamily:"inherit",transition:"all 0.2s"}}>
@@ -4044,7 +4046,7 @@ function ProposalPreview({quote,job,clients=[],biz,calc,payments=[],onClose}){
         {/* ── HEADER ── */}
         <div style={{background:INK,padding:"40px 52px 36px",display:"flex",justifyContent:"space-between",alignItems:"flex-start"}}>
           <div>
-            <div style={{fontSize:10,fontWeight:700,color:"rgba(255,255,255,0.55)",letterSpacing:"0.2em",textTransform:"uppercase",marginBottom:10,fontFamily:"'DM Sans',sans-serif"}}>Quote Proposal</div>
+            <div style={{fontSize:10,fontWeight:700,color:"rgba(255,255,255,0.55)",letterSpacing:"0.2em",textTransform:"uppercase",marginBottom:10,fontFamily:"'DM Sans',sans-serif"}}>Quote</div>
             {biz.logo
               ?<div style={{background:WHITE,borderRadius:4,padding:"8px 14px",display:"inline-block"}}><img src={biz.logo} alt={biz.name||"Logo"} style={{maxWidth:220,maxHeight:60,objectFit:"contain",display:"block"}}/></div>
               :<div style={{fontSize:26,fontWeight:800,color:WHITE,letterSpacing:"-0.01em",fontFamily:"'DM Sans',sans-serif",lineHeight:1.1}}>{biz.name||"Your Studio"}</div>}
@@ -4256,9 +4258,14 @@ function QuoteDetail({quoteId,quotes,setQuotes,jobs,clients,biz,markupTable,natu
   };
   const dupQuote=()=>{const dup=duplicateQuoteObj(q);setQuotes(p=>{const n=[...p,dup];persist(K.qu,n);return n;});setView("editQuote_"+dup.id);};
   const[showProposal,setShowProposal]=useState(false);
+  // Only net job payments against this quote when it's the job's sole approved (billable) quote —
+  // otherwise a multi-piece deposit would be misapplied to one piece. Multi-piece orders should be
+  // printed from the job's Proposals section, which totals every piece together.
+  const jobApproved=(quotes||[]).filter(x=>x.jobId===q.jobId&&x.status==="Approved");
+  const soleBilled=jobApproved.length<=1&&(jobApproved.length===0||jobApproved[0].id===q.id);
 
   return <div>
-    {showProposal&&<ProposalPreview quote={q} job={job} clients={clients} biz={biz} calc={calc} payments={payments} onClose={()=>setShowProposal(false)}/>}
+    {showProposal&&<ProposalPreview quote={q} job={job} clients={clients} biz={biz} calc={calc} payments={payments} reconcilePayments={soleBilled} onClose={()=>setShowProposal(false)}/>}
     <button onClick={()=>setView("jobDetail_"+q.jobId)} style={{background:"none",border:"none",cursor:"pointer",color:GOLD,fontSize:13,fontWeight:700,fontFamily:"inherit",marginBottom:18,padding:0}}>← Back to job</button>
     <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:20}}>
       <div><h1 style={{margin:0,fontSize:24,fontWeight:800,color:INK,letterSpacing:"-0.02em"}}>{quoteLabel(q)}</h1>
@@ -4269,7 +4276,7 @@ function QuoteDetail({quoteId,quotes,setQuotes,jobs,clients,biz,markupTable,natu
         <Btn sm ghost onClick={()=>setView("editQuote_"+q.id)}>✏ Edit quote</Btn>
         <Btn sm ghost onClick={dupQuote}>⧉ Duplicate</Btn>
         <Btn sm danger onClick={delQuote}>Delete</Btn>
-        <Btn sm onClick={()=>setShowProposal(true)}>📄 Preview &amp; Print proposal</Btn>
+        <Btn sm onClick={()=>setShowProposal(true)}>📄 Preview &amp; Print quote</Btn>
       </div>
     </div>
 
