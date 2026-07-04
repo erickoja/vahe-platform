@@ -6438,6 +6438,15 @@ const STOCK_STATUS=[
 ];
 const STOCK_MAKE=["Overseas made","Cast & assembly made","Handmade","Custom made"];
 const stockStatusColor=s=>(STOCK_STATUS.find(x=>x.name===s)||{}).color||WG;
+// True margin, GST-excluded: the retail price is GST-inclusive but the cost is ex-GST, so we
+// back GST out of the sell price before comparing — matching the price builder's "excl. GST"
+// profit line. Returns {profit, pct} (both ex-GST) or null when price/cost aren't both set.
+const stockMargin=(price,cost)=>{
+  const p=Number(price),c=Number(cost);
+  if(!(p>0)||!(c>0))return null;
+  const exGst=p/(1+GST_RATE);
+  return{profit:exGst-c,pct:Math.round((exGst-c)/exGst*100)};
+};
 
 function StockBoard({stock,setStock,setView}){
   const save=next=>{setStock(next);persist(K.st,next);};
@@ -6532,6 +6541,8 @@ function StockBoard({stock,setStock,setView}){
   const live=stock.filter(it=>(it.status||"Available")!=="Sold");
   const retailVal=live.reduce((s,it)=>s+Number(it.price||0)*Number(it.qty||1),0);
   const costVal=live.reduce((s,it)=>s+Number(it.cost||0)*Number(it.qty||1),0);
+  // Potential margin is measured ex-GST (retail is GST-inclusive, cost is ex-GST) to match the per-piece figure.
+  const marginVal=retailVal/(1+GST_RATE)-costVal;
   const availCount=stock.filter(it=>(it.status||"Available")==="Available").length;
 
   const cats=["All",...STOCK_CATEGORIES.map(c=>c.name).filter(n=>stock.some(s=>s.category===n))];
@@ -6572,7 +6583,7 @@ function StockBoard({stock,setStock,setView}){
             <Stat label="Pieces" value={stock.length} tint="blue" icon="◈"/>
             <Stat label="Available" value={availCount} tint={availCount>0?"mint":"gold"} icon="✓"/>
             <Stat label="Retail value" value={fmtR(retailVal)} tint="gold" icon="$" sub="excludes sold"/>
-            <Stat label="Potential margin" value={fmtR(retailVal-costVal)} tint="lilac" icon="▲" sub={`cost ${fmtR(costVal)}`}/>
+            <Stat label="Potential margin" value={fmtR(marginVal)} tint="lilac" icon="▲" sub={`cost ${fmtR(costVal)} · excl. GST`}/>
           </div>
 
           {/* Filter bar */}
@@ -6587,7 +6598,7 @@ function StockBoard({stock,setStock,setView}){
             : <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(230px,1fr))",gap:16,alignItems:"start"}}>
                 {shown.map(it=>{
                   const url=thumbs[it.id];
-                  const margin=it.price&&it.cost?Math.round((Number(it.price)-Number(it.cost))/Number(it.price)*100):null;
+                  const margin=stockMargin(it.price,it.cost);
                   const sc=stockStatusColor(it.status);
                   const sold=(it.status||"")==="Sold";
                   return <div key={it.id} onClick={()=>openEdit(it)} style={{background:WHITE,border:`1px solid ${BD_SOFT}`,borderRadius:RADIUS,boxShadow:SHADOW,overflow:"hidden",cursor:"pointer",opacity:sold?0.72:1}}>
@@ -6602,7 +6613,7 @@ function StockBoard({stock,setStock,setView}){
                       {it.make&&<span style={{display:"inline-block",marginTop:7,fontSize:10,fontWeight:700,color:GOLD_D,background:GOLD_L,borderRadius:3,padding:"2px 7px",letterSpacing:"0.02em"}}>{it.make}</span>}
                       <div style={{display:"flex",alignItems:"baseline",justifyContent:"space-between",gap:8,marginTop:8}}>
                         <span style={{fontSize:16,fontWeight:800,color:INK}}>{it.price?fmtR(it.price):"—"}</span>
-                        {margin!=null&&<span style={{fontSize:11,fontWeight:700,color:margin>=0?OK:DANGER}}>{margin}% margin</span>}
+                        {margin&&<span style={{fontSize:11,fontWeight:700,color:margin.pct>=0?OK:DANGER}}>{margin.pct}% margin</span>}
                       </div>
                     </div>
                   </div>;
@@ -6632,7 +6643,7 @@ function StockBoard({stock,setStock,setView}){
             <Input label="Cost price ($)" type="number" min="0" value={draft.cost} onChange={v=>setDraft(d=>({...d,cost:v}))}/>
             <Input label="Retail price ($)" type="number" min="0" value={draft.price} onChange={v=>setDraft(d=>({...d,price:v}))}/>
           </div>
-          {(Number(draft.price)>0&&Number(draft.cost)>0)&&<div style={{fontSize:12,color:WG,marginTop:-4,marginBottom:10}}>Margin: <strong style={{color:OK}}>{fmtR(Number(draft.price)-Number(draft.cost))}</strong> · {Math.round((Number(draft.price)-Number(draft.cost))/Number(draft.price)*100)}%</div>}
+          {(()=>{const m=stockMargin(draft.price,draft.cost);return m&&<div style={{fontSize:12,color:WG,marginTop:-4,marginBottom:10}}>Margin: <strong style={{color:OK}}>{fmtR(m.profit)}</strong> · {m.pct}% <span style={{color:WG}}>(excl. GST)</span></div>;})()}
           {/* Build the price with the same engine as quotes (materials + labour + stones + your markup) */}
           <div style={{background:PARCH,border:`1px solid ${BD}`,borderRadius:5,padding:"12px 14px",marginBottom:14}}>
             <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",gap:10,flexWrap:"wrap"}}>
