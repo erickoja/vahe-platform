@@ -6321,7 +6321,7 @@ const NAV=[
   {id:"jobs",label:"Jobs"},
   {id:"quotes",label:"Quotes"},
   {id:"invoices",label:"Invoices"},
-  {id:"gemcustody",label:"Gem Custody"},
+  {id:"gemcustody",label:"Safekeeping"},
   {id:"stock",label:"Stock"},
   {id:"pricing",label:"Pricing DB"},
   {id:"reports",label:"Reports"},
@@ -6682,8 +6682,8 @@ function GemCustody({custody,setCustody,clients,biz}){
     {/* Header */}
     <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-end",flexWrap:"wrap",gap:16,marginBottom:24}}>
       <div>
-        <div style={{fontSize:11,fontWeight:700,color:WG,letterSpacing:"0.14em",textTransform:"uppercase",marginBottom:5}}>Safekeeping</div>
-        <h1 style={{margin:0,fontSize:32,fontWeight:500,color:INK,letterSpacing:"-0.01em"}}>Gem Custody</h1>
+        <div style={{fontSize:11,fontWeight:700,color:WG,letterSpacing:"0.14em",textTransform:"uppercase",marginBottom:5}}>Client-owned stones</div>
+        <h1 style={{margin:0,fontSize:32,fontWeight:500,color:INK,letterSpacing:"-0.01em"}}>Safekeeping</h1>
         <div style={{color:WG,fontSize:14,marginTop:4}}>Log any client-owned stone you're holding, and print a receipt as proof for the customer.</div>
       </div>
       <Btn onClick={openNew}>+ New receipt</Btn>
