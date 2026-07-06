@@ -1441,9 +1441,10 @@ ${intake.instructions?`<div class="instr"><b>Client instructions</b>${ml(intake.
 
 // Gemstone Safekeeping Receipt — proof for the client that we're holding their stone(s).
 // A bailment/custody receipt: we hold as custodian, ownership stays with the client.
-function printGemCustodyReceipt(biz,c,r){
+async function printGemCustodyReceipt(biz,c,r){
   const win=window.open("","_blank");
   if(!win){alert("Please allow pop-ups so the receipt can open in a new tab.");return;}
+  const photos=await jobImagesForPrint(r,9);   // r.images — inlined as data URLs for reliable printing
   const esc=s=>String(s==null?"":s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
   const ml=s=>esc(s).replace(/\n/g,"<br>");
   const items=r.items||[];
@@ -1506,7 +1507,12 @@ ${hasVal?`<div class="rtot"><span class="rt-l">Total declared value</span><span 
 .sig{display:grid;grid-template-columns:1fr 1fr;gap:36px;margin-top:8px}
 .sig .sigline{border-bottom:1px solid #1A1714;margin-top:30px;margin-bottom:5px}
 .sig .siglbl{font-size:9px;color:#6B6560}
-@media print{.itbl tr{page-break-inside:avoid}}
+.photos{margin-bottom:26px}
+.ph-lbl{font-size:8.5px;font-weight:700;color:#6B6560;text-transform:uppercase;letter-spacing:.08em;margin-bottom:8px}
+.ph-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+.ph-item{margin:0;break-inside:avoid;page-break-inside:avoid}
+.ph-item img{width:100%;height:150px;object-fit:cover;border:1px solid #E8E2D9;border-radius:8px;display:block}
+@media print{.itbl tr{page-break-inside:avoid}.ph-item{page-break-inside:avoid}}
 </style></head><body>
 <div class="hdr">
   <div>${biz.logo?`<img src="${biz.logo}" alt="${bizName}" style="max-width:180px;max-height:64px;object-fit:contain;display:block;margin-bottom:6px"/>`:`<div class="bname">${bizName}</div>`}<div class="bsub">${[biz.email,biz.phone].filter(Boolean).map(esc).join(" · ")}</div></div>
@@ -1516,6 +1522,7 @@ ${hasVal?`<div class="rtot"><span class="rt-l">Total declared value</span><span 
 ${summaryHtml}
 ${items.length>1?`<div style="font-size:10px;font-weight:700;color:#6B6560;text-transform:uppercase;letter-spacing:.08em;margin-bottom:10px">${items.length} stones received into safekeeping</div>`:""}
 ${itemsHtml}
+${photos.length?`<div class="photos"><div class="ph-lbl">Photos on intake</div><div class="ph-grid">${photos.map(p=>`<figure class="ph-item"><img src="${p.url}" alt="Gem photo"/></figure>`).join("")}</div></div>`:""}
 ${r.reason?`<div class="instr"><b>Reason held / instructions</b>${ml(r.reason)}</div>`:""}
 <div class="terms">
   <div class="tt">Terms of safekeeping</div>
@@ -6587,11 +6594,51 @@ function GemCustody({custody,setCustody,clients,biz}){
   const[qStr,setQStr]=useState("");
 
   const blankItem=()=>({id:uid(),type:"Diamond",carat:"",shape:"",colour:"",clarity:"",measurements:"",cert:"",estValue:"",notes:""});
-  const blank=()=>({id:uid(),clientId:"",clientName:"",clientContact:"",dateReceived:today(),reason:"",expectedReturn:"",notes:"",status:"Holding",createdAt:today(),items:[blankItem()]});
+  const blank=()=>({id:uid(),clientId:"",clientName:"",clientContact:"",dateReceived:today(),reason:"",expectedReturn:"",notes:"",status:"Holding",createdAt:today(),items:[blankItem()],images:[]});
+
+  const[modalUrls,setModalUrls]=useState({});   // path → signed url for the open record's photos
+  const[busy,setBusy]=useState(false);
+  const[imgErr,setImgErr]=useState("");
 
   const openNew=()=>setDraft(blank());
   const openEdit=r=>setDraft(JSON.parse(JSON.stringify(r)));   // deep clone so item edits don't mutate state
-  const close=()=>setDraft(null);
+  const close=()=>{setDraft(null);setModalUrls({});setBusy(false);setImgErr("");};
+
+  // Resolve signed URLs for the record open in the editor (so existing photos show on edit)
+  useEffect(()=>{
+    let cancelled=false;
+    (async()=>{
+      if(!draft||!imagesEnabled())return;
+      const map={};
+      for(const img of (draft.images||[])){const u=await signedImageUrl(img.path);if(u)map[img.path]=u;}
+      if(!cancelled)setModalUrls(map);
+    })();
+    return()=>{cancelled=true;};
+  },[draft?.id]);   // eslint-disable-line
+
+  const onFiles=async(fileList)=>{
+    if(!draft)return;
+    const files=Array.from(fileList||[]).filter(f=>f.type.startsWith("image/"));
+    if(!files.length)return;
+    setBusy(true);setImgErr("");
+    try{
+      const added=[];
+      for(const file of files){
+        const blob=await compressImage(file);
+        const path=await uploadJobImage(draft.id,blob);
+        const u=await signedImageUrl(path);
+        added.push({id:uid(),path,uploadedAt:new Date().toISOString()});
+        if(u)setModalUrls(prev=>({...prev,[path]:u}));
+      }
+      setDraft(d=>({...d,images:[...(d.images||[]),...added]}));
+    }catch(e){setImgErr(e.message||"Upload failed.");}
+    setBusy(false);
+  };
+  const removeImg=img=>{
+    if(!confirm("Remove this photo?"))return;
+    setDraft(d=>({...d,images:(d.images||[]).filter(i=>i.id!==img.id)}));
+    deleteJobImage(img.path);
+  };
 
   const setF=k=>v=>setDraft(d=>({...d,[k]:v}));
   const pickClient=id=>{const c=clients.find(x=>x.id===id);setDraft(d=>({...d,clientId:id,clientName:c?clientDisplayName(c):d.clientName,clientContact:c?[c.email,c.phone].filter(Boolean).join(" · "):d.clientContact}));};
@@ -6684,6 +6731,7 @@ function GemCustody({custody,setCustody,clients,biz}){
                         Received {fmtDate(r.dateReceived||r.createdAt)}
                         {r.expectedReturn?` · Return by ${fmtDate(r.expectedReturn)}`:""}
                         {val>0?` · Declared ${fmtR(val)}`:""}
+                        {(r.images||[]).length?` · 📷 ${(r.images||[]).length}`:""}
                         {returned&&r.returnedAt?` · Returned ${fmtDate(r.returnedAt)}`:""}
                       </div>
                     </div>
@@ -6732,6 +6780,25 @@ function GemCustody({custody,setCustody,clients,biz}){
           </div>
         </div>
       ))}
+
+      <label style={{...SS.lbl,marginTop:6,marginBottom:0}}>Photos of the stone(s)</label>
+      {!imagesEnabled()
+        ? <div style={{fontSize:12,color:WG,lineHeight:1.55,marginTop:4}}>Photo uploads need the cloud backend — sign in on the deployed app to add photos.</div>
+        : <div style={{marginTop:6}}>
+            <label style={{display:"inline-block",background:GOLD,color:WHITE,borderRadius:4,padding:"7px 15px",fontSize:12,fontWeight:700,cursor:busy?"default":"pointer",letterSpacing:"0.02em",opacity:busy?0.6:1}}>
+              {busy?"Uploading…":"+ Upload photos"}
+              <input type="file" accept="image/*" multiple disabled={busy} onChange={e=>{onFiles(e.target.files);e.target.value="";}} style={{display:"none"}}/>
+            </label>
+            {imgErr&&<div style={{color:DANGER,fontSize:12,marginTop:8}}>{imgErr}</div>}
+            {(draft.images||[]).length>0&&<div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(84px,1fr))",gap:8,marginTop:10}}>
+              {(draft.images||[]).map(img=>(
+                <div key={img.id} style={{position:"relative",aspectRatio:"1 / 1",borderRadius:4,overflow:"hidden",border:`1px solid ${BD}`,background:`${PARCH} center/cover no-repeat`,backgroundImage:modalUrls[img.path]?`url(${modalUrls[img.path]})`:"none"}}>
+                  {!modalUrls[img.path]&&<span style={{position:"absolute",inset:0,display:"flex",alignItems:"center",justifyContent:"center",fontSize:10,color:WG}}>loading…</span>}
+                  <button onClick={()=>removeImg(img)} title="Remove photo" style={{position:"absolute",top:3,right:3,width:20,height:20,borderRadius:"50%",border:"none",background:"rgba(0,0,0,0.55)",color:WHITE,fontSize:13,lineHeight:1,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",padding:0}}>×</button>
+                </div>
+              ))}
+            </div>}
+          </div>}
 
       <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",gap:12,marginTop:18,flexWrap:"wrap"}}>
         <div>{custody.some(r=>r.id===draft.id)&&<Btn sm danger onClick={()=>del(draft.id)}>Delete</Btn>}</div>
