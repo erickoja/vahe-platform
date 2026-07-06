@@ -892,7 +892,7 @@ const calcStoneQuote=(items,table)=>{
   return{totalCost,bracket,mult,markedUp,gst,clientTotal};
 };
 
-const K={cl:"jlr4_clients",jo:"jlr4_jobs",qu:"jlr4_quotes",pa:"jlr4_payments",pr:"jlr4_pricing_v9",biz:"jlr4_biz",no:"jlr4_notes",inv:"jlr4_invoices",spot:"jlr4_spot",mt:"jlr4_markup",smn:"jlr4_stone_nat",sml:"jlr4_stone_lab",csr:"jlr4_centre_rates",ap:"jlr4_appointments",pp:"jlr4_proposals",td:"jlr4_todos",st:"jlr4_stock",delpr:"jlr4_deleted_pricing"};
+const K={cl:"jlr4_clients",jo:"jlr4_jobs",qu:"jlr4_quotes",pa:"jlr4_payments",pr:"jlr4_pricing_v9",biz:"jlr4_biz",no:"jlr4_notes",inv:"jlr4_invoices",spot:"jlr4_spot",mt:"jlr4_markup",smn:"jlr4_stone_nat",sml:"jlr4_stone_lab",csr:"jlr4_centre_rates",ap:"jlr4_appointments",pp:"jlr4_proposals",td:"jlr4_todos",st:"jlr4_stock",gc:"jlr4_gem_custody",delpr:"jlr4_deleted_pricing"};
 
 // Name of the public, anon-readable table holding immutable proposal snapshots for client links.
 const PUBLIC_PROPOSALS_TABLE="public_proposals";
@@ -1435,6 +1435,103 @@ ${intake.instructions?`<div class="instr"><b>Client instructions</b>${ml(intake.
   <div><div class="sigline"></div><div class="siglbl">Date</div></div>
 </div>
 <div class="footer">${esc(biz.name||"Your Jewellery Studio")}${biz.abn?" · ABN "+esc(biz.abn):""}</div>
+</body></html>`);
+  win.document.close();setTimeout(()=>win.print(),400);
+}
+
+// Gemstone Safekeeping Receipt — proof for the client that we're holding their stone(s).
+// A bailment/custody receipt: we hold as custodian, ownership stays with the client.
+function printGemCustodyReceipt(biz,c,r){
+  const win=window.open("","_blank");
+  if(!win){alert("Please allow pop-ups so the receipt can open in a new tab.");return;}
+  const esc=s=>String(s==null?"":s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
+  const ml=s=>esc(s).replace(/\n/g,"<br>");
+  const items=r.items||[];
+  const ref=r.id.slice(-6).toUpperCase();
+  const clientName=clientDisplayName(c)||r.clientName||"—";
+  const contact=(c?[c.email,c.phone].filter(Boolean).join(" · "):"")||r.clientContact||"";
+  const val=it=>Number(it.estValue)||0;
+  const totalVal=items.reduce((s,it)=>s+val(it),0);
+  const hasVal=totalVal>0;
+  const dash=`<span style="color:#bbb">—</span>`;
+  const gemLabel=it=>[it.carat?esc(it.carat)+"ct":"",esc(it.shape||""),esc(it.type||"Gem")].filter(Boolean).join(" ")||"Gem";
+  const bizName=esc(biz.name||"Our Studio");
+
+  // Top summary strip — the facts the customer cares about
+  const sum=[
+    ["Held for",esc(clientName)],
+    ["Received on",r.dateReceived?fmtDate(r.dateReceived):fmtDate(r.createdAt)],
+    ["Expected return",r.expectedReturn?fmtDate(r.expectedReturn):"On request"],
+    ...(hasVal?[["Declared value",`<span style="color:#8B6914">${fmt(totalVal)}</span>`]]:[]),
+  ];
+  const summaryHtml=`<div class="rsum" style="grid-template-columns:repeat(${sum.length},1fr)">${sum.map(([l,v])=>`<div><div class="rs-lbl">${l}</div><div class="rs-val">${v}</div></div>`).join("")}</div>`;
+
+  // One row per stone
+  const rows=items.length
+    ?items.map((it,i)=>{
+      const detail=[it.colour?`Colour ${esc(it.colour)}`:"",it.clarity?`Clarity ${esc(it.clarity)}`:"",it.measurements?esc(it.measurements):""].filter(Boolean).join(" · ");
+      return `<tr>
+<td class="num">${i+1}</td>
+<td class="ittype">${gemLabel(it)}${it.notes?`<div style="font-weight:400;color:#6B6560;font-size:11px;margin-top:2px">${ml(it.notes)}</div>`:""}</td>
+<td>${detail||dash}</td>
+<td>${it.cert?esc(it.cert):dash}</td>
+${hasVal?`<td class="amt">${val(it)>0?fmt(val(it)):dash}</td>`:""}
+</tr>`;}).join("")
+    :`<tr><td colspan="${hasVal?5:4}" style="color:#bbb;font-style:italic">No items recorded</td></tr>`;
+  const itemsHtml=`<table class="itbl">
+<thead><tr><th class="num">#</th><th>Gemstone</th><th>Colour / clarity / measurements</th><th>Certificate</th>${hasVal?`<th class="amt">Declared value</th>`:""}</tr></thead>
+<tbody>${rows}</tbody></table>
+${hasVal?`<div class="rtot"><span class="rt-l">Total declared value</span><span class="rt-v">${fmt(totalVal)}</span></div>`:""}`;
+
+  win.document.write(`<!DOCTYPE html><html><head><title>Safekeeping Receipt — ${ref}</title><style>${PCSS}
+.rsum{display:grid;gap:1px;background:#E8E2D9;border:1px solid #E8E2D9;border-radius:10px;overflow:hidden;margin-bottom:26px}
+.rsum>div{background:#fff;padding:12px 16px}
+.rs-lbl{font-size:8.5px;font-weight:700;color:#6B6560;text-transform:uppercase;letter-spacing:.08em;margin-bottom:5px}
+.rs-val{font-size:14px;font-weight:700;color:#1A1714}
+.itbl{width:100%;border-collapse:collapse;margin-bottom:10px}
+.itbl th{font-size:9px;font-weight:700;color:#6B6560;text-transform:uppercase;letter-spacing:.06em;padding:8px 10px;border-bottom:2px solid #1A1714;text-align:left}
+.itbl td{padding:11px 10px;font-size:12px;border-bottom:1px solid #E8E2D9;vertical-align:top;line-height:1.5;color:#1A1714}
+.itbl .num{width:26px;color:#8B6914;font-weight:800}
+.itbl .ittype{font-weight:700}
+.itbl th.amt,.itbl td.amt{text-align:right;white-space:nowrap}
+.itbl td.amt{font-weight:700}
+.rtot{display:flex;justify-content:flex-end;align-items:baseline;gap:16px;margin:4px 0 26px}
+.rtot .rt-l{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:#6B6560}
+.rtot .rt-v{font-size:20px;font-weight:800}
+.instr{font-size:11.5px;line-height:1.6;color:#1A1714;background:#FAF7F2;border-left:3px solid #C9A84C;border-radius:0 8px 8px 0;padding:11px 16px;margin-bottom:26px}
+.instr b{font-size:8.5px;font-weight:700;color:#6B6560;text-transform:uppercase;letter-spacing:.08em;display:block;margin-bottom:4px}
+.terms{font-size:9px;line-height:1.55;color:#7A746E;margin-bottom:18px}
+.terms .tt{font-size:8.5px;font-weight:700;color:#6B6560;text-transform:uppercase;letter-spacing:.1em;margin-bottom:6px}
+.terms b{color:#1A1714}
+.sig{display:grid;grid-template-columns:1fr 1fr;gap:36px;margin-top:8px}
+.sig .sigline{border-bottom:1px solid #1A1714;margin-top:30px;margin-bottom:5px}
+.sig .siglbl{font-size:9px;color:#6B6560}
+@media print{.itbl tr{page-break-inside:avoid}}
+</style></head><body>
+<div class="hdr">
+  <div>${biz.logo?`<img src="${biz.logo}" alt="${bizName}" style="max-width:180px;max-height:64px;object-fit:contain;display:block;margin-bottom:6px"/>`:`<div class="bname">${bizName}</div>`}<div class="bsub">${[biz.email,biz.phone].filter(Boolean).map(esc).join(" · ")}</div></div>
+  <div><div class="qlbl">Safekeeping Receipt</div><div class="qnum">#${ref}</div><div style="font-size:11px;color:#6B6560;text-align:right;margin-top:3px">${fmtDate(today())}</div></div>
+</div>
+<div class="to"><div class="tolbl">Held on behalf of</div><div class="toname">${esc(clientName)}</div>${contact?`<div class="todet">${esc(contact)}</div>`:""}</div>
+${summaryHtml}
+${items.length>1?`<div style="font-size:10px;font-weight:700;color:#6B6560;text-transform:uppercase;letter-spacing:.08em;margin-bottom:10px">${items.length} stones received into safekeeping</div>`:""}
+${itemsHtml}
+${r.reason?`<div class="instr"><b>Reason held / instructions</b>${ml(r.reason)}</div>`:""}
+<div class="terms">
+  <div class="tt">Terms of safekeeping</div>
+  <b>Acknowledgement:</b> ${bizName} confirms it has received the gemstone(s) described above from the client named and holds them in safekeeping on the client's behalf.<br><br>
+  <b>Ownership:</b> The gemstone(s) remain the property of the client at all times. ${bizName} takes no ownership interest and holds the item(s) solely as custodian.<br><br>
+  <b>Return:</b> The item(s) will be returned to the client, or handled per the client's written instructions, on presentation of this receipt and reasonable proof of identity.<br><br>
+  <b>Declared value:</b> Any value shown is as declared by the client for identification purposes only and does not constitute a valuation or appraisal by ${bizName}.<br><br>
+  <b>Care &amp; liability:</b> ${bizName} will take reasonable care of the item(s) while in its custody. The client is encouraged to maintain their own insurance; to the extent permitted by law, ${bizName}'s liability is limited to the declared value shown above.
+</div>
+<div class="sig">
+  <div><div class="sigline"></div><div class="siglbl">Received into safekeeping by (${bizName})</div></div>
+  <div><div class="sigline"></div><div class="siglbl">Date received</div></div>
+  <div><div class="sigline"></div><div class="siglbl">Collected by client — I confirm the item(s) were returned to me in good order</div></div>
+  <div><div class="sigline"></div><div class="siglbl">Date returned</div></div>
+</div>
+<div class="footer">${bizName}${biz.abn?" · ABN "+esc(biz.abn):""}</div>
 </body></html>`);
   win.document.close();setTimeout(()=>win.print(),400);
 }
@@ -6217,6 +6314,7 @@ const NAV=[
   {id:"jobs",label:"Jobs"},
   {id:"quotes",label:"Quotes"},
   {id:"invoices",label:"Invoices"},
+  {id:"gemcustody",label:"Gem Custody"},
   {id:"stock",label:"Stock"},
   {id:"pricing",label:"Pricing DB"},
   {id:"reports",label:"Reports"},
@@ -6225,7 +6323,7 @@ const NAV=[
 const NAV_MAP=Object.fromEntries(NAV.map(n=>[n.id,n]));
 const NAV_GROUPS=[
   {label:null,ids:["dashboard","todo"]},
-  {label:"Workflow",ids:["appointments","clients","jobs","quotes","invoices"]},
+  {label:"Workflow",ids:["appointments","clients","jobs","quotes","invoices","gemcustody"]},
   {label:"Studio",ids:["stock","pricing","reports","settings"]},
 ];
 // Cohesive line-icon set for the sidebar (single 24-grid, 1.6 stroke, inherits color).
@@ -6239,6 +6337,7 @@ function NavIcon({name,size=17}){
     case "jobs": return <svg {...p}><path d="M6 4H18L21 9L12 20L3 9Z"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="9" y1="9" x2="12" y2="20"/><line x1="15" y1="9" x2="12" y2="20"/><line x1="9" y1="9" x2="6" y2="4"/><line x1="15" y1="9" x2="18" y2="4"/></svg>;
     case "quotes": return <svg {...p}><rect x="5" y="3" width="14" height="18" rx="2"/><line x1="8.5" y1="8" x2="15.5" y2="8"/><line x1="8.5" y1="12" x2="15.5" y2="12"/><line x1="8.5" y1="16" x2="13" y2="16"/></svg>;
     case "invoices": return <svg {...p}><path d="M6 2.5H18V21.5L15 19.7L12 21.5L9 19.7L6 21.5Z"/><line x1="9" y1="8" x2="15" y2="8"/><line x1="9" y1="12" x2="15" y2="12"/></svg>;
+    case "gemcustody": return <svg {...p}><path d="M6 3h12l3 5-9 13L3 8Z"/><path d="M3 8h18"/><path d="M9 3 7.5 8 12 21"/><path d="M15 3l1.5 5L12 21"/></svg>;
     case "pricing": return <svg {...p}><path d="M20.6 11.4 12.6 3.4a2 2 0 0 0-1.4-.6H4.5a1 1 0 0 0-1 1v6.7a2 2 0 0 0 .6 1.4l8 8a1.9 1.9 0 0 0 2.7 0l5.8-5.8a1.9 1.9 0 0 0 0-2.7Z"/><circle cx="7.8" cy="7.8" r="1.4"/></svg>;
     case "reports": return <svg {...p}><line x1="3.5" y1="20.5" x2="20.5" y2="20.5"/><rect x="5" y="12" width="3.4" height="7" rx="0.6"/><rect x="10.3" y="8" width="3.4" height="11" rx="0.6"/><rect x="15.6" y="4.5" width="3.4" height="14.5" rx="0.6"/></svg>;
     case "stock": return <svg {...p}><path d="M12 2.8 21 7.4v9.2L12 21.2 3 16.6V7.4Z"/><path d="M3 7.4 12 12l9-4.6"/><line x1="12" y1="12" x2="12" y2="21.2"/><path d="M7.5 5.1 16.5 9.7"/></svg>;
@@ -6474,6 +6573,176 @@ const stockMargin=(price,cost)=>{
   const exGst=p/(1+GST_RATE);
   return{profit:exGst-c,pct:Math.round((exGst-c)/exGst*100)};
 };
+
+const GEM_TYPES=["Diamond","Sapphire","Ruby","Emerald","Opal","Pearl","Aquamarine","Topaz","Amethyst","Garnet","Tourmaline","Tanzanite","Spinel","Morganite","Other"];
+const GEM_SHAPES=["","Round","Oval","Cushion","Princess","Emerald","Pear","Marquise","Radiant","Asscher","Heart","Trillion","Baguette","Cabochon","Other"];
+
+// ── Gem Custody — safekeeping register + printable receipt ─────────────────
+// Log any client-owned stone you're physically holding, and print a receipt as
+// proof for the customer. It's a bailment record: ownership stays with the client.
+function GemCustody({custody,setCustody,clients,biz}){
+  const save=next=>{setCustody(next);persist(K.gc,next);};
+  const[draft,setDraft]=useState(null);        // the record open in the modal (new or edit)
+  const[filter,setFilter]=useState("Holding"); // Holding | Returned | All
+  const[qStr,setQStr]=useState("");
+
+  const blankItem=()=>({id:uid(),type:"Diamond",carat:"",shape:"",colour:"",clarity:"",measurements:"",cert:"",estValue:"",notes:""});
+  const blank=()=>({id:uid(),clientId:"",clientName:"",clientContact:"",dateReceived:today(),reason:"",expectedReturn:"",notes:"",status:"Holding",createdAt:today(),items:[blankItem()]});
+
+  const openNew=()=>setDraft(blank());
+  const openEdit=r=>setDraft(JSON.parse(JSON.stringify(r)));   // deep clone so item edits don't mutate state
+  const close=()=>setDraft(null);
+
+  const setF=k=>v=>setDraft(d=>({...d,[k]:v}));
+  const pickClient=id=>{const c=clients.find(x=>x.id===id);setDraft(d=>({...d,clientId:id,clientName:c?clientDisplayName(c):d.clientName,clientContact:c?[c.email,c.phone].filter(Boolean).join(" · "):d.clientContact}));};
+  const setItem=(iid,k,v)=>setDraft(d=>({...d,items:d.items.map(it=>it.id===iid?{...it,[k]:v}:it)}));
+  const addItem=()=>setDraft(d=>({...d,items:[...d.items,blankItem()]}));
+  const removeItem=iid=>setDraft(d=>({...d,items:d.items.length>1?d.items.filter(it=>it.id!==iid):d.items}));
+
+  const commit=()=>{
+    const d=draft;
+    const picked=clients.find(c=>c.id===d.clientId);
+    const name=(d.clientName||"").trim()||(picked?clientDisplayName(picked):"");
+    if(!name){alert("Add the client's name — pick an existing client or type a name.");return;}
+    const clean={...d,clientName:name};
+    save(custody.some(r=>r.id===d.id)?custody.map(r=>r.id===d.id?clean:r):[clean,...custody]);
+    close();
+  };
+  const del=id=>{if(!confirm("Delete this safekeeping receipt? This can't be undone."))return;save(custody.filter(r=>r.id!==id));close();};
+  const toggleReturned=r=>save(custody.map(x=>x.id===r.id?{...x,status:x.status==="Returned"?"Holding":"Returned",returnedAt:x.status==="Returned"?"":today()}:x));
+
+  const itemsValue=r=>(r.items||[]).reduce((s,it)=>s+(Number(it.estValue)||0),0);
+  const itemLabel=it=>[it.carat?`${it.carat}ct`:"",it.shape,it.type].filter(Boolean).join(" ")||it.type||"Gem";
+  const resolveClient=r=>clients.find(c=>c.id===r.clientId)||null;
+
+  const holding=custody.filter(r=>r.status!=="Returned");
+  const totalHeldValue=holding.reduce((s,r)=>s+itemsValue(r),0);
+
+  const shown=custody.filter(r=>{
+    if(filter==="Holding"&&r.status==="Returned")return false;
+    if(filter==="Returned"&&r.status!=="Returned")return false;
+    if(qStr){const s=`${r.clientName||""} ${(r.items||[]).map(i=>`${i.type} ${i.cert}`).join(" ")} ${r.reason||""}`.toLowerCase();if(!s.includes(qStr.toLowerCase()))return false;}
+    return true;
+  }).sort((a,b)=>{
+    const ar=a.status==="Returned"?1:0,br=b.status==="Returned"?1:0;
+    if(ar!==br)return ar-br;
+    return String(b.createdAt||"").localeCompare(String(a.createdAt||""));
+  });
+
+  const smInp={...SS.inp,padding:"8px 10px",fontSize:12.5,marginTop:3};
+
+  return <div>
+    {/* Header */}
+    <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-end",flexWrap:"wrap",gap:16,marginBottom:24}}>
+      <div>
+        <div style={{fontSize:11,fontWeight:700,color:WG,letterSpacing:"0.14em",textTransform:"uppercase",marginBottom:5}}>Safekeeping</div>
+        <h1 style={{margin:0,fontSize:32,fontWeight:500,color:INK,letterSpacing:"-0.01em"}}>Gem Custody</h1>
+        <div style={{color:WG,fontSize:14,marginTop:4}}>Log any client-owned stone you're holding, and print a receipt as proof for the customer.</div>
+      </div>
+      <Btn onClick={openNew}>+ New receipt</Btn>
+    </div>
+
+    {custody.length===0
+      ? <Card style={{marginTop:4}}><div style={{color:WG,fontSize:14,textAlign:"center",padding:"46px 0"}}>
+          <div style={{fontSize:38,marginBottom:12}}>💎</div>
+          <div style={{fontWeight:700,fontSize:16,color:INK,marginBottom:6}}>Nothing in safekeeping yet</div>
+          <div style={{maxWidth:400,margin:"0 auto 18px",lineHeight:1.55}}>When a client leaves a diamond or gemstone with you, record it here and print a signed receipt so they have proof you're holding it.</div>
+          <Btn onClick={openNew}>+ Create your first receipt</Btn>
+        </div></Card>
+      : <>
+          {/* Summary */}
+          <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(180px,1fr))",gap:14,marginBottom:22}}>
+            <Stat label="Currently holding" value={holding.length} tint="gold" icon="💎"/>
+            <Stat label="Declared value held" value={fmtR(totalHeldValue)} sub="client-declared, for reference"/>
+            <Stat label="Returned" value={custody.length-holding.length}/>
+          </div>
+
+          {/* Filters */}
+          <div style={{display:"flex",gap:10,flexWrap:"wrap",alignItems:"center",marginBottom:16}}>
+            {["Holding","Returned","All"].map(f=>(
+              <button key={f} onClick={()=>setFilter(f)} style={{padding:"7px 15px",borderRadius:2,border:`1px solid ${filter===f?INK:"#C9BFAE"}`,background:filter===f?INK:"transparent",color:filter===f?WHITE:INK,fontSize:11,fontWeight:700,letterSpacing:"0.08em",textTransform:"uppercase",cursor:"pointer",fontFamily:"inherit"}}>{f}</button>
+            ))}
+            <input value={qStr} onChange={e=>setQStr(e.target.value)} placeholder="Search client, stone or certificate…" style={{...SS.inp,marginTop:0,maxWidth:280,marginLeft:"auto"}}/>
+          </div>
+
+          {shown.length===0
+            ? <Card><div style={{color:WG,textAlign:"center",padding:"28px 0"}}>No receipts match.</div></Card>
+            : shown.map(r=>{
+                const c=resolveClient(r);
+                const returned=r.status==="Returned";
+                const val=itemsValue(r);
+                return <Card key={r.id}>
+                  <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:16,flexWrap:"wrap"}}>
+                    <div style={{flex:1,minWidth:220}}>
+                      <div style={{display:"flex",alignItems:"center",gap:10,flexWrap:"wrap",marginBottom:4}}>
+                        <span style={{fontWeight:800,fontSize:16,color:INK}}>{r.clientName||clientDisplayName(c)||"—"}</span>
+                        <Badge label={returned?"Returned":"Holding"} color={returned?WG:OK}/>
+                        <span style={{fontSize:11,color:WG,letterSpacing:"0.04em"}}>#{r.id.slice(-6).toUpperCase()}</span>
+                      </div>
+                      <div style={{fontSize:13.5,color:INK,marginBottom:4}}>{(r.items||[]).map(itemLabel).join(" · ")||"No stones listed"}</div>
+                      <div style={{fontSize:12.5,color:WG}}>
+                        Received {fmtDate(r.dateReceived||r.createdAt)}
+                        {r.expectedReturn?` · Return by ${fmtDate(r.expectedReturn)}`:""}
+                        {val>0?` · Declared ${fmtR(val)}`:""}
+                        {returned&&r.returnedAt?` · Returned ${fmtDate(r.returnedAt)}`:""}
+                      </div>
+                    </div>
+                    <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
+                      <Btn sm onClick={()=>printGemCustodyReceipt(biz||{},c,r)}>Print / Save PDF</Btn>
+                      <Btn sm ghost onClick={()=>toggleReturned(r)}>{returned?"Reopen":"Mark returned"}</Btn>
+                      <Btn sm ghost onClick={()=>openEdit(r)}>Edit</Btn>
+                    </div>
+                  </div>
+                </Card>;
+              })}
+        </>}
+
+    {/* New / edit modal */}
+    {draft&&<Modal wide title={custody.some(r=>r.id===draft.id)?"Edit safekeeping receipt":"New safekeeping receipt"} onClose={close}>
+      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:14}}>
+        <Input label="Existing client" value={draft.clientId} onChange={pickClient} as="select" options={[{value:"",label:"— Not a saved client —"},...clients.map(c=>({value:c.id,label:clientDisplayName(c)}))]}/>
+        <Input label="Client name (on receipt)" value={draft.clientName} onChange={setF("clientName")} placeholder="Jane Smith"/>
+        <Input label="Client contact (optional)" value={draft.clientContact} onChange={setF("clientContact")} placeholder="email · phone"/>
+        <div/>
+        <Input label="Date received" value={draft.dateReceived} onChange={setF("dateReceived")} type="date"/>
+        <Input label="Expected return (optional)" value={draft.expectedReturn} onChange={setF("expectedReturn")} type="date"/>
+      </div>
+      <Input label="Reason held / instructions" value={draft.reason} onChange={setF("reason")} as="textarea" rows={2} placeholder="e.g. Client's own diamond, left for resetting into a new engagement ring."/>
+
+      <div style={{margin:"6px 0 8px",display:"flex",alignItems:"center",justifyContent:"space-between"}}>
+        <label style={SS.lbl}>Stones held</label>
+        <Btn sm ghost onClick={addItem}>+ Add stone</Btn>
+      </div>
+      {draft.items.map((it,i)=>(
+        <div key={it.id} style={{border:`1px solid ${BD}`,borderRadius:5,padding:"14px 16px",marginBottom:12,background:PARCH}}>
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}}>
+            <span style={{fontSize:11,fontWeight:700,color:WG,textTransform:"uppercase",letterSpacing:"0.06em"}}>Stone {i+1}</span>
+            {draft.items.length>1&&<button onClick={()=>removeItem(it.id)} style={{background:"none",border:"none",color:DANGER,fontSize:12,fontWeight:700,cursor:"pointer",fontFamily:"inherit"}}>Remove</button>}
+          </div>
+          <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:10}}>
+            <div><label style={SS.lbl}>Type</label><select value={it.type} onChange={e=>setItem(it.id,"type",e.target.value)} style={smInp}>{GEM_TYPES.map(t=><option key={t} value={t}>{t}</option>)}</select></div>
+            <div><label style={SS.lbl}>Carat</label><input value={it.carat} onChange={e=>setItem(it.id,"carat",e.target.value)} placeholder="1.20" style={smInp}/></div>
+            <div><label style={SS.lbl}>Shape / cut</label><select value={it.shape} onChange={e=>setItem(it.id,"shape",e.target.value)} style={smInp}>{GEM_SHAPES.map(s=><option key={s} value={s}>{s||"—"}</option>)}</select></div>
+            <div><label style={SS.lbl}>Colour</label><input value={it.colour} onChange={e=>setItem(it.id,"colour",e.target.value)} placeholder="e.g. F" style={smInp}/></div>
+            <div><label style={SS.lbl}>Clarity</label><input value={it.clarity} onChange={e=>setItem(it.id,"clarity",e.target.value)} placeholder="e.g. VS1" style={smInp}/></div>
+            <div><label style={SS.lbl}>Measurements</label><input value={it.measurements} onChange={e=>setItem(it.id,"measurements",e.target.value)} placeholder="6.8 × 6.8 × 4.2mm" style={smInp}/></div>
+            <div><label style={SS.lbl}>Certificate #</label><input value={it.cert} onChange={e=>setItem(it.id,"cert",e.target.value)} placeholder="GIA / IGI no." style={smInp}/></div>
+            <div><label style={SS.lbl}>Declared value ($)</label><input value={it.estValue} onChange={e=>setItem(it.id,"estValue",e.target.value)} placeholder="0" type="number" min="0" style={smInp}/></div>
+            <div><label style={SS.lbl}>Notes</label><input value={it.notes} onChange={e=>setItem(it.id,"notes",e.target.value)} placeholder="marks, inscriptions…" style={smInp}/></div>
+          </div>
+        </div>
+      ))}
+
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",gap:12,marginTop:18,flexWrap:"wrap"}}>
+        <div>{custody.some(r=>r.id===draft.id)&&<Btn sm danger onClick={()=>del(draft.id)}>Delete</Btn>}</div>
+        <div style={{display:"flex",gap:10}}>
+          <Btn sm ghost onClick={close}>Cancel</Btn>
+          <Btn sm onClick={commit}>Save receipt</Btn>
+        </div>
+      </div>
+    </Modal>}
+  </div>;
+}
 
 function StockBoard({stock,setStock,setView}){
   const save=next=>{setStock(next);persist(K.st,next);};
@@ -6735,6 +7004,7 @@ export default function App(){
   const[centreRates,setCentreRates]=useState(DEFAULT_CENTRE_RATES);
   const[todos,setTodos]=useState({people:[],items:[]});
   const[stock,setStock]=useState([]);
+  const[gemCustody,setGemCustody]=useState([]);
   const[view,setViewRaw]=useState("dashboard");
   const[selClient,setSelClient]=useState(null);
   const[selJob,setSelJob]=useState(null);
@@ -6781,6 +7051,7 @@ export default function App(){
       [K.pr]:setPricing,[K.biz]:setBiz,[K.no]:setNotes,[K.inv]:setInvoices,
       [K.mt]:setMarkupTable,[K.smn]:setNaturalStoneMarkup,[K.sml]:setLabStoneMarkup,[K.csr]:setCentreRates,
       [K.ap]:setAppointments,[K.pp]:setProposals,[K.td]:setTodos,[K.st]:setStock,
+      [K.gc]:setGemCustody,
     };
     // Normalise legacy values before applying to state
     const applyLoaded=(k,v,setter)=>{
@@ -6978,6 +7249,7 @@ export default function App(){
     if(view==="invoices")return <InvoicesList invoices={invoices} jobs={jobs} clients={clients} quotes={quotes} payments={payments} setInvoices={setInvoices} markupTable={markupTable} setView={setView}/>;
     if(view.startsWith("invoiceDetail_"))return <InvoiceDetail invoiceId={view.split("_")[1]} invoices={invoices} setInvoices={setInvoices} jobs={jobs} clients={clients} payments={payments} biz={biz} setView={setView}/>;
     if(view==="stock")return <StockBoard stock={stock} setStock={setStock} setView={setView}/>;
+    if(view==="gemcustody")return <GemCustody custody={gemCustody} setCustody={setGemCustody} clients={clients} biz={biz}/>;
     if(view.startsWith("stockPrice_"))return <QuoteBuilder stockId={view.split("_")[1]} stock={stock} setStock={setStock} jobs={jobs} clients={clients} quotes={quotes} setQuotes={setQuotes} pricing={pricing} setPricing={setPricing} markupTable={markupTable} naturalStoneMarkup={naturalStoneMarkup} labStoneMarkup={labStoneMarkup} centreRates={centreRates} setCentreRates={setCentreRates} setView={setView}/>;
     if(view==="pricing")return <PricingDB pricing={pricing} setPricing={setPricing} spotPrices={spotPrices} setSpotPrices={setSpotPrices} markupTable={markupTable} centreRates={centreRates} setCentreRates={setCentreRates}/>;
     if(view==="reports")return <Reports jobs={jobs} clients={clients} quotes={quotes} payments={payments} invoices={invoices} markupTable={markupTable}/>;
