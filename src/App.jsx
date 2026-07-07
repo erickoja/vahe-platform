@@ -7412,6 +7412,9 @@ export default function App(){
         <Btn onClick={()=>{setLoadError(false);setStorageReady(false);setLoadNonce(n=>n+1);}}>Retry</Btn>
       </div>
     </div>;
+    // Data still loading — hold on a spinner rather than flash seed/placeholder figures
+    // (e.g. wrong "balance owing by job" for a moment before real data arrives).
+    if(!storageReady)return <div style={{display:"flex",alignItems:"center",justifyContent:"center",minHeight:"100vh",background:CREAM,fontFamily:"'DM Sans',sans-serif",color:WG,fontSize:14}}>Loading…</div>;
   }
 
   return <div style={{display:"flex",minHeight:"100vh",background:CREAM,fontFamily:"'DM Sans',sans-serif"}}>
