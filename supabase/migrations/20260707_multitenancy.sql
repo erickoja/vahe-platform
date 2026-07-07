@@ -86,6 +86,13 @@ alter table studio_state   enable row level security;
 alter table studios        enable row level security;
 alter table studio_members enable row level security;
 
+-- Remove the OLD permissive policies from the original single-tenant setup.
+-- These grant every authenticated user access to EVERY row; leaving them in place
+-- would OR with (and defeat) the per-studio policies below. Critical on prod.
+drop policy if exists "authenticated read"   on studio_state;
+drop policy if exists "authenticated write"  on studio_state;
+drop policy if exists "authenticated update" on studio_state;
+
 -- studio_state: members of a studio can do anything with THAT studio's rows only
 drop policy if exists ss_select on studio_state;
 drop policy if exists ss_insert on studio_state;
