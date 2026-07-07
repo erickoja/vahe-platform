@@ -7157,9 +7157,13 @@ export default function App(){
     return()=>{cancelled=true;};
   },[userId]);
 
-  // Keep the markup threshold buffer (used inside pure calc helpers) in sync with business settings
-  useEffect(()=>{setMarkupBuffer(biz?.markupBuffer||0);},[biz?.markupBuffer]);
-  useEffect(()=>{setQuoteRounding(biz?.quoteRounding||0);},[biz?.quoteRounding]);
+  // Keep the pure-calc globals (used by calcQuote/jobChargeTotal) in sync with business
+  // settings on EVERY render — synchronously, before children compute. Doing this in a
+  // useEffect instead runs one render too late, so the first paint after load computes
+  // figures like "balance owing by job" with the default buffer/rounding, showing wrong
+  // values for a moment until the effect fires and a re-render snaps them correct.
+  setMarkupBuffer(biz?.markupBuffer||0);
+  setQuoteRounding(biz?.quoteRounding||0);
 
   // Load all persisted data on mount
   useEffect(()=>{
