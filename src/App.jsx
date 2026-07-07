@@ -1455,7 +1455,12 @@ async function printGemCustodyReceipt(biz,c,r){
   const totalVal=items.reduce((s,it)=>s+val(it),0);
   const hasVal=totalVal>0;
   const dash=`<span style="color:#bbb">—</span>`;
-  const gemLabel=it=>[it.carat?esc(it.carat)+"ct":"",esc(it.shape||""),esc(it.type||"Gem")].filter(Boolean).join(" ")||"Gem";
+  const itemLabel=it=>it&&it.kind==="piece"
+    ?[esc(it.metal||""),esc(it.type||"Piece")].filter(Boolean).join(" ")||"Piece"
+    :[it.carat?esc(it.carat)+"ct":"",esc(it.shape||""),esc(it.type||"Gem")].filter(Boolean).join(" ")||"Gem";
+  const itemDetail=it=>it&&it.kind==="piece"
+    ?[it.stones?"Set with "+esc(it.stones):"",it.measurements?esc(it.measurements):"",it.condition?"Condition: "+esc(it.condition):""].filter(Boolean).join(" · ")
+    :[it.colour?"Colour "+esc(it.colour):"",it.clarity?"Clarity "+esc(it.clarity):"",it.measurements?esc(it.measurements):""].filter(Boolean).join(" · ");
   const bizName=esc(biz.name||"Our Studio");
 
   // Top summary strip — the facts the customer cares about
@@ -1470,17 +1475,17 @@ async function printGemCustodyReceipt(biz,c,r){
   // One row per stone
   const rows=items.length
     ?items.map((it,i)=>{
-      const detail=[it.colour?`Colour ${esc(it.colour)}`:"",it.clarity?`Clarity ${esc(it.clarity)}`:"",it.measurements?esc(it.measurements):""].filter(Boolean).join(" · ");
+      const detail=itemDetail(it);
       return `<tr>
 <td class="num">${i+1}</td>
-<td class="ittype">${gemLabel(it)}${it.notes?`<div style="font-weight:400;color:#6B6560;font-size:11px;margin-top:2px">${ml(it.notes)}</div>`:""}</td>
+<td class="ittype">${itemLabel(it)}${it.notes?`<div style="font-weight:400;color:#6B6560;font-size:11px;margin-top:2px">${ml(it.notes)}</div>`:""}</td>
 <td>${detail||dash}</td>
 <td>${it.cert?esc(it.cert):dash}</td>
 ${hasVal?`<td class="amt">${val(it)>0?fmt(val(it)):dash}</td>`:""}
 </tr>`;}).join("")
     :`<tr><td colspan="${hasVal?5:4}" style="color:#bbb;font-style:italic">No items recorded</td></tr>`;
   const itemsHtml=`<table class="itbl">
-<thead><tr><th class="num">#</th><th>Gemstone</th><th>Colour / clarity / measurements</th><th>Certificate</th>${hasVal?`<th class="amt">Declared value</th>`:""}</tr></thead>
+<thead><tr><th class="num">#</th><th>Item</th><th>Details</th><th>Certificate</th>${hasVal?`<th class="amt">Declared value</th>`:""}</tr></thead>
 <tbody>${rows}</tbody></table>
 ${hasVal?`<div class="rtot"><span class="rt-l">Total declared value</span><span class="rt-v">${fmt(totalVal)}</span></div>`:""}`;
 
@@ -1520,14 +1525,14 @@ ${hasVal?`<div class="rtot"><span class="rt-l">Total declared value</span><span 
 </div>
 <div class="to"><div class="tolbl">Held on behalf of</div><div class="toname">${esc(clientName)}</div>${contact?`<div class="todet">${esc(contact)}</div>`:""}</div>
 ${summaryHtml}
-${items.length>1?`<div style="font-size:10px;font-weight:700;color:#6B6560;text-transform:uppercase;letter-spacing:.08em;margin-bottom:10px">${items.length} stones received into safekeeping</div>`:""}
+${items.length>1?`<div style="font-size:10px;font-weight:700;color:#6B6560;text-transform:uppercase;letter-spacing:.08em;margin-bottom:10px">${items.length} items received into safekeeping</div>`:""}
 ${itemsHtml}
 ${photos.length?`<div class="photos"><div class="ph-lbl">Photos on intake</div><div class="ph-grid">${photos.map(p=>`<figure class="ph-item"><img src="${p.url}" alt="Gem photo"/></figure>`).join("")}</div></div>`:""}
 ${r.reason?`<div class="instr"><b>Reason held / instructions</b>${ml(r.reason)}</div>`:""}
 <div class="terms">
   <div class="tt">Terms of safekeeping</div>
-  <b>Acknowledgement:</b> ${bizName} confirms it has received the gemstone(s) described above from the client named and holds them in safekeeping on the client's behalf.<br><br>
-  <b>Ownership:</b> The gemstone(s) remain the property of the client at all times. ${bizName} takes no ownership interest and holds the item(s) solely as custodian.<br><br>
+  <b>Acknowledgement:</b> ${bizName} confirms it has received the item(s) described above from the client named and holds them in safekeeping on the client's behalf.<br><br>
+  <b>Ownership:</b> The item(s) remain the property of the client at all times. ${bizName} takes no ownership interest and holds the item(s) solely as custodian.<br><br>
   <b>Return:</b> The item(s) will be returned to the client, or handled per the client's written instructions, on presentation of this receipt and reasonable proof of identity.<br><br>
   <b>Declared value:</b> Any value shown is as declared by the client for identification purposes only and does not constitute a valuation or appraisal by ${bizName}.<br><br>
   <b>Care &amp; liability:</b> ${bizName} will take reasonable care of the item(s) while in its custody. The client is encouraged to maintain their own insurance; to the extent permitted by law, ${bizName}'s liability is limited to the declared value shown above.
@@ -6583,6 +6588,7 @@ const stockMargin=(price,cost)=>{
 
 const GEM_TYPES=["Diamond","Sapphire","Ruby","Emerald","Opal","Pearl","Aquamarine","Topaz","Amethyst","Garnet","Tourmaline","Tanzanite","Spinel","Morganite","Other"];
 const GEM_SHAPES=["","Round","Oval","Cushion","Princess","Emerald","Pear","Marquise","Radiant","Asscher","Heart","Trillion","Baguette","Cabochon","Other"];
+const PIECE_TYPES=["Ring","Necklace","Pendant","Bracelet","Bangle","Earrings","Brooch","Watch","Chain","Cufflinks","Other"];
 
 // ── Gem Custody — safekeeping register + printable receipt ─────────────────
 // Log any client-owned stone you're physically holding, and print a receipt as
@@ -6593,7 +6599,7 @@ function GemCustody({custody,setCustody,clients,biz}){
   const[filter,setFilter]=useState("Holding"); // Holding | Returned | All
   const[qStr,setQStr]=useState("");
 
-  const blankItem=()=>({id:uid(),type:"Diamond",carat:"",shape:"",colour:"",clarity:"",measurements:"",cert:"",estValue:"",notes:""});
+  const blankItem=(kind="stone")=>({id:uid(),kind,type:kind==="piece"?"Ring":"Diamond",carat:"",shape:"",colour:"",clarity:"",measurements:"",cert:"",estValue:"",notes:"",metal:"",stones:"",condition:""});
   const blank=()=>({id:uid(),clientId:"",clientName:"",clientContact:"",dateReceived:today(),reason:"",expectedReturn:"",notes:"",status:"Holding",createdAt:today(),items:[blankItem()],images:[]});
 
   const[modalUrls,setModalUrls]=useState({});   // path → signed url for the open record's photos
@@ -6643,7 +6649,9 @@ function GemCustody({custody,setCustody,clients,biz}){
   const setF=k=>v=>setDraft(d=>({...d,[k]:v}));
   const pickClient=id=>{const c=clients.find(x=>x.id===id);setDraft(d=>({...d,clientId:id,clientName:c?clientDisplayName(c):d.clientName,clientContact:c?[c.email,c.phone].filter(Boolean).join(" · "):d.clientContact}));};
   const setItem=(iid,k,v)=>setDraft(d=>({...d,items:d.items.map(it=>it.id===iid?{...it,[k]:v}:it)}));
-  const addItem=()=>setDraft(d=>({...d,items:[...d.items,blankItem()]}));
+  // Switch an item between loose stone and jewellery piece; reset its type to that kind's default
+  const setKind=(iid,kind)=>setDraft(d=>({...d,items:d.items.map(it=>it.id===iid?{...it,kind,type:kind==="piece"?(PIECE_TYPES.includes(it.type)?it.type:"Ring"):(GEM_TYPES.includes(it.type)?it.type:"Diamond")}:it)}));
+  const addItem=(kind="stone")=>setDraft(d=>({...d,items:[...d.items,blankItem(kind)]}));
   const removeItem=iid=>setDraft(d=>({...d,items:d.items.length>1?d.items.filter(it=>it.id!==iid):d.items}));
 
   const commit=()=>{
@@ -6659,7 +6667,9 @@ function GemCustody({custody,setCustody,clients,biz}){
   const toggleReturned=r=>save(custody.map(x=>x.id===r.id?{...x,status:x.status==="Returned"?"Holding":"Returned",returnedAt:x.status==="Returned"?"":today()}:x));
 
   const itemsValue=r=>(r.items||[]).reduce((s,it)=>s+(Number(it.estValue)||0),0);
-  const itemLabel=it=>[it.carat?`${it.carat}ct`:"",it.shape,it.type].filter(Boolean).join(" ")||it.type||"Gem";
+  const itemLabel=it=>it.kind==="piece"
+    ?[it.metal,it.type,it.stones?`with ${it.stones}`:""].filter(Boolean).join(" ")||it.type||"Piece"
+    :[it.carat?`${it.carat}ct`:"",it.shape,it.type].filter(Boolean).join(" ")||it.type||"Gem";
   const resolveClient=r=>clients.find(c=>c.id===r.clientId)||null;
 
   const holding=custody.filter(r=>r.status!=="Returned");
@@ -6668,7 +6678,7 @@ function GemCustody({custody,setCustody,clients,biz}){
   const shown=custody.filter(r=>{
     if(filter==="Holding"&&r.status==="Returned")return false;
     if(filter==="Returned"&&r.status!=="Returned")return false;
-    if(qStr){const s=`${r.clientName||""} ${(r.items||[]).map(i=>`${i.type} ${i.cert}`).join(" ")} ${r.reason||""}`.toLowerCase();if(!s.includes(qStr.toLowerCase()))return false;}
+    if(qStr){const s=`${r.clientName||""} ${(r.items||[]).map(i=>`${i.type} ${i.metal||""} ${i.stones||""} ${i.cert||""}`).join(" ")} ${r.reason||""}`.toLowerCase();if(!s.includes(qStr.toLowerCase()))return false;}
     return true;
   }).sort((a,b)=>{
     const ar=a.status==="Returned"?1:0,br=b.status==="Returned"?1:0;
@@ -6682,9 +6692,9 @@ function GemCustody({custody,setCustody,clients,biz}){
     {/* Header */}
     <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-end",flexWrap:"wrap",gap:16,marginBottom:24}}>
       <div>
-        <div style={{fontSize:11,fontWeight:700,color:WG,letterSpacing:"0.14em",textTransform:"uppercase",marginBottom:5}}>Client-owned stones</div>
+        <div style={{fontSize:11,fontWeight:700,color:WG,letterSpacing:"0.14em",textTransform:"uppercase",marginBottom:5}}>Client-owned items</div>
         <h1 style={{margin:0,fontSize:32,fontWeight:500,color:INK,letterSpacing:"-0.01em"}}>Safekeeping</h1>
-        <div style={{color:WG,fontSize:14,marginTop:4}}>Log any client-owned stone you're holding, and print a receipt as proof for the customer.</div>
+        <div style={{color:WG,fontSize:14,marginTop:4}}>Log any client-owned stone or piece of jewellery you're holding, and print a receipt as proof for the customer.</div>
       </div>
       <Btn onClick={openNew}>+ New receipt</Btn>
     </div>
@@ -6693,7 +6703,7 @@ function GemCustody({custody,setCustody,clients,biz}){
       ? <Card style={{marginTop:4}}><div style={{color:WG,fontSize:14,textAlign:"center",padding:"46px 0"}}>
           <div style={{fontSize:38,marginBottom:12}}>💎</div>
           <div style={{fontWeight:700,fontSize:16,color:INK,marginBottom:6}}>Nothing in safekeeping yet</div>
-          <div style={{maxWidth:400,margin:"0 auto 18px",lineHeight:1.55}}>When a client leaves a diamond or gemstone with you, record it here and print a signed receipt so they have proof you're holding it.</div>
+          <div style={{maxWidth:400,margin:"0 auto 18px",lineHeight:1.55}}>When a client leaves a stone or a piece of jewellery with you, record it here and print a signed receipt so they have proof you're holding it.</div>
           <Btn onClick={openNew}>+ Create your first receipt</Btn>
         </div></Card>
       : <>
@@ -6709,7 +6719,7 @@ function GemCustody({custody,setCustody,clients,biz}){
             {["Holding","Returned","All"].map(f=>(
               <button key={f} onClick={()=>setFilter(f)} style={{padding:"7px 15px",borderRadius:2,border:`1px solid ${filter===f?INK:"#C9BFAE"}`,background:filter===f?INK:"transparent",color:filter===f?WHITE:INK,fontSize:11,fontWeight:700,letterSpacing:"0.08em",textTransform:"uppercase",cursor:"pointer",fontFamily:"inherit"}}>{f}</button>
             ))}
-            <input value={qStr} onChange={e=>setQStr(e.target.value)} placeholder="Search client, stone or certificate…" style={{...SS.inp,marginTop:0,maxWidth:280,marginLeft:"auto"}}/>
+            <input value={qStr} onChange={e=>setQStr(e.target.value)} placeholder="Search client, item or certificate…" style={{...SS.inp,marginTop:0,maxWidth:280,marginLeft:"auto"}}/>
           </div>
 
           {shown.length===0
@@ -6726,7 +6736,7 @@ function GemCustody({custody,setCustody,clients,biz}){
                         <Badge label={returned?"Returned":"Holding"} color={returned?WG:OK}/>
                         <span style={{fontSize:11,color:WG,letterSpacing:"0.04em"}}>#{r.id.slice(-6).toUpperCase()}</span>
                       </div>
-                      <div style={{fontSize:13.5,color:INK,marginBottom:4}}>{(r.items||[]).map(itemLabel).join(" · ")||"No stones listed"}</div>
+                      <div style={{fontSize:13.5,color:INK,marginBottom:4}}>{(r.items||[]).map(itemLabel).join(" · ")||"No items listed"}</div>
                       <div style={{fontSize:12.5,color:WG}}>
                         Received {fmtDate(r.dateReceived||r.createdAt)}
                         {r.expectedReturn?` · Return by ${fmtDate(r.expectedReturn)}`:""}
@@ -6757,31 +6767,53 @@ function GemCustody({custody,setCustody,clients,biz}){
       </div>
       <Input label="Reason held / instructions" value={draft.reason} onChange={setF("reason")} as="textarea" rows={2} placeholder="e.g. Client's own diamond, left for resetting into a new engagement ring."/>
 
-      <div style={{margin:"6px 0 8px",display:"flex",alignItems:"center",justifyContent:"space-between"}}>
-        <label style={SS.lbl}>Stones held</label>
-        <Btn sm ghost onClick={addItem}>+ Add stone</Btn>
+      <div style={{margin:"6px 0 8px",display:"flex",alignItems:"center",justifyContent:"space-between",flexWrap:"wrap",gap:8}}>
+        <label style={SS.lbl}>Items held</label>
+        <div style={{display:"flex",gap:8}}>
+          <Btn sm ghost onClick={()=>addItem("stone")}>+ Stone</Btn>
+          <Btn sm ghost onClick={()=>addItem("piece")}>+ Piece</Btn>
+        </div>
       </div>
-      {draft.items.map((it,i)=>(
-        <div key={it.id} style={{border:`1px solid ${BD}`,borderRadius:5,padding:"14px 16px",marginBottom:12,background:PARCH}}>
-          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}}>
-            <span style={{fontSize:11,fontWeight:700,color:WG,textTransform:"uppercase",letterSpacing:"0.06em"}}>Stone {i+1}</span>
+      {draft.items.map((it,i)=>{
+        const piece=it.kind==="piece";
+        return <div key={it.id} style={{border:`1px solid ${BD}`,borderRadius:5,padding:"14px 16px",marginBottom:12,background:PARCH}}>
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10,gap:10,flexWrap:"wrap"}}>
+            <div style={{display:"flex",alignItems:"center",gap:8,flexWrap:"wrap"}}>
+              <span style={{fontSize:11,fontWeight:700,color:WG,textTransform:"uppercase",letterSpacing:"0.06em"}}>{piece?"Piece":"Stone"} {i+1}</span>
+              <div style={{display:"inline-flex",border:`1px solid ${BD}`,borderRadius:3,overflow:"hidden"}}>
+                {[["stone","Loose stone"],["piece","Jewellery piece"]].map(([k,lbl])=>(
+                  <button key={k} onClick={()=>setKind(it.id,k)} style={{padding:"4px 10px",border:"none",background:it.kind===k?INK:WHITE,color:it.kind===k?WHITE:INK,fontSize:10.5,fontWeight:700,letterSpacing:"0.04em",cursor:"pointer",fontFamily:"inherit"}}>{lbl}</button>
+                ))}
+              </div>
+            </div>
             {draft.items.length>1&&<button onClick={()=>removeItem(it.id)} style={{background:"none",border:"none",color:DANGER,fontSize:12,fontWeight:700,cursor:"pointer",fontFamily:"inherit"}}>Remove</button>}
           </div>
-          <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:10}}>
-            <div><label style={SS.lbl}>Type</label><select value={it.type} onChange={e=>setItem(it.id,"type",e.target.value)} style={smInp}>{GEM_TYPES.map(t=><option key={t} value={t}>{t}</option>)}</select></div>
-            <div><label style={SS.lbl}>Carat</label><input value={it.carat} onChange={e=>setItem(it.id,"carat",e.target.value)} placeholder="1.20" style={smInp}/></div>
-            <div><label style={SS.lbl}>Shape / cut</label><select value={it.shape} onChange={e=>setItem(it.id,"shape",e.target.value)} style={smInp}>{GEM_SHAPES.map(s=><option key={s} value={s}>{s||"—"}</option>)}</select></div>
-            <div><label style={SS.lbl}>Colour</label><input value={it.colour} onChange={e=>setItem(it.id,"colour",e.target.value)} placeholder="e.g. F" style={smInp}/></div>
-            <div><label style={SS.lbl}>Clarity</label><input value={it.clarity} onChange={e=>setItem(it.id,"clarity",e.target.value)} placeholder="e.g. VS1" style={smInp}/></div>
-            <div><label style={SS.lbl}>Measurements</label><input value={it.measurements} onChange={e=>setItem(it.id,"measurements",e.target.value)} placeholder="6.8 × 6.8 × 4.2mm" style={smInp}/></div>
-            <div><label style={SS.lbl}>Certificate #</label><input value={it.cert} onChange={e=>setItem(it.id,"cert",e.target.value)} placeholder="GIA / IGI no." style={smInp}/></div>
-            <div><label style={SS.lbl}>Declared value ($)</label><input value={it.estValue} onChange={e=>setItem(it.id,"estValue",e.target.value)} placeholder="0" type="number" min="0" style={smInp}/></div>
-            <div><label style={SS.lbl}>Notes</label><input value={it.notes} onChange={e=>setItem(it.id,"notes",e.target.value)} placeholder="marks, inscriptions…" style={smInp}/></div>
-          </div>
-        </div>
-      ))}
+          {piece
+            ? <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:10}}>
+                <div><label style={SS.lbl}>Piece</label><select value={it.type} onChange={e=>setItem(it.id,"type",e.target.value)} style={smInp}>{PIECE_TYPES.map(t=><option key={t} value={t}>{t}</option>)}</select></div>
+                <div><label style={SS.lbl}>Metal</label><input value={it.metal} onChange={e=>setItem(it.id,"metal",e.target.value)} placeholder="18ct yellow gold" style={smInp}/></div>
+                <div><label style={SS.lbl}>Size / measurements</label><input value={it.measurements} onChange={e=>setItem(it.id,"measurements",e.target.value)} placeholder="Ring size N · 45cm" style={smInp}/></div>
+                <div style={{gridColumn:"span 2"}}><label style={SS.lbl}>Stone(s) set in the piece</label><input value={it.stones} onChange={e=>setItem(it.id,"stones",e.target.value)} placeholder="e.g. 1.00ct round diamond centre + 2 sapphire accents" style={smInp}/></div>
+                <div><label style={SS.lbl}>Certificate / appraisal #</label><input value={it.cert} onChange={e=>setItem(it.id,"cert",e.target.value)} placeholder="GIA / valuation no." style={smInp}/></div>
+                <div><label style={SS.lbl}>Condition on arrival</label><input value={it.condition} onChange={e=>setItem(it.id,"condition",e.target.value)} placeholder="e.g. light wear, no damage" style={smInp}/></div>
+                <div><label style={SS.lbl}>Declared value ($)</label><input value={it.estValue} onChange={e=>setItem(it.id,"estValue",e.target.value)} placeholder="0" type="number" min="0" style={smInp}/></div>
+                <div><label style={SS.lbl}>Notes</label><input value={it.notes} onChange={e=>setItem(it.id,"notes",e.target.value)} placeholder="hallmarks, inscriptions…" style={smInp}/></div>
+              </div>
+            : <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:10}}>
+                <div><label style={SS.lbl}>Type</label><select value={it.type} onChange={e=>setItem(it.id,"type",e.target.value)} style={smInp}>{GEM_TYPES.map(t=><option key={t} value={t}>{t}</option>)}</select></div>
+                <div><label style={SS.lbl}>Carat</label><input value={it.carat} onChange={e=>setItem(it.id,"carat",e.target.value)} placeholder="1.20" style={smInp}/></div>
+                <div><label style={SS.lbl}>Shape / cut</label><select value={it.shape} onChange={e=>setItem(it.id,"shape",e.target.value)} style={smInp}>{GEM_SHAPES.map(s=><option key={s} value={s}>{s||"—"}</option>)}</select></div>
+                <div><label style={SS.lbl}>Colour</label><input value={it.colour} onChange={e=>setItem(it.id,"colour",e.target.value)} placeholder="e.g. F" style={smInp}/></div>
+                <div><label style={SS.lbl}>Clarity</label><input value={it.clarity} onChange={e=>setItem(it.id,"clarity",e.target.value)} placeholder="e.g. VS1" style={smInp}/></div>
+                <div><label style={SS.lbl}>Measurements</label><input value={it.measurements} onChange={e=>setItem(it.id,"measurements",e.target.value)} placeholder="6.8 × 6.8 × 4.2mm" style={smInp}/></div>
+                <div><label style={SS.lbl}>Certificate #</label><input value={it.cert} onChange={e=>setItem(it.id,"cert",e.target.value)} placeholder="GIA / IGI no." style={smInp}/></div>
+                <div><label style={SS.lbl}>Declared value ($)</label><input value={it.estValue} onChange={e=>setItem(it.id,"estValue",e.target.value)} placeholder="0" type="number" min="0" style={smInp}/></div>
+                <div><label style={SS.lbl}>Notes</label><input value={it.notes} onChange={e=>setItem(it.id,"notes",e.target.value)} placeholder="marks, inscriptions…" style={smInp}/></div>
+              </div>}
+        </div>;
+      })}
 
-      <label style={{...SS.lbl,marginTop:6,marginBottom:0}}>Photos of the stone(s)</label>
+      <label style={{...SS.lbl,marginTop:6,marginBottom:0}}>Photos of the item(s)</label>
       {!imagesEnabled()
         ? <div style={{fontSize:12,color:WG,lineHeight:1.55,marginTop:4}}>Photo uploads need the cloud backend — sign in on the deployed app to add photos.</div>
         : <div style={{marginTop:6}}>
