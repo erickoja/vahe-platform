@@ -1006,6 +1006,11 @@ const setCloudActive=(v)=>{_cloudActive=v;};
 // This prevents a stale/empty boot (seed data) from overwriting good cloud data.
 let _cloudLoaded=false;
 const setCloudLoaded=(v)=>{_cloudLoaded=v;};
+// The studio (tenant) the signed-in user belongs to. All cloud reads/writes are
+// scoped to this id, so one studio can never see or overwrite another's data.
+// Resolved from studio_members at login; null until known (blocks cloud writes).
+let _studioId=null;
+const setStudioIdModule=(v)=>{_studioId=v;};
 // Per-key timestamp of THIS client's last cloud write. The realtime channel echoes
 // our own writes back; without this we can re-apply a stale/older echo on top of
 // fresh state and get stuck (e.g. wrong "balance owing" until the next reload).
@@ -1013,32 +1018,37 @@ const _lastWriteAt={};
 // Strict cloud read — throws on error (no silent fallback) so the loader can tell
 // the difference between "no data yet" (null) and "couldn't reach the cloud" (throw).
 const _cloudGet=async(k)=>{
-  const{data,error}=await supabase.from(STATE_TABLE).select("value").eq("key",k).maybeSingle();
+  const{data,error}=await supabase.from(STATE_TABLE).select("value").eq("studio_id",_studioId).eq("key",k).maybeSingle();
   if(error)throw error;
   return data?data.value:null;
 };
 
+// Local fallback keys are namespaced by studio so two studios sharing one browser
+// can't read each other's offline copy. Falls back to "anon" before a studio is known.
+const _localKey=(k)=>`${_studioId||"anon"}:${k}`;
 const _localGet=async(k)=>{
   try{
+    const nk=_localKey(k);
     if(_useClaudeStorage()){
-      const r=await window.storage.get(k);
+      const r=await window.storage.get(nk);
       return(r&&r.value)?JSON.parse(r.value):null;
     }
-    const v=localStorage.getItem(k);
+    const v=localStorage.getItem(nk);
     return v?JSON.parse(v):null;
   }catch(e){return null;}
 };
 const _localSet=(k,v)=>{
   try{
-    if(_useClaudeStorage()){window.storage.set(k,JSON.stringify(v)).catch(()=>{});}
-    else{localStorage.setItem(k,JSON.stringify(v));}
+    const nk=_localKey(k);
+    if(_useClaudeStorage()){window.storage.set(nk,JSON.stringify(v)).catch(()=>{});}
+    else{localStorage.setItem(nk,JSON.stringify(v));}
   }catch(e){}
 };
 
 const _storeGet=async(k)=>{
   if(_cloudActive&&supabase){
     try{
-      const{data,error}=await supabase.from(STATE_TABLE).select("value").eq("key",k).maybeSingle();
+      const{data,error}=await supabase.from(STATE_TABLE).select("value").eq("studio_id",_studioId).eq("key",k).maybeSingle();
       if(error)throw error;
       return data?data.value:null;
     }catch(e){return await _localGet(k);}
@@ -1052,9 +1062,10 @@ const persist=(k,v)=>{
     // SAFETY GUARD: never push to the cloud until we've confirmed a successful
     // cloud read this session. Stops a stale/seed boot from wiping real data.
     if(!_cloudLoaded){console.warn("Skipped cloud save for",k,"— cloud not loaded yet");return;}
+    if(!_studioId){console.warn("Skipped cloud save for",k,"— no studio resolved yet");return;}
     const ts=new Date().toISOString();
     _lastWriteAt[k]=ts;   // remember our own write so its realtime echo can be ignored
-    supabase.from(STATE_TABLE).upsert({key:k,value:v,updated_at:ts},{onConflict:"key"}).then(({error})=>{
+    supabase.from(STATE_TABLE).upsert({studio_id:_studioId,key:k,value:v,updated_at:ts},{onConflict:"studio_id,key"}).then(({error})=>{
       if(error)console.warn("Cloud save failed for",k,error.message);
     });
   }
@@ -1107,7 +1118,8 @@ const fileToLogoDataUrl=(file,maxDim=400)=>new Promise((resolve,reject)=>{
   }catch(e){reject(e);}
 });
 const uploadJobImage=async(jobId,blob)=>{
-  const path=`${jobId}/${uid()}.jpg`;
+  // Scope new uploads under the studio so storage can be isolated per tenant.
+  const path=`${_studioId?_studioId+"/":""}${jobId}/${uid()}.jpg`;
   const{error}=await supabase.storage.from(IMG_BUCKET).upload(path,blob,{contentType:"image/jpeg",upsert:false});
   if(error)throw error;
   return path;
@@ -7114,6 +7126,9 @@ export default function App(){
   const[authReady,setAuthReady]=useState(!supabaseEnabled);
   // Stable across token refreshes — only changes on real sign-in/out
   const userId=session?.user?.id||null;
+  // Which studio (tenant) this user belongs to. null = not resolved yet,
+  // "none" = signed in but linked to no studio (→ onboarding, phase 2).
+  const[studioId,setStudioId]=useState(null);
 
   // Auth: track Supabase session (no-op when Supabase isn't configured → local mode)
   useEffect(()=>{
@@ -7126,6 +7141,21 @@ export default function App(){
     });
     return()=>{try{sub.subscription.unsubscribe();}catch(e){}};
   },[]);
+
+  // Resolve the user's studio once we have a session, before any data loads.
+  useEffect(()=>{
+    if(!supabaseEnabled||!userId){setStudioIdModule(null);setStudioId(null);return;}
+    let cancelled=false;
+    (async()=>{
+      try{
+        const{data}=await supabase.from("studio_members").select("studio_id").eq("user_id",userId).limit(1).maybeSingle();
+        if(cancelled)return;
+        if(data&&data.studio_id){setStudioIdModule(data.studio_id);setStudioId(data.studio_id);}
+        else{setStudioIdModule(null);setStudioId("none");}
+      }catch(e){if(!cancelled){setStudioIdModule(null);setStudioId("none");}}
+    })();
+    return()=>{cancelled=true;};
+  },[userId]);
 
   // Keep the markup threshold buffer (used inside pure calc helpers) in sync with business settings
   useEffect(()=>{setMarkupBuffer(biz?.markupBuffer||0);},[biz?.markupBuffer]);
@@ -7141,9 +7171,11 @@ export default function App(){
   },[]);
 
   useEffect(()=>{
-    // Wait until we know the auth state. In cloud mode, only load once logged in.
+    // Wait until we know the auth state. In cloud mode, only load once logged in
+    // AND once the user's studio is resolved to a real id (so reads/writes scope).
     if(!authReady)return;
     if(supabaseEnabled&&!userId)return;
+    if(supabaseEnabled&&(!studioId||studioId==="none"))return;
 
     const keyToSetter={
       [K.cl]:setClients,[K.jo]:setJobs,[K.qu]:setQuotes,[K.pa]:setPayments,
@@ -7220,7 +7252,7 @@ export default function App(){
     let channel=null;
     if(supabaseEnabled&&userId&&supabase){
       channel=supabase.channel("studio_state_changes")
-        .on("postgres_changes",{event:"*",schema:"public",table:STATE_TABLE},(payload)=>{
+        .on("postgres_changes",{event:"*",schema:"public",table:STATE_TABLE,filter:`studio_id=eq.${_studioId}`},(payload)=>{
           const row=payload.new&&Object.keys(payload.new).length?payload.new:null;
           if(!row)return;
           // Ignore echoes of our own writes (and any snapshot at/older than our last write
@@ -7234,7 +7266,7 @@ export default function App(){
         .subscribe();
     }
     return()=>{clearTimeout(giveUp);if(channel&&supabase){try{supabase.removeChannel(channel);}catch(e){}}};
-  },[authReady,userId,loadNonce]);
+  },[authReady,userId,studioId,loadNonce]);
 
   const setView=useCallback(v=>{
     if(v.startsWith("clientDetail_")){setSelClient(v.split("_")[1]);setViewRaw("clientDetail");}
@@ -7360,6 +7392,17 @@ export default function App(){
   if(supabaseEnabled){
     if(!authReady)return <div style={{display:"flex",alignItems:"center",justifyContent:"center",minHeight:"100vh",background:CREAM,fontFamily:"'DM Sans',sans-serif",color:WG,fontSize:14}}>Loading…</div>;
     if(!session)return <Login/>;
+    // Resolving which studio this user belongs to — hold before showing any data
+    if(studioId===null)return <div style={{display:"flex",alignItems:"center",justifyContent:"center",minHeight:"100vh",background:CREAM,fontFamily:"'DM Sans',sans-serif",color:WG,fontSize:14}}>Loading…</div>;
+    // Signed in but not linked to any studio (onboarding comes in phase 2)
+    if(studioId==="none")return <div style={{display:"flex",alignItems:"center",justifyContent:"center",minHeight:"100vh",background:CREAM,fontFamily:"'DM Sans',sans-serif",padding:20}}>
+      <div style={{maxWidth:420,textAlign:"center",background:WHITE,border:`1px solid ${BD}`,borderRadius:RADIUS,padding:"32px 30px",boxShadow:SHADOW}}>
+        <div style={{fontSize:32,marginBottom:12}}>🔑</div>
+        <div style={{fontSize:17,fontWeight:800,color:INK,marginBottom:8}}>No studio linked to this account</div>
+        <div style={{fontSize:13,color:WG,lineHeight:1.6,marginBottom:22}}>Your login isn't attached to a studio yet. Ask your studio owner for an invite, or contact support to get set up.</div>
+        <Btn ghost onClick={()=>supabase.auth.signOut()}>Sign out</Btn>
+      </div>
+    </div>;
     // Cloud load failed — block the app so stale/seed data can't be saved over good cloud data
     if(loadError)return <div style={{display:"flex",alignItems:"center",justifyContent:"center",minHeight:"100vh",background:CREAM,fontFamily:"'DM Sans',sans-serif",padding:20}}>
       <div style={{maxWidth:420,textAlign:"center",background:WHITE,border:`1px solid ${BD}`,borderRadius:RADIUS,padding:"32px 30px",boxShadow:SHADOW}}>
