@@ -3116,23 +3116,25 @@ function QuoteBuilder({jobId:jobIdProp,editQuoteId,stockId,stock,setStock,jobs,c
       {/* Manufacturing-markup accent stones — folded into the jewellery costs list (editable) */}
       {mfgAccents.map(li=>{
         const cost=Number(li.costLow)||0;
+        const totalStr=cost>0?fmt(cost):"—";
         return <div key={li.id} style={{display:"grid",gridTemplateColumns:"minmax(240px,1.6fr) 1fr 120px 104px",gap:8,marginBottom:8,alignItems:"center"}}>
-          <input value={li.description} onChange={e=>setAccentItem(li.id,"description",e.target.value)} placeholder="e.g. 4 × pear sapphire" style={{...SS.inp,marginTop:0,fontSize:13,padding:"7px 10px"}}/>
           <div style={{display:"flex",alignItems:"center",gap:6,minWidth:0}}>
             <span style={{background:"#EEF4FB",color:"#3B6E8F",fontSize:8,fontWeight:800,padding:"3px 5px",borderRadius:3,letterSpacing:"0.04em",flexShrink:0}} title="Accent / fancy stone">ACCENT</span>
-            <input value={li.detail||""} onChange={e=>setAccentItem(li.id,"detail",e.target.value)} placeholder="notes (optional)" style={{...SS.inp,marginTop:0,fontSize:13,padding:"7px 10px",color:WG,flex:1,minWidth:0}}/>
-            <select value={li.markupMode||"mfg"} onChange={e=>setAccentItem(li.id,"markupMode",e.target.value)} title="Markup basis — switch to natural/lab to price it separately" style={{...SS.inp,marginTop:0,fontSize:11,padding:"5px 6px",width:"auto",flexShrink:0}}>
-              <option value="mfg">Mfg</option>
-              <option value="natural">Natural</option>
-              <option value="lab">Lab</option>
-            </select>
+            <input value={li.description} onChange={e=>setAccentItem(li.id,"description",e.target.value)} placeholder="e.g. pear sapphire" style={{...SS.inp,marginTop:0,fontSize:13,padding:"7px 10px",flex:1,minWidth:0}}/>
           </div>
+          <input value={li.detail||""} onChange={e=>setAccentItem(li.id,"detail",e.target.value)} placeholder="notes (optional)" style={{...SS.inp,marginTop:0,fontSize:13,padding:"7px 10px",color:WG}}/>
           <div style={{position:"relative"}}>
             <span style={{position:"absolute",left:10,top:"50%",transform:"translateY(-50%)",fontSize:12,color:WG,pointerEvents:"none"}}>$</span>
             <input type="number" value={li.costLow} onChange={e=>setAccentItem(li.id,"costLow",e.target.value)} placeholder="0.00" min="0" step="0.01" style={{...SS.inp,marginTop:0,fontSize:13,padding:"7px 8px 7px 22px",textAlign:"right",borderColor:cost>0?"#8EB5D4":BD,fontWeight:cost>0?700:400}}/>
           </div>
-          <div style={{display:"flex",gap:3,alignItems:"center",justifyContent:"flex-end"}}>
-            <button onClick={()=>removeAccentItem(li.id)} style={{background:"none",border:"none",cursor:"pointer",color:DANGER,fontSize:17,padding:0,lineHeight:1}}>×</button>
+          <div style={{fontSize:13,fontWeight:700,color:INK,textAlign:"right",whiteSpace:"nowrap"}}>{totalStr}</div>
+          <div style={{display:"flex",gap:4,alignItems:"center"}}>
+            <select value={li.markupMode||"mfg"} onChange={e=>setAccentItem(li.id,"markupMode",e.target.value)} title="Markup basis — switch to natural/lab to price it separately" style={{...SS.inp,marginTop:0,fontSize:11,padding:"5px 4px",width:"auto"}}>
+              <option value="mfg">Mfg</option>
+              <option value="natural">Natural</option>
+              <option value="lab">Lab</option>
+            </select>
+            <button onClick={()=>removeAccentItem(li.id)} title="Delete this line" style={{background:"none",border:"none",cursor:"pointer",color:DANGER,fontSize:17,padding:0,lineHeight:1}}>×</button>
           </div>
         </div>;})}
       {/* Sourced centre / feature stone — folded into the jewellery costs list (priced on the stone markup) */}
