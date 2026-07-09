@@ -878,18 +878,20 @@ const clientDisplayName=c=>{if(!c)return"";const p=(c.partnerName||"").trim();re
 
 // ── Storage ───────────────────────────────────────────────────────────────
 // ── Stone quote calculation (cost → markup → +GST) ───────────────────────
-const calcStoneQuote=(items,table)=>{
+const calcStoneQuote=(items,table,overrideMult)=>{
   const stones=items.filter(i=>Number(i.cost||i.costLow)>0);
   if(!stones.length)return null;
   const totalCost=stones.reduce((s,i)=>s+Number(i.cost||i.costLow||0),0);
   const bracket=(table||[]).find(b=>totalCost>=b.low&&totalCost<=b.high)||null;
-  const mult=bracket?.multiplier||1;
+  const autoMult=bracket?.multiplier||1;
+  const ov=Number(overrideMult)||0;                 // per-quote manual multiplier (e.g. dial a big stone down)
+  const mult=ov>0?ov:autoMult;
   // Round the final inclusive price (global rounding setting), then back out the GST
   // component so markedUp + gst still sum exactly to what the client pays.
   const clientTotal=roundQ(totalCost*mult*(1+GST_RATE));
   const gst=clientTotal-clientTotal/(1+GST_RATE);
   const markedUp=clientTotal-gst;
-  return{totalCost,bracket,mult,markedUp,gst,clientTotal};
+  return{totalCost,bracket,mult,autoMult,overridden:ov>0,markedUp,gst,clientTotal};
 };
 
 const K={cl:"jlr4_clients",jo:"jlr4_jobs",qu:"jlr4_quotes",pa:"jlr4_payments",pr:"jlr4_pricing_v9",biz:"jlr4_biz",no:"jlr4_notes",inv:"jlr4_invoices",spot:"jlr4_spot",mt:"jlr4_markup",smn:"jlr4_stone_nat",sml:"jlr4_stone_lab",csr:"jlr4_centre_rates",ap:"jlr4_appointments",pp:"jlr4_proposals",td:"jlr4_todos",st:"jlr4_stock",gc:"jlr4_gem_custody",delpr:"jlr4_deleted_pricing"};
@@ -1196,13 +1198,13 @@ const SS={inp:{width:"100%",padding:"10px 13px",borderRadius:4,border:`1px solid
 
 function StoneMarkupSummary({calc}){
   if(!calc)return null;
-  if(!calc.bracket)return <div style={{background:"#FFF3CD",border:"1px solid #F0C040",borderRadius:6,padding:"12px 16px",fontSize:13,color:WARN}}>Stone cost is outside your stone markup table range — check your table in Settings.</div>;
+  if(!calc.bracket&&!calc.overridden)return <div style={{background:"#FFF3CD",border:"1px solid #F0C040",borderRadius:6,padding:"12px 16px",fontSize:13,color:WARN}}>Stone cost is outside your stone markup table range — check your table in Settings, or set a manual multiplier below.</div>;
   return <div style={{background:PARCH,border:`1px solid ${BD}`,borderRadius:4,overflow:"hidden"}}>
     <div style={{display:"grid",gridTemplateColumns:"repeat(5,1fr)",borderBottom:`1px solid ${BD}`}}>
       {[
         ["Your cost",fmt(calc.totalCost),WG],
         ["Bracket",calc.bracket?`${fmt(calc.bracket.low)}–${fmt(calc.bracket.high)}`:"—",WG],
-        ["Markup",`${calc.mult}×`,"#7B5EA7"],
+        ["Markup",`${calc.mult}×${calc.overridden?" (override)":""}`,calc.overridden?GOLD:"#7B5EA7"],
         ["Marked up",fmt(calc.markedUp),INK],
         ["+ GST → Client",fmtR(calc.clientTotal),OK],
       ].map(([l,v,col])=>(
@@ -2925,6 +2927,7 @@ function QuoteBuilder({jobId:jobIdProp,editQuoteId,stockId,stock,setStock,jobs,c
   const[title,setTitle]=useState(seed?.title??(job?.type||""));   // prefill new quotes with the job type
   const[pieceTitle,setPieceTitle]=useState(seed?.pieceTitle||"");  // custom piece name on documents; blank = use job type
   const[markupOverride,setMarkupOverride]=useState(seed?.markupOverride?String(seed.markupOverride):"");
+  const[stoneOverride,setStoneOverride]=useState(seed?.stoneMarkupOverride?String(seed.stoneMarkupOverride):"");
   const[manualTotal,setManualTotal]=useState(seed?.manualTotal?String(seed.manualTotal):"");
   const[validUntil,setValidUntil]=useState(seed?.validUntil||"");
   const[pricingModal,setPricingModal]=useState(false);
@@ -3054,7 +3057,7 @@ function QuoteBuilder({jobId:jobIdProp,editQuoteId,stockId,stock,setStock,jobs,c
   const calc=calcQuote(validItems.length?validItems:items,markupTable,markupOverride);
   const validStoneItems=stoneItems.filter(i=>(Number(i.cost)||Number(i.costLow))>0);
   const activeStoneMarkup=stoneType==="lab"?labStoneMarkup:naturalStoneMarkup;
-  const stoneCalc=stoneMode==="sourcing"&&stoneType&&validStoneItems.length>0?calcStoneQuote(validStoneItems,activeStoneMarkup):null;
+  const stoneCalc=stoneMode==="sourcing"&&stoneType&&validStoneItems.length>0?calcStoneQuote(validStoneItems,activeStoneMarkup,stoneOverride):null;
   const stoneClientTotal=stoneCalc?.clientTotal||0;
   // Accent/fancy stones set to follow the stone markup — each priced like the centre stone (cost × stone tier + 10% GST)
   const accentStoneItems=validAccentItems.filter(i=>i.markupMode==="natural"||i.markupMode==="lab");
@@ -3070,7 +3073,7 @@ function QuoteBuilder({jobId:jobIdProp,editQuoteId,stockId,stock,setStock,jobs,c
       // Persist the full pricing payload (so it can be reopened & re-priced), plus the resulting
       // cost + retail (inc GST) onto the stock piece. Retail auto-fills but stays editable in Stock.
       const payload={title:title.trim(),markupOverride:Number(markupOverride)||0,manualTotal:Number(manualTotal)||0,notes,lineItems:validItems,
-        stoneMode,stoneType:stoneMode==="sourcing"?stoneType:"",stoneItems:stoneMode==="sourcing"?validStoneItems:[],
+        stoneMode,stoneType:stoneMode==="sourcing"?stoneType:"",stoneItems:stoneMode==="sourcing"?validStoneItems:[],stoneMarkupOverride:Number(stoneOverride)||0,
         stoneNotes,stoneClientTotal:stoneCalc?.clientTotal||0,accentStoneTotal};
       const sourcedStoneCost=stoneMode==="sourcing"?validStoneItems.reduce((s,i)=>s+(Number(i.cost)||Number(i.costLow)||0),0):0;
       // Your true cost = marked-up items' cost (base) + at-cost items (flatTotal) + any sourced stones.
@@ -3083,12 +3086,12 @@ function QuoteBuilder({jobId:jobIdProp,editQuoteId,stockId,stock,setStock,jobs,c
     if(isEditing){
       // Update existing quote — preserve id, jobId, createdAt
       const updated={...existingQuote,status,title:title.trim(),pieceTitle:pieceTitle.trim(),markupOverride:Number(markupOverride)||0,manualTotal:Number(manualTotal)||0,validUntil,notes,lineItems:validItems,
-        stoneMode,stoneType:stoneMode==="sourcing"?stoneType:"",stoneItems:stoneMode==="sourcing"?validStoneItems:[],
+        stoneMode,stoneType:stoneMode==="sourcing"?stoneType:"",stoneItems:stoneMode==="sourcing"?validStoneItems:[],stoneMarkupOverride:Number(stoneOverride)||0,
         stoneNotes,stoneClientTotal:stoneCalc?.clientTotal||0,accentStoneTotal,clientDescription,updatedAt:today()};
       setQuotes(p=>{const n=p.map(q=>q.id===editQuoteId?updated:q);persist(K.qu,n);return n;});
     }else{
       const q={id:uid(),jobId,status,title:title.trim(),pieceTitle:pieceTitle.trim(),markupOverride:Number(markupOverride)||0,manualTotal:Number(manualTotal)||0,createdAt:today(),validUntil,notes,lineItems:validItems,
-        stoneMode,stoneType:stoneMode==="sourcing"?stoneType:"",stoneItems:stoneMode==="sourcing"?validStoneItems:[],
+        stoneMode,stoneType:stoneMode==="sourcing"?stoneType:"",stoneItems:stoneMode==="sourcing"?validStoneItems:[],stoneMarkupOverride:Number(stoneOverride)||0,
         stoneNotes,stoneClientTotal:stoneCalc?.clientTotal||0,accentStoneTotal,clientDescription};
       setQuotes(p=>{const n=[...p,q];persist(K.qu,n);return n;});
     }
@@ -3322,6 +3325,19 @@ function QuoteBuilder({jobId:jobIdProp,editQuoteId,stockId,stock,setStock,jobs,c
               {stoneType==="lab"?"Lab-Grown stone":"Natural stone"} — markup + GST
             </div>
             <StoneMarkupSummary calc={stoneCalc}/>
+            {/* Manual stone-markup override — dial a pricey stone down, this quote only */}
+            <div style={{display:"flex",alignItems:"center",gap:12,marginTop:12,flexWrap:"wrap"}}>
+              <span style={{fontSize:12,fontWeight:700,color:WG}}>Stone markup multiplier</span>
+              <div style={{position:"relative",width:120}}>
+                <input type="number" value={stoneOverride} onChange={e=>setStoneOverride(e.target.value)} placeholder={`${stoneCalc.autoMult} auto`} min="0" step="0.05"
+                  style={{...SS.inp,marginTop:0,fontSize:13,padding:"7px 22px 7px 10px",textAlign:"right",fontWeight:stoneOverride?700:400,borderColor:stoneOverride?GOLD:BD}}/>
+                <span style={{position:"absolute",right:9,top:"50%",transform:"translateY(-50%)",fontSize:12,color:WG,pointerEvents:"none"}}>×</span>
+              </div>
+              {stoneOverride
+                ?<><span style={{fontSize:12,color:GOLD_D,fontWeight:700}}>Override on · table suggests {stoneCalc.autoMult}×</span>
+                   <button onClick={()=>setStoneOverride("")} style={{background:"none",border:`1px solid ${BD}`,borderRadius:6,padding:"4px 10px",fontSize:11,fontWeight:700,color:WG,cursor:"pointer",fontFamily:"inherit"}}>Reset to auto</button></>
+                :<span style={{fontSize:12,color:WG}}>Blank = use the bracket ({stoneCalc.autoMult}×). Lower it for a pricey stone — this quote only.</span>}
+            </div>
           </div>}
           <Input label="Stone notes (for records)" value={stoneNotes} onChange={setStoneNotes} as="textarea" rows={2} placeholder="e.g. Sourced from XYZ. GIA cert pending."/>
         </>}
@@ -4462,7 +4478,7 @@ function QuoteDetail({quoteId,quotes,setQuotes,jobs,clients,biz,markupTable,natu
   const c=job?clients.find(x=>x.id===job.clientId):null;
   const calc=calcQuote(q.lineItems,markupTable,q.markupOverride);
   const activeStoneMarkup=q.stoneType==="lab"?(labStoneMarkup||[]):(naturalStoneMarkup||[]);
-  const stoneCalc=q.stoneMode==="sourcing"&&q.stoneItems?.length?calcStoneQuote(q.stoneItems,activeStoneMarkup):null;
+  const stoneCalc=q.stoneMode==="sourcing"&&q.stoneItems?.length?calcStoneQuote(q.stoneItems,activeStoneMarkup,q.stoneMarkupOverride):null;
   const stoneClientTotal=stoneCalc?.clientTotal||0;
   const accentStoneTotal=q.accentStoneTotal||0;
   const manual=quoteIsManual(q);
