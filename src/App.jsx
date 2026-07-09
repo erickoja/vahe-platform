@@ -898,11 +898,29 @@ const K={cl:"jlr4_clients",jo:"jlr4_jobs",qu:"jlr4_quotes",pa:"jlr4_payments",pr
 const PUBLIC_PROPOSALS_TABLE="public_proposals";
 // Build the frozen client-facing snapshot from the chosen option quotes. Stored in the
 // cloud at publish time so the client always sees exactly what was sent (no live data access).
+// Turn a pasted video URL into a safe embed. We only ever build an <iframe> from a
+// provider-normalised URL (never the raw user string); anything else becomes a plain link.
+function videoEmbed(url){
+  const u=(url||"").trim();
+  if(!u)return null;
+  try{
+    let m=u.match(/(?:youtube\.com\/(?:watch\?v=|shorts\/|embed\/)|youtu\.be\/)([\w-]{11})/);
+    if(m)return{type:"iframe",src:`https://www.youtube.com/embed/${m[1]}`,href:u};
+    m=u.match(/vimeo\.com\/(?:video\/)?(\d+)/);
+    if(m)return{type:"iframe",src:`https://player.vimeo.com/video/${m[1]}`,href:u};
+    m=u.match(/loom\.com\/(?:share|embed)\/([\w-]+)/);
+    if(m)return{type:"iframe",src:`https://www.loom.com/embed/${m[1]}`,href:u};
+    if(/\.(mp4|webm|ogg|mov|m4v)(\?.*)?$/i.test(u))return{type:"video",src:u,href:u};
+    return{type:"link",src:u,href:u};
+  }catch(e){return{type:"link",src:u,href:u};}
+}
+
 const buildProposalSnapshot=({proposal,job,client,biz,quotes,markupTable,payments,photoMap})=>{
   const validityDays=biz?.quoteValidityDays||30;
   const created=proposal.createdAt||today();
   const paidTotal=(payments||[]).filter(p=>p.jobId===job?.id&&p.status==="Received").reduce((s,p)=>s+Number(p.amount),0);
   const optPhotos=proposal.optionPhotos||{};
+  const optVideos=proposal.optionVideos||{};
   const options=(proposal.optionIds||[]).map(qid=>{
     const q=quotes.find(x=>x.id===qid);
     if(!q)return null;
@@ -921,6 +939,7 @@ const buildProposalSnapshot=({proposal,job,client,biz,quotes,markupTable,payment
       recommended:proposal.recommendedId===q.id,
       photo:photos[0]||null,   // back-compat: first image
       photos,
+      video:optVideos[qid]||null,
     };
   }).filter(Boolean);
   return{
@@ -3518,6 +3537,7 @@ function JobProposals({job,client,quotes,proposals,setProposals,setQuotes,biz,ma
   const [checking,setChecking]=useState("");
   const [selectMode,setSelectMode]=useState("single");   // "single" = pick one, "multi" = pick any (bundle)
   const [optPhotos,setOptPhotos]=useState({});            // quoteId → chosen job image path
+  const [optVideos,setOptVideos]=useState({});            // quoteId → video URL (YouTube/Vimeo/Loom/direct)
   const [jobPhotos,setJobPhotos]=useState([]);            // job's uploaded images as {path,url,caption}
   const [preview,setPreview]=useState(null);              // {url,caption} shown full-size while choosing photos
   useEffect(()=>{
@@ -3540,7 +3560,7 @@ function JobProposals({job,client,quotes,proposals,setProposals,setQuotes,biz,ma
   const toggle=id=>setSel(p=>p.includes(id)?p.filter(x=>x!==id):[...p,id]);
   // optPhotos[qid] is an array of chosen image paths — tap toggles a photo in/out of the option.
   const pickPhoto=(qid,path)=>setOptPhotos(p=>{const cur=p[qid]||[];return{...p,[qid]:cur.includes(path)?cur.filter(x=>x!==path):[...cur,path]};});
-  const openBuilder=()=>{setSel([]);setRecommended("");setIntro("");setSelectMode("single");setOptPhotos({});setBuilder(true);};
+  const openBuilder=()=>{setSel([]);setRecommended("");setIntro("");setSelectMode("single");setOptPhotos({});setOptVideos({});setBuilder(true);};
 
   const createAndShare=async()=>{
     if(!sel.length)return alert("Pick at least one quote to include as an option.");
@@ -3549,7 +3569,8 @@ function JobProposals({job,client,quotes,proposals,setProposals,setQuotes,biz,ma
     const id=uid(),token=proposalToken();
     const orderedIds=optionable.filter(q=>sel.includes(q.id)).map(q=>q.id);
     const optionPhotos={};orderedIds.forEach(qid=>{const arr=optPhotos[qid];if(arr&&arr.length)optionPhotos[qid]=arr;});
-    const proposal={id,jobId:job.id,token,optionIds:orderedIds,optionPhotos,recommendedId:selectMode==="multi"?"":(recommended||""),selectMode,intro:intro.trim()||defaultIntro,createdAt:today(),status:"sent",acceptedQuoteId:null,acceptedName:"",acceptedAt:null};
+    const optionVideos={};orderedIds.forEach(qid=>{const v=(optVideos[qid]||"").trim();if(v)optionVideos[qid]=v;});
+    const proposal={id,jobId:job.id,token,optionIds:orderedIds,optionPhotos,optionVideos,recommendedId:selectMode==="multi"?"":(recommended||""),selectMode,intro:intro.trim()||defaultIntro,createdAt:today(),status:"sent",acceptedQuoteId:null,acceptedName:"",acceptedAt:null};
     const photoMap=await jobImageMap(job);
     const snapshot=buildProposalSnapshot({proposal,job,client,biz,quotes,markupTable,payments,photoMap});
     const{error}=await supabase.from(PUBLIC_PROPOSALS_TABLE).insert({token,data:snapshot,status:"sent",created_at:new Date().toISOString()});
@@ -3684,6 +3705,10 @@ function JobProposals({job,client,quotes,proposals,setProposals,setQuotes,biz,ma
                   })}
                 </div>
               </>}
+            <div style={{marginTop:jobPhotos.length?14:0}}>
+              <label style={{fontSize:10,fontWeight:700,color:WG,textTransform:"uppercase",letterSpacing:"0.06em",display:"block",marginBottom:6}}>Video for this option <span style={{fontWeight:400,textTransform:"none",letterSpacing:0}}>(optional — paste a YouTube, Vimeo, Loom or direct video link)</span></label>
+              <input value={optVideos[q.id]||""} onChange={e=>setOptVideos(p=>({...p,[q.id]:e.target.value}))} placeholder="https://youtu.be/…" style={{...SS.inp,marginTop:0,fontSize:13,padding:"7px 10px"}}/>
+            </div>
           </div>}
         </div>;
       })}
@@ -4035,6 +4060,15 @@ function PublicProposalPage({token}){
                 {photos.map((src,i)=><img key={i} src={src} alt={`${o.label} ${i+1}`} onClick={e=>{e.stopPropagation();setPhoto(src);}}
                   style={{width:84,height:84,objectFit:"cover",borderRadius:6,border:`1px solid ${BD}`,cursor:"zoom-in"}}/>)}
               </div>;})()}
+            {(()=>{const emb=videoEmbed(o.video);if(!emb)return null;return <div style={{marginTop:14}} onClick={e=>e.stopPropagation()}>
+              {emb.type==="iframe"
+                ?<div style={{position:"relative",width:"100%",paddingBottom:"56.25%",borderRadius:6,overflow:"hidden",border:`1px solid ${BD}`}}>
+                    <iframe src={emb.src} title={`${o.label} video`} allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowFullScreen style={{position:"absolute",top:0,left:0,width:"100%",height:"100%",border:0}}/>
+                  </div>
+                :emb.type==="video"
+                ?<video src={emb.src} controls style={{width:"100%",borderRadius:6,border:`1px solid ${BD}`,display:"block"}}/>
+                :<a href={emb.href} target="_blank" rel="noopener noreferrer" style={{display:"inline-flex",alignItems:"center",gap:8,fontSize:13,fontWeight:700,color:GOLD_D,textDecoration:"none",border:`1px solid ${GOLD}`,borderRadius:6,padding:"8px 14px"}}>▶ Watch video</a>}
+            </div>;})()}
           </div>;
         })}
       </div>
