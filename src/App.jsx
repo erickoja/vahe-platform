@@ -1176,7 +1176,7 @@ const jobImagesForPrint=async(job,max=6)=>{
     const signed=await signedImageUrl(img.path);
     if(!signed)continue;
     const dataUrl=await urlToDataUrl(signed);
-    out.push({path:img.path,url:dataUrl||signed,caption:img.caption||""});
+    out.push({path:img.path,url:dataUrl||signed,caption:img.caption||"",name:img.name||""});
   }
   return out;
 };
@@ -3723,7 +3723,9 @@ function JobProposals({job,client,quotes,proposals,setProposals,setQuotes,biz,ma
                         {picked&&<span style={{position:"absolute",top:4,left:4,minWidth:18,height:18,padding:"0 4px",boxSizing:"border-box",background:GOLD,color:WHITE,fontSize:11,fontWeight:800,lineHeight:"18px",textAlign:"center",borderRadius:9,boxShadow:"0 1px 3px rgba(0,0,0,0.3)"}}>{order+1}</span>}
                         <span onClick={e=>{e.stopPropagation();setPreview(ph);}} title="View full size" style={{position:"absolute",bottom:4,right:4,width:24,height:24,borderRadius:"50%",background:"rgba(0,0,0,0.6)",color:WHITE,fontSize:12,lineHeight:0,display:"flex",alignItems:"center",justifyContent:"center",cursor:"zoom-in"}}>🔍</span>
                       </button>
-                      <div style={{fontSize:10,color:WG,marginTop:4,lineHeight:1.3,wordBreak:"break-word"}}>{(ph.caption||"").trim()||<span style={{fontStyle:"italic",opacity:0.7}}>Photo {idx+1}</span>}</div>
+                      <div style={{fontSize:10,color:WG,marginTop:4,lineHeight:1.3,wordBreak:"break-word"}}>{ph.name
+                        ?<><span style={{color:INK,fontWeight:600}}>{ph.name}</span>{(ph.caption||"").trim()?<span> · {ph.caption}</span>:""}</>
+                        :((ph.caption||"").trim()||<span style={{fontStyle:"italic",opacity:0.7}}>Photo {idx+1}</span>)}</div>
                     </div>;
                   })}
                 </div>
