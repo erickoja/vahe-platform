@@ -952,6 +952,8 @@ const buildProposalSnapshot=({proposal,job,client,biz,quotes,markupTable,payment
     selectMode:proposal.selectMode==="multi"?"multi":"single",
     depositPercent:biz?.depositPercent||50,
     paidTotal,
+    dueNow:proposal.dueNow??null,
+    paymentNote:proposal.paymentNote||"",
     validUntil:addDays(String(created).slice(0,10),validityDays),
     terms:biz?.quoteTerms||"All custom jewellery requires a deposit before work commences. The final balance is due prior to collection. Quoted prices are valid for the period stated above. Price variations may apply if material costs change significantly. All pieces are handcrafted to order and cannot be returned unless faulty. Estimated completion times are indicative only.",
     createdAt:created,
@@ -3541,6 +3543,8 @@ function JobProposals({job,client,quotes,proposals,setProposals,setQuotes,biz,ma
   const [optVideos,setOptVideos]=useState({});            // quoteId → video URL (YouTube/Vimeo/Loom/direct)
   const [bulkVideos,setBulkVideos]=useState("");          // paste-many box: one link per line, assigned across options
   const [showBulk,setShowBulk]=useState(false);
+  const [dueNow,setDueNow]=useState("");                  // optional custom "amount due now" (overrides full balance)
+  const [payNote,setPayNote]=useState("");                // optional payment-terms note shown near the balance
   const [jobPhotos,setJobPhotos]=useState([]);            // job's uploaded images as {path,url,caption}
   const [preview,setPreview]=useState(null);              // {url,caption} shown full-size while choosing photos
   useEffect(()=>{
@@ -3563,7 +3567,7 @@ function JobProposals({job,client,quotes,proposals,setProposals,setQuotes,biz,ma
   const toggle=id=>setSel(p=>p.includes(id)?p.filter(x=>x!==id):[...p,id]);
   // optPhotos[qid] is an array of chosen image paths — tap toggles a photo in/out of the option.
   const pickPhoto=(qid,path)=>setOptPhotos(p=>{const cur=p[qid]||[];return{...p,[qid]:cur.includes(path)?cur.filter(x=>x!==path):[...cur,path]};});
-  const openBuilder=()=>{setSel([]);setRecommended("");setIntro("");setSelectMode("single");setOptPhotos({});setOptVideos({});setBulkVideos("");setShowBulk(false);setBuilder(true);};
+  const openBuilder=()=>{setSel([]);setRecommended("");setIntro("");setSelectMode("single");setOptPhotos({});setOptVideos({});setBulkVideos("");setShowBulk(false);setDueNow("");setPayNote("");setBuilder(true);};
   // Assign pasted links (one per line) to the ticked options, in display order.
   const applyBulkVideos=()=>{
     const links=bulkVideos.split(/[\r\n]+/).map(s=>s.trim()).filter(Boolean);
@@ -3582,7 +3586,7 @@ function JobProposals({job,client,quotes,proposals,setProposals,setQuotes,biz,ma
     const orderedIds=optionable.filter(q=>sel.includes(q.id)).map(q=>q.id);
     const optionPhotos={};orderedIds.forEach(qid=>{const arr=optPhotos[qid];if(arr&&arr.length)optionPhotos[qid]=arr;});
     const optionVideos={};orderedIds.forEach(qid=>{const v=(optVideos[qid]||"").trim();if(v)optionVideos[qid]=v;});
-    const proposal={id,jobId:job.id,token,optionIds:orderedIds,optionPhotos,optionVideos,recommendedId:selectMode==="multi"?"":(recommended||""),selectMode,intro:intro.trim()||defaultIntro,createdAt:today(),status:"sent",acceptedQuoteId:null,acceptedName:"",acceptedAt:null};
+    const proposal={id,jobId:job.id,token,optionIds:orderedIds,optionPhotos,optionVideos,recommendedId:selectMode==="multi"?"":(recommended||""),selectMode,intro:intro.trim()||defaultIntro,dueNow:Number(dueNow)>0?+(+dueNow).toFixed(2):null,paymentNote:payNote.trim(),createdAt:today(),status:"sent",acceptedQuoteId:null,acceptedName:"",acceptedAt:null};
     const photoMap=await jobImageMap(job);
     const snapshot=buildProposalSnapshot({proposal,job,client,biz,quotes,markupTable,payments,photoMap});
     const{error}=await supabase.from(PUBLIC_PROPOSALS_TABLE).insert({token,data:snapshot,status:"sent",created_at:new Date().toISOString()});
@@ -3741,6 +3745,14 @@ function JobProposals({job,client,quotes,proposals,setProposals,setQuotes,biz,ma
         <label style={{...SS.lbl,marginBottom:6}}>Intro message <span style={{fontWeight:400,color:WG,textTransform:"none",letterSpacing:0}}>(optional — shown at the top of the proposal)</span></label>
         <textarea value={intro} onChange={e=>setIntro(e.target.value)} rows={3} placeholder={defaultIntro} style={{...SS.inp,marginTop:0,resize:"vertical",lineHeight:1.6}}/>
         <div style={{fontSize:11,color:WG,marginTop:5}}>Leave blank and this greyed message is added automatically.</div>
+      </div>
+      <div style={{marginTop:14,border:`1px solid ${BD}`,borderRadius:4,padding:"14px 16px",background:PARCH}}>
+        <label style={{...SS.lbl,marginBottom:6}}>Payment terms <span style={{fontWeight:400,color:WG,textTransform:"none",letterSpacing:0}}>(optional)</span></label>
+        <div style={{fontSize:11,color:WG,lineHeight:1.5,marginBottom:10}}>By default the proposal asks for the full balance (total − payments received). Set a custom amount to request only part now — the rest is shown as due on completion.</div>
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"0 16px"}}>
+          <Input label="Amount due now ($)" value={dueNow} onChange={setDueNow} type="number" min="0" step="0.01" placeholder="Leave blank for full balance"/>
+          <Input label="Payment note" value={payNote} onChange={setPayNote} placeholder="e.g. Remaining 50% of the centre diamond"/>
+        </div>
       </div>
       <div style={{display:"flex",gap:10,justifyContent:"flex-end",marginTop:18,alignItems:"center"}}>
         <span style={{fontSize:12,color:WG,marginRight:"auto"}}>{sel.length} option{sel.length!==1?"s":""} selected</span>
@@ -4107,12 +4119,23 @@ function PublicProposalPage({token}){
       {/* Payments received → balance due, else deposit note (on the combined total) */}
       {selectedOpts.length>0&&comboPrice>0&&(()=>{
         const paid=Number(snap.paidTotal)||0;
-        if(paid<=0.005)return <div style={{fontSize:12,color:WG,marginTop:14}}>To proceed, a {snap.depositPercent||50}% deposit of <strong style={{color:INK}}>{depositOf(comboPrice)}</strong> is required.</div>;
-        const due=Math.max(0,comboPrice-paid);
+        const custom=Number(snap.dueNow)||0;
+        const note=(snap.paymentNote||"").trim();
+        // No payments and no custom amount → simple deposit prompt (unchanged)
+        if(paid<=0.005&&custom<=0.005)return <div style={{marginTop:14}}>
+          <div style={{fontSize:12,color:WG}}>To proceed, a {snap.depositPercent||50}% deposit of <strong style={{color:INK}}>{depositOf(comboPrice)}</strong> is required.</div>
+          {note&&<div style={{fontSize:12,color:WG,marginTop:6,fontStyle:"italic"}}>{note}</div>}
+        </div>;
+        const fullDue=Math.max(0,comboPrice-paid);
+        const dueNowAmt=custom>0.005?Math.min(custom,fullDue):fullDue;   // never ask for more than is owed
+        const remaining=Math.max(0,comboPrice-paid-dueNowAmt);
+        const dueLabel=custom>0.005?"Amount due now":(dueNowAmt<=0.005?"Paid in full":"Balance now due");
         return <div style={{marginTop:16,background:PARCH,border:`1px solid ${BD}`,borderRadius:4,padding:"14px 16px"}}>
           <div style={{display:"flex",justifyContent:"space-between",fontSize:13,color:WG,padding:"2px 0"}}><span>{multi?"Combined total":"Total price"} (inc GST)</span><span style={{color:INK,fontWeight:600}}>{fmtR(comboPrice)}</span></div>
-          <div style={{display:"flex",justifyContent:"space-between",fontSize:13,color:WG,padding:"2px 0"}}><span>Payments received</span><span style={{color:OK,fontWeight:600}}>− {fmtR(paid)}</span></div>
-          <div style={{display:"flex",justifyContent:"space-between",alignItems:"baseline",borderTop:`1px solid ${BD}`,marginTop:8,paddingTop:10}}><span style={{fontSize:13,fontWeight:700,color:INK}}>{due<=0.005?"Paid in full":"Balance now due"}</span><span style={{fontSize:18,fontWeight:800,color:due<=0.005?OK:INK}}>{fmtR(due)}</span></div>
+          {paid>0.005&&<div style={{display:"flex",justifyContent:"space-between",fontSize:13,color:WG,padding:"2px 0"}}><span>Payments received</span><span style={{color:OK,fontWeight:600}}>− {fmtR(paid)}</span></div>}
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"baseline",borderTop:`1px solid ${BD}`,marginTop:8,paddingTop:10}}><span style={{fontSize:13,fontWeight:700,color:INK}}>{dueLabel}</span><span style={{fontSize:18,fontWeight:800,color:dueNowAmt<=0.005?OK:INK}}>{fmtR(dueNowAmt)}</span></div>
+          {custom>0.005&&remaining>0.005&&<div style={{display:"flex",justifyContent:"space-between",fontSize:12,color:WG,paddingTop:6}}><span>Remaining on completion</span><span style={{color:INK,fontWeight:600}}>{fmtR(remaining)}</span></div>}
+          {note&&<div style={{fontSize:12,color:WG,marginTop:10,lineHeight:1.5,fontStyle:"italic"}}>{note}</div>}
         </div>;
       })()}
 
