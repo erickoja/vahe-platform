@@ -2129,7 +2129,7 @@ function JobImages({job,setJobs}){
         const blob=await compressImage(file);
         const path=await uploadJobImage(job.id,blob);
         const u=await signedImageUrl(path);
-        added.push({id:uid(),path,caption:"",uploadedAt:new Date().toISOString()});
+        added.push({id:uid(),path,name:file.name,caption:"",uploadedAt:new Date().toISOString()});
         if(u)setUrls(prev=>({...prev,[path]:u}));
       }
       saveImages([...images,...added]);
@@ -2166,6 +2166,7 @@ function JobImages({job,setJobs}){
             {!urls[img.path]&&<span style={{fontSize:11,color:WG}}>loading…</span>}
           </div>
           <div style={{padding:"7px 8px"}}>
+            {img.name&&<div title={img.name} style={{fontSize:10.5,fontWeight:600,color:INK,marginBottom:6,lineHeight:1.35,wordBreak:"break-word"}}>{img.name}</div>}
             <input value={img.caption||""} onChange={e=>setCaption(img,e.target.value)} placeholder="Add caption…" style={{...SS.inp,marginTop:0,fontSize:11,padding:"4px 7px"}}/>
             <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginTop:5}}>
               <span style={{fontSize:10,color:WG}}>{fmtDate(img.uploadedAt)}</span>
