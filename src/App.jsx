@@ -2652,6 +2652,8 @@ const STONE_SHAPES=["Round","Marquise","Pear","Oval","Princess","Emerald","Cushi
 const STONE_COLOURS=["Blue","Pink","Yellow","Green","Purple","Orange","Red","Teal","White / Colourless","Champagne","Black","Grey","Padparadscha","Bi-colour","Other"];
 // White-diamond colour grading (D = colourless → M = faint), plus common melee ranges + fancy.
 const DIAMOND_COLOURS=[{value:"D",label:"D — Colourless"},{value:"E",label:"E — Colourless"},{value:"F",label:"F — Colourless"},{value:"G",label:"G — Near colourless"},{value:"H",label:"H — Near colourless"},{value:"I",label:"I — Near colourless"},{value:"J",label:"J — Near colourless"},{value:"K",label:"K — Faint"},{value:"L",label:"L — Faint"},{value:"M",label:"M — Faint"},{value:"D-F",label:"D–F (melee range)"},{value:"G-H",label:"G–H (melee range)"},{value:"I-J",label:"I–J (melee range)"},{value:"Fancy",label:"Fancy colour"}];
+// White-diamond clarity grading (FL best → I3), plus common melee ranges.
+const DIAMOND_CLARITY=[{value:"FL",label:"FL — Flawless"},{value:"IF",label:"IF — Internally flawless"},{value:"VVS1",label:"VVS1 — Very very slightly incl."},{value:"VVS2",label:"VVS2 — Very very slightly incl."},{value:"VS1",label:"VS1 — Very slightly incl."},{value:"VS2",label:"VS2 — Very slightly incl."},{value:"SI1",label:"SI1 — Slightly incl."},{value:"SI2",label:"SI2 — Slightly incl."},{value:"I1",label:"I1 — Included"},{value:"I2",label:"I2 — Included"},{value:"I3",label:"I3 — Included"},{value:"VVS",label:"VVS (melee range)"},{value:"VS",label:"VS (melee range)"},{value:"SI",label:"SI (melee range)"},{value:"VS-SI",label:"VS–SI (melee range)"}];
 // Fancy coloured-diamond grading: intensity/saturation + hue (e.g. "Fancy Vivid Yellow").
 const FANCY_INTENSITY=["Faint","Very Light","Light","Fancy Light","Fancy","Fancy Dark","Fancy Deep","Fancy Intense","Fancy Vivid"];
 const FANCY_HUES=["Yellow","Pink","Blue","Green","Orange","Red","Purple","Violet","Brown","Champagne","Cognac","Grey","Black","Olive","Other"];
@@ -2659,6 +2661,7 @@ function AccentStoneModal({pricing,setPricing,naturalStoneMarkup,labStoneMarkup,
   // Quick structured fancy / cut stone entry
   const[type,setType]=useState("");
   const[colour,setColour]=useState("");
+  const[clarity,setClarity]=useState("");
   const[fancyIntensity,setFancyIntensity]=useState("");
   const[fancyHue,setFancyHue]=useState("");
   const[shape,setShape]=useState("Round");
@@ -2666,12 +2669,18 @@ function AccentStoneModal({pricing,setPricing,naturalStoneMarkup,labStoneMarkup,
   const[size,setSize]=useState("");
   const[qty,setQty]=useState("");
   const[cost,setCost]=useState("");
+  const[costMode,setCostMode]=useState("total");  // "total" = one figure | "perCt" = carat weight × $/ct (melee parcels)
+  const[perCt,setPerCt]=useState("");
   const[qMarkup,setQMarkup]=useState("mfg");
   const qn=Math.max(1,Number(qty)||1);            // descriptive count (defaults to 1)
-  const cn=Number(cost)||0;                        // single TOTAL cost for the stone(s)
+  const caratN=Number(carat)||0;
+  const perCtN=Number(perCt)||0;
+  const perCtMode=costMode==="perCt";
+  // TOTAL cost for the stone(s): entered directly, or calculated as carat weight × per-carat rate
+  const cn=perCtMode?+(caratN*perCtN).toFixed(2):Number(cost)||0;
   const canAdd=cn>0;
   const isDiamond=type==="Diamond";
-  const pickType=v=>{setType(v);setColour("");};   // diamonds use colour grades, other stones use hues
+  const pickType=v=>{setType(v);setColour("");setClarity("");};   // diamonds use colour/clarity grades, other stones use hues
   const colourOpts=isDiamond
     ?[{value:"",label:"— Select grade —"},...DIAMOND_COLOURS]
     :[{value:"",label:"— None —"},...STONE_COLOURS.map(c=>({value:c,label:c}))];
@@ -2679,15 +2688,17 @@ function AccentStoneModal({pricing,setPricing,naturalStoneMarkup,labStoneMarkup,
     :isDiamond
       ?(colour==="Fancy"?[fancyIntensity,fancyHue].filter(Boolean).join(" "):`${colour} colour`)
       :colour;
-  const quickParts=[colourPart,type,carat?`${carat}ct`:"",shape,size].filter(Boolean).join(" ");
+  const clarityPart=isDiamond&&clarity?`${clarity} clarity`:"";
+  const quickParts=[colourPart,clarityPart,type,carat?`${carat}ct${perCtMode&&qn>1?" total":""}`:"",shape,size].filter(Boolean).join(" ");
   const quickDesc=`${qn>1?qn+" × ":""}${quickParts}`.trim();
   // When priced on the stone (natural/lab) markup, show the resulting client price
   const stoneMU=qMarkup==="natural"||qMarkup==="lab";
   const stonePreview=stoneMU&&cn>0?calcStoneQuote([{cost:cn}],qMarkup==="lab"?labStoneMarkup:naturalStoneMarkup):null;
   const addQuick=()=>{
-    if(cn<=0)return alert("Enter the cost.");
-    // No auto per-stone detail — the description already carries qty/shape/size, and the cost is a total.
-    onAdd({description:quickDesc,detail:"",costLow:cn.toFixed(2),markupMode:qMarkup});
+    if(cn<=0)return alert(perCtMode?"Enter the carat weight and price per carat.":"Enter the cost.");
+    // Per-carat parcels carry their working in the detail column so the cost stays traceable.
+    const detail=perCtMode?`${caratN}ct × ${fmt(perCtN)}/ct`:"";
+    onAdd({description:quickDesc,detail,costLow:cn.toFixed(2),markupMode:qMarkup});
   };
   return <Modal title="Add accent & fancy stone" onClose={onClose}>
       {/* Quick structured cut/fancy stone entry */}
@@ -2704,13 +2715,38 @@ function AccentStoneModal({pricing,setPricing,naturalStoneMarkup,labStoneMarkup,
               <Input label="Hue" value={fancyHue} onChange={setFancyHue} as="select" options={[{value:"",label:"— Select —"},...FANCY_HUES.map(x=>({value:x,label:x}))]}/>
             </div>
           </div>}
+          {isDiamond&&<Input label="Clarity" value={clarity} onChange={setClarity} as="select" options={[{value:"",label:"— Select clarity —"},...DIAMOND_CLARITY]}/>}
           <Input label="Cut / shape" value={shape} onChange={setShape} as="select" options={STONE_SHAPES}/>
-          <Input label="Carat weight" value={carat} onChange={setCarat} type="number" min="0" step="0.01" placeholder="e.g. 0.50"/>
+          <Input label={perCtMode?"Total carat weight (ct)":"Carat weight"} value={carat} onChange={setCarat} type="number" min="0" step="0.01" placeholder={perCtMode?"e.g. 0.85":"e.g. 0.50"}/>
           <Input label="Size / dimensions" value={size} onChange={setSize} placeholder="e.g. 4×2mm"/>
           <Input label="Quantity" value={qty} onChange={setQty} type="number" min="1" placeholder="1"/>
-          <div style={{gridColumn:"1 / -1"}}><Input label="Total cost ($)" value={cost} onChange={setCost} type="number" min="0" step="0.01" placeholder="0.00"/></div>
+          <div style={{gridColumn:"1 / -1"}}>
+            <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:2}}>
+              <label style={SS.lbl}>Cost</label>
+              <div style={{display:"inline-flex",border:`1px solid ${BD}`,borderRadius:3,overflow:"hidden"}}>
+                {[["total","Total cost"],["perCt","Per carat"]].map(([k,lbl])=>(
+                  <button key={k} onClick={()=>setCostMode(k)} style={{padding:"4px 12px",border:"none",background:costMode===k?INK:WHITE,color:costMode===k?WHITE:INK,fontSize:10.5,fontWeight:700,letterSpacing:"0.04em",cursor:"pointer",fontFamily:"inherit"}}>{lbl}</button>
+                ))}
+              </div>
+            </div>
+            {perCtMode
+              ?<div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"0 16px"}}>
+                <Input label="Price per carat ($/ct)" value={perCt} onChange={setPerCt} type="number" min="0" step="0.01" placeholder="e.g. 500"/>
+                <div style={{marginBottom:14}}>
+                  <label style={SS.lbl}>Calculated total</label>
+                  <div style={{...SS.inp,background:PARCH,fontWeight:cn>0?700:400,color:cn>0?INK:WG,textAlign:"right"}}>
+                    {cn>0?fmt(cn):(caratN<=0&&perCtN>0?"Enter the total carat weight above":"—")}
+                  </div>
+                </div>
+              </div>
+              :<Input label="Total cost ($)" value={cost} onChange={setCost} type="number" min="0" step="0.01" placeholder="0.00"/>}
+          </div>
         </div>
-        <div style={{fontSize:11,color:WG,marginTop:2,lineHeight:1.5,fontStyle:"italic"}}>Type, colour, cut, carat, size &amp; quantity describe the stone — they don't affect the price. Cost is the total you paid.</div>
+        <div style={{fontSize:11,color:WG,marginTop:2,lineHeight:1.5,fontStyle:"italic"}}>
+          {perCtMode
+            ?<>Ideal for melee parcels — cost = total carat weight × price per carat. Type, colour, cut, size &amp; quantity are for the description only.</>
+            :<>Type, colour, cut, carat, size &amp; quantity describe the stone — they don't affect the price. Cost is the total you paid.</>}
+        </div>
 
         <div style={{height:1,background:BD,margin:"18px 0"}}/>
 
