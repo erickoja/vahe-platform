@@ -3538,6 +3538,8 @@ function JobProposals({job,client,quotes,proposals,setProposals,setQuotes,biz,ma
   const [selectMode,setSelectMode]=useState("single");   // "single" = pick one, "multi" = pick any (bundle)
   const [optPhotos,setOptPhotos]=useState({});            // quoteId → chosen job image path
   const [optVideos,setOptVideos]=useState({});            // quoteId → video URL (YouTube/Vimeo/Loom/direct)
+  const [bulkVideos,setBulkVideos]=useState("");          // paste-many box: one link per line, assigned across options
+  const [showBulk,setShowBulk]=useState(false);
   const [jobPhotos,setJobPhotos]=useState([]);            // job's uploaded images as {path,url,caption}
   const [preview,setPreview]=useState(null);              // {url,caption} shown full-size while choosing photos
   useEffect(()=>{
@@ -3560,7 +3562,16 @@ function JobProposals({job,client,quotes,proposals,setProposals,setQuotes,biz,ma
   const toggle=id=>setSel(p=>p.includes(id)?p.filter(x=>x!==id):[...p,id]);
   // optPhotos[qid] is an array of chosen image paths — tap toggles a photo in/out of the option.
   const pickPhoto=(qid,path)=>setOptPhotos(p=>{const cur=p[qid]||[];return{...p,[qid]:cur.includes(path)?cur.filter(x=>x!==path):[...cur,path]};});
-  const openBuilder=()=>{setSel([]);setRecommended("");setIntro("");setSelectMode("single");setOptPhotos({});setOptVideos({});setBuilder(true);};
+  const openBuilder=()=>{setSel([]);setRecommended("");setIntro("");setSelectMode("single");setOptPhotos({});setOptVideos({});setBulkVideos("");setShowBulk(false);setBuilder(true);};
+  // Assign pasted links (one per line) to the ticked options, in display order.
+  const applyBulkVideos=()=>{
+    const links=bulkVideos.split(/[\r\n]+/).map(s=>s.trim()).filter(Boolean);
+    const ids=optionable.filter(q=>sel.includes(q.id)).map(q=>q.id);
+    if(!ids.length)return alert("Tick the options you want first, then paste the links in the same order.");
+    if(!links.length)return;
+    setOptVideos(p=>{const n={...p};ids.forEach((id,i)=>{if(links[i])n[id]=links[i];});return n;});
+    setShowBulk(false);setBulkVideos("");
+  };
 
   const createAndShare=async()=>{
     if(!sel.length)return alert("Pick at least one quote to include as an option.");
@@ -3670,7 +3681,18 @@ function JobProposals({job,client,quotes,proposals,setProposals,setQuotes,biz,ma
           </button>
         ))}
       </div>
-      <div style={{fontSize:10,fontWeight:700,color:WG,textTransform:"uppercase",letterSpacing:"0.06em",marginBottom:8}}>Options</div>
+      <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:10,marginBottom:8,flexWrap:"wrap"}}>
+        <div style={{fontSize:10,fontWeight:700,color:WG,textTransform:"uppercase",letterSpacing:"0.06em"}}>Options</div>
+        {!showBulk&&<button onClick={()=>setShowBulk(true)} style={{background:"none",border:"none",cursor:"pointer",color:GOLD_D,fontSize:12,fontWeight:700,fontFamily:"inherit",padding:0}}>＋ Paste multiple video links</button>}
+      </div>
+      {showBulk&&<div style={{border:`1px solid ${BD}`,borderRadius:4,padding:"12px 14px",background:PARCH,marginBottom:10}}>
+        <div style={{fontSize:11,color:WG,lineHeight:1.5,marginBottom:8}}>Tick your options below first, then paste one video link per line — they fill your ticked options top to bottom (you can still adjust any individually after).</div>
+        <textarea value={bulkVideos} onChange={e=>setBulkVideos(e.target.value)} rows={4} placeholder={"https://youtu.be/aaa\nhttps://vimeo.com/123\nhttps://www.loom.com/share/…"} style={{...SS.inp,marginTop:0,resize:"vertical",fontSize:13,lineHeight:1.6}}/>
+        <div style={{display:"flex",gap:8,justifyContent:"flex-end",marginTop:8}}>
+          <Btn sm ghost onClick={()=>{setShowBulk(false);setBulkVideos("");}}>Cancel</Btn>
+          <Btn sm onClick={applyBulkVideos}>Assign to ticked options</Btn>
+        </div>
+      </div>}
       {optionable.map(q=>{
         const on=sel.includes(q.id);
         return <div key={q.id} style={{padding:"10px 12px",border:`1px solid ${on?GOLD:BD}`,borderRadius:4,marginBottom:8,background:on?GOLD_L+"55":WHITE}}>
