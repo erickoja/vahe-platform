@@ -3533,6 +3533,9 @@ function JobProposals({job,client,quotes,proposals,setProposals,setQuotes,biz,ma
   });
   const linkFor=p=>`${window.location.origin}/?p=${p.token}`;
   const save=next=>{setProposals(next);persist(K.pp,next);};
+  // Used as the intro when the box is left blank (and shown as its placeholder), so the
+  // greyed example is exactly what appears at the top of the proposal.
+  const defaultIntro=`Dear ${client?.name||"there"}, thank you for your enquiry. Please find your options below.`;
 
   const toggle=id=>setSel(p=>p.includes(id)?p.filter(x=>x!==id):[...p,id]);
   // optPhotos[qid] is an array of chosen image paths — tap toggles a photo in/out of the option.
@@ -3546,7 +3549,7 @@ function JobProposals({job,client,quotes,proposals,setProposals,setQuotes,biz,ma
     const id=uid(),token=proposalToken();
     const orderedIds=optionable.filter(q=>sel.includes(q.id)).map(q=>q.id);
     const optionPhotos={};orderedIds.forEach(qid=>{const arr=optPhotos[qid];if(arr&&arr.length)optionPhotos[qid]=arr;});
-    const proposal={id,jobId:job.id,token,optionIds:orderedIds,optionPhotos,recommendedId:selectMode==="multi"?"":(recommended||""),selectMode,intro:intro.trim(),createdAt:today(),status:"sent",acceptedQuoteId:null,acceptedName:"",acceptedAt:null};
+    const proposal={id,jobId:job.id,token,optionIds:orderedIds,optionPhotos,recommendedId:selectMode==="multi"?"":(recommended||""),selectMode,intro:intro.trim()||defaultIntro,createdAt:today(),status:"sent",acceptedQuoteId:null,acceptedName:"",acceptedAt:null};
     const photoMap=await jobImageMap(job);
     const snapshot=buildProposalSnapshot({proposal,job,client,biz,quotes,markupTable,payments,photoMap});
     const{error}=await supabase.from(PUBLIC_PROPOSALS_TABLE).insert({token,data:snapshot,status:"sent",created_at:new Date().toISOString()});
@@ -3686,7 +3689,8 @@ function JobProposals({job,client,quotes,proposals,setProposals,setQuotes,biz,ma
       })}
       <div style={{marginTop:14}}>
         <label style={{...SS.lbl,marginBottom:6}}>Intro message <span style={{fontWeight:400,color:WG,textTransform:"none",letterSpacing:0}}>(optional — shown at the top of the proposal)</span></label>
-        <textarea value={intro} onChange={e=>setIntro(e.target.value)} rows={3} placeholder={`Dear ${client?.name||"…"}, thank you for your enquiry. Please find your options below.`} style={{...SS.inp,marginTop:0,resize:"vertical",lineHeight:1.6}}/>
+        <textarea value={intro} onChange={e=>setIntro(e.target.value)} rows={3} placeholder={defaultIntro} style={{...SS.inp,marginTop:0,resize:"vertical",lineHeight:1.6}}/>
+        <div style={{fontSize:11,color:WG,marginTop:5}}>Leave blank and this greyed message is added automatically.</div>
       </div>
       <div style={{display:"flex",gap:10,justifyContent:"flex-end",marginTop:18,alignItems:"center"}}>
         <span style={{fontSize:12,color:WG,marginRight:"auto"}}>{sel.length} option{sel.length!==1?"s":""} selected</span>
