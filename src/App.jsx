@@ -2574,17 +2574,18 @@ function JobDetail({jobId,jobs,setJobs,clients,quotes,setQuotes,payments,setPaym
         <Btn sm onClick={()=>setPayModal(true)}>+ Record payment</Btn>
       </div>
       {jobTotal>0&&(()=>{
+        const totalReceived=paidTotal+jobTradeIn;   // gold trade-in counts as value received
         const stats=[
-          [usingOverride?"Total charge":"Approx. quote",fmt(jobTotal),INK],
-          ...(jobTradeIn>0?[["Gold trade-in credit",fmt(jobTradeIn),OK]]:[]),
-          ["Received",fmt(paidTotal),OK],
-          ["Outstanding",fmt(Math.max(0,balance)),balance>0.5?WARN:OK],
+          [usingOverride?"Total charge":"Approx. quote",fmt(jobTotal),INK,null],
+          ["Received",fmt(totalReceived),OK,jobTradeIn>0?`${fmt(paidTotal)} paid · ${fmt(jobTradeIn)} gold trade-in`:null],
+          ["Outstanding",fmt(Math.max(0,balance)),balance>0.5?WARN:OK,null],
         ];
         return <div style={{display:"grid",gridTemplateColumns:`repeat(${stats.length},1fr)`,gap:10,marginBottom:14}}>
-          {stats.map(([l,v,col])=>(
+          {stats.map(([l,v,col,sub])=>(
             <div key={l} style={{background:PARCH,borderRadius:4,padding:"10px 12px",border:`1px solid ${BD}`}}>
               <div style={{fontSize:10,color:WG,fontWeight:700,textTransform:"uppercase",letterSpacing:"0.05em"}}>{l}</div>
               <div style={{fontSize:19,fontWeight:800,color:col,marginTop:3}}>{v}</div>
+              {sub&&<div style={{fontSize:10,color:WG,marginTop:3,lineHeight:1.35}}>{sub}</div>}
             </div>
           ))}
         </div>;
