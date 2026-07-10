@@ -1868,7 +1868,7 @@ function ClientDetail({clientId,clients,setClients,jobs,setJobs,quotes,payments,
       <Btn sm ghost onClick={()=>setEditModal(true)}>✎ Edit client</Btn>
     </div>
     {charged>0&&<div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:12,marginBottom:16}}>
-      {[["Total charged",fmt(charged),INK],["Paid",fmt(spent),OK],["Outstanding",fmt(owing),owing>0.5?WARN:OK]].map(([l,v,col])=>(
+      {[["Total charged",fmt(charged),INK],["Received",fmt(spent+tradeIn),OK],["Outstanding",fmt(owing),owing>0.5?WARN:OK]].map(([l,v,col])=>(
         <div key={l} style={{background:WHITE,border:`1px solid ${BD}`,borderRadius:5,padding:"14px 16px"}}>
           <div style={{fontSize:10,color:WG,fontWeight:700,textTransform:"uppercase",letterSpacing:"0.06em"}}>{l}</div>
           <div style={{fontSize:20,fontWeight:800,color:col,marginTop:3}}>{v}</div>
@@ -5186,7 +5186,8 @@ function InvoiceDetail({invoiceId,invoices,setInvoices,jobs,clients,payments,biz
           <div style={{display:"flex",justifyContent:"space-between",fontSize:13,padding:"4px 0",color:WG}}><span>Includes GST</span><span>{fmt(inv.gst)}</span></div>
           <div style={{display:"flex",justifyContent:"space-between",fontSize:17,fontWeight:800,color:INK,borderTop:`2px solid ${INK}`,marginTop:8,paddingTop:10}}><span>Total (incl. GST)</span><span>{fmt(inv.totalIncGST)}</span></div>
           {invTradeIn>0&&<div style={{display:"flex",justifyContent:"space-between",fontSize:13,padding:"6px 0 2px",color:OK}}><span>Gold trade-in credit</span><span>−{fmt(invTradeIn)}</span></div>}
-          {invTradeIn>0&&<div style={{display:"flex",justifyContent:"space-between",fontSize:15,fontWeight:800,color:INK}}><span>Amount payable</span><span>{fmt(Math.max(0,inv.totalIncGST-invTradeIn))}</span></div>}
+          {paidTotal>0&&<div style={{display:"flex",justifyContent:"space-between",fontSize:13,padding:"6px 0 2px",color:OK}}><span>Paid to date</span><span>−{fmt(paidTotal)}</span></div>}
+          {(invTradeIn>0||paidTotal>0)&&<div style={{display:"flex",justifyContent:"space-between",fontSize:15,fontWeight:800,color:balance>0.5?WARN:OK,marginTop:2}}><span>Balance due</span><span>{fmt(balance)}</span></div>}
         </div>
       </div>
       {inv.notes&&<div style={{marginTop:14,fontSize:13,color:WG,fontStyle:"italic",borderTop:`1px solid ${BD}`,paddingTop:10}}>{inv.notes}</div>}
@@ -6038,11 +6039,13 @@ function Reports({jobs,clients,quotes,payments,invoices,markupTable}){
   const conv=totalQ>0?Math.round(appQ/totalQ*100):0;
   const avgBase=totalQ>0?quotes.reduce((s,q)=>s+calcQuote(q.lineItems,markupTable,q.markupOverride).baseLow,0)/totalQ:0;
   const avgFinal=totalQ>0?quotes.reduce((s,q)=>{if(quoteIsManual(q))return s+Number(q.manualTotal);const c=calcQuote(q.lineItems,markupTable,q.markupOverride);return s+(c.bracket?(c.isRange?c.finalHigh:c.finalLow):0);},0)/totalQ:0;
-  const totalPaid=payments.filter(p=>p.status==="Received").reduce((s,p)=>s+Number(p.amount),0);
+  const cashPaid=payments.filter(p=>p.status==="Received").reduce((s,p)=>s+Number(p.amount),0);
+  const totalTradeIn=jobs.reduce((s,j)=>s+jobTradeInCredit(j,quotes),0);   // gold trade-in credits = value received
+  const totalPaid=cashPaid+totalTradeIn;                                    // total value received (cash + trade-in)
   // Sales = agreed charge across all jobs (override or approved quotes)
   const totalSales=jobs.reduce((s,j)=>s+jobChargeTotal(j,quotes,markupTable,invoices),0);
   const outstanding=jobs.reduce((s,j)=>{
-    const bal=jobChargeTotal(j,quotes,markupTable,invoices)-payments.filter(p=>p.jobId===j.id&&p.status==="Received").reduce((a,p)=>a+Number(p.amount),0);
+    const bal=jobChargeTotal(j,quotes,markupTable,invoices)-payments.filter(p=>p.jobId===j.id&&p.status==="Received").reduce((a,p)=>a+Number(p.amount),0)-jobTradeInCredit(j,quotes);
     return s+(bal>1?bal:0);
   },0);
   return <div>
@@ -6054,7 +6057,7 @@ function Reports({jobs,clients,quotes,payments,invoices,markupTable}){
       <Stat label="Quote conversion" value={`${conv}%`} sub={`${appQ} of ${totalQ} approved`}/>
       <Stat label="Avg base cost" value={fmt(avgBase)}/>
       <Stat label="Avg final price" value={fmt(avgFinal)}/>
-      <Stat label="Total received" value={fmt(totalPaid)}/>
+      <Stat label="Total received" value={fmt(totalPaid)} sub={totalTradeIn>0?"cash + gold trade-ins":undefined}/>
       <Stat label="Outstanding" value={fmt(outstanding)} sub="balance owed" accent={outstanding>0}/>
     </div>
     <Card>
