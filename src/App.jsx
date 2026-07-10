@@ -5181,6 +5181,8 @@ function InvoiceDetail({invoiceId,invoices,setInvoices,jobs,clients,payments,biz
           {discount>0&&<div style={{display:"flex",justifyContent:"space-between",fontSize:13,padding:"4px 0",color:OK}}><span>{inv.discountLabel||"Discount"}</span><span>−{fmt(discount)}</span></div>}
           <div style={{display:"flex",justifyContent:"space-between",fontSize:13,padding:"4px 0",color:WG}}><span>Includes GST</span><span>{fmt(inv.gst)}</span></div>
           <div style={{display:"flex",justifyContent:"space-between",fontSize:17,fontWeight:800,color:INK,borderTop:`2px solid ${INK}`,marginTop:8,paddingTop:10}}><span>Total (incl. GST)</span><span>{fmt(inv.totalIncGST)}</span></div>
+          {invTradeIn>0&&<div style={{display:"flex",justifyContent:"space-between",fontSize:13,padding:"6px 0 2px",color:OK}}><span>Gold trade-in credit{inv.tradeInNote?<span style={{color:WG,fontStyle:"italic"}}> · {inv.tradeInNote}</span>:""}</span><span>−{fmt(invTradeIn)}</span></div>}
+          {invTradeIn>0&&<div style={{display:"flex",justifyContent:"space-between",fontSize:15,fontWeight:800,color:INK}}><span>Amount payable</span><span>{fmt(Math.max(0,inv.totalIncGST-invTradeIn))}</span></div>}
         </div>
       </div>
       {inv.notes&&<div style={{marginTop:14,fontSize:13,color:WG,fontStyle:"italic",borderTop:`1px solid ${BD}`,paddingTop:10}}>{inv.notes}</div>}
