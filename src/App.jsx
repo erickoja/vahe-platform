@@ -920,6 +920,25 @@ function videoEmbed(url){
   }catch(e){return{type:"link",src:u,href:u};}
 }
 
+// Build an invoice's content (line items, totals, trade-in) from a single quote. Shared by
+// invoice creation and the "Update from quote" re-sync so the two always produce the same result.
+const invoiceContentFromQuote=(q,job,markupTable)=>{
+  const calc=calcQuote(q.lineItems,markupTable,q.markupOverride);
+  const totalIncGST=quoteGrandTotal(q,markupTable);
+  const gst=totalIncGST-totalIncGST/(1+GST_RATE);
+  const exGST=totalIncGST-gst;
+  const descriptionOverride=q.clientDescription||job?.description||"";
+  const lineItems=[...q.lineItems];
+  const centreInc=q.stoneClientTotal||0;
+  if(centreInc>0){
+    const sDescs=(q.stoneItems||[]).map(s=>(s.description||"").trim()).filter(Boolean);
+    const sDetails=(q.stoneItems||[]).map(s=>(s.detail||"").trim()).filter(Boolean);
+    lineItems.push({id:uid(),description:sDescs.length?sDescs.join(" + "):(q.stoneType==="lab"?"Lab-grown":"Natural")+" diamond / gemstone",detail:sDetails.length?sDetails.join(" · "):"Supplied & set",costLow:centreInc.toFixed(2),noMarkup:true});
+  }
+  if(!lineItems.length)lineItems.push({id:uid(),description:quoteLabel(q),detail:"As quoted",costLow:totalIncGST.toFixed(2),noMarkup:true});
+  return{exGST,gst,totalIncGST,lineItems,tradeInCredit:Number(q.tradeInCredit)||0,tradeInNote:q.tradeInNote||"",descriptionOverride,calc};
+};
+
 const buildProposalSnapshot=({proposal,job,client,biz,quotes,markupTable,payments,photoMap})=>{
   const validityDays=biz?.quoteValidityDays||30;
   const created=proposal.createdAt||today();
@@ -2518,30 +2537,9 @@ function JobDetail({jobId,jobs,setJobs,clients,quotes,setQuotes,payments,setPaym
   };
   const createInvoice=qid=>{
     const q=quotes.find(x=>x.id===qid);if(!q)return;
-    const calc=calcQuote(q.lineItems,markupTable,q.markupOverride);
-    // GST-inclusive model: the quoted price already includes GST. Total = quoted price;
-    // the GST component is total ÷ 11 (disclosed on the invoice, never added on top).
-    const totalIncGST=quoteGrandTotal(q,markupTable);
-    const gst=totalIncGST-totalIncGST/(1+GST_RATE);
-    const exGST=totalIncGST-gst;
-    const num=nextInvoiceNumber(invoices);
-    // Pre-fill the customer-facing description from the quote (or job) so it's ready to edit
-    const descriptionOverride=q.clientDescription||job?.description||"";
-    // Carry the sourced centre/feature stone onto the invoice as a line (it lives separately on
-    // the quote, not in lineItems). Accent stones already live in lineItems.
-    const lineItems=[...q.lineItems];
-    const centreInc=q.stoneClientTotal||0;
-    if(centreInc>0){
-      const sDescs=(q.stoneItems||[]).map(s=>(s.description||"").trim()).filter(Boolean);
-      const sDetails=(q.stoneItems||[]).map(s=>(s.detail||"").trim()).filter(Boolean);
-      lineItems.push({id:uid(),
-        description:sDescs.length?sDescs.join(" + "):(q.stoneType==="lab"?"Lab-grown":"Natural")+" diamond / gemstone",
-        detail:sDetails.length?sDetails.join(" · "):"Supplied & set",
-        costLow:centreInc.toFixed(2),noMarkup:true});
-    }
-    // A manual-price quote may have no line items — give the invoice one so it isn't blank
-    if(!lineItems.length)lineItems.push({id:uid(),description:quoteLabel(q),detail:"As quoted",costLow:totalIncGST.toFixed(2),noMarkup:true});
-    const inv={id:uid(),jobId,quoteId:qid,quoteIds:[qid],number:num,date:today(),status:"Unpaid",exGST,gst,totalIncGST,lineItems,notes:q.notes||"",tradeInCredit:Number(q.tradeInCredit)||0,tradeInNote:q.tradeInNote||"",descriptionOverride,calc};
+    // GST-inclusive model: the quoted price already includes GST (helper backs out the GST component).
+    const content=invoiceContentFromQuote(q,job,markupTable);
+    const inv={id:uid(),jobId,quoteId:qid,quoteIds:[qid],number:nextInvoiceNumber(invoices),date:today(),status:"Unpaid",notes:q.notes||"",...content};
     setInvoices(p=>{const n=[...p,inv];persist(K.inv,n);return n;});
     setView("invoiceDetail_"+inv.id);
   };
@@ -3691,6 +3689,18 @@ function JobProposals({job,client,quotes,proposals,setProposals,setQuotes,biz,ma
     if(supabaseEnabled)try{await supabase.from(PUBLIC_PROPOSALS_TABLE).delete().eq("token",p.token);}catch(e){}
     save(proposals.filter(x=>x.id!==p.id));
   };
+  const[resent,setResent]=useState("");
+  // Rebuild the client's live link from the CURRENT quotes & payments (prices, trade-in, balance).
+  const resendProposal=async p=>{
+    if(!supabaseEnabled||!supabase||!p.token)return;
+    try{
+      const photoMap=await jobImageMap(job);
+      const snap=buildProposalSnapshot({proposal:p,job,client,biz,quotes,markupTable,payments,photoMap});
+      const{error}=await supabase.from(PUBLIC_PROPOSALS_TABLE).update({data:snap}).eq("token",p.token);
+      if(error){alert("Couldn't update the proposal link: "+error.message);return;}
+      setResent(p.id);setTimeout(()=>setResent(c=>c===p.id?"":c),2500);
+    }catch(e){alert("Couldn't update the proposal link.");}
+  };
 
   const optLabel=ids=>String(ids||"").split(",").map(s=>s.trim()).filter(Boolean).map(id=>{const q=quotes.find(x=>x.id===id);return q?quoteLabel(q):"—";}).join(" + ")||"—";
 
@@ -3721,6 +3731,7 @@ function JobProposals({job,client,quotes,proposals,setProposals,setQuotes,biz,ma
             {!accepted&&<>
               <button onClick={()=>copyLink(p)} style={{background:copied===p.id?OK:GOLD_L,border:`1px solid ${copied===p.id?OK:GOLD}`,borderRadius:6,padding:"5px 12px",fontSize:12,fontWeight:700,color:copied===p.id?WHITE:GOLD_D,cursor:"pointer",fontFamily:"inherit"}}>{copied===p.id?"✓ Copied":"Copy link"}</button>
               <button onClick={()=>window.open(linkFor(p),"_blank")} style={{background:"none",border:`1px solid ${BD}`,borderRadius:6,padding:"5px 12px",fontSize:12,fontWeight:700,color:WG,cursor:"pointer",fontFamily:"inherit"}}>Preview</button>
+              <button onClick={()=>resendProposal(p)} title="Refresh the client's link from the current quote & payments" style={{background:resent===p.id?OK:"none",border:`1px solid ${resent===p.id?OK:BD}`,borderRadius:6,padding:"5px 12px",fontSize:12,fontWeight:700,color:resent===p.id?WHITE:WG,cursor:"pointer",fontFamily:"inherit"}}>{resent===p.id?"✓ Updated":"↻ Update from quote"}</button>
               <button onClick={()=>checkAcceptance(p,false)} style={{background:"none",border:`1px solid ${BD}`,borderRadius:6,padding:"5px 12px",fontSize:12,fontWeight:700,color:WG,cursor:"pointer",fontFamily:"inherit"}}>{checking===p.id?"Checking…":"Check for acceptance"}</button>
             </>}
             <button onClick={()=>delProposal(p)} style={{background:"none",border:"none",cursor:"pointer",color:DANGER,fontSize:17,padding:0,lineHeight:1}}>×</button>
@@ -4997,7 +5008,7 @@ function InvoicePrintView({inv,job,client,biz,payments,onClose}){
 }
 
 // ── Invoice detail ────────────────────────────────────────────────────────
-function InvoiceDetail({invoiceId,invoices,setInvoices,jobs,clients,payments,biz,setView}){
+function InvoiceDetail({invoiceId,invoices,setInvoices,jobs,clients,payments,biz,setView,quotes=[],markupTable}){
   const inv=invoices.find(x=>x.id===invoiceId);
   if(!inv)return null;
   const job=jobs.find(j=>j.id===inv.jobId);
@@ -5005,6 +5016,7 @@ function InvoiceDetail({invoiceId,invoices,setInvoices,jobs,clients,payments,biz
   const es=invoiceEffectiveStatus(inv,payments,invoices);
   const autoPaid=es==="Paid"&&inv.status!=="Paid";   // covered by recorded payments, not manually set
   const[showPrint,setShowPrint]=useState(false);
+  const[resynced,setResynced]=useState(false);
   const setStatus=s=>setInvoices(p=>{const n=p.map(x=>x.id===invoiceId?{...x,status:s}:x);persist(K.inv,n);return n;});
   const del=()=>{
     if(!confirm(`Delete invoice ${inv.number}? This can't be undone. Payments recorded against the job are not affected, and the quote stays so you can re-invoice it.`))return;
@@ -5021,6 +5033,16 @@ function InvoiceDetail({invoiceId,invoices,setInvoices,jobs,clients,payments,biz
   // Combined invoices itemise per option — let the studio rename each customer-facing line.
   const setCustomerLineDesc=(lineId,v)=>setInvoices(p=>{const n=p.map(x=>x.id===invoiceId?{...x,customerLines:(x.customerLines||[]).map(l=>l.id===lineId?{...l,description:v}:l)}:x);persist(K.inv,n);return n;});
   const hasCustomerLines=Array.isArray(inv.customerLines)&&inv.customerLines.length>0;
+  // "Update from quote" — only for single-quote invoices (multi/combined invoices itemise per option).
+  const srcQuote=quotes.find(q=>q.id===inv.quoteId);
+  const canResync=!!srcQuote&&(!inv.quoteIds||inv.quoteIds.length<=1)&&!hasCustomerLines;
+  const updateFromQuote=()=>{
+    if(!srcQuote)return alert("The quote this invoice was created from no longer exists.");
+    if(!confirm("Replace this invoice's line items and totals with the current quote (including any gold trade-in credit)? Any manual edits to the invoice lines — and any invoice-level discount — will be reset to match the quote. The invoice number, date and status are kept."))return;
+    const content=invoiceContentFromQuote(srcQuote,job,markupTable);
+    setInvoices(p=>{const n=p.map(i=>i.id===inv.id?{...i,...content,discount:0,discountLabel:""}:i);persist(K.inv,n);return n;});
+    setResynced(true);setTimeout(()=>setResynced(false),2500);
+  };
   const setRequestAmount=v=>setInvoices(p=>{const n=p.map(x=>x.id===invoiceId?{...x,requestAmount:v}:x);persist(K.inv,n);return n;});
   // Discount: subtotalIncGST is the gross baseline; totalIncGST/gst become the discounted (net)
   // figures so every existing consumer (balances, summaries, links) reflects the discount.
@@ -5073,6 +5095,7 @@ function InvoiceDetail({invoiceId,invoices,setInvoices,jobs,clients,payments,biz
         <Badge label={es} color={es==="Paid"?OK:es==="Overdue"?DANGER:WARN} size="lg"/>
         <Btn sm onClick={shareInvoice}>{linkBusy?"Creating…":linkCopied?"✓ Link copied":inv.publicToken?"🔗 Copy link":"🔗 Create link"}</Btn>
         {inv.publicToken&&<Btn sm ghost onClick={()=>window.open(invLink,"_blank")}>Preview</Btn>}
+        {canResync&&<Btn sm ghost onClick={updateFromQuote}>{resynced?"✓ Updated":"↻ Update from quote"}</Btn>}
         <Btn sm onClick={()=>setShowPrint(true)}>🖨 Preview &amp; Print</Btn>
         <Btn sm danger onClick={del}>Delete</Btn>
       </div>
@@ -7554,7 +7577,7 @@ export default function App(){
     if(view.startsWith("newQuote_"))return <QuoteBuilder jobId={view.split("_")[1]} jobs={jobs} clients={clients} quotes={quotes} setQuotes={setQuotes} pricing={pricing} setPricing={setPricing} markupTable={markupTable} naturalStoneMarkup={naturalStoneMarkup} labStoneMarkup={labStoneMarkup} centreRates={centreRates} setCentreRates={setCentreRates} setView={setView}/>;
     if(view.startsWith("editQuote_"))return <QuoteBuilder editQuoteId={view.split("_")[1]} jobs={jobs} clients={clients} quotes={quotes} setQuotes={setQuotes} pricing={pricing} setPricing={setPricing} markupTable={markupTable} naturalStoneMarkup={naturalStoneMarkup} labStoneMarkup={labStoneMarkup} centreRates={centreRates} setCentreRates={setCentreRates} setView={setView}/>;
     if(view==="invoices")return <InvoicesList invoices={invoices} jobs={jobs} clients={clients} quotes={quotes} payments={payments} setInvoices={setInvoices} markupTable={markupTable} setView={setView}/>;
-    if(view.startsWith("invoiceDetail_"))return <InvoiceDetail invoiceId={view.split("_")[1]} invoices={invoices} setInvoices={setInvoices} jobs={jobs} clients={clients} payments={payments} biz={biz} setView={setView}/>;
+    if(view.startsWith("invoiceDetail_"))return <InvoiceDetail invoiceId={view.split("_")[1]} invoices={invoices} setInvoices={setInvoices} jobs={jobs} clients={clients} payments={payments} biz={biz} setView={setView} quotes={quotes} markupTable={markupTable}/>;
     if(view==="stock")return <StockBoard stock={stock} setStock={setStock} setView={setView}/>;
     if(view==="gemcustody")return <GemCustody custody={gemCustody} setCustody={setGemCustody} clients={clients} biz={biz}/>;
     if(view.startsWith("stockPrice_"))return <QuoteBuilder stockId={view.split("_")[1]} stock={stock} setStock={setStock} jobs={jobs} clients={clients} quotes={quotes} setQuotes={setQuotes} pricing={pricing} setPricing={setPricing} markupTable={markupTable} naturalStoneMarkup={naturalStoneMarkup} labStoneMarkup={labStoneMarkup} centreRates={centreRates} setCentreRates={setCentreRates} setView={setView}/>;
