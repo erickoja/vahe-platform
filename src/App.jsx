@@ -844,11 +844,10 @@ const jobChargeTotal=(job,quotes,markupTable,invoices)=>{
   const base=ov>0?ov:(quotes||[]).filter(q=>q.jobId===job.id&&q.status==="Approved").reduce((s,q)=>s+quoteGrandTotal(q,markupTable),0);
   // Subtract any discounts applied on this job's invoices so "amount owing" matches the billed total.
   const disc=(invoices||[]).filter(i=>i.jobId===job.id).reduce((s,i)=>s+(Number(i.discount)||0),0);
-  // Gold trade-in credits on approved quotes are a credit against the balance (like a payment in gold).
-  const tradeIn=(quotes||[]).filter(q=>q.jobId===job.id&&q.status==="Approved").reduce((s,q)=>s+(Number(q.tradeInCredit)||0),0);
-  return Math.max(0,base-disc-tradeIn);
+  return Math.max(0,base-disc);
 };
-// Sum of gold trade-in credits on a job's approved quotes (for display of the credit line).
+// Sum of gold trade-in credits on a job's approved quotes. It's a credit RECEIVED (like paying in
+// gold) — it does NOT reduce the sale price (jobChargeTotal), it's counted alongside payments.
 const jobTradeInCredit=(job,quotes)=>(quotes||[]).filter(q=>q.jobId===job?.id&&q.status==="Approved").reduce((s,q)=>s+(Number(q.tradeInCredit)||0),0);
 // True if the job has any agreed charge (override or approved quote)
 const jobHasCharge=(job,quotes)=>Number(job?.totalOverride)>0||(quotes||[]).some(q=>q.jobId===job.id&&q.status==="Approved");
@@ -1638,7 +1637,7 @@ function Dashboard({clients,jobs,quotes,payments,invoices,appointments=[],propos
     if(!jobHasCharge(j,quotes))return null;
     const total=jobChargeTotal(j,quotes,markupTable,invoices);
     const paid=payments.filter(p=>p.jobId===j.id&&p.status==="Received").reduce((s,p)=>s+Number(p.amount),0);
-    const bal=total-paid;
+    const bal=total-paid-jobTradeInCredit(j,quotes);   // trade-in is a credit received
     return bal>1?{job:j,balance:bal}:null;
   }).filter(Boolean);
   // Outstanding = total still owed across approved jobs (quote total − payments received)
@@ -1837,7 +1836,8 @@ function ClientDetail({clientId,clients,setClients,jobs,setJobs,quotes,payments,
   const cj=jobs.filter(j=>j.clientId===clientId);
   const spent=cj.flatMap(j=>payments.filter(p=>p.jobId===j.id&&p.status==="Received")).reduce((s,p)=>s+Number(p.amount),0);
   const charged=cj.reduce((s,j)=>s+jobChargeTotal(j,quotes,markupTable,invoices),0);
-  const owing=Math.max(0,charged-spent);
+  const tradeIn=cj.reduce((s,j)=>s+jobTradeInCredit(j,quotes),0);
+  const owing=Math.max(0,charged-spent-tradeIn);   // trade-in credits count toward what's covered
   return <div>
     <button onClick={()=>setView("clients")} style={{background:"none",border:"none",cursor:"pointer",color:GOLD,fontSize:13,fontWeight:700,fontFamily:"inherit",marginBottom:18,padding:0}}>← Back to clients</button>
     <div style={{display:"flex",alignItems:"center",gap:14,marginBottom:20}}>
@@ -2038,7 +2038,7 @@ function Jobs({clients,jobs,setJobs,quotes,setQuotes,payments,setPayments,notes,
       const od=j.deadline&&j.deadline<today()&&!jobIsDone(j);
       const total=jobChargeTotal(j,quotes,markupTable,invoices);
       const paid=payments.filter(p=>p.jobId===j.id&&p.status==="Received").reduce((s,p)=>s+Number(p.amount),0);
-      const owing=total-paid;
+      const owing=total-paid-jobTradeInCredit(j,quotes);   // trade-in is a credit received
       const isOverride=Number(j.totalOverride)>0;
       return <Card key={j.id} onClick={()=>{setSelJob(j.id);setView("jobDetail");}}>
         <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start"}}>
@@ -2471,7 +2471,8 @@ function JobDetail({jobId,jobs,setJobs,clients,quotes,setQuotes,payments,setPaym
   const paidTotal=jp.filter(p=>p.status==="Received").reduce((s,p)=>s+Number(p.amount),0);
   const usingOverride=Number(job.totalOverride)>0;
   const jobTotal=jobChargeTotal(job,quotes,markupTable,invoices);
-  const balance=jobTotal-paidTotal;
+  const jobTradeIn=jobTradeInCredit(job,quotes);            // gold trade-in credit received
+  const balance=jobTotal-paidTotal-jobTradeIn;
   const[editStage,setEditStage]=useState(false);
   const[editJobModal,setEditJobModal]=useState(false);
   const[payModal,setPayModal]=useState(false);
@@ -2572,14 +2573,22 @@ function JobDetail({jobId,jobs,setJobs,clients,quotes,setQuotes,payments,setPaym
         <div style={{fontWeight:700,fontSize:15,color:INK}}>Payments</div>
         <Btn sm onClick={()=>setPayModal(true)}>+ Record payment</Btn>
       </div>
-      {jobTotal>0&&<div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:10,marginBottom:14}}>
-        {[[usingOverride?"Total charge":"Approx. quote",fmt(jobTotal),INK],["Received",fmt(paidTotal),OK],["Outstanding",fmt(Math.max(0,balance)),balance>0.5?WARN:OK]].map(([l,v,col])=>(
-          <div key={l} style={{background:PARCH,borderRadius:4,padding:"10px 12px",border:`1px solid ${BD}`}}>
-            <div style={{fontSize:10,color:WG,fontWeight:700,textTransform:"uppercase",letterSpacing:"0.05em"}}>{l}</div>
-            <div style={{fontSize:19,fontWeight:800,color:col,marginTop:3}}>{v}</div>
-          </div>
-        ))}
-      </div>}
+      {jobTotal>0&&(()=>{
+        const stats=[
+          [usingOverride?"Total charge":"Approx. quote",fmt(jobTotal),INK],
+          ...(jobTradeIn>0?[["Gold trade-in credit",fmt(jobTradeIn),OK]]:[]),
+          ["Received",fmt(paidTotal),OK],
+          ["Outstanding",fmt(Math.max(0,balance)),balance>0.5?WARN:OK],
+        ];
+        return <div style={{display:"grid",gridTemplateColumns:`repeat(${stats.length},1fr)`,gap:10,marginBottom:14}}>
+          {stats.map(([l,v,col])=>(
+            <div key={l} style={{background:PARCH,borderRadius:4,padding:"10px 12px",border:`1px solid ${BD}`}}>
+              <div style={{fontSize:10,color:WG,fontWeight:700,textTransform:"uppercase",letterSpacing:"0.05em"}}>{l}</div>
+              <div style={{fontSize:19,fontWeight:800,color:col,marginTop:3}}>{v}</div>
+            </div>
+          ))}
+        </div>;
+      })()}
       {jp.length===0&&<div style={{color:WG,fontSize:14}}>No payments yet.</div>}
       {jp.map(p=>(
         <div key={p.id} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"9px 0",borderBottom:`1px solid ${BD}`}}>
@@ -4237,7 +4246,8 @@ function ProposalPreview({quote,job,clients=[],biz,calc,payments=[],reconcilePay
   // otherwise a multi-piece deposit would be wrongly credited against one piece's total.
   const paidTotal=reconcilePayments?(payments||[]).filter(p=>p.jobId===job?.id&&p.status==="Received").reduce((s,p)=>s+Number(p.amount),0):0;
   const hasPaid=paidTotal>0.005;
-  const outstanding=Math.max(0,grandProposalTotal-paidTotal);
+  const qTrade=Number(quote.tradeInCredit)||0;                       // gold trade-in credit (received)
+  const outstanding=Math.max(0,grandProposalTotal-qTrade-paidTotal);
   const paidInFull=hasPaid&&outstanding<=0.005;
   // Client-facing description — manual field takes priority over job description
   const description=quote.clientDescription||job?.description||"";
@@ -4256,12 +4266,13 @@ function ProposalPreview({quote,job,clients=[],biz,calc,payments=[],reconcilePay
       description||"",  // client description only
       ``,
       `Total price: ${priceDisplay} (inc. GST)`,
-      ...(hasPaid?[
-        `Payments received: -${fmtR(paidTotal)}`,
+      ...((hasPaid||qTrade>0)?[
+        ...(qTrade>0?[`Gold trade-in credit: -${fmtR(qTrade)}`]:[]),
+        ...(hasPaid?[`Payments received: -${fmtR(paidTotal)}`]:[]),
         paidInFull?`Balance now due: ${fmtR(0)} — paid in full. Thank you.`:`Balance now due: ${fmtR(outstanding)}`,
       ]:[`Quote valid until: ${validUntil}`]),
       ``,
-      ...(hasPaid?(paidInFull?[]:[`To proceed, please settle the outstanding balance of ${fmtR(outstanding)}.`]):[`To proceed, a ${deposit}% deposit of ${depositAmt||"—"} is required.`]),
+      ...((hasPaid||qTrade>0)?(paidInFull?[]:[`To proceed, please settle the outstanding balance of ${fmtR(outstanding)}.`]):[`To proceed, a ${deposit}% deposit of ${depositAmt||"—"} is required.`]),
       ``,
       `━━━━━━━━━━━━━━━━━━━━━━━━━`,
       `TERMS & CONDITIONS`,
@@ -4422,14 +4433,17 @@ function ProposalPreview({quote,job,clients=[],biz,calc,payments=[],reconcilePay
           </div>}
 
           {/* Total row — when payments are recorded, show total, payments received and balance due */}
-          {!markupUndef&&hasPaid
+          {!markupUndef&&(hasPaid||qTrade>0)
             ?<div style={{marginTop:12,background:INK,borderRadius:4,padding:"18px 22px",fontFamily:"'DM Sans',sans-serif"}}>
               <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",fontSize:13,color:"rgba(255,255,255,0.65)",padding:"3px 0"}}>
                 <span>Total price (inc. GST)</span><span style={{color:WHITE,fontWeight:600}}>{priceDisplay}</span>
               </div>
-              <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",fontSize:13,color:"rgba(255,255,255,0.65)",padding:"3px 0"}}>
+              {qTrade>0&&<div style={{display:"flex",justifyContent:"space-between",alignItems:"center",fontSize:13,color:"rgba(255,255,255,0.65)",padding:"3px 0"}}>
+                <span>Gold trade-in credit</span><span style={{color:"#7FD7A6",fontWeight:600}}>− {fmtR(qTrade)}</span>
+              </div>}
+              {hasPaid&&<div style={{display:"flex",justifyContent:"space-between",alignItems:"center",fontSize:13,color:"rgba(255,255,255,0.65)",padding:"3px 0"}}>
                 <span>Payments received</span><span style={{color:"#7FD7A6",fontWeight:600}}>− {fmtR(paidTotal)}</span>
-              </div>
+              </div>}
               <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-end",borderTop:"1px solid rgba(255,255,255,0.18)",marginTop:10,paddingTop:12}}>
                 <div>
                   <div style={{fontSize:11,fontWeight:700,color:"rgba(255,255,255,0.5)",letterSpacing:"0.1em",textTransform:"uppercase",marginBottom:2}}>{paidInFull?"Paid in full":"Balance now due"}</div>
