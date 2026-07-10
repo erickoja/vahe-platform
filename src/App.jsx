@@ -1012,6 +1012,8 @@ const buildInvoiceSnapshot=({inv,job,client,biz,payments})=>{
     lineItems:(inv.lineItems||[]).map(li=>({description:li.description,detail:li.detail||"",amount:lineCostLow(li)})),
     gst:inv.gst,
     totalIncGST:inv.totalIncGST,
+    tradeIn:invTradeIn,
+    tradeInNote:inv.tradeInNote||"",
     paidTotal,
     balance,
     staged,
@@ -4012,16 +4014,17 @@ function PublicInvoiceBody({snap}){
           {snap.discount>0&&<div style={{display:"flex",justifyContent:"space-between",fontSize:13,color:OK,padding:"3px 0"}}><span>{snap.discountLabel||"Discount"}</span><span>−{fmt(snap.discount)}</span></div>}
           <div style={{display:"flex",justifyContent:"space-between",fontSize:13,color:WG,padding:"3px 0"}}><span>Includes GST</span><span>{fmt(snap.gst)}</span></div>
           <div style={{display:"flex",justifyContent:"space-between",fontSize:17,fontWeight:800,color:INK,borderTop:`2px solid ${INK}`,marginTop:8,paddingTop:10}}><span>Total (inc GST)</span><span>{fmt(snap.totalIncGST)}</span></div>
+          {snap.tradeIn>0&&<div style={{display:"flex",justifyContent:"space-between",fontSize:13,color:OK,padding:"6px 0 3px"}}><span>Gold trade-in credit{snap.tradeInNote?<span style={{color:WG,fontStyle:"italic"}}> · {snap.tradeInNote}</span>:""}</span><span>−{fmt(snap.tradeIn)}</span></div>}
           {snap.paidTotal>0&&<div style={{display:"flex",justifyContent:"space-between",fontSize:13,color:OK,padding:"6px 0 3px"}}><span>Paid to date</span><span>−{fmt(snap.paidTotal)}</span></div>}
           {snap.staged
             ?<>
               <div style={{display:"flex",justifyContent:"space-between",fontSize:16,fontWeight:800,color:snap.dueNow>0?WARN:OK,borderTop:`1px solid ${BD}`,marginTop:4,paddingTop:8}}><span>Due now</span><span>{fmt(snap.dueNow)}</span></div>
               {snap.remainingAfter>0&&<div style={{display:"flex",justifyContent:"space-between",fontSize:12,color:WG,padding:"4px 0 0"}}><span>Balance remaining (payable later)</span><span>{fmt(snap.remainingAfter)}</span></div>}
             </>
-            :snap.paidTotal>0&&<div style={{display:"flex",justifyContent:"space-between",fontSize:16,fontWeight:800,color:snap.balance>0?WARN:OK}}><span>Balance due</span><span>{fmt(snap.balance)}</span></div>}
+            :(snap.paidTotal>0||snap.tradeIn>0)&&<div style={{display:"flex",justifyContent:"space-between",fontSize:16,fontWeight:800,color:snap.balance>0?WARN:OK}}><span>Balance due</span><span>{fmt(snap.balance)}</span></div>}
         </div>
       </div>
-      {snap.paidTotal>0&&<div style={{textAlign:"right",fontSize:11,color:WG,marginTop:4}}>as at {fmtDate(snap.asAt)}</div>}
+      {(snap.paidTotal>0||snap.tradeIn>0)&&<div style={{textAlign:"right",fontSize:11,color:WG,marginTop:4}}>as at {fmtDate(snap.asAt)}</div>}
 
       {/* Payment details */}
       {bank.length>0&&<div style={{marginTop:24,background:PARCH,border:`1px solid ${BD}`,borderRadius:5,padding:"18px 20px"}}>
