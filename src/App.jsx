@@ -1800,7 +1800,7 @@ function ClientForm({initial={},onSave,onCancel}){
   </div>;
 }
 
-function Clients({clients,setClients,jobs,payments,setView,setSelClient}){
+function Clients({clients,setClients,jobs,payments,setView,setSelClient,quotes=[]}){
   const[modal,setModal]=useState(null);
   const[search,setSearch]=useState("");
   const filtered=clients.filter(c=>{const s=search.toLowerCase();return [c.name,c.partnerName,c.email,c.partnerEmail].filter(Boolean).some(v=>v.toLowerCase().includes(s));})
@@ -1821,6 +1821,7 @@ function Clients({clients,setClients,jobs,payments,setView,setSelClient}){
     {filtered.map(c=>{
       const cj=jobs.filter(j=>j.clientId===c.id);
       const spent=cj.flatMap(j=>payments.filter(p=>p.jobId===j.id&&p.status==="Received")).reduce((s,p)=>s+Number(p.amount),0);
+      const received=spent+cj.reduce((s,j)=>s+jobTradeInCredit(j,quotes),0);   // cash + gold trade-in
       return <Card key={c.id} onClick={()=>{setSelClient(c.id);setView("clientDetail");}}>
         <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start"}}>
           <div style={{display:"flex",gap:14,alignItems:"flex-start",flex:1}}>
@@ -1828,7 +1829,7 @@ function Clients({clients,setClients,jobs,payments,setView,setSelClient}){
             <div><div style={{fontWeight:700,fontSize:15,color:INK}}>{clientDisplayName(c)}</div>
             <div style={{fontSize:12,color:WG,marginTop:2}}>{c.email} · {c.phone}</div>
             <div style={{display:"flex",gap:12,fontSize:12,color:WG,marginTop:4,flexWrap:"wrap"}}>
-              {spent>0&&<span>Paid: <b style={{color:OK}}>{fmt(spent)}</b></span>}
+              {received>0&&<span>Received: <b style={{color:OK}}>{fmt(received)}</b></span>}
             </div></div>
           </div>
           <div style={{display:"flex",flexDirection:"column",gap:8,alignItems:"flex-end"}}>
@@ -1864,7 +1865,7 @@ function ClientDetail({clientId,clients,setClients,jobs,setJobs,quotes,payments,
     <div style={{display:"flex",alignItems:"center",gap:14,marginBottom:20}}>
       <div style={{width:50,height:50,borderRadius:"50%",background:GOLD_L,display:"flex",alignItems:"center",justifyContent:"center",fontSize:20,fontWeight:800,color:GOLD_D}}>{c.name.charAt(0)}</div>
       <div style={{flex:1}}><h1 style={{margin:0,fontSize:24,fontWeight:800,color:INK,letterSpacing:"-0.02em"}}>{clientDisplayName(c)}</h1>
-      <div style={{fontSize:13,color:WG}}>Since {fmtDate(c.createdAt)} · {fmt(spent)} paid to date</div></div>
+      <div style={{fontSize:13,color:WG}}>Since {fmtDate(c.createdAt)} · {fmt(spent+tradeIn)} received to date</div></div>
       <Btn sm ghost onClick={()=>setEditModal(true)}>✎ Edit client</Btn>
     </div>
     {charged>0&&<div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:12,marginBottom:16}}>
@@ -2059,7 +2060,8 @@ function Jobs({clients,jobs,setJobs,quotes,setQuotes,payments,setPayments,notes,
       const od=j.deadline&&j.deadline<today()&&!jobIsDone(j);
       const total=jobChargeTotal(j,quotes,markupTable,invoices);
       const paid=payments.filter(p=>p.jobId===j.id&&p.status==="Received").reduce((s,p)=>s+Number(p.amount),0);
-      const owing=total-paid-jobTradeInCredit(j,quotes);   // trade-in is a credit received
+      const tradeIn=jobTradeInCredit(j,quotes);            // gold trade-in credit (value received)
+      const owing=total-paid-tradeIn;
       const isOverride=Number(j.totalOverride)>0;
       return <Card key={j.id} onClick={()=>{setSelJob(j.id);setView("jobDetail");}}>
         <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start"}}>
@@ -2073,7 +2075,7 @@ function Jobs({clients,jobs,setJobs,quotes,setQuotes,payments,setPayments,notes,
         </div>
         {total>0&&<div style={{display:"flex",gap:18,marginTop:12,paddingTop:10,borderTop:`1px solid ${BD}`,fontSize:12,flexWrap:"wrap"}}>
           <span style={{color:WG}}>Total <b style={{color:INK}}>{fmt(total)}</b>{isOverride&&<span style={{color:GOLD_D,fontSize:10,fontWeight:700,marginLeft:5,letterSpacing:"0.04em"}}>OVERRIDE</span>}</span>
-          <span style={{color:WG}}>Paid <b style={{color:OK}}>{fmt(paid)}</b></span>
+          <span style={{color:WG}}>Received <b style={{color:OK}}>{fmt(paid+tradeIn)}</b></span>
           {owing>0.5&&<span style={{color:WG}}>Owing <b style={{color:WARN}}>{fmt(owing)}</b></span>}
           {owing<=0.5&&total>0&&<span style={{color:OK,fontWeight:700}}>✓ Paid in full</span>}
         </div>}
@@ -5108,7 +5110,7 @@ function InvoiceDetail({invoiceId,invoices,setInvoices,jobs,clients,payments,biz
       <span style={{fontSize:11,color:WG}}>Re-copy to refresh totals before sending.</span>
     </div>}
     <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:12,marginBottom:staged?10:18}}>
-      {[["Invoice total",fmt(inv.totalIncGST),INK],["Total paid",fmt(paidTotal),OK],[staged?"Due now":"Balance due",fmt(dueNow),dueNow>0.5?WARN:OK]].map(([l,v,col])=>(
+      {[["Invoice total",fmt(inv.totalIncGST),INK],["Received",fmt(paidTotal+invTradeIn),OK],[staged?"Due now":"Balance due",fmt(dueNow),dueNow>0.5?WARN:OK]].map(([l,v,col])=>(
         <div key={l} style={{background:WHITE,border:`1px solid ${BD}`,borderRadius:4,padding:"14px 16px"}}>
           <div style={{fontSize:10,color:WG,fontWeight:700,textTransform:"uppercase",letterSpacing:"0.08em"}}>{l}</div>
           <div style={{fontSize:20,fontWeight:700,color:col,marginTop:4}}>{v}</div>
@@ -5292,7 +5294,7 @@ function InvoicesList({invoices,jobs,clients,quotes,payments,setInvoices,markupT
       const job=jobs.find(j=>j.id===inv.jobId);
       const cl=job?clients.find(x=>x.id===job.clientId):null;
       const paid=(payments||[]).filter(p=>p.jobId===inv.jobId&&p.status==="Received").reduce((s,p)=>s+Number(p.amount),0);
-      const bal=Math.max(0,inv.totalIncGST-paid);
+      const bal=Math.max(0,inv.totalIncGST-(Number(inv.tradeInCredit)||0)-paid);   // net of gold trade-in
       const es=invoiceEffectiveStatus(inv,payments,invoices);
       return <Card key={inv.id} onClick={()=>setView("invoiceDetail_"+inv.id)}>
         <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
@@ -7594,7 +7596,7 @@ export default function App(){
     if(view==="dashboard")return <Dashboard clients={clients} jobs={jobs} quotes={quotes} payments={payments} invoices={invoices} appointments={appointments} proposals={proposals} markProposalSeen={markProposalSeen} markRepairSeen={markRepairSeen} markupTable={markupTable} setView={setView} setSelClient={setSelClient}/>;
     if(view==="todo")return <TodoBoard todos={todos} setTodos={setTodos}/>;
     if(view==="appointments")return <Appointments appointments={appointments} setAppointments={setAppointments} clients={clients} setClients={setClients} jobs={jobs} setJobs={setJobs} setView={setView} setSelClient={setSelClient} setSelJob={setSelJob}/>;
-    if(view==="clients")return <Clients clients={clients} setClients={setClients} jobs={jobs} payments={payments} setView={setView} setSelClient={setSelClient}/>;
+    if(view==="clients")return <Clients clients={clients} setClients={setClients} jobs={jobs} payments={payments} setView={setView} setSelClient={setSelClient} quotes={quotes}/>;
     if(view==="clientDetail")return <ClientDetail clientId={selClient} clients={clients} setClients={setClients} jobs={jobs} setJobs={setJobs} quotes={quotes} payments={payments} invoices={invoices} markupTable={markupTable} setView={setView} setSelJob={setSelJob}/>;
     if(view==="jobs")return <Jobs clients={clients} jobs={jobs} setJobs={setJobs} quotes={quotes} setQuotes={setQuotes} payments={payments} setPayments={setPayments} notes={notes} setNotes={setNotes} invoices={invoices} setInvoices={setInvoices} markupTable={markupTable} setView={setView} setSelJob={setSelJob}/>;
     if(view==="jobDetail")return <JobDetail jobId={selJob} jobs={jobs} setJobs={setJobs} clients={clients} quotes={quotes} setQuotes={setQuotes} payments={payments} setPayments={setPayments} notes={notes} setNotes={setNotes} invoices={invoices} setInvoices={setInvoices} proposals={proposals} setProposals={setProposals} biz={biz} markupTable={markupTable} pricing={pricing} setView={setView}/>;
