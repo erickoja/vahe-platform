@@ -1653,7 +1653,10 @@ function Dashboard({clients,jobs,quotes,payments,invoices,appointments=[],propos
   const overdue=active.filter(j=>!jobIsDone(j)&&j.deadline&&j.deadline<today());
   const thisMonth=new Date().toISOString().slice(0,7);
   // Cash-received view: actual payments received this month (deposits included), regardless of invoicing
-  const monthReceived=payments.filter(p=>p.status==="Received"&&p.date?.startsWith(thisMonth)).reduce((s,p)=>s+Number(p.amount),0);
+  // Value received this month = cash payments dated this month + gold trade-in credits on approved
+  // quotes whose most recent activity was this month (trade-ins have no date of their own).
+  const monthReceived=payments.filter(p=>p.status==="Received"&&p.date?.startsWith(thisMonth)).reduce((s,p)=>s+Number(p.amount),0)
+    +quotes.filter(q=>q.status==="Approved"&&(Number(q.tradeInCredit)||0)>0&&String(q.updatedAt||q.createdAt||"").slice(0,7)===thisMonth).reduce((s,q)=>s+Number(q.tradeInCredit),0);
   const balanceOwing=jobs.map(j=>{
     if(!jobHasCharge(j,quotes))return null;
     const total=jobChargeTotal(j,quotes,markupTable,invoices);
@@ -1703,7 +1706,7 @@ function Dashboard({clients,jobs,quotes,payments,invoices,appointments=[],propos
       <Stat label="Today's appts" value={todaysAppts.length} sub={todaysAppts.length>0?fmtTime(todaysAppts.slice().sort((a,b)=>String(a.time||"").localeCompare(String(b.time||"")))[0].time)+" first":"none today"} tint="blue" icon="◷" onClick={()=>setView("appointments")}/>
       <Stat label="Clients" value={clients.length} tint="blue" icon="♦" onClick={()=>setView("clients")}/>
       <Stat label="Active jobs" value={active.length} tint="lilac" icon="✦" onClick={()=>setView("jobs")}/>
-      <Stat label="This month" value={fmt(monthReceived)} sub="payments received" tint="mint" icon="↑"/>
+      <Stat label="This month" value={fmt(monthReceived)} sub="received (incl. trade-ins)" tint="mint" icon="↑"/>
       <Stat label="Outstanding" value={fmt(outstanding)} sub="balance owed" tint={outstanding>0?"peach":"mint"} icon="$"/>
       <Stat label="Ready to collect" value={ready.length} tint="gold" icon="✓" onClick={()=>setView("jobs")}/>
       <Stat label="Overdue" value={overdue.length} tint={overdue.length>0?"rose":"mint"} icon="!" onClick={()=>setView("jobs")}/>
@@ -6050,7 +6053,8 @@ function Reports({jobs,clients,quotes,payments,invoices,markupTable}){
   const months=Array.from({length:6},(_,i)=>{const d=new Date();d.setMonth(d.getMonth()-i);return d.toISOString().slice(0,7);}).reverse();
   const monthData=months.map(m=>({
     month:new Date(m+"-01").toLocaleDateString("en-AU",{month:"short",year:"numeric"}),
-    paid:payments.filter(p=>p.date?.startsWith(m)&&p.status==="Received").reduce((s,p)=>s+Number(p.amount),0),
+    paid:payments.filter(p=>p.date?.startsWith(m)&&p.status==="Received").reduce((s,p)=>s+Number(p.amount),0)
+      +quotes.filter(q=>q.status==="Approved"&&(Number(q.tradeInCredit)||0)>0&&String(q.updatedAt||q.createdAt||"").slice(0,7)===m).reduce((s,q)=>s+Number(q.tradeInCredit),0),
   }));
   const maxPaid=Math.max(...monthData.map(m=>m.paid),1);
   const jobsByType=JOB_TYPES.map(t=>({type:t,count:jobs.filter(j=>j.type===t).length})).filter(x=>x.count>0).sort((a,b)=>b.count-a.count);
@@ -6082,7 +6086,7 @@ function Reports({jobs,clients,quotes,payments,invoices,markupTable}){
       <Stat label="Outstanding" value={fmt(outstanding)} sub="balance owed" accent={outstanding>0}/>
     </div>
     <Card>
-      <div style={{fontWeight:700,fontSize:15,color:INK,marginBottom:18}}>Payments received — last 6 months</div>
+      <div style={{fontWeight:700,fontSize:15,color:INK,marginBottom:18}}>Received (cash + trade-ins) — last 6 months</div>
       <div style={{display:"flex",gap:8,alignItems:"flex-end",height:110}}>
         {monthData.map(m=>(
           <div key={m.month} style={{flex:1,display:"flex",flexDirection:"column",alignItems:"center",gap:4}}>
