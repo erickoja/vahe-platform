@@ -844,8 +844,12 @@ const jobChargeTotal=(job,quotes,markupTable,invoices)=>{
   const base=ov>0?ov:(quotes||[]).filter(q=>q.jobId===job.id&&q.status==="Approved").reduce((s,q)=>s+quoteGrandTotal(q,markupTable),0);
   // Subtract any discounts applied on this job's invoices so "amount owing" matches the billed total.
   const disc=(invoices||[]).filter(i=>i.jobId===job.id).reduce((s,i)=>s+(Number(i.discount)||0),0);
-  return Math.max(0,base-disc);
+  // Gold trade-in credits on approved quotes are a credit against the balance (like a payment in gold).
+  const tradeIn=(quotes||[]).filter(q=>q.jobId===job.id&&q.status==="Approved").reduce((s,q)=>s+(Number(q.tradeInCredit)||0),0);
+  return Math.max(0,base-disc-tradeIn);
 };
+// Sum of gold trade-in credits on a job's approved quotes (for display of the credit line).
+const jobTradeInCredit=(job,quotes)=>(quotes||[]).filter(q=>q.jobId===job?.id&&q.status==="Approved").reduce((s,q)=>s+(Number(q.tradeInCredit)||0),0);
 // True if the job has any agreed charge (override or approved quote)
 const jobHasCharge=(job,quotes)=>Number(job?.totalOverride)>0||(quotes||[]).some(q=>q.jobId===job.id&&q.status==="Approved");
 // Effective invoice status for display/aggregation. A manual "Paid" always wins. Otherwise, when
@@ -942,6 +946,8 @@ const buildProposalSnapshot=({proposal,job,client,biz,quotes,markupTable,payment
       photo:photos[0]||null,   // back-compat: first image
       photos,
       video:optVideos[qid]||null,
+      tradeIn:Number(q.tradeInCredit)||0,
+      tradeInNote:q.tradeInNote||"",
     };
   }).filter(Boolean);
   return{
@@ -967,7 +973,7 @@ const buildProposalSnapshot=({proposal,job,client,biz,quotes,markupTable,payment
 // reflects the invoice's current totals/balance.
 const buildInvoiceSnapshot=({inv,job,client,biz,payments})=>{
   const paidTotal=(payments||[]).filter(p=>p.jobId===inv.jobId&&p.status==="Received").reduce((s,p)=>s+Number(p.amount),0);
-  const balance=Math.max(0,inv.totalIncGST-paidTotal);
+  const invTradeIn=Number(inv.tradeInCredit)||0;const balance=Math.max(0,inv.totalIncGST-invTradeIn-paidTotal);
   const requestAmount=Number(inv.requestAmount)||0;
   const staged=requestAmount>0;
   const dueNow=staged?Math.min(requestAmount,balance):balance;
@@ -2534,7 +2540,7 @@ function JobDetail({jobId,jobs,setJobs,clients,quotes,setQuotes,payments,setPaym
     }
     // A manual-price quote may have no line items — give the invoice one so it isn't blank
     if(!lineItems.length)lineItems.push({id:uid(),description:quoteLabel(q),detail:"As quoted",costLow:totalIncGST.toFixed(2),noMarkup:true});
-    const inv={id:uid(),jobId,quoteId:qid,quoteIds:[qid],number:num,date:today(),status:"Unpaid",exGST,gst,totalIncGST,lineItems,notes:q.notes||"",descriptionOverride,calc};
+    const inv={id:uid(),jobId,quoteId:qid,quoteIds:[qid],number:num,date:today(),status:"Unpaid",exGST,gst,totalIncGST,lineItems,notes:q.notes||"",tradeInCredit:Number(q.tradeInCredit)||0,tradeInNote:q.tradeInNote||"",descriptionOverride,calc};
     setInvoices(p=>{const n=[...p,inv];persist(K.inv,n);return n;});
     setView("invoiceDetail_"+inv.id);
   };
@@ -2928,6 +2934,8 @@ function QuoteBuilder({jobId:jobIdProp,editQuoteId,stockId,stock,setStock,jobs,c
   const[pieceTitle,setPieceTitle]=useState(seed?.pieceTitle||"");  // custom piece name on documents; blank = use job type
   const[markupOverride,setMarkupOverride]=useState(seed?.markupOverride?String(seed.markupOverride):"");
   const[stoneOverride,setStoneOverride]=useState(seed?.stoneMarkupOverride?String(seed.stoneMarkupOverride):"");
+  const[tradeInCredit,setTradeInCredit]=useState(seed?.tradeInCredit?String(seed.tradeInCredit):"");
+  const[tradeInNote,setTradeInNote]=useState(seed?.tradeInNote||"");
   const[manualTotal,setManualTotal]=useState(seed?.manualTotal?String(seed.manualTotal):"");
   const[validUntil,setValidUntil]=useState(seed?.validUntil||"");
   const[pricingModal,setPricingModal]=useState(false);
@@ -3064,6 +3072,8 @@ function QuoteBuilder({jobId:jobIdProp,editQuoteId,stockId,stock,setStock,jobs,c
   const accentStoneTotal=accentStoneItems.reduce((s,i)=>{const sc=calcStoneQuote([{cost:i.costLow}],i.markupMode==="lab"?labStoneMarkup:naturalStoneMarkup);return s+(sc?.clientTotal||0);},0);
   const grandTotal=calc.finalLow+stoneClientTotal+accentStoneTotal;
   const manualOn=Number(manualTotal)>0;
+  const tradeInN=Number(tradeInCredit)||0;                                   // gold trade-in credit (deduction)
+  const payableTotal=Math.max(0,(manualOn?Number(manualTotal):grandTotal)-tradeInN);   // amount payable after trade-in
 
   const save_=status=>{
     const baseValidItems=items.filter(i=>i.description.trim()&&Number(i.costLow)>0);
@@ -3087,12 +3097,12 @@ function QuoteBuilder({jobId:jobIdProp,editQuoteId,stockId,stock,setStock,jobs,c
       // Update existing quote — preserve id, jobId, createdAt
       const updated={...existingQuote,status,title:title.trim(),pieceTitle:pieceTitle.trim(),markupOverride:Number(markupOverride)||0,manualTotal:Number(manualTotal)||0,validUntil,notes,lineItems:validItems,
         stoneMode,stoneType:stoneMode==="sourcing"?stoneType:"",stoneItems:stoneMode==="sourcing"?validStoneItems:[],stoneMarkupOverride:Number(stoneOverride)||0,
-        stoneNotes,stoneClientTotal:stoneCalc?.clientTotal||0,accentStoneTotal,clientDescription,updatedAt:today()};
+        stoneNotes,stoneClientTotal:stoneCalc?.clientTotal||0,accentStoneTotal,tradeInCredit:Number(tradeInCredit)||0,tradeInNote:tradeInNote.trim(),clientDescription,updatedAt:today()};
       setQuotes(p=>{const n=p.map(q=>q.id===editQuoteId?updated:q);persist(K.qu,n);return n;});
     }else{
       const q={id:uid(),jobId,status,title:title.trim(),pieceTitle:pieceTitle.trim(),markupOverride:Number(markupOverride)||0,manualTotal:Number(manualTotal)||0,createdAt:today(),validUntil,notes,lineItems:validItems,
         stoneMode,stoneType:stoneMode==="sourcing"?stoneType:"",stoneItems:stoneMode==="sourcing"?validStoneItems:[],stoneMarkupOverride:Number(stoneOverride)||0,
-        stoneNotes,stoneClientTotal:stoneCalc?.clientTotal||0,accentStoneTotal,clientDescription};
+        stoneNotes,stoneClientTotal:stoneCalc?.clientTotal||0,accentStoneTotal,tradeInCredit:Number(tradeInCredit)||0,tradeInNote:tradeInNote.trim(),clientDescription};
       setQuotes(p=>{const n=[...p,q];persist(K.qu,n);return n;});
     }
     setView("jobDetail_"+jobId);
@@ -3358,7 +3368,8 @@ function QuoteBuilder({jobId:jobIdProp,editQuoteId,stockId,stock,setStock,jobs,c
                 ...(stoneMode==="sourcing"&&stoneCalc?[["Stone",fmtR(stoneCalc.clientTotal),stoneType==="lab"?"#7B5EA7":"#3B6E8F","+ "]]:
                    stoneMode==="client"?[["Stone","Client supplying",WG,"+ "]]:
                    []),
-                [manualOn?"Total — manual price":"Total",fmtR(manualOn?Number(manualTotal):grandTotal),OK,"= "],
+                ...(tradeInN>0?[["Gold trade-in credit",fmtR(tradeInN),DANGER,"− "]]:[]),
+                [tradeInN>0?"Amount payable":(manualOn?"Total — manual price":"Total"),fmtR(payableTotal),OK,"= "],
               ].map(([label,val,col,prefix],i,arr)=>(
                 <div key={label} style={{flex:1,padding:"12px 16px",background:i===arr.length-1?INK:PARCH,borderRight:i<arr.length-1?`1px solid ${BD}`:"none"}}>
                   <div style={{fontSize:10,fontWeight:700,color:i===arr.length-1?"rgba(255,255,255,0.5)":WG,textTransform:"uppercase",letterSpacing:"0.06em",marginBottom:4}}>{label}</div>
@@ -3369,6 +3380,24 @@ function QuoteBuilder({jobId:jobIdProp,editQuoteId,stockId,stock,setStock,jobs,c
           </div>
         </div>
       </div>}
+
+      {/* ── Gold trade-in credit ── */}
+      <div style={{borderTop:`1px solid ${BD}`,marginTop:16,paddingTop:18,marginBottom:8}}>
+        <div style={{display:"flex",alignItems:"flex-start",gap:14,flexWrap:"wrap"}}>
+          <div style={{flex:1,minWidth:240}}>
+            <div style={{fontSize:11,fontWeight:700,color:WG,textTransform:"uppercase",letterSpacing:"0.08em"}}>Gold trade-in credit</div>
+            <div style={{fontSize:11,color:WG,marginTop:3,lineHeight:1.5}}>Trading in old gold? Enter the credit you're giving — it shows on the quote, proposal &amp; invoice as a deduction and reduces the balance. Enter it here <strong>instead of</strong> recording a trade-in payment.</div>
+          </div>
+          <div style={{position:"relative",width:150,flexShrink:0}}>
+            <span style={{position:"absolute",left:10,top:"50%",transform:"translateY(-50%)",fontSize:13,color:WG,pointerEvents:"none"}}>$</span>
+            <input type="number" value={tradeInCredit} onChange={e=>setTradeInCredit(e.target.value)} placeholder="0.00" min="0" step="0.01"
+              style={{...SS.inp,marginTop:0,fontSize:14,padding:"8px 10px 8px 24px",textAlign:"right",fontWeight:tradeInN>0?800:400,borderColor:tradeInN>0?DANGER:BD}}/>
+          </div>
+        </div>
+        {tradeInN>0&&<div style={{marginTop:10}}>
+          <Input label="Trade-in note (weight / purity / test — shown on the documents)" value={tradeInNote} onChange={setTradeInNote} placeholder="e.g. 14.2g 18ct yellow, X-ray tested"/>
+        </div>}
+      </div>
 
       {/* ── Manual quoted price — for verbal phone / in-person quotes ── */}
       <div style={{borderTop:`1px solid ${BD}`,marginTop:16,paddingTop:18,marginBottom:8}}>
@@ -4135,23 +4164,27 @@ function PublicProposalPage({token}){
       {/* Payments received → balance due, else deposit note (on the combined total) */}
       {selectedOpts.length>0&&comboPrice>0&&(()=>{
         const paid=Number(snap.paidTotal)||0;
+        const tradeIn=selectedOpts.reduce((s,o)=>s+(Number(o.tradeIn)||0),0);
+        const tradeInNote=selectedOpts.map(o=>(o.tradeInNote||"").trim()).filter(Boolean).join(" · ");
         const custom=Number(snap.dueNow)||0;
         const note=(snap.paymentNote||"").trim();
-        // No payments and no custom amount → simple deposit prompt (unchanged)
-        if(paid<=0.005&&custom<=0.005)return <div style={{marginTop:14}}>
+        // No payments, no trade-in and no custom amount → simple deposit prompt (unchanged)
+        if(paid<=0.005&&tradeIn<=0.005&&custom<=0.005)return <div style={{marginTop:14}}>
           <div style={{fontSize:12,color:WG}}>To proceed, a {snap.depositPercent||50}% deposit of <strong style={{color:INK}}>{depositOf(comboPrice)}</strong> is required.</div>
           {note&&<div style={{fontSize:12,color:WG,marginTop:6,fontStyle:"italic"}}>{note}</div>}
         </div>;
-        const fullDue=Math.max(0,comboPrice-paid);
+        const fullDue=Math.max(0,comboPrice-paid-tradeIn);
         const dueNowAmt=custom>0.005?Math.min(custom,fullDue):fullDue;   // never ask for more than is owed
-        const remaining=Math.max(0,comboPrice-paid-dueNowAmt);
+        const remaining=Math.max(0,comboPrice-paid-tradeIn-dueNowAmt);
         const dueLabel=custom>0.005?"Amount due now":(dueNowAmt<=0.005?"Paid in full":"Balance now due");
         return <div style={{marginTop:16,background:PARCH,border:`1px solid ${BD}`,borderRadius:4,padding:"14px 16px"}}>
           <div style={{display:"flex",justifyContent:"space-between",fontSize:13,color:WG,padding:"2px 0"}}><span>{multi?"Combined total":"Total price"} (inc GST)</span><span style={{color:INK,fontWeight:600}}>{fmtR(comboPrice)}</span></div>
+          {tradeIn>0.005&&<div style={{display:"flex",justifyContent:"space-between",fontSize:13,color:WG,padding:"2px 0"}}><span>Gold trade-in credit</span><span style={{color:OK,fontWeight:600}}>− {fmtR(tradeIn)}</span></div>}
           {paid>0.005&&<div style={{display:"flex",justifyContent:"space-between",fontSize:13,color:WG,padding:"2px 0"}}><span>Payments received</span><span style={{color:OK,fontWeight:600}}>− {fmtR(paid)}</span></div>}
           <div style={{display:"flex",justifyContent:"space-between",alignItems:"baseline",borderTop:`1px solid ${BD}`,marginTop:8,paddingTop:10}}><span style={{fontSize:13,fontWeight:700,color:INK}}>{dueLabel}</span><span style={{fontSize:18,fontWeight:800,color:dueNowAmt<=0.005?OK:INK}}>{fmtR(dueNowAmt)}</span></div>
           {custom>0.005&&remaining>0.005&&<div style={{display:"flex",justifyContent:"space-between",fontSize:12,color:WG,paddingTop:6}}><span>Remaining on completion</span><span style={{color:INK,fontWeight:600}}>{fmtR(remaining)}</span></div>}
-          {note&&<div style={{fontSize:12,color:WG,marginTop:10,lineHeight:1.5,fontStyle:"italic"}}>{note}</div>}
+          {tradeInNote&&<div style={{fontSize:12,color:WG,marginTop:10,lineHeight:1.5,fontStyle:"italic"}}>Trade-in: {tradeInNote}</div>}
+          {note&&<div style={{fontSize:12,color:WG,marginTop:tradeInNote?4:10,lineHeight:1.5,fontStyle:"italic"}}>{note}</div>}
         </div>;
       })()}
 
@@ -4487,6 +4520,8 @@ function QuoteDetail({quoteId,quotes,setQuotes,jobs,clients,biz,markupTable,natu
   // quote (no line items → base 0) is a valid total, not an undefined one.
   const markupUndef=!manual&&calc.base>0&&!calc.bracket&&!calc.overridden;
   const grandStr=markupUndef?"—":fmtR(grandTotal);
+  const qTradeIn=Number(q.tradeInCredit)||0;
+  const qPayable=Math.max(0,grandTotal-qTradeIn);
   // Set this quote's status only — other quotes on the job are left untouched, so a job can hold
   // several approved quotes at once (needed when a client accepts a multi-item bundle proposal).
   // The job's agreed charge sums every approved quote, so multiple approvals total up correctly.
@@ -4579,12 +4614,13 @@ function QuoteDetail({quoteId,quotes,setQuotes,jobs,clients,biz,markupTable,natu
       </div>}
 
       {/* Grand total bar — shown when there's a centre stone, accent stones on stone markup, or a manual price */}
-      {(stoneCalc||accentStoneTotal>0||manual)&&(()=>{
+      {(stoneCalc||accentStoneTotal>0||manual||qTradeIn>0)&&(()=>{
         const cells=[
           ...(manual&&!q.lineItems.length?[]:[["Jewellery piece",(manual&&calc.base>0&&!calc.bracket&&!calc.overridden)?"—":fmtR(calc.finalLow),GOLD]]),
           ...(accentStoneTotal>0?[["Accent stones",fmtR(accentStoneTotal),"#C4A8F0"]]:[]),
           ...(stoneCalc?[["Stone",fmtR(stoneCalc.clientTotal),q.stoneType==="lab"?"#C4A8F0":"#8EB5D4"]]:[]),
-          [manual?"Quoted price — manual":"Combined total",grandStr,OK],
+          ...(qTradeIn>0?[["Gold trade-in credit","−"+fmtR(qTradeIn),"#E79A9A"]]:[]),
+          [qTradeIn>0?"Amount payable":(manual?"Quoted price — manual":"Combined total"),qTradeIn>0?fmtR(qPayable):grandStr,OK],
         ];
         return <div style={{background:INK,borderRadius:4,padding:"14px 20px",marginBottom:16,display:"grid",gridTemplateColumns:`repeat(${cells.length},1fr)`,gap:1}}>
           {cells.map(([l,v,col])=>(
@@ -4793,7 +4829,7 @@ function InvoicePrintView({inv,job,client,biz,payments,onClose}){
   const paidTotal=(payments||[]).filter(p=>p.jobId===inv.jobId&&p.status==="Received").reduce((s,p)=>s+Number(p.amount),0);
   const invDiscount=Number(inv.discount)||0;
   const invSubtotal=inv.subtotalIncGST??inv.totalIncGST;
-  const balance=Math.max(0,inv.totalIncGST-paidTotal);
+  const invTradeIn=Number(inv.tradeInCredit)||0;const balance=Math.max(0,inv.totalIncGST-invTradeIn-paidTotal);
   const requestAmount=Number(inv.requestAmount)||0;
   const staged=requestAmount>0;
   const dueNow=staged?Math.min(requestAmount,balance):balance;
@@ -4884,7 +4920,7 @@ function InvoicePrintView({inv,job,client,biz,payments,onClose}){
         {/* totals */}
         <div style={{padding:"28px 56px 40px",display:"flex",justifyContent:"flex-end"}}>
           <div style={{minWidth:300}}>
-            {[...(invDiscount>0?[["Subtotal",fmt(invSubtotal)],[inv.discountLabel||"Discount","−"+fmt(invDiscount)]]:[]),["Total (incl. GST)",fmt(inv.totalIncGST)],["Includes GST",fmt(inv.gst)],["Paid to date",fmt(paidTotal)],...(staged?[["Balance outstanding",fmt(balance)]]:[])].map(([l,v])=>(
+            {[...(invDiscount>0?[["Subtotal",fmt(invSubtotal)],[inv.discountLabel||"Discount","−"+fmt(invDiscount)]]:[]),["Total (incl. GST)",fmt(inv.totalIncGST)],["Includes GST",fmt(inv.gst)],...(invTradeIn>0?[["Gold trade-in credit","−"+fmt(invTradeIn)]]:[]),["Paid to date",fmt(paidTotal)],...((staged||invTradeIn>0)?[["Balance outstanding",fmt(balance)]]:[])].map(([l,v])=>(
               <div key={l} style={{display:"flex",justifyContent:"space-between",fontSize:13,padding:"8px 0",borderBottom:`1px solid ${BD_SOFT}`}}>
                 <span style={{color:WG}}>{l}</span><span style={{fontWeight:600,color:INK}}>{v}</span>
               </div>
@@ -4984,7 +5020,7 @@ function InvoiceDetail({invoiceId,invoices,setInvoices,jobs,clients,payments,biz
   const subtotalIncGST=inv.subtotalIncGST??inv.totalIncGST;
   const discount=Number(inv.discount)||0;
   const paidTotal=(payments||[]).filter(p=>p.jobId===inv.jobId&&p.status==="Received").reduce((s,p)=>s+Number(p.amount),0);
-  const balance=Math.max(0,inv.totalIncGST-paidTotal);
+  const invTradeIn=Number(inv.tradeInCredit)||0;const balance=Math.max(0,inv.totalIncGST-invTradeIn-paidTotal);
   // Staged request: optionally request only a specific amount now (e.g. the diamond balance),
   // with the rest noted as payable later. Blank = request the full outstanding balance.
   const requestAmount=Number(inv.requestAmount)||0;
@@ -5167,7 +5203,7 @@ function InvoicesList({invoices,jobs,clients,quotes,payments,setInvoices,markupT
     // For a combined invoice, itemise per option on the customer-facing invoice (one line each,
     // with that option's price). Single-quote invoices keep the one-line descriptionOverride.
     const customerLines=qs.length>1?qs.map(q=>({id:uid(),description:(q.clientDescription||"").trim()||jb?.description||quoteLabel(q),amount:quoteGrandTotal(q,markupTable)})):null;
-    const inv={id:uid(),jobId:selJob,quoteId:qs[0].id,quoteIds:qs.map(q=>q.id),number:num,date:today(),status:"Unpaid",exGST,gst,totalIncGST,lineItems,notes,descriptionOverride,customerLines};
+    const inv={id:uid(),jobId:selJob,quoteId:qs[0].id,quoteIds:qs.map(q=>q.id),number:num,date:today(),status:"Unpaid",exGST,gst,totalIncGST,lineItems,notes,tradeInCredit:qs.reduce((s,q)=>s+(Number(q.tradeInCredit)||0),0),tradeInNote:qs.map(q=>(q.tradeInNote||"").trim()).filter(Boolean).join(" · "),descriptionOverride,customerLines};
     setInvoices(p=>{const n=[...p,inv];persist(K.inv,n);return n;});
     setModal(false);
     setView("invoiceDetail_"+inv.id);
