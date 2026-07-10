@@ -5251,12 +5251,31 @@ function InvoicesList({invoices,jobs,clients,quotes,payments,setInvoices,markupT
     setView("invoiceDetail_"+inv.id);
   };
   const delInv=(id,e)=>{e.stopPropagation();const iv=invoices.find(x=>x.id===id);if(!confirm(`Delete invoice ${iv?.number||""}? This can't be undone. Payments and the quote are not affected.`))return;setInvoices(p=>{const n=p.filter(x=>x.id!==id);persist(K.inv,n);return n;});};
-  const totalOut=invoices.filter(i=>invoiceEffectiveStatus(i,payments,invoices)!=="Paid").reduce((s,i)=>s+i.totalIncGST,0);
-  const totalPaid=invoices.filter(i=>invoiceEffectiveStatus(i,payments,invoices)==="Paid").reduce((s,i)=>s+i.totalIncGST,0);
+  // True net invoice figures. Payments are job-level, so distribute each job's received cash
+  // across its invoices (oldest first), netting each invoice's gold trade-in credit first.
+  // Result: Total invoiced = Collected (cash + trade-ins) + Outstanding, so the three reconcile.
+  let grossInvoiced=0,totalPaid=0,totalOut=0;
+  {
+    const byJob={};
+    invoices.forEach(i=>{(byJob[i.jobId]=byJob[i.jobId]||[]).push(i);});
+    Object.keys(byJob).forEach(jid=>{
+      let cash=payments.filter(p=>p.jobId===jid&&p.status==="Received").reduce((s,p)=>s+Number(p.amount),0);
+      byJob[jid].slice().sort((a,b)=>String(a.date).localeCompare(String(b.date))).forEach(inv=>{
+        const gross=Number(inv.totalIncGST)||0;
+        const afterTradeIn=Math.max(0,gross-(Number(inv.tradeInCredit)||0));
+        const cashApplied=Math.min(cash,afterTradeIn);
+        cash-=cashApplied;
+        const bal=Math.max(0,afterTradeIn-cashApplied);
+        grossInvoiced+=gross;
+        totalPaid+=gross-bal;   // trade-in credit + cash applied = value received against this invoice
+        totalOut+=bal;
+      });
+    });
+  }
   return <div>
     <SectionHeader title="Invoices" action={<Btn onClick={openModal}>+ New Invoice</Btn>}/>
     {invoices.length>0&&<div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:12,marginBottom:18}}>
-      {[["Total invoiced",fmt(totalOut+totalPaid),INK],["Outstanding",fmt(totalOut),totalOut>0?WARN:OK],["Collected",fmt(totalPaid),OK]].map(([l,v,col])=>(
+      {[["Total invoiced",fmt(grossInvoiced),INK],["Outstanding",fmt(totalOut),totalOut>0?WARN:OK],["Collected",fmt(totalPaid),OK]].map(([l,v,col])=>(
         <div key={l} style={{background:WHITE,border:`1px solid ${BD}`,borderRadius:4,padding:"14px 16px"}}>
           <div style={{fontSize:10,color:WG,fontWeight:700,textTransform:"uppercase",letterSpacing:"0.08em"}}>{l}</div>
           <div style={{fontSize:20,fontWeight:700,color:col,marginTop:4}}>{v}</div>
