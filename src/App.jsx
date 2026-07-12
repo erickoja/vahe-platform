@@ -3604,6 +3604,7 @@ function JobProposals({job,client,quotes,proposals,setProposals,setQuotes,biz,ma
   const [bulkVideos,setBulkVideos]=useState("");          // paste-many box: one link per line, assigned across options
   const [showBulk,setShowBulk]=useState(false);
   const [dueNow,setDueNow]=useState("");                  // optional custom "amount due now" (overrides full balance)
+  const [dueNowTouched,setDueNowTouched]=useState(false); // true once the jeweller edits it — stops the 50% auto-fill
   const [payNote,setPayNote]=useState("");                // optional payment-terms note shown near the balance
   const [jobPhotos,setJobPhotos]=useState([]);            // job's uploaded images as {path,url,caption}
   const [preview,setPreview]=useState(null);              // {url,caption} shown full-size while choosing photos
@@ -3625,9 +3626,20 @@ function JobProposals({job,client,quotes,proposals,setProposals,setQuotes,biz,ma
   const defaultIntro=`Dear ${client?.name||"there"}, thank you for your enquiry. Please find your options below.`;
 
   const toggle=id=>setSel(p=>p.includes(id)?p.filter(x=>x!==id):[...p,id]);
+  // Combined inc-GST total of the ticked options — a bundle's full price (manual price wins per quote).
+  const selectedTotal=optionable.filter(q=>sel.includes(q.id)).reduce((s,q)=>s+quoteGrandTotal(q,markupTable),0);
+  // Default "Amount due now" to the studio's deposit % of the bundle total until the jeweller edits it.
+  // Only for multi-select bundles: in single-select mode the client picks one option, and the public
+  // page already prompts for the correct per-option deposit when this is left blank.
+  const depositPct=Number(biz?.depositPercent)||50;
+  useEffect(()=>{
+    if(dueNowTouched)return;
+    const bundle=selectMode==="multi"&&selectedTotal>0;
+    setDueNow(bundle?(selectedTotal*depositPct/100).toFixed(2):"");
+  },[selectMode,selectedTotal,depositPct,dueNowTouched]);
   // optPhotos[qid] is an array of chosen image paths — tap toggles a photo in/out of the option.
   const pickPhoto=(qid,path)=>setOptPhotos(p=>{const cur=p[qid]||[];return{...p,[qid]:cur.includes(path)?cur.filter(x=>x!==path):[...cur,path]};});
-  const openBuilder=()=>{setSel([]);setRecommended("");setIntro("");setSelectMode("single");setOptPhotos({});setOptVideos({});setBulkVideos("");setShowBulk(false);setDueNow("");setPayNote("");setBuilder(true);};
+  const openBuilder=()=>{setSel([]);setRecommended("");setIntro("");setSelectMode("single");setOptPhotos({});setOptVideos({});setBulkVideos("");setShowBulk(false);setDueNow("");setDueNowTouched(false);setPayNote("");setBuilder(true);};
   // Assign pasted links (one per line) to the ticked options, in display order.
   const applyBulkVideos=()=>{
     const links=bulkVideos.split(/[\r\n]+/).map(s=>s.trim()).filter(Boolean);
@@ -3819,9 +3831,9 @@ function JobProposals({job,client,quotes,proposals,setProposals,setQuotes,biz,ma
       </div>
       <div style={{marginTop:14,border:`1px solid ${BD}`,borderRadius:4,padding:"14px 16px",background:PARCH}}>
         <label style={{...SS.lbl,marginBottom:6}}>Payment terms <span style={{fontWeight:400,color:WG,textTransform:"none",letterSpacing:0}}>(optional)</span></label>
-        <div style={{fontSize:11,color:WG,lineHeight:1.5,marginBottom:10}}>By default the proposal asks for the full balance (total − payments received). Set a custom amount to request only part now — the rest is shown as due on completion.</div>
+        <div style={{fontSize:11,color:WG,lineHeight:1.5,marginBottom:10}}>Bundled options (multi-select) prefill at your {depositPct}% deposit of the combined total — edit it to any amount, or clear it to ask for the full balance. The rest is shown as due on completion. Single-option proposals ask for the {depositPct}% deposit automatically.</div>
         <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"0 16px"}}>
-          <Input label="Amount due now ($)" value={dueNow} onChange={setDueNow} type="number" min="0" step="0.01" placeholder="Leave blank for full balance"/>
+          <Input label="Amount due now ($)" value={dueNow} onChange={v=>{setDueNowTouched(true);setDueNow(v);}} type="number" min="0" step="0.01" placeholder="Leave blank for full balance"/>
           <Input label="Payment note" value={payNote} onChange={setPayNote} placeholder="e.g. Remaining 50% of the centre diamond"/>
         </div>
       </div>
