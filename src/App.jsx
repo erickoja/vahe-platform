@@ -6697,11 +6697,17 @@ function TodoBoard({todos,setTodos}){
   const[editNotes,setEditNotes]=useState("");
   const[editDue,setEditDue]=useState("");
   const[editStatus,setEditStatus]=useState("open");   // not started / in progress / done
+  const[editPriority,setEditPriority]=useState("med"); // high / med (normal) / low
+  const[editPerson,setEditPerson]=useState("");        // reassign a task to another person
+  const[query,setQuery]=useState("");                  // free-text search across all lists
+  const[statusFilter,setStatusFilter]=useState("all"); // all / open / doing / done / overdue
+  const[showDone,setShowDone]=useState({});            // per-person: is the Completed section expanded
+  const toggleShowDone=pid=>setShowDone(s=>({...s,[pid]:!s[pid]}));
   const save=next=>{setTodos(next);persist(K.td,next);};
   const addPerson=()=>{const name=newPerson.trim();if(!name)return;save({people:[...people,{id:uid(),name}],items});setNewPerson("");};
   const removePerson=id=>{const p=people.find(x=>x.id===id);if(!confirm(`Remove ${p?.name||"this person"} and their whole list?`))return;save({people:people.filter(x=>x.id!==id),items:items.filter(i=>i.personId!==id)});};
   const setDraftFor=(pid,v)=>setDraft(d=>({...d,[pid]:v}));
-  const addItem=pid=>{const t=(draft[pid]||"").trim();if(!t)return;save({people,items:[...items,{id:uid(),personId:pid,text:t,notes:"",due:"",done:false,status:"open",createdAt:new Date().toISOString()}]});setDraftFor(pid,"");};
+  const addItem=pid=>{const t=(draft[pid]||"").trim();if(!t)return;save({people,items:[...items,{id:uid(),personId:pid,text:t,notes:"",due:"",done:false,status:"open",priority:"med",createdAt:new Date().toISOString()}]});setDraftFor(pid,"");};
   // Two independent controls: the square box marks done; the round dot flags in progress.
   const isDoing=i=>!i.done&&i.status==="doing";
   const toggleDone=id=>save({people,items:items.map(i=>i.id===id?{...i,done:!i.done,status:i.done?"open":"done"}:i)});
@@ -6709,9 +6715,9 @@ function TodoBoard({todos,setTodos}){
   const removeItem=id=>save({people,items:items.filter(i=>i.id!==id)});
   const clearDone=pid=>save({people,items:items.filter(i=>!(i.personId===pid&&i.done))});
   // Detail editor (title + longer notes + due date)
-  const openEdit=it=>{setEditId(it.id);setEditText(it.text||"");setEditNotes(it.notes||"");setEditDue(it.due||"");setEditStatus(it.done?"done":it.status==="doing"?"doing":"open");};
+  const openEdit=it=>{setEditId(it.id);setEditText(it.text||"");setEditNotes(it.notes||"");setEditDue(it.due||"");setEditStatus(it.done?"done":it.status==="doing"?"doing":"open");setEditPriority(it.priority||"med");setEditPerson(it.personId);};
   const closeEdit=()=>setEditId(null);
-  const saveEdit=()=>{const t=editText.trim();if(!t)return;save({people,items:items.map(i=>i.id===editId?{...i,text:t,notes:editNotes.trim(),due:editDue||"",done:editStatus==="done",status:editStatus}:i)});setEditId(null);};
+  const saveEdit=()=>{const t=editText.trim();if(!t)return;save({people,items:items.map(i=>i.id===editId?{...i,text:t,notes:editNotes.trim(),due:editDue||"",done:editStatus==="done",status:editStatus,priority:editPriority,personId:editPerson||i.personId}:i)});setEditId(null);};
   const editingItem=items.find(i=>i.id===editId)||null;
   const editingPerson=editingItem?people.find(p=>p.id===editingItem.personId):null;
 
@@ -6726,11 +6732,56 @@ function TodoBoard({todos,setTodos}){
       bg:overdue?"#FBEBE9":(isToday||soon)?GOLD_L:PARCH,
       label:overdue?`Overdue · ${compact}`:isToday?"Due today":due===addDays(tISO,1)?"Due tomorrow":`Due ${compact}`};
   };
-  const sortByDue=arr=>[...arr].sort((a,b)=>(a.due||"9999-12-31").localeCompare(b.due||"9999-12-31"));
+  // Priority — high floats to the top of the open list; "med" is the neutral default.
+  const prRank=i=>({high:0,med:1,low:2}[i.priority||"med"]);
+  const prioTag=it=>it.priority==="high"?{lbl:"High priority",color:DANGER,bg:"#FBEBE9"}:it.priority==="low"?{lbl:"Low",color:WG,bg:PARCH}:null;
+  // Open tasks sort: in-progress first, then by priority, then by soonest due date.
+  const sortOpen=arr=>[...arr].sort((a,b)=>
+    (isDoing(b)-isDoing(a))||
+    (prRank(a)-prRank(b))||
+    ((a.due||"9999-12-31").localeCompare(b.due||"9999-12-31")));
+
+  // Search + status filter across everyone's lists
+  const q=query.trim().toLowerCase();
+  const filterActive=!!q||statusFilter!=="all";
+  const matches=it=>{
+    if(q&&!`${it.text||""} ${it.notes||""}`.toLowerCase().includes(q))return false;
+    if(statusFilter==="open")return !it.done&&!isDoing(it);
+    if(statusFilter==="doing")return isDoing(it);
+    if(statusFilter==="done")return it.done;
+    if(statusFilter==="overdue")return !it.done&&!!it.due&&it.due<tISO;
+    return true;
+  };
 
   const totalDoing=items.filter(isDoing).length;
   const totalTodo=items.filter(i=>!i.done&&!isDoing(i)).length;
   const totalDone=items.filter(i=>i.done).length;
+  const totalHigh=items.filter(i=>!i.done&&i.priority==="high").length;
+
+  // Single shared task-row renderer (used for both the open and completed lists)
+  const renderRow=it=>{
+    const ch=!it.done&&it.due?dueChip(it.due):null;
+    const doingIt=isDoing(it);
+    const pr=!it.done?prioTag(it):null;
+    const accent=!it.done&&it.priority==="high";
+    return <div key={it.id} style={{display:"flex",alignItems:"flex-start",gap:9,background:PARCH,border:`1px solid ${ch?.overdue?DANGER+"55":doingIt?WARN+"55":BD}`,borderLeft:accent?`3px solid ${DANGER}`:undefined,borderRadius:5,padding:"9px 11px"}}>
+      <button onClick={()=>toggleDone(it.id)} title={it.done?"Mark as not done":"Mark as done"} style={{flexShrink:0,marginTop:1,width:18,height:18,borderRadius:5,border:`2px solid ${it.done?OK:"#C9C9CD"}`,background:it.done?OK:WHITE,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",padding:0}}>{it.done&&<span style={{color:WHITE,fontSize:11,fontWeight:900,lineHeight:1}}>✓</span>}</button>
+      {!it.done&&<button onClick={()=>toggleDoing(it.id)} title={doingIt?"Mark as not in progress":"Mark as in progress"} style={{flexShrink:0,marginTop:1,width:18,height:18,borderRadius:"50%",border:`2px solid ${doingIt?WARN:"#C9C9CD"}`,background:doingIt?GOLD_L:WHITE,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",padding:0}}>{doingIt&&<span style={{width:8,height:8,borderRadius:"50%",background:WARN,display:"block"}}/>}</button>}
+      <div onClick={()=>openEdit(it)} title="Open task details" style={{flex:1,minWidth:0,cursor:"pointer"}}>
+        <div style={{display:"flex",alignItems:"center",gap:6,fontSize:13,color:it.done?WG:INK,textDecoration:it.done?"line-through":"none",lineHeight:1.45,wordBreak:"break-word"}}>
+          {it.text}
+          {it.notes&&it.notes.trim()&&<span title="Has notes" style={{flexShrink:0,fontSize:11,opacity:0.55}}>📝</span>}
+        </div>
+        {(doingIt||ch||pr)&&<div style={{display:"flex",flexWrap:"wrap",gap:5,marginTop:5}}>
+          {pr&&<span style={{display:"inline-block",fontSize:10.5,fontWeight:700,color:pr.color,background:pr.bg,border:`1px solid ${pr.color}33`,borderRadius:4,padding:"2px 7px",letterSpacing:"0.02em"}}>{pr.lbl}</span>}
+          {doingIt&&<span style={{display:"inline-block",fontSize:10.5,fontWeight:700,color:WARN,background:GOLD_L,border:`1px solid ${WARN}33`,borderRadius:4,padding:"2px 7px",letterSpacing:"0.02em"}}>In progress</span>}
+          {ch&&<span style={{display:"inline-block",fontSize:10.5,fontWeight:700,color:ch.color,background:ch.bg,border:`1px solid ${ch.color}33`,borderRadius:4,padding:"2px 7px",letterSpacing:"0.02em"}}>{ch.label}</span>}
+        </div>}
+        {it.notes&&it.notes.trim()&&<div style={{fontSize:11.5,color:WG,marginTop:(doingIt||ch||pr)?5:2,lineHeight:1.4,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{it.notes.trim()}</div>}
+      </div>
+      <button onClick={()=>removeItem(it.id)} title="Delete task" style={{flexShrink:0,background:"none",border:"none",cursor:"pointer",color:WG,fontSize:15,lineHeight:1,padding:0}}>×</button>
+    </div>;
+  };
 
   return <div>
     {/* Editorial header — matches the rest of the app */}
@@ -6754,30 +6805,50 @@ function TodoBoard({todos,setTodos}){
         </div></Card>
       : <>
           {/* Summary tiles */}
-          <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(150px,1fr))",gap:14,marginBottom:24}}>
+          <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(150px,1fr))",gap:14,marginBottom:18}}>
             <Stat label="People" value={people.length} tint="blue" icon="♦"/>
             <Stat label="To do" value={totalTodo} tint={totalTodo>0?"gold":"mint"} icon="○"/>
             <Stat label="In progress" value={totalDoing} tint={totalDoing>0?"gold":"mint"} icon="◐"/>
+            <Stat label="High priority" value={totalHigh} tint={totalHigh>0?"rose":"mint"} icon="⚑"/>
             <Stat label="Completed" value={totalDone} tint="mint" icon="✓"/>
+          </div>
+
+          {/* Search + status filter */}
+          <div style={{display:"flex",gap:10,flexWrap:"wrap",alignItems:"center",marginBottom:22}}>
+            <input value={query} onChange={e=>setQuery(e.target.value)} placeholder="Search tasks…" style={{...SS.inp,marginTop:0,flex:"1 1 220px",maxWidth:340}}/>
+            <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
+              {[["all","All"],["open","To do"],["doing","In progress"],["done","Done"],["overdue","Overdue"]].map(([v,l])=>{
+                const on=statusFilter===v;
+                const c=v==="overdue"?DANGER:GOLD,cl=v==="overdue"?"#FBEBE9":GOLD_L,cd=v==="overdue"?DANGER:GOLD_D;
+                return <button key={v} onClick={()=>setStatusFilter(v)} style={{padding:"7px 13px",borderRadius:20,fontSize:12,fontWeight:700,fontFamily:"inherit",cursor:"pointer",border:`1.5px solid ${on?c:BD}`,background:on?cl:WHITE,color:on?cd:WG}}>{l}</button>;
+              })}
+            </div>
+            {filterActive&&<button onClick={()=>{setQuery("");setStatusFilter("all");}} style={{background:"none",border:"none",cursor:"pointer",color:WG,fontSize:12.5,fontWeight:700,fontFamily:"inherit",textDecoration:"underline",padding:"4px 2px"}}>Clear</button>}
           </div>
 
           {/* Person cards — responsive grid that fills the width */}
           <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(320px,1fr))",gap:16,alignItems:"start"}}>
             {people.map(person=>{
               const list=items.filter(i=>i.personId===person.id);
-              // In-progress tasks float to the top of the open list, then sort by due date.
-              const open=sortByDue(list.filter(i=>!i.done)).sort((a,b)=>(isDoing(a)?0:1)-(isDoing(b)?0:1));
-              const doing=open.filter(isDoing);
-              const done=list.filter(i=>i.done);
-              const pct=list.length?Math.round(done.length/list.length*100):0;
-              const overdueCount=open.filter(i=>i.due&&i.due<tISO).length;
+              const fullOpen=list.filter(i=>!i.done);
+              const fullDone=list.filter(i=>i.done);
+              const fullDoing=fullOpen.filter(isDoing);
+              const overdueCount=fullOpen.filter(i=>i.due&&i.due<tISO).length;
+              const pct=list.length?Math.round(fullDone.length/list.length*100):0;
+              // Visible rows honour the search + status filter; header stats stay true to the full list.
+              const open=sortOpen(fullOpen.filter(matches));
+              const done=fullDone.filter(matches);
+              const doneCount=filterActive?done.length:fullDone.length;
+              const showCompleted=(!!showDone[person.id]||statusFilter==="done"||!!q)&&done.length>0;
+              // With a filter active, drop cards that have nothing matching.
+              if(filterActive&&open.length===0&&done.length===0)return null;
               return <div key={person.id} style={{background:WHITE,border:`1px solid ${BD_SOFT}`,borderRadius:RADIUS,boxShadow:SHADOW,padding:"18px 20px 20px",display:"flex",flexDirection:"column"}}>
                 {/* Person header */}
                 <div style={{display:"flex",alignItems:"center",gap:11,marginBottom:14}}>
                   <div style={{width:34,height:34,borderRadius:"50%",background:GOLD_L,color:GOLD_D,display:"flex",alignItems:"center",justifyContent:"center",fontSize:14,fontWeight:800,flexShrink:0}}>{(person.name||"?").slice(0,1).toUpperCase()}</div>
                   <div style={{flex:1,minWidth:0}}>
                     <div style={{fontWeight:800,fontSize:15,color:INK,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{person.name}</div>
-                    <div style={{fontSize:11,color:WG,marginTop:1}}>{open.length} open{doing.length?<span style={{color:WARN,fontWeight:700}}> · {doing.length} in progress</span>:""}{done.length?` · ${done.length} done`:""}{overdueCount>0&&<span style={{color:DANGER,fontWeight:700}}> · {overdueCount} overdue</span>}</div>
+                    <div style={{fontSize:11,color:WG,marginTop:1}}>{fullOpen.length} open{fullDoing.length?<span style={{color:WARN,fontWeight:700}}> · {fullDoing.length} in progress</span>:""}{fullDone.length?` · ${fullDone.length} done`:""}{overdueCount>0&&<span style={{color:DANGER,fontWeight:700}}> · {overdueCount} overdue</span>}</div>
                   </div>
                   <button onClick={()=>removePerson(person.id)} title="Remove person" style={{background:"none",border:"none",cursor:"pointer",color:WG,fontSize:18,lineHeight:1,padding:0,flexShrink:0}}>×</button>
                 </div>
@@ -6794,32 +6865,21 @@ function TodoBoard({todos,setTodos}){
                 </div>
 
                 {/* Tasks */}
-                {list.length===0
+                {!filterActive&&list.length===0
                   ? <div style={{fontSize:12.5,color:WG,fontStyle:"italic",padding:"12px 0 4px",textAlign:"center"}}>No tasks yet — add one above.</div>
-                  : <div style={{display:"flex",flexDirection:"column",gap:7}}>
-                      {[...open,...done].map(it=>{
-                        const ch=!it.done&&it.due?dueChip(it.due):null;
-                        const doingIt=isDoing(it);
-                        return <div key={it.id} style={{display:"flex",alignItems:"flex-start",gap:9,background:PARCH,border:`1px solid ${ch?.overdue?DANGER+"55":doingIt?WARN+"55":BD}`,borderRadius:5,padding:"9px 11px"}}>
-                          <button onClick={()=>toggleDone(it.id)} title={it.done?"Mark as not done":"Mark as done"} style={{flexShrink:0,marginTop:1,width:18,height:18,borderRadius:5,border:`2px solid ${it.done?OK:"#C9C9CD"}`,background:it.done?OK:WHITE,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",padding:0}}>{it.done&&<span style={{color:WHITE,fontSize:11,fontWeight:900,lineHeight:1}}>✓</span>}</button>
-                          {!it.done&&<button onClick={()=>toggleDoing(it.id)} title={doingIt?"Mark as not in progress":"Mark as in progress"} style={{flexShrink:0,marginTop:1,width:18,height:18,borderRadius:"50%",border:`2px solid ${doingIt?WARN:"#C9C9CD"}`,background:doingIt?GOLD_L:WHITE,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",padding:0}}>{doingIt&&<span style={{width:8,height:8,borderRadius:"50%",background:WARN,display:"block"}}/>}</button>}
-                          <div onClick={()=>openEdit(it)} title="Open task details" style={{flex:1,minWidth:0,cursor:"pointer"}}>
-                            <div style={{display:"flex",alignItems:"center",gap:6,fontSize:13,color:it.done?WG:INK,textDecoration:it.done?"line-through":"none",lineHeight:1.45,wordBreak:"break-word"}}>
-                              {it.text}
-                              {it.notes&&it.notes.trim()&&<span title="Has notes" style={{flexShrink:0,fontSize:11,opacity:0.55}}>📝</span>}
-                            </div>
-                            {(doingIt||ch)&&<div style={{display:"flex",flexWrap:"wrap",gap:5,marginTop:5}}>
-                              {doingIt&&<span style={{display:"inline-block",fontSize:10.5,fontWeight:700,color:WARN,background:GOLD_L,border:`1px solid ${WARN}33`,borderRadius:4,padding:"2px 7px",letterSpacing:"0.02em"}}>In progress</span>}
-                              {ch&&<span style={{display:"inline-block",fontSize:10.5,fontWeight:700,color:ch.color,background:ch.bg,border:`1px solid ${ch.color}33`,borderRadius:4,padding:"2px 7px",letterSpacing:"0.02em"}}>{ch.label}</span>}
-                            </div>}
-                            {it.notes&&it.notes.trim()&&<div style={{fontSize:11.5,color:WG,marginTop:(doingIt||ch)?5:2,lineHeight:1.4,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{it.notes.trim()}</div>}
-                          </div>
-                          <button onClick={()=>removeItem(it.id)} title="Delete task" style={{flexShrink:0,background:"none",border:"none",cursor:"pointer",color:WG,fontSize:15,lineHeight:1,padding:0}}>×</button>
-                        </div>;
-                      })}
-                    </div>}
-
-                {done.length>0&&<button onClick={()=>clearDone(person.id)} style={{marginTop:14,alignSelf:"flex-start",background:"none",border:`1px solid ${BD}`,borderRadius:6,padding:"5px 11px",fontSize:11,fontWeight:700,color:WG,cursor:"pointer",fontFamily:"inherit"}}>Clear {done.length} completed</button>}
+                  : <>
+                      {open.length>0&&<div style={{display:"flex",flexDirection:"column",gap:7}}>{open.map(renderRow)}</div>}
+                      {!filterActive&&fullOpen.length===0&&fullDone.length>0&&<div style={{fontSize:12.5,color:OK,fontWeight:600,padding:"10px 0 2px",textAlign:"center"}}>All caught up ✓</div>}
+                      {doneCount>0&&<div style={{marginTop:open.length>0?12:8}}>
+                        <button onClick={()=>toggleShowDone(person.id)} style={{background:"none",border:"none",cursor:"pointer",color:WG,fontSize:11.5,fontWeight:700,fontFamily:"inherit",padding:"2px 0",display:"flex",alignItems:"center",gap:5}}>
+                          <span style={{fontSize:9}}>{showCompleted?"▾":"▸"}</span>Completed ({doneCount})
+                        </button>
+                        {showCompleted&&<div style={{display:"flex",flexDirection:"column",gap:7,marginTop:8}}>
+                          {done.map(renderRow)}
+                          <button onClick={()=>clearDone(person.id)} style={{marginTop:4,alignSelf:"flex-start",background:"none",border:`1px solid ${BD}`,borderRadius:6,padding:"5px 11px",fontSize:11,fontWeight:700,color:WG,cursor:"pointer",fontFamily:"inherit"}}>Clear {fullDone.length} completed</button>
+                        </div>}
+                      </div>}
+                    </>}
               </div>;
             })}
           </div>
@@ -6832,11 +6892,24 @@ function TodoBoard({todos,setTodos}){
       </div>
       <label style={{...SS.lbl,marginBottom:4}}>Task</label>
       <input value={editText} onChange={e=>setEditText(e.target.value)} onKeyDown={e=>{if(e.key==="Enter")saveEdit();}} placeholder="Task title" style={{...SS.inp,marginTop:0,marginBottom:16}}/>
+      {people.length>1&&<>
+        <label style={{...SS.lbl,marginBottom:4}}>Assigned to</label>
+        <select value={editPerson} onChange={e=>setEditPerson(e.target.value)} style={{...SS.inp,marginTop:0,marginBottom:16}}>
+          {people.map(p=><option key={p.id} value={p.id}>{p.name}</option>)}
+        </select>
+      </>}
       <label style={{...SS.lbl,marginBottom:4}}>Status</label>
       <div style={{display:"flex",gap:6,marginBottom:16}}>
         {[["open","Not started",WG],["doing","In progress",WARN],["done","Done",OK]].map(([v,lbl,c])=>{
           const on=editStatus===v;
           return <button key={v} onClick={()=>setEditStatus(v)} style={{flex:1,padding:"8px 6px",borderRadius:6,cursor:"pointer",fontSize:12,fontWeight:700,fontFamily:"inherit",border:`1.5px solid ${on?c:BD}`,background:on?(v==="done"?OK_BG:v==="doing"?GOLD_L:PARCH):WHITE,color:on?c:WG}}>{lbl}</button>;
+        })}
+      </div>
+      <label style={{...SS.lbl,marginBottom:4}}>Priority</label>
+      <div style={{display:"flex",gap:6,marginBottom:16}}>
+        {[["high","High",DANGER],["med","Normal",WG],["low","Low",WG]].map(([v,lbl,c])=>{
+          const on=editPriority===v;
+          return <button key={v} onClick={()=>setEditPriority(v)} style={{flex:1,padding:"8px 6px",borderRadius:6,cursor:"pointer",fontSize:12,fontWeight:700,fontFamily:"inherit",border:`1.5px solid ${on?c:BD}`,background:on?(v==="high"?"#FBEBE9":PARCH):WHITE,color:on?c:WG}}>{lbl}</button>;
         })}
       </div>
       <label style={{...SS.lbl,marginBottom:4}}>Due date <span style={{textTransform:"none",letterSpacing:0,fontWeight:400,color:WG}}>(optional)</span></label>
