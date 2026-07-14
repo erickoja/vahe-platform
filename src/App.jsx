@@ -6686,6 +6686,31 @@ function Login(){
   </div>;
 }
 
+// A single task row — hover lifts the row and fades in the delete control.
+function TaskRow({it,ch,doingIt,pr,accent,onToggleDone,onToggleDoing,onOpen,onRemove}){
+  const[h,setH]=useState(false);
+  const borderCol=ch?.overdue?DANGER+"55":doingIt?WARN+"55":BD;
+  const chip={display:"inline-block",fontSize:11,fontWeight:700,borderRadius:5,padding:"3px 8px",letterSpacing:"0.02em",lineHeight:1.3};
+  return <div onMouseEnter={()=>setH(true)} onMouseLeave={()=>setH(false)}
+    style={{display:"flex",alignItems:"flex-start",gap:11,background:h?WHITE:PARCH,border:`1px solid ${h?GOLD+"66":borderCol}`,borderLeft:accent?`3px solid ${DANGER}`:undefined,borderRadius:6,padding:"12px 13px",boxShadow:h?SHADOW:"none",transition:"background 0.14s,box-shadow 0.14s,border-color 0.14s"}}>
+    <button onClick={onToggleDone} title={it.done?"Mark as not done":"Mark as done"} style={{flexShrink:0,marginTop:1,width:19,height:19,borderRadius:6,border:`2px solid ${it.done?OK:"#C9C9CD"}`,background:it.done?OK:WHITE,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",padding:0}}>{it.done&&<span style={{color:WHITE,fontSize:11,fontWeight:900,lineHeight:1}}>✓</span>}</button>
+    {!it.done&&<button onClick={onToggleDoing} title={doingIt?"Mark as not in progress":"Mark as in progress"} style={{flexShrink:0,marginTop:1,width:19,height:19,borderRadius:"50%",border:`2px solid ${doingIt?WARN:"#C9C9CD"}`,background:doingIt?GOLD_L:WHITE,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",padding:0}}>{doingIt&&<span style={{width:8,height:8,borderRadius:"50%",background:WARN,display:"block"}}/>}</button>}
+    <div onClick={onOpen} title="Open task details" style={{flex:1,minWidth:0,cursor:"pointer"}}>
+      <div style={{display:"flex",alignItems:"center",gap:6,fontSize:13.5,fontWeight:500,color:it.done?WG:INK,textDecoration:it.done?"line-through":"none",lineHeight:1.5,wordBreak:"break-word"}}>
+        {it.text}
+        {it.notes&&it.notes.trim()&&<span title="Has notes" style={{flexShrink:0,fontSize:11,opacity:0.55}}>📝</span>}
+      </div>
+      {(doingIt||ch||pr)&&<div style={{display:"flex",flexWrap:"wrap",gap:6,marginTop:7}}>
+        {pr&&<span style={{...chip,color:pr.color,background:pr.bg,border:`1px solid ${pr.color}33`}}>{pr.lbl}</span>}
+        {doingIt&&<span style={{...chip,color:WARN,background:GOLD_L,border:`1px solid ${WARN}33`}}>In progress</span>}
+        {ch&&<span style={{...chip,color:ch.color,background:ch.bg,border:`1px solid ${ch.color}33`}}>{ch.label}</span>}
+      </div>}
+      {it.notes&&it.notes.trim()&&<div style={{fontSize:11.5,color:WG,marginTop:(doingIt||ch||pr)?7:3,lineHeight:1.4,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{it.notes.trim()}</div>}
+    </div>
+    <button onClick={onRemove} title="Delete task" style={{flexShrink:0,alignSelf:"center",background:"none",border:"none",cursor:"pointer",color:WG,fontSize:17,lineHeight:1,padding:"0 2px",opacity:h?0.85:0.25,transition:"opacity 0.14s"}}>×</button>
+  </div>;
+}
+
 // ── To-do board (per-person running checklists, shared across the studio) ──
 function TodoBoard({todos,setTodos}){
   const people=todos?.people||[];
@@ -6761,26 +6786,9 @@ function TodoBoard({todos,setTodos}){
   // Single shared task-row renderer (used for both the open and completed lists)
   const renderRow=it=>{
     const ch=!it.done&&it.due?dueChip(it.due):null;
-    const doingIt=isDoing(it);
     const pr=!it.done?prioTag(it):null;
-    const accent=!it.done&&it.priority==="high";
-    return <div key={it.id} style={{display:"flex",alignItems:"flex-start",gap:9,background:PARCH,border:`1px solid ${ch?.overdue?DANGER+"55":doingIt?WARN+"55":BD}`,borderLeft:accent?`3px solid ${DANGER}`:undefined,borderRadius:5,padding:"9px 11px"}}>
-      <button onClick={()=>toggleDone(it.id)} title={it.done?"Mark as not done":"Mark as done"} style={{flexShrink:0,marginTop:1,width:18,height:18,borderRadius:5,border:`2px solid ${it.done?OK:"#C9C9CD"}`,background:it.done?OK:WHITE,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",padding:0}}>{it.done&&<span style={{color:WHITE,fontSize:11,fontWeight:900,lineHeight:1}}>✓</span>}</button>
-      {!it.done&&<button onClick={()=>toggleDoing(it.id)} title={doingIt?"Mark as not in progress":"Mark as in progress"} style={{flexShrink:0,marginTop:1,width:18,height:18,borderRadius:"50%",border:`2px solid ${doingIt?WARN:"#C9C9CD"}`,background:doingIt?GOLD_L:WHITE,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",padding:0}}>{doingIt&&<span style={{width:8,height:8,borderRadius:"50%",background:WARN,display:"block"}}/>}</button>}
-      <div onClick={()=>openEdit(it)} title="Open task details" style={{flex:1,minWidth:0,cursor:"pointer"}}>
-        <div style={{display:"flex",alignItems:"center",gap:6,fontSize:13,color:it.done?WG:INK,textDecoration:it.done?"line-through":"none",lineHeight:1.45,wordBreak:"break-word"}}>
-          {it.text}
-          {it.notes&&it.notes.trim()&&<span title="Has notes" style={{flexShrink:0,fontSize:11,opacity:0.55}}>📝</span>}
-        </div>
-        {(doingIt||ch||pr)&&<div style={{display:"flex",flexWrap:"wrap",gap:5,marginTop:5}}>
-          {pr&&<span style={{display:"inline-block",fontSize:10.5,fontWeight:700,color:pr.color,background:pr.bg,border:`1px solid ${pr.color}33`,borderRadius:4,padding:"2px 7px",letterSpacing:"0.02em"}}>{pr.lbl}</span>}
-          {doingIt&&<span style={{display:"inline-block",fontSize:10.5,fontWeight:700,color:WARN,background:GOLD_L,border:`1px solid ${WARN}33`,borderRadius:4,padding:"2px 7px",letterSpacing:"0.02em"}}>In progress</span>}
-          {ch&&<span style={{display:"inline-block",fontSize:10.5,fontWeight:700,color:ch.color,background:ch.bg,border:`1px solid ${ch.color}33`,borderRadius:4,padding:"2px 7px",letterSpacing:"0.02em"}}>{ch.label}</span>}
-        </div>}
-        {it.notes&&it.notes.trim()&&<div style={{fontSize:11.5,color:WG,marginTop:(doingIt||ch||pr)?5:2,lineHeight:1.4,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{it.notes.trim()}</div>}
-      </div>
-      <button onClick={()=>removeItem(it.id)} title="Delete task" style={{flexShrink:0,background:"none",border:"none",cursor:"pointer",color:WG,fontSize:15,lineHeight:1,padding:0}}>×</button>
-    </div>;
+    return <TaskRow key={it.id} it={it} ch={ch} doingIt={isDoing(it)} pr={pr} accent={!it.done&&it.priority==="high"}
+      onToggleDone={()=>toggleDone(it.id)} onToggleDoing={()=>toggleDoing(it.id)} onOpen={()=>openEdit(it)} onRemove={()=>removeItem(it.id)}/>;
   };
 
   return <div>
@@ -6826,8 +6834,8 @@ function TodoBoard({todos,setTodos}){
             {filterActive&&<button onClick={()=>{setQuery("");setStatusFilter("all");}} style={{background:"none",border:"none",cursor:"pointer",color:WG,fontSize:12.5,fontWeight:700,fontFamily:"inherit",textDecoration:"underline",padding:"4px 2px"}}>Clear</button>}
           </div>
 
-          {/* Person cards — responsive grid that fills the width */}
-          <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(320px,1fr))",gap:16,alignItems:"start"}}>
+          {/* Person cards — flex-wrap so cards grow to a comfortable width and fill each row evenly */}
+          <div style={{display:"flex",flexWrap:"wrap",gap:20,alignItems:"flex-start"}}>
             {people.map(person=>{
               const list=items.filter(i=>i.personId===person.id);
               const fullOpen=list.filter(i=>!i.done);
@@ -6842,12 +6850,12 @@ function TodoBoard({todos,setTodos}){
               const showCompleted=(!!showDone[person.id]||statusFilter==="done"||!!q)&&done.length>0;
               // With a filter active, drop cards that have nothing matching.
               if(filterActive&&open.length===0&&done.length===0)return null;
-              return <div key={person.id} style={{background:WHITE,border:`1px solid ${BD_SOFT}`,borderRadius:RADIUS,boxShadow:SHADOW,padding:"18px 20px 20px",display:"flex",flexDirection:"column"}}>
+              return <div key={person.id} style={{flex:"1 1 360px",maxWidth:560,background:WHITE,border:`1px solid ${BD_SOFT}`,borderRadius:RADIUS,boxShadow:SHADOW,padding:"22px 22px 24px",display:"flex",flexDirection:"column"}}>
                 {/* Person header */}
-                <div style={{display:"flex",alignItems:"center",gap:11,marginBottom:14}}>
-                  <div style={{width:34,height:34,borderRadius:"50%",background:GOLD_L,color:GOLD_D,display:"flex",alignItems:"center",justifyContent:"center",fontSize:14,fontWeight:800,flexShrink:0}}>{(person.name||"?").slice(0,1).toUpperCase()}</div>
+                <div style={{display:"flex",alignItems:"center",gap:12,marginBottom:16,paddingBottom:16,borderBottom:`1px solid ${BD_SOFT}`}}>
+                  <div style={{width:38,height:38,borderRadius:"50%",background:GOLD_L,color:GOLD_D,display:"flex",alignItems:"center",justifyContent:"center",fontSize:15,fontWeight:800,flexShrink:0}}>{(person.name||"?").slice(0,1).toUpperCase()}</div>
                   <div style={{flex:1,minWidth:0}}>
-                    <div style={{fontWeight:800,fontSize:15,color:INK,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{person.name}</div>
+                    <div style={{fontWeight:800,fontSize:16,color:INK,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{person.name}</div>
                     <div style={{fontSize:11,color:WG,marginTop:1}}>{fullOpen.length} open{fullDoing.length?<span style={{color:WARN,fontWeight:700}}> · {fullDoing.length} in progress</span>:""}{fullDone.length?` · ${fullDone.length} done`:""}{overdueCount>0&&<span style={{color:DANGER,fontWeight:700}}> · {overdueCount} overdue</span>}</div>
                   </div>
                   <button onClick={()=>removePerson(person.id)} title="Remove person" style={{background:"none",border:"none",cursor:"pointer",color:WG,fontSize:18,lineHeight:1,padding:0,flexShrink:0}}>×</button>
@@ -6860,7 +6868,7 @@ function TodoBoard({todos,setTodos}){
 
                 {/* Add task */}
                 <div style={{display:"flex",gap:6,marginBottom:list.length?12:0}}>
-                  <input value={draft[person.id]||""} onChange={e=>setDraftFor(person.id,e.target.value)} onKeyDown={e=>{if(e.key==="Enter")addItem(person.id);}} placeholder="Add a task…" style={{...SS.inp,marginTop:0,flex:1,padding:"8px 10px",fontSize:13}}/>
+                  <input value={draft[person.id]||""} onChange={e=>setDraftFor(person.id,e.target.value)} onKeyDown={e=>{if(e.key==="Enter")addItem(person.id);}} placeholder="Add a task…" style={{...SS.inp,marginTop:0,flex:1,padding:"9px 12px",fontSize:13}}/>
                   <Btn sm onClick={()=>addItem(person.id)}>Add</Btn>
                 </div>
 
@@ -6868,13 +6876,13 @@ function TodoBoard({todos,setTodos}){
                 {!filterActive&&list.length===0
                   ? <div style={{fontSize:12.5,color:WG,fontStyle:"italic",padding:"12px 0 4px",textAlign:"center"}}>No tasks yet — add one above.</div>
                   : <>
-                      {open.length>0&&<div style={{display:"flex",flexDirection:"column",gap:7}}>{open.map(renderRow)}</div>}
+                      {open.length>0&&<div style={{display:"flex",flexDirection:"column",gap:9}}>{open.map(renderRow)}</div>}
                       {!filterActive&&fullOpen.length===0&&fullDone.length>0&&<div style={{fontSize:12.5,color:OK,fontWeight:600,padding:"10px 0 2px",textAlign:"center"}}>All caught up ✓</div>}
                       {doneCount>0&&<div style={{marginTop:open.length>0?12:8}}>
                         <button onClick={()=>toggleShowDone(person.id)} style={{background:"none",border:"none",cursor:"pointer",color:WG,fontSize:11.5,fontWeight:700,fontFamily:"inherit",padding:"2px 0",display:"flex",alignItems:"center",gap:5}}>
                           <span style={{fontSize:9}}>{showCompleted?"▾":"▸"}</span>Completed ({doneCount})
                         </button>
-                        {showCompleted&&<div style={{display:"flex",flexDirection:"column",gap:7,marginTop:8}}>
+                        {showCompleted&&<div style={{display:"flex",flexDirection:"column",gap:9,marginTop:8}}>
                           {done.map(renderRow)}
                           <button onClick={()=>clearDone(person.id)} style={{marginTop:4,alignSelf:"flex-start",background:"none",border:`1px solid ${BD}`,borderRadius:6,padding:"5px 11px",fontSize:11,fontWeight:700,color:WG,cursor:"pointer",fontFamily:"inherit"}}>Clear {fullDone.length} completed</button>
                         </div>}
