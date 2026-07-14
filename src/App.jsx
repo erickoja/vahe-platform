@@ -6687,10 +6687,13 @@ function Login(){
 }
 
 // A single task row — hover lifts the row and fades in the delete control.
-function TaskRow({it,ch,doingIt,pr,accent,onToggleDone,onToggleDoing,onOpen,onRemove}){
+function TaskRow({it,ch,doingIt,pr,accent,job,jobClient,onOpenJob,onToggleDone,onToggleDoing,onOpen,onRemove}){
   const[h,setH]=useState(false);
   const borderCol=ch?.overdue?DANGER+"55":doingIt?WARN+"55":BD;
   const chip={display:"inline-block",fontSize:11,fontWeight:700,borderRadius:5,padding:"3px 8px",letterSpacing:"0.02em",lineHeight:1.3};
+  const sc=job?(SC[job.stage]||WG):WG;
+  const hasChips=doingIt||ch||pr||job;
+  const jumpJob=e=>{e.stopPropagation();onOpenJob&&onOpenJob();};
   return <div onMouseEnter={()=>setH(true)} onMouseLeave={()=>setH(false)}
     style={{display:"flex",alignItems:"flex-start",gap:11,background:h?WHITE:PARCH,border:`1px solid ${h?GOLD+"66":borderCol}`,borderLeft:accent?`3px solid ${DANGER}`:undefined,borderRadius:6,padding:"12px 13px",boxShadow:h?SHADOW:"none",transition:"background 0.14s,box-shadow 0.14s,border-color 0.14s"}}>
     <button onClick={onToggleDone} title={it.done?"Mark as not done":"Mark as done"} style={{flexShrink:0,marginTop:1,width:19,height:19,borderRadius:6,border:`2px solid ${it.done?OK:"#C9C9CD"}`,background:it.done?OK:WHITE,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",padding:0}}>{it.done&&<span style={{color:WHITE,fontSize:11,fontWeight:900,lineHeight:1}}>✓</span>}</button>
@@ -6700,19 +6703,21 @@ function TaskRow({it,ch,doingIt,pr,accent,onToggleDone,onToggleDoing,onOpen,onRe
         {it.text}
         {it.notes&&it.notes.trim()&&<span title="Has notes" style={{flexShrink:0,fontSize:11,opacity:0.55}}>📝</span>}
       </div>
-      {(doingIt||ch||pr)&&<div style={{display:"flex",flexWrap:"wrap",gap:6,marginTop:7}}>
+      {hasChips&&<div style={{display:"flex",flexWrap:"wrap",gap:6,marginTop:7}}>
+        {job&&<span onClick={jumpJob} title={`Open ${job.type} job`} style={{...chip,color:sc,background:sc+"1A",border:`1px solid ${sc}55`,cursor:"pointer"}}>{job.stage}</span>}
         {pr&&<span style={{...chip,color:pr.color,background:pr.bg,border:`1px solid ${pr.color}33`}}>{pr.lbl}</span>}
         {doingIt&&<span style={{...chip,color:WARN,background:GOLD_L,border:`1px solid ${WARN}33`}}>In progress</span>}
         {ch&&<span style={{...chip,color:ch.color,background:ch.bg,border:`1px solid ${ch.color}33`}}>{ch.label}</span>}
       </div>}
-      {it.notes&&it.notes.trim()&&<div style={{fontSize:11.5,color:WG,marginTop:(doingIt||ch||pr)?7:3,lineHeight:1.4,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{it.notes.trim()}</div>}
+      {job&&<div onClick={jumpJob} title="Open linked job" style={{fontSize:11.5,color:GOLD_D,fontWeight:600,marginTop:hasChips?6:3,cursor:"pointer",display:"flex",alignItems:"center",gap:4,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}><span style={{opacity:0.65}}>→</span>{job.type}{jobClient?` · ${jobClient}`:""}</div>}
+      {it.notes&&it.notes.trim()&&<div style={{fontSize:11.5,color:WG,marginTop:(hasChips||job)?6:3,lineHeight:1.4,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{it.notes.trim()}</div>}
     </div>
     <button onClick={onRemove} title="Delete task" style={{flexShrink:0,alignSelf:"center",background:"none",border:"none",cursor:"pointer",color:WG,fontSize:17,lineHeight:1,padding:"0 2px",opacity:h?0.85:0.25,transition:"opacity 0.14s"}}>×</button>
   </div>;
 }
 
 // ── To-do board (per-person running checklists, shared across the studio) ──
-function TodoBoard({todos,setTodos}){
+function TodoBoard({todos,setTodos,jobs=[],clients=[],setView,setSelJob}){
   const people=todos?.people||[];
   const items=todos?.items||[];
   const[newPerson,setNewPerson]=useState("");
@@ -6724,6 +6729,7 @@ function TodoBoard({todos,setTodos}){
   const[editStatus,setEditStatus]=useState("open");   // not started / in progress / done
   const[editPriority,setEditPriority]=useState("med"); // high / med (normal) / low
   const[editPerson,setEditPerson]=useState("");        // reassign a task to another person
+  const[editJob,setEditJob]=useState("");              // optional link to a real job
   const[query,setQuery]=useState("");                  // free-text search across all lists
   const[statusFilter,setStatusFilter]=useState("all"); // all / open / doing / done / overdue
   const[showDone,setShowDone]=useState({});            // per-person: is the Completed section expanded
@@ -6740,9 +6746,10 @@ function TodoBoard({todos,setTodos}){
   const removeItem=id=>save({people,items:items.filter(i=>i.id!==id)});
   const clearDone=pid=>save({people,items:items.filter(i=>!(i.personId===pid&&i.done))});
   // Detail editor (title + longer notes + due date)
-  const openEdit=it=>{setEditId(it.id);setEditText(it.text||"");setEditNotes(it.notes||"");setEditDue(it.due||"");setEditStatus(it.done?"done":it.status==="doing"?"doing":"open");setEditPriority(it.priority||"med");setEditPerson(it.personId);};
+  const openEdit=it=>{setEditId(it.id);setEditText(it.text||"");setEditNotes(it.notes||"");setEditDue(it.due||"");setEditStatus(it.done?"done":it.status==="doing"?"doing":"open");setEditPriority(it.priority||"med");setEditPerson(it.personId);setEditJob(it.jobId||"");};
   const closeEdit=()=>setEditId(null);
-  const saveEdit=()=>{const t=editText.trim();if(!t)return;save({people,items:items.map(i=>i.id===editId?{...i,text:t,notes:editNotes.trim(),due:editDue||"",done:editStatus==="done",status:editStatus,priority:editPriority,personId:editPerson||i.personId}:i)});setEditId(null);};
+  const saveEdit=()=>{const t=editText.trim();if(!t)return;save({people,items:items.map(i=>i.id===editId?{...i,text:t,notes:editNotes.trim(),due:editDue||"",done:editStatus==="done",status:editStatus,priority:editPriority,personId:editPerson||i.personId,jobId:editJob||""}:i)});setEditId(null);};
+  const openJob=id=>{if(setSelJob&&setView){setSelJob(id);setView("jobDetail");}};
   const editingItem=items.find(i=>i.id===editId)||null;
   const editingPerson=editingItem?people.find(p=>p.id===editingItem.personId):null;
 
@@ -6787,7 +6794,10 @@ function TodoBoard({todos,setTodos}){
   const renderRow=it=>{
     const ch=!it.done&&it.due?dueChip(it.due):null;
     const pr=!it.done?prioTag(it):null;
+    const job=it.jobId?jobs.find(j=>j.id===it.jobId):null;
+    const jobClient=job?clientDisplayName(clients.find(c=>c.id===job.clientId)):"";
     return <TaskRow key={it.id} it={it} ch={ch} doingIt={isDoing(it)} pr={pr} accent={!it.done&&it.priority==="high"}
+      job={job} jobClient={jobClient} onOpenJob={job?()=>openJob(job.id):null}
       onToggleDone={()=>toggleDone(it.id)} onToggleDoing={()=>toggleDoing(it.id)} onOpen={()=>openEdit(it)} onRemove={()=>removeItem(it.id)}/>;
   };
 
@@ -6797,7 +6807,7 @@ function TodoBoard({todos,setTodos}){
       <div>
         <div style={{fontSize:11,fontWeight:700,color:WG,letterSpacing:"0.14em",textTransform:"uppercase",marginBottom:5}}>Team tasks</div>
         <h1 style={{margin:0,fontSize:32,fontWeight:500,color:INK,letterSpacing:"-0.01em"}}>To-do</h1>
-        <div style={{color:WG,fontSize:14,marginTop:4}}>A running task list for each person in the workshop.</div>
+        <div style={{color:WG,fontSize:14,marginTop:4}}>A running task list for each person — link a task to a job to see its live stage at a glance.</div>
       </div>
       <div style={{display:"flex",gap:8,alignItems:"center",background:WHITE,border:`1px solid ${BD_SOFT}`,borderRadius:RADIUS,padding:"8px 10px",boxShadow:SHADOW}}>
         <input value={newPerson} onChange={e=>setNewPerson(e.target.value)} onKeyDown={e=>{if(e.key==="Enter")addPerson();}} placeholder="New person's name…" style={{...SS.inp,marginTop:0,width:200}}/>
@@ -6920,6 +6930,19 @@ function TodoBoard({todos,setTodos}){
           return <button key={v} onClick={()=>setEditPriority(v)} style={{flex:1,padding:"8px 6px",borderRadius:6,cursor:"pointer",fontSize:12,fontWeight:700,fontFamily:"inherit",border:`1.5px solid ${on?c:BD}`,background:on?(v==="high"?"#FBEBE9":PARCH):WHITE,color:on?c:WG}}>{lbl}</button>;
         })}
       </div>
+      {jobs.length>0&&<>
+        <label style={{...SS.lbl,marginBottom:4}}>Linked job <span style={{textTransform:"none",letterSpacing:0,fontWeight:400,color:WG}}>(optional)</span></label>
+        <div style={{display:"flex",gap:8,alignItems:"center",marginBottom:16}}>
+          <select value={editJob} onChange={e=>setEditJob(e.target.value)} style={{...SS.inp,marginTop:0,flex:1}}>
+            <option value="">— Not linked to a job —</option>
+            {[...jobs].sort((a,b)=>(jobIsDone(a)?1:0)-(jobIsDone(b)?1:0)).map(j=>{
+              const c=clients.find(x=>x.id===j.clientId);
+              return <option key={j.id} value={j.id}>{j.type} · {clientDisplayName(c)||"—"} · {j.stage}</option>;
+            })}
+          </select>
+          {editJob&&<Btn sm ghost onClick={()=>openJob(editJob)}>Open →</Btn>}
+        </div>
+      </>}
       <label style={{...SS.lbl,marginBottom:4}}>Due date <span style={{textTransform:"none",letterSpacing:0,fontWeight:400,color:WG}}>(optional)</span></label>
       <div style={{display:"flex",gap:8,alignItems:"center",marginBottom:16}}>
         <input type="date" value={editDue} onChange={e=>setEditDue(e.target.value)} style={{...SS.inp,marginTop:0,width:200}}/>
@@ -7736,7 +7759,7 @@ export default function App(){
 
   const render=()=>{
     if(view==="dashboard")return <Dashboard clients={clients} jobs={jobs} quotes={quotes} payments={payments} invoices={invoices} appointments={appointments} proposals={proposals} markProposalSeen={markProposalSeen} markRepairSeen={markRepairSeen} markupTable={markupTable} setView={setView} setSelClient={setSelClient}/>;
-    if(view==="todo")return <TodoBoard todos={todos} setTodos={setTodos}/>;
+    if(view==="todo")return <TodoBoard todos={todos} setTodos={setTodos} jobs={jobs} clients={clients} setView={setView} setSelJob={setSelJob}/>;
     if(view==="appointments")return <Appointments appointments={appointments} setAppointments={setAppointments} clients={clients} setClients={setClients} jobs={jobs} setJobs={setJobs} setView={setView} setSelClient={setSelClient} setSelJob={setSelJob}/>;
     if(view==="clients")return <Clients clients={clients} setClients={setClients} jobs={jobs} payments={payments} setView={setView} setSelClient={setSelClient} quotes={quotes}/>;
     if(view==="clientDetail")return <ClientDetail clientId={selClient} clients={clients} setClients={setClients} jobs={jobs} setJobs={setJobs} quotes={quotes} payments={payments} invoices={invoices} markupTable={markupTable} setView={setView} setSelJob={setSelJob}/>;
