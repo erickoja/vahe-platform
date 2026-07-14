@@ -7131,6 +7131,30 @@ function StockBoard({stock,setStock,setView}){
     console.log("[photo-scan]",JSON.stringify(report,null,2));
     setScanReport(report);setScanBusy(false);
   };
+  // TEMP: additive recovery — re-link storage files that lost their reference. Never deletes.
+  const[recoverBusy,setRecoverBusy]=useState(false);
+  const recoverLostPhotos=async()=>{
+    if(!imagesEnabled()){alert("Cloud not active — can't reach storage.");return;}
+    setRecoverBusy(true);
+    const prefix=_studioId?_studioId+"/":"";
+    const additions={};let totalAdded=0;
+    for(const it of stock){
+      const linked=new Set((it.images||[]).map(i=>i.path));
+      try{
+        const{data,error}=await supabase.storage.from(IMG_BUCKET).list(`${prefix}${it.id}`,{limit:100});
+        if(error)continue;
+        const add=(data||[]).filter(f=>f&&f.name&&/\.jpe?g$/i.test(f.name)&&!linked.has(`${prefix}${it.id}/${f.name}`))
+          .map(f=>({id:uid(),path:`${prefix}${it.id}/${f.name}`,uploadedAt:f.created_at||f.updated_at||new Date().toISOString()}));
+        if(add.length){additions[it.id]=add;totalAdded+=add.length;}
+      }catch(e){}
+    }
+    if(totalAdded===0){setRecoverBusy(false);alert("Nothing to recover — no unlinked files found in storage.");return;}
+    const pieces=Object.keys(additions).length;
+    if(!confirm(`Re-link ${totalAdded} photo${totalAdded!==1?"s":""} to ${pieces} stock piece${pieces!==1?"s":""}?\n\nThis only ADDS references to files already in storage. Nothing is deleted or overwritten.`)){setRecoverBusy(false);return;}
+    setStock(prev=>{const n=prev.map(it=>additions[it.id]?{...it,images:[...(it.images||[]),...additions[it.id]]}:it);persist(K.st,n);return n;});
+    setRecoverBusy(false);setScanReport(null);
+    alert(`Re-linked ${totalAdded} photo${totalAdded!==1?"s":""}. They should reappear on the pieces now.`);
+  };
 
   // Resolve a signed URL for each piece's first photo (grid thumbnails)
   useEffect(()=>{
@@ -7271,7 +7295,11 @@ function StockBoard({stock,setStock,setView}){
                   <td style={{padding:"4px 0",color:WARN}}>{r.err||""}</td>
                 </tr>)}</tbody>
               </table></div>}
-          <div style={{fontSize:11,color:WG,marginTop:10}}>Nothing was changed. Full details are in the browser console under <code>[photo-scan]</code>.</div>
+          {scanReport.totalOrphan>0&&<div style={{marginTop:14,paddingTop:14,borderTop:`1px solid ${BD}`}}>
+            <Btn onClick={recoverLostPhotos} disabled={recoverBusy}>{recoverBusy?"Recovering…":`↻ Recover ${scanReport.totalOrphan} photo${scanReport.totalOrphan!==1?"s":""}`}</Btn>
+            <span style={{fontSize:11,color:WG,marginLeft:10}}>Re-links files already in storage. Adds only — never deletes.</span>
+          </div>}
+          <div style={{fontSize:11,color:WG,marginTop:10}}>Nothing was changed by the scan. Full details are in the browser console under <code>[photo-scan]</code>.</div>
         </>}
     </Card>}
 
