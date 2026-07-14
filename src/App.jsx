@@ -6694,8 +6694,9 @@ function TaskRow({it,ch,doingIt,pr,accent,job,jobClient,onOpenJob,onToggleDone,o
   const sc=job?(SC[job.stage]||WG):WG;
   const hasChips=doingIt||ch||pr||job;
   const jumpJob=e=>{e.stopPropagation();onOpenJob&&onOpenJob();};
+  const bc=h?GOLD:borderCol;   // solid gold on hover so the outline stays clearly visible
   return <div onMouseEnter={()=>setH(true)} onMouseLeave={()=>setH(false)}
-    style={{display:"flex",alignItems:"flex-start",gap:11,background:h?WHITE:PARCH,border:`1px solid ${h?GOLD+"66":borderCol}`,borderLeft:accent?`3px solid ${DANGER}`:undefined,borderRadius:6,padding:"12px 13px",boxShadow:h?SHADOW:"none",transition:"background 0.14s,box-shadow 0.14s,border-color 0.14s"}}>
+    style={{display:"flex",alignItems:"flex-start",gap:11,background:h?WHITE:PARCH,border:`1px solid ${bc}`,borderLeft:accent?`3px solid ${DANGER}`:`1px solid ${bc}`,borderRadius:6,padding:"12px 13px",boxShadow:h?SHADOW:"none",transition:"background 0.14s,box-shadow 0.14s,border-color 0.14s"}}>
     <button onClick={onToggleDone} title={it.done?"Mark as not done":"Mark as done"} style={{flexShrink:0,marginTop:1,width:19,height:19,borderRadius:6,border:`2px solid ${it.done?OK:"#C9C9CD"}`,background:it.done?OK:WHITE,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",padding:0}}>{it.done&&<span style={{color:WHITE,fontSize:11,fontWeight:900,lineHeight:1}}>✓</span>}</button>
     {!it.done&&<button onClick={onToggleDoing} title={doingIt?"Mark as not in progress":"Mark as in progress"} style={{flexShrink:0,marginTop:1,width:19,height:19,borderRadius:"50%",border:`2px solid ${doingIt?WARN:"#C9C9CD"}`,background:doingIt?GOLD_L:WHITE,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",padding:0}}>{doingIt&&<span style={{width:8,height:8,borderRadius:"50%",background:WARN,display:"block"}}/>}</button>}
     <div onClick={onOpen} title="Open task details" style={{flex:1,minWidth:0,cursor:"pointer"}}>
