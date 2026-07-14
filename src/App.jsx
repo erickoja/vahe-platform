@@ -6716,6 +6716,59 @@ function TaskRow({it,ch,doingIt,pr,accent,job,jobClient,onOpenJob,onToggleDone,o
   </div>;
 }
 
+// Searchable job picker — type to filter, pick from a short list, then collapses to a tidy summary.
+function JobPicker({jobs,clients,value,onChange,onOpen}){
+  const[q,setQ]=useState("");
+  const[open,setOpen]=useState(false);
+  const sel=value?jobs.find(j=>j.id===value):null;
+  const badge=sc=>({fontSize:10.5,fontWeight:700,color:sc,background:sc+"1A",border:`1px solid ${sc}55`,borderRadius:5,padding:"2px 8px",whiteSpace:"nowrap",flexShrink:0});
+  if(sel&&!open){
+    const c=clients.find(x=>x.id===sel.clientId);const sc=SC[sel.stage]||WG;
+    return <div style={{marginBottom:16}}>
+      <div style={{display:"flex",alignItems:"center",gap:10,border:`1px solid ${BD}`,borderLeft:`4px solid ${sc}`,borderRadius:6,padding:"10px 12px",background:PARCH}}>
+        <div style={{flex:1,minWidth:0}}>
+          <div style={{fontSize:13.5,fontWeight:700,color:INK,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{sel.type}</div>
+          <div style={{fontSize:12,color:WG,marginTop:2,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{clientDisplayName(c)||"—"}</div>
+        </div>
+        <span style={badge(sc)}>{sel.stage}</span>
+      </div>
+      <div style={{display:"flex",gap:8,marginTop:8}}>
+        <Btn sm ghost onClick={()=>{setOpen(true);setQ("");}}>Change</Btn>
+        <Btn sm ghost onClick={()=>onOpen&&onOpen(sel.id)}>Open →</Btn>
+        <Btn sm ghost onClick={()=>{onChange("");setOpen(false);}}>Unlink</Btn>
+      </div>
+    </div>;
+  }
+  const ql=q.trim().toLowerCase();
+  const list=[...jobs].sort((a,b)=>(jobIsDone(a)?1:0)-(jobIsDone(b)?1:0)).filter(j=>{
+    if(!ql)return true;
+    const c=clients.find(x=>x.id===j.clientId);
+    return `${j.type} ${clientDisplayName(c)||""} ${j.stage} ${j.description||""}`.toLowerCase().includes(ql);
+  }).slice(0,8);
+  return <div style={{marginBottom:16}}>
+    <input autoFocus={open} value={q} onChange={e=>setQ(e.target.value)} placeholder="Search jobs by client or type…" style={{...SS.inp,marginTop:0}}/>
+    <div style={{border:`1px solid ${BD}`,borderRadius:6,marginTop:6,maxHeight:224,overflowY:"auto"}}>
+      {list.length===0
+        ? <div style={{padding:"14px",fontSize:12.5,color:WG,textAlign:"center"}}>No matching jobs.</div>
+        : list.map((j,i)=>{
+            const c=clients.find(x=>x.id===j.clientId);const sc=SC[j.stage]||WG;
+            return <div key={j.id} onClick={()=>{onChange(j.id);setOpen(false);setQ("");}}
+              onMouseEnter={e=>e.currentTarget.style.background=PARCH} onMouseLeave={e=>e.currentTarget.style.background=WHITE}
+              style={{display:"flex",alignItems:"center",gap:10,padding:"9px 12px",cursor:"pointer",background:WHITE,borderBottom:i<list.length-1?`1px solid ${BD_SOFT}`:"none"}}>
+              <div style={{width:8,height:8,borderRadius:"50%",background:sc,flexShrink:0}}/>
+              <div style={{flex:1,minWidth:0}}>
+                <div style={{fontSize:13,fontWeight:600,color:INK,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{j.type}</div>
+                <div style={{fontSize:11.5,color:WG,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{clientDisplayName(c)||"—"}</div>
+              </div>
+              <span style={badge(sc)}>{j.stage}</span>
+            </div>;
+          })}
+    </div>
+    {jobs.length>8&&<div style={{fontSize:11,color:WG,marginTop:5}}>Showing first 8 — type to narrow the list.</div>}
+    {sel&&<div style={{marginTop:8}}><Btn sm ghost onClick={()=>{setOpen(false);setQ("");}}>Cancel</Btn></div>}
+  </div>;
+}
+
 // ── To-do board (per-person running checklists, shared across the studio) ──
 function TodoBoard({todos,setTodos,jobs=[],clients=[],setView,setSelJob}){
   const people=todos?.people||[];
@@ -6932,16 +6985,7 @@ function TodoBoard({todos,setTodos,jobs=[],clients=[],setView,setSelJob}){
       </div>
       {jobs.length>0&&<>
         <label style={{...SS.lbl,marginBottom:4}}>Linked job <span style={{textTransform:"none",letterSpacing:0,fontWeight:400,color:WG}}>(optional)</span></label>
-        <div style={{display:"flex",gap:8,alignItems:"center",marginBottom:16}}>
-          <select value={editJob} onChange={e=>setEditJob(e.target.value)} style={{...SS.inp,marginTop:0,flex:1}}>
-            <option value="">— Not linked to a job —</option>
-            {[...jobs].sort((a,b)=>(jobIsDone(a)?1:0)-(jobIsDone(b)?1:0)).map(j=>{
-              const c=clients.find(x=>x.id===j.clientId);
-              return <option key={j.id} value={j.id}>{j.type} · {clientDisplayName(c)||"—"} · {j.stage}</option>;
-            })}
-          </select>
-          {editJob&&<Btn sm ghost onClick={()=>openJob(editJob)}>Open →</Btn>}
-        </div>
+        <JobPicker jobs={jobs} clients={clients} value={editJob} onChange={setEditJob} onOpen={openJob}/>
       </>}
       <label style={{...SS.lbl,marginBottom:4}}>Due date <span style={{textTransform:"none",letterSpacing:0,fontWeight:400,color:WG}}>(optional)</span></label>
       <div style={{display:"flex",gap:8,alignItems:"center",marginBottom:16}}>
