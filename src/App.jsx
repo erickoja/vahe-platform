@@ -7095,7 +7095,9 @@ function GemCustody({custody,setCustody,clients,biz}){
 }
 
 function StockBoard({stock,setStock,setView}){
-  const save=next=>{setStock(next);persist(K.st,next);};
+  // Persist + set together. Pass a function to update from the freshest state — this is
+  // race-safe: a slow photo upload can't clobber edits (or lose images) made meanwhile.
+  const save=next=>setStock(prev=>{const n=typeof next==="function"?next(prev):next;persist(K.st,n);return n;});
 
   const[q,setQ]=useState("");
   const[filterCat,setFilterCat]=useState("All");
@@ -7107,54 +7109,6 @@ function StockBoard({stock,setStock,setView}){
   const[modalUrls,setModalUrls]=useState({}); // path → signed url (editor)
   const[busy,setBusy]=useState(false);
   const[err,setErr]=useState("");
-  // TEMP: read-only diagnostic — list storage to find photos whose references were lost.
-  const[scanBusy,setScanBusy]=useState(false);
-  const[scanReport,setScanReport]=useState(null);
-  const scanLostPhotos=async()=>{
-    if(!imagesEnabled()){setScanReport({error:"Cloud not active — can't reach storage."});return;}
-    setScanBusy(true);setScanReport(null);
-    const prefix=_studioId?_studioId+"/":"";
-    const rows=[];let totalInStorage=0,totalLinked=0,totalOrphan=0,errCount=0;
-    for(const it of stock){
-      const linkedPaths=new Set((it.images||[]).map(i=>i.path));
-      try{
-        const{data,error}=await supabase.storage.from(IMG_BUCKET).list(`${prefix}${it.id}`,{limit:100});
-        if(error){errCount++;rows.push({id:it.id,title:it.title||"(untitled)",linked:linkedPaths.size,inStorage:"—",orphan:"—",err:error.message});continue;}
-        const files=(data||[]).filter(f=>f&&f.name&&/\.jpe?g$/i.test(f.name));
-        const inStorage=files.length;
-        const orphan=files.filter(f=>!linkedPaths.has(`${prefix}${it.id}/${f.name}`)).length;
-        totalInStorage+=inStorage;totalLinked+=linkedPaths.size;totalOrphan+=orphan;
-        if(inStorage>0||linkedPaths.size>0)rows.push({id:it.id,title:it.title||"(untitled)",linked:linkedPaths.size,inStorage,orphan});
-      }catch(e){errCount++;rows.push({id:it.id,title:it.title||"(untitled)",linked:linkedPaths.size,inStorage:"—",orphan:"—",err:e.message||"failed"});}
-    }
-    const report={prefix,items:stock.length,rows,totalInStorage,totalLinked,totalOrphan,errCount};
-    console.log("[photo-scan]",JSON.stringify(report,null,2));
-    setScanReport(report);setScanBusy(false);
-  };
-  // TEMP: additive recovery — re-link storage files that lost their reference. Never deletes.
-  const[recoverBusy,setRecoverBusy]=useState(false);
-  const recoverLostPhotos=async()=>{
-    if(!imagesEnabled()){alert("Cloud not active — can't reach storage.");return;}
-    setRecoverBusy(true);
-    const prefix=_studioId?_studioId+"/":"";
-    const additions={};let totalAdded=0;
-    for(const it of stock){
-      const linked=new Set((it.images||[]).map(i=>i.path));
-      try{
-        const{data,error}=await supabase.storage.from(IMG_BUCKET).list(`${prefix}${it.id}`,{limit:100});
-        if(error)continue;
-        const add=(data||[]).filter(f=>f&&f.name&&/\.jpe?g$/i.test(f.name)&&!linked.has(`${prefix}${it.id}/${f.name}`))
-          .map(f=>({id:uid(),path:`${prefix}${it.id}/${f.name}`,uploadedAt:f.created_at||f.updated_at||new Date().toISOString()}));
-        if(add.length){additions[it.id]=add;totalAdded+=add.length;}
-      }catch(e){}
-    }
-    if(totalAdded===0){setRecoverBusy(false);alert("Nothing to recover — no unlinked files found in storage.");return;}
-    const pieces=Object.keys(additions).length;
-    if(!confirm(`Re-link ${totalAdded} photo${totalAdded!==1?"s":""} to ${pieces} stock piece${pieces!==1?"s":""}?\n\nThis only ADDS references to files already in storage. Nothing is deleted or overwritten.`)){setRecoverBusy(false);return;}
-    setStock(prev=>{const n=prev.map(it=>additions[it.id]?{...it,images:[...(it.images||[]),...additions[it.id]]}:it);persist(K.st,n);return n;});
-    setRecoverBusy(false);setScanReport(null);
-    alert(`Re-linked ${totalAdded} photo${totalAdded!==1?"s":""}. They should reappear on the pieces now.`);
-  };
 
   // Resolve a signed URL for each piece's first photo (grid thumbnails)
   useEffect(()=>{
@@ -7188,22 +7142,22 @@ function StockBoard({stock,setStock,setView}){
   const openEdit=it=>{setEditId(it.id);setIsNew(false);setDraft(fields(it));setErr("");setModalUrls({});};
   const openNew=()=>{
     const it={id:uid(),status:"Available",category:"Ring",qty:1,images:[],createdAt:today(),sku:""};
-    save([...stock,it]);
+    save(prev=>[...prev,it]);
     setEditId(it.id);setIsNew(true);setDraft(fields(it));setErr("");setModalUrls({});
   };
   const closeEditor=()=>{
     const item=stock.find(x=>x.id===editId);
-    if(isNew&&item&&!(item.title||"").trim()&&!(item.images||[]).length)save(stock.filter(x=>x.id!==editId));
+    if(isNew&&item&&!(item.title||"").trim()&&!(item.images||[]).length)save(prev=>prev.filter(x=>x.id!==editId));
     setEditId(null);setIsNew(false);
   };
-  const saveText=()=>{save(stock.map(x=>x.id===editId?{...x,...draftFields(draft)}:x));setIsNew(false);setEditId(null);};
+  const saveText=()=>{save(prev=>prev.map(x=>x.id===editId?{...x,...draftFields(draft)}:x));setIsNew(false);setEditId(null);};
   // Commit the piece, then hand off to the quote-engine builder to price it
-  const goPrice=()=>{save(stock.map(x=>x.id===editId?{...x,...draftFields(draft)}:x));setIsNew(false);setView("stockPrice_"+editId);};
+  const goPrice=()=>{save(prev=>prev.map(x=>x.id===editId?{...x,...draftFields(draft)}:x));setIsNew(false);setView("stockPrice_"+editId);};
   const deletePiece=()=>{
     const item=stock.find(x=>x.id===editId);
     if(!confirm("Delete this stock piece? This can't be undone."))return;
     (item?.images||[]).forEach(img=>deleteJobImage(img.path));
-    save(stock.filter(x=>x.id!==editId));setEditId(null);setIsNew(false);
+    save(prev=>prev.filter(x=>x.id!==editId));setEditId(null);setIsNew(false);
   };
 
   // Photo handling on the piece currently open (mirrors the Jobs image flow)
@@ -7221,13 +7175,13 @@ function StockBoard({stock,setStock,setView}){
         added.push({id:uid(),path,uploadedAt:new Date().toISOString()});
         if(u)setModalUrls(prev=>({...prev,[path]:u}));
       }
-      save(stock.map(x=>x.id===item.id?{...x,images:[...(x.images||[]),...added]}:x));
+      save(prev=>prev.map(x=>x.id===item.id?{...x,images:[...(x.images||[]),...added]}:x));
     }catch(e){setErr(e.message||"Upload failed.");}
     setBusy(false);
   };
   const removeImg=img=>{
     if(!confirm("Remove this photo?"))return;
-    save(stock.map(x=>x.id===editId?{...x,images:(x.images||[]).filter(i=>i.id!==img.id)}:x));
+    save(prev=>prev.map(x=>x.id===editId?{...x,images:(x.images||[]).filter(i=>i.id!==img.id)}:x));
     deleteJobImage(img.path);
   };
 
@@ -7261,47 +7215,8 @@ function StockBoard({stock,setStock,setView}){
         <h1 style={{margin:0,fontSize:32,fontWeight:500,color:INK,letterSpacing:"-0.01em"}}>Stock</h1>
         <div style={{color:WG,fontSize:14,marginTop:4}}>Your ready-to-sell and display pieces, with photos, SKUs and pricing.</div>
       </div>
-      <div style={{display:"flex",gap:10,alignItems:"center"}}>
-        <Btn ghost onClick={scanLostPhotos} disabled={scanBusy}>{scanBusy?"Scanning…":"🔍 Scan for lost photos"}</Btn>
-        <Btn onClick={openNew}>+ Add piece</Btn>
-      </div>
+      <Btn onClick={openNew}>+ Add piece</Btn>
     </div>
-
-    {/* TEMP: photo-recovery scan report */}
-    {scanReport&&<Card style={{marginTop:4,border:`1px solid ${GOLD}`}}>
-      {scanReport.error
-        ? <div style={{color:WARN,fontWeight:700}}>{scanReport.error}</div>
-        : <>
-          <div style={{fontWeight:700,fontSize:15,color:INK,marginBottom:6}}>Photo scan — read only</div>
-          <div style={{fontSize:13,color:WG,marginBottom:12}}>
-            Storage prefix: <code>{scanReport.prefix||"(none)"}</code> · {scanReport.items} stock pieces checked ·
-            {" "}<strong style={{color:INK}}>{scanReport.totalInStorage}</strong> photo files found in storage ·
-            {" "}<strong style={{color:INK}}>{scanReport.totalLinked}</strong> currently linked ·
-            {" "}<strong style={{color:scanReport.totalOrphan>0?OK:WG}}>{scanReport.totalOrphan}</strong> recoverable (in storage but not linked)
-            {scanReport.errCount>0&&<> · <span style={{color:WARN}}>{scanReport.errCount} folders errored (likely a storage permission block)</span></>}
-          </div>
-          {scanReport.rows.length===0
-            ? <div style={{fontSize:13,color:WG,fontStyle:"italic"}}>No photo files found in storage for any stock piece.</div>
-            : <div style={{overflowX:"auto"}}><table style={{borderCollapse:"collapse",fontSize:12,width:"100%"}}>
-                <thead><tr style={{textAlign:"left",color:WG}}>
-                  <th style={{padding:"4px 10px 4px 0"}}>Piece</th><th style={{padding:"4px 10px"}}>Linked now</th>
-                  <th style={{padding:"4px 10px"}}>In storage</th><th style={{padding:"4px 10px"}}>Recoverable</th><th style={{padding:"4px 0"}}>Note</th>
-                </tr></thead>
-                <tbody>{scanReport.rows.map(r=><tr key={r.id} style={{borderTop:`1px solid ${BD}`}}>
-                  <td style={{padding:"4px 10px 4px 0",color:INK}}>{r.title}</td>
-                  <td style={{padding:"4px 10px"}}>{r.linked}</td>
-                  <td style={{padding:"4px 10px"}}>{r.inStorage}</td>
-                  <td style={{padding:"4px 10px",color:r.orphan>0?OK:WG,fontWeight:r.orphan>0?700:400}}>{r.orphan}</td>
-                  <td style={{padding:"4px 0",color:WARN}}>{r.err||""}</td>
-                </tr>)}</tbody>
-              </table></div>}
-          {scanReport.totalOrphan>0&&<div style={{marginTop:14,paddingTop:14,borderTop:`1px solid ${BD}`}}>
-            <Btn onClick={recoverLostPhotos} disabled={recoverBusy}>{recoverBusy?"Recovering…":`↻ Recover ${scanReport.totalOrphan} photo${scanReport.totalOrphan!==1?"s":""}`}</Btn>
-            <span style={{fontSize:11,color:WG,marginLeft:10}}>Re-links files already in storage. Adds only — never deletes.</span>
-          </div>}
-          <div style={{fontSize:11,color:WG,marginTop:10}}>Nothing was changed by the scan. Full details are in the browser console under <code>[photo-scan]</code>.</div>
-        </>}
-    </Card>}
 
     {stock.length===0
       ? <Card style={{marginTop:4}}><div style={{color:WG,fontSize:14,textAlign:"center",padding:"46px 0"}}>
