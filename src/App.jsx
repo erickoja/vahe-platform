@@ -7107,6 +7107,30 @@ function StockBoard({stock,setStock,setView}){
   const[modalUrls,setModalUrls]=useState({}); // path → signed url (editor)
   const[busy,setBusy]=useState(false);
   const[err,setErr]=useState("");
+  // TEMP: read-only diagnostic — list storage to find photos whose references were lost.
+  const[scanBusy,setScanBusy]=useState(false);
+  const[scanReport,setScanReport]=useState(null);
+  const scanLostPhotos=async()=>{
+    if(!imagesEnabled()){setScanReport({error:"Cloud not active — can't reach storage."});return;}
+    setScanBusy(true);setScanReport(null);
+    const prefix=_studioId?_studioId+"/":"";
+    const rows=[];let totalInStorage=0,totalLinked=0,totalOrphan=0,errCount=0;
+    for(const it of stock){
+      const linkedPaths=new Set((it.images||[]).map(i=>i.path));
+      try{
+        const{data,error}=await supabase.storage.from(IMG_BUCKET).list(`${prefix}${it.id}`,{limit:100});
+        if(error){errCount++;rows.push({id:it.id,title:it.title||"(untitled)",linked:linkedPaths.size,inStorage:"—",orphan:"—",err:error.message});continue;}
+        const files=(data||[]).filter(f=>f&&f.name&&/\.jpe?g$/i.test(f.name));
+        const inStorage=files.length;
+        const orphan=files.filter(f=>!linkedPaths.has(`${prefix}${it.id}/${f.name}`)).length;
+        totalInStorage+=inStorage;totalLinked+=linkedPaths.size;totalOrphan+=orphan;
+        if(inStorage>0||linkedPaths.size>0)rows.push({id:it.id,title:it.title||"(untitled)",linked:linkedPaths.size,inStorage,orphan});
+      }catch(e){errCount++;rows.push({id:it.id,title:it.title||"(untitled)",linked:linkedPaths.size,inStorage:"—",orphan:"—",err:e.message||"failed"});}
+    }
+    const report={prefix,items:stock.length,rows,totalInStorage,totalLinked,totalOrphan,errCount};
+    console.log("[photo-scan]",JSON.stringify(report,null,2));
+    setScanReport(report);setScanBusy(false);
+  };
 
   // Resolve a signed URL for each piece's first photo (grid thumbnails)
   useEffect(()=>{
@@ -7213,8 +7237,43 @@ function StockBoard({stock,setStock,setView}){
         <h1 style={{margin:0,fontSize:32,fontWeight:500,color:INK,letterSpacing:"-0.01em"}}>Stock</h1>
         <div style={{color:WG,fontSize:14,marginTop:4}}>Your ready-to-sell and display pieces, with photos, SKUs and pricing.</div>
       </div>
-      <Btn onClick={openNew}>+ Add piece</Btn>
+      <div style={{display:"flex",gap:10,alignItems:"center"}}>
+        <Btn ghost onClick={scanLostPhotos} disabled={scanBusy}>{scanBusy?"Scanning…":"🔍 Scan for lost photos"}</Btn>
+        <Btn onClick={openNew}>+ Add piece</Btn>
+      </div>
     </div>
+
+    {/* TEMP: photo-recovery scan report */}
+    {scanReport&&<Card style={{marginTop:4,border:`1px solid ${GOLD}`}}>
+      {scanReport.error
+        ? <div style={{color:WARN,fontWeight:700}}>{scanReport.error}</div>
+        : <>
+          <div style={{fontWeight:700,fontSize:15,color:INK,marginBottom:6}}>Photo scan — read only</div>
+          <div style={{fontSize:13,color:WG,marginBottom:12}}>
+            Storage prefix: <code>{scanReport.prefix||"(none)"}</code> · {scanReport.items} stock pieces checked ·
+            {" "}<strong style={{color:INK}}>{scanReport.totalInStorage}</strong> photo files found in storage ·
+            {" "}<strong style={{color:INK}}>{scanReport.totalLinked}</strong> currently linked ·
+            {" "}<strong style={{color:scanReport.totalOrphan>0?OK:WG}}>{scanReport.totalOrphan}</strong> recoverable (in storage but not linked)
+            {scanReport.errCount>0&&<> · <span style={{color:WARN}}>{scanReport.errCount} folders errored (likely a storage permission block)</span></>}
+          </div>
+          {scanReport.rows.length===0
+            ? <div style={{fontSize:13,color:WG,fontStyle:"italic"}}>No photo files found in storage for any stock piece.</div>
+            : <div style={{overflowX:"auto"}}><table style={{borderCollapse:"collapse",fontSize:12,width:"100%"}}>
+                <thead><tr style={{textAlign:"left",color:WG}}>
+                  <th style={{padding:"4px 10px 4px 0"}}>Piece</th><th style={{padding:"4px 10px"}}>Linked now</th>
+                  <th style={{padding:"4px 10px"}}>In storage</th><th style={{padding:"4px 10px"}}>Recoverable</th><th style={{padding:"4px 0"}}>Note</th>
+                </tr></thead>
+                <tbody>{scanReport.rows.map(r=><tr key={r.id} style={{borderTop:`1px solid ${BD}`}}>
+                  <td style={{padding:"4px 10px 4px 0",color:INK}}>{r.title}</td>
+                  <td style={{padding:"4px 10px"}}>{r.linked}</td>
+                  <td style={{padding:"4px 10px"}}>{r.inStorage}</td>
+                  <td style={{padding:"4px 10px",color:r.orphan>0?OK:WG,fontWeight:r.orphan>0?700:400}}>{r.orphan}</td>
+                  <td style={{padding:"4px 0",color:WARN}}>{r.err||""}</td>
+                </tr>)}</tbody>
+              </table></div>}
+          <div style={{fontSize:11,color:WG,marginTop:10}}>Nothing was changed. Full details are in the browser console under <code>[photo-scan]</code>.</div>
+        </>}
+    </Card>}
 
     {stock.length===0
       ? <Card style={{marginTop:4}}><div style={{color:WG,fontSize:14,textAlign:"center",padding:"46px 0"}}>
