@@ -939,6 +939,35 @@ const invoiceContentFromQuote=(q,job,markupTable)=>{
   return{exGST,gst,totalIncGST,lineItems,tradeInCredit:Number(q.tradeInCredit)||0,tradeInNote:q.tradeInNote||"",descriptionOverride,calc};
 };
 
+// Fresh line items for one quote on a combined invoice (incl. its centre stone, or a fallback
+// line for manual-price quotes). Fresh ids so items from different quotes never collide.
+const quoteInvoiceLineItems=(q,markupTable)=>{
+  const lineItems=q.lineItems.map(li=>({...li,id:uid()}));
+  const centreInc=q.stoneClientTotal||0;
+  if(centreInc>0){
+    const sDescs=(q.stoneItems||[]).map(s=>(s.description||"").trim()).filter(Boolean);
+    const sDetails=(q.stoneItems||[]).map(s=>(s.detail||"").trim()).filter(Boolean);
+    lineItems.push({id:uid(),description:sDescs.length?sDescs.join(" + "):(q.stoneType==="lab"?"Lab-grown":"Natural")+" diamond / gemstone",detail:sDetails.length?sDetails.join(" · "):"Supplied & set",costLow:centreInc.toFixed(2),noMarkup:true});
+  }
+  if(!lineItems.length)lineItems.push({id:uid(),description:quoteLabel(q),detail:"As quoted",costLow:quoteGrandTotal(q,markupTable).toFixed(2),noMarkup:true});
+  return lineItems;
+};
+// Build one invoice from one or more approved quotes on a job (GST-inclusive model). For 2+
+// quotes it itemises per option (customerLines) so the client sees each piece and its price.
+// Shared by the Invoices tab and the job card so both produce identical combined invoices.
+const buildCombinedInvoice=(qs,job,invoices,markupTable)=>{
+  const totalIncGST=qs.reduce((s,q)=>s+quoteGrandTotal(q,markupTable),0);   // manual price wins per quote
+  const gst=totalIncGST-totalIncGST/(1+GST_RATE);
+  const exGST=totalIncGST-gst;
+  const lineItems=qs.flatMap(q=>quoteInvoiceLineItems(q,markupTable));
+  const descriptionOverride=qs.length===1
+    ?(qs[0].clientDescription||job?.description||"")
+    :(job?.description||qs.map(q=>q.clientDescription||quoteLabel(q)).filter(Boolean).join(" + "));
+  const notes=qs.map(q=>q.notes).filter(Boolean).join("\n");
+  const customerLines=qs.length>1?qs.map(q=>({id:uid(),description:(q.clientDescription||"").trim()||job?.description||quoteLabel(q),amount:quoteGrandTotal(q,markupTable)})):null;
+  return{id:uid(),jobId:job.id,quoteId:qs[0].id,quoteIds:qs.map(q=>q.id),number:nextInvoiceNumber(invoices),date:today(),status:"Unpaid",exGST,gst,totalIncGST,lineItems,notes,tradeInCredit:qs.reduce((s,q)=>s+(Number(q.tradeInCredit)||0),0),tradeInNote:qs.map(q=>(q.tradeInNote||"").trim()).filter(Boolean).join(" · "),descriptionOverride,customerLines};
+};
+
 const buildProposalSnapshot=({proposal,job,client,biz,quotes,markupTable,payments,photoMap})=>{
   const validityDays=biz?.quoteValidityDays||30;
   const created=proposal.createdAt||today();
@@ -2502,6 +2531,8 @@ function JobDetail({jobId,jobs,setJobs,clients,quotes,setQuotes,payments,setPaym
   const[editStage,setEditStage]=useState(false);
   const[editJobModal,setEditJobModal]=useState(false);
   const[payModal,setPayModal]=useState(false);
+  const[combineModal,setCombineModal]=useState(false);
+  const[combineSel,setCombineSel]=useState([]);   // approved quote ids to combine into one invoice
   const moveStage=s=>{setJobs(p=>{const n=p.map(j=>j.id===jobId?{...j,stage:s}:j);persist(K.jo,n);return n;});setEditStage(false);};
   // Keep any live invoice/proposal link(s) for this job in sync after a payment change, so the
   // customer's link shows the updated Paid / Balance due instead of a stale snapshot.
@@ -2548,6 +2579,20 @@ function JobDetail({jobId,jobs,setJobs,clients,quotes,setQuotes,payments,setPaym
     const content=invoiceContentFromQuote(q,job,markupTable);
     const inv={id:uid(),jobId,quoteId:qid,quoteIds:[qid],number:nextInvoiceNumber(invoices),date:today(),status:"Unpaid",notes:q.notes||"",...content};
     setInvoices(p=>{const n=[...p,inv];persist(K.inv,n);return n;});
+    setView("invoiceDetail_"+inv.id);
+  };
+  // Combine several approved quotes on this job into one invoice — without leaving the job card.
+  // Same builder the Invoices tab uses, so the result is identical (one line per option + prices).
+  const approvedUninvoiced=jq.filter(q=>q.status==="Approved"&&!quoteHasInvoice(invoices,q.id));
+  const openCombine=()=>{setCombineSel(approvedUninvoiced.map(q=>q.id));setCombineModal(true);};
+  const toggleCombine=id=>setCombineSel(p=>p.includes(id)?p.filter(x=>x!==id):[...p,id]);
+  const combineTotal=combineSel.reduce((s,id)=>{const q=jq.find(x=>x.id===id);return s+(q?quoteGrandTotal(q,markupTable):0);},0);
+  const createCombinedInvoice=()=>{
+    const qs=combineSel.map(id=>jq.find(x=>x.id===id)).filter(Boolean);
+    if(!qs.length)return;
+    const inv=buildCombinedInvoice(qs,job,invoices,markupTable);
+    setInvoices(p=>{const n=[...p,inv];persist(K.inv,n);return n;});
+    setCombineModal(false);
     setView("invoiceDetail_"+inv.id);
   };
   return <div>
@@ -2624,7 +2669,10 @@ function JobDetail({jobId,jobs,setJobs,clients,quotes,setQuotes,payments,setPaym
     <Card>
       <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:14}}>
         <div style={{fontWeight:700,fontSize:15,color:INK}}>Quotes ({jq.length})</div>
-        <Btn sm onClick={()=>setView("newQuote_"+jobId)}>+ New quote</Btn>
+        <div style={{display:"flex",gap:8}}>
+          {approvedUninvoiced.length>=2&&<Btn sm onClick={openCombine}>→ Combine into invoice</Btn>}
+          <Btn sm onClick={()=>setView("newQuote_"+jobId)}>+ New quote</Btn>
+        </div>
       </div>
       {jq.length===0&&<div style={{color:WG,fontSize:14}}>No quotes yet.</div>}
       {jq.length>1&&<div style={{fontSize:11,color:WG,marginBottom:6}}>Order shown here is the order options appear on new proposals.</div>}
@@ -2655,6 +2703,28 @@ function JobDetail({jobId,jobs,setJobs,clients,quotes,setQuotes,payments,setPaym
     <ActivityLog jobId={jobId} notes={notes} setNotes={setNotes}/>
     {payModal&&<Modal title="Record payment" onClose={()=>setPayModal(false)}>
       <PaymentForm onSave={addPay} onCancel={()=>setPayModal(false)} suggestedAmount={balance>0?balance:""}/>
+    </Modal>}
+    {combineModal&&<Modal title="Combine quotes into one invoice" onClose={()=>setCombineModal(false)}>
+      <div style={{fontSize:13,color:WG,lineHeight:1.6,marginBottom:14}}>Tick the approved quotes to bill together on a single invoice — each appears as its own line with its price. Only approved quotes without an existing invoice are shown.</div>
+      {approvedUninvoiced.map(q=>{
+        const on=combineSel.includes(q.id);
+        return <label key={q.id} style={{display:"flex",alignItems:"center",gap:10,padding:"10px 12px",border:`1px solid ${on?GOLD:BD}`,borderRadius:6,marginBottom:8,cursor:"pointer",background:on?GOLD_L+"44":WHITE}}>
+          <input type="checkbox" checked={on} onChange={()=>toggleCombine(q.id)}/>
+          <div style={{flex:1,minWidth:0}}>
+            <div style={{fontWeight:600,fontSize:14,color:INK}}>{quoteLabel(q)}</div>
+            {(q.clientDescription||job.description)&&<div style={{fontSize:12,color:WG}}>{q.clientDescription||job.description}</div>}
+          </div>
+          <div style={{fontWeight:700,color:OK}}>{fmtR(quoteGrandTotal(q,markupTable))}</div>
+        </label>;
+      })}
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",borderTop:`1px solid ${BD}`,marginTop:6,paddingTop:12}}>
+        <span style={{fontSize:12,color:WG}}>Invoice {nextInvoiceNumber(invoices)} · {combineSel.length} quote{combineSel.length!==1?"s":""}{combineSel.length>1?" combined":""}</span>
+        <span style={{fontSize:16,fontWeight:800,color:OK}}>{fmtR(combineTotal)} <span style={{fontSize:11,color:WG,fontWeight:400}}>inc GST</span></span>
+      </div>
+      <div style={{display:"flex",gap:10,justifyContent:"flex-end",marginTop:16}}>
+        <Btn ghost onClick={()=>setCombineModal(false)}>Cancel</Btn>
+        <Btn disabled={!combineSel.length} onClick={createCombinedInvoice}>{combineSel.length>1?`Create combined invoice (${combineSel.length})`:"Create invoice"}</Btn>
+      </div>
     </Modal>}
     {editJobModal&&<Modal title="Edit job" onClose={()=>setEditJobModal(false)}>
       <JobForm clients={clients} initial={job} onSave={f=>{
@@ -5231,38 +5301,11 @@ function InvoicesList({invoices,jobs,clients,quotes,payments,setInvoices,markupT
   const toggleQuote=qid=>setSelQuotes(p=>p.includes(qid)?p.filter(x=>x!==qid):[...p,qid]);
   const combinedTotal=selQuotes.reduce((s,qid)=>{const q=quotes.find(x=>x.id===qid);return s+(q?quoteGrandTotal(q,markupTable):0);},0);
   const openModal=()=>{setSelClient("");setSelJob("");setSelQuotes([]);setModal(true);};
-  // Cost line items for one quote (incl. its centre stone, or a fallback line for manual-price quotes).
-  const quoteLineItems=q=>{
-    const lineItems=q.lineItems.map(li=>({...li,id:uid()}));   // fresh ids so combined items never collide
-    const centreInc=q.stoneClientTotal||0;
-    if(centreInc>0){
-      const sDescs=(q.stoneItems||[]).map(s=>(s.description||"").trim()).filter(Boolean);
-      const sDetails=(q.stoneItems||[]).map(s=>(s.detail||"").trim()).filter(Boolean);
-      lineItems.push({id:uid(),
-        description:sDescs.length?sDescs.join(" + "):(q.stoneType==="lab"?"Lab-grown":"Natural")+" diamond / gemstone",
-        detail:sDetails.length?sDetails.join(" · "):"Supplied & set",
-        costLow:centreInc.toFixed(2),noMarkup:true});
-    }
-    if(!lineItems.length)lineItems.push({id:uid(),description:quoteLabel(q),detail:"As quoted",costLow:quoteGrandTotal(q,markupTable).toFixed(2),noMarkup:true});
-    return lineItems;
-  };
   const createInv=()=>{
     const qs=selQuotes.map(id=>quotes.find(x=>x.id===id)).filter(Boolean);
     if(!qs.length)return;
     const jb=jobs.find(j=>j.id===selJob);
-    const totalIncGST=qs.reduce((s,q)=>s+quoteGrandTotal(q,markupTable),0);   // manual price wins per quote
-    const gst=totalIncGST-totalIncGST/(1+GST_RATE);          // GST component (= total ÷ 11)
-    const exGST=totalIncGST-gst;
-    const num=nextInvoiceNumber(invoices);
-    const lineItems=qs.flatMap(quoteLineItems);
-    const descriptionOverride=qs.length===1
-      ?(qs[0].clientDescription||jb?.description||"")
-      :(jb?.description||qs.map(q=>q.clientDescription||quoteLabel(q)).filter(Boolean).join(" + "));
-    const notes=qs.map(q=>q.notes).filter(Boolean).join("\n");
-    // For a combined invoice, itemise per option on the customer-facing invoice (one line each,
-    // with that option's price). Single-quote invoices keep the one-line descriptionOverride.
-    const customerLines=qs.length>1?qs.map(q=>({id:uid(),description:(q.clientDescription||"").trim()||jb?.description||quoteLabel(q),amount:quoteGrandTotal(q,markupTable)})):null;
-    const inv={id:uid(),jobId:selJob,quoteId:qs[0].id,quoteIds:qs.map(q=>q.id),number:num,date:today(),status:"Unpaid",exGST,gst,totalIncGST,lineItems,notes,tradeInCredit:qs.reduce((s,q)=>s+(Number(q.tradeInCredit)||0),0),tradeInNote:qs.map(q=>(q.tradeInNote||"").trim()).filter(Boolean).join(" · "),descriptionOverride,customerLines};
+    const inv=buildCombinedInvoice(qs,jb,invoices,markupTable);
     setInvoices(p=>{const n=[...p,inv];persist(K.inv,n);return n;});
     setModal(false);
     setView("invoiceDetail_"+inv.id);
