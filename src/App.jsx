@@ -41,8 +41,13 @@ const SHADOW="0 1px 2px rgba(20,20,22,0.04),0 4px 14px rgba(20,20,22,0.06)";
 const SHADOW_HV="0 6px 18px rgba(20,20,22,0.10),0 16px 36px rgba(20,20,22,0.12)";
 // Stat-tile treatments — neutral by default; a couple carry a functional status hint
 const _NEU={bg:WHITE,ring:"#F0F0F2",fg:INK};
+// Muted jewel tones — soft coloured icon wash + number in the same hue, on a clean white card.
 const TINTS={
-  peach:_NEU,blue:_NEU,lilac:_NEU,mint:_NEU,gold:_NEU,
+  blue:{bg:WHITE,ring:"#E9F0F5",fg:"#3B6E8F"},
+  lilac:{bg:WHITE,ring:"#EEEAF5",fg:"#6E5B96"},
+  mint:{bg:WHITE,ring:"#E7F1EC",fg:OK},
+  gold:{bg:WHITE,ring:GOLD_L,fg:GOLD_D},
+  peach:{bg:WHITE,ring:"#F7EAE1",fg:"#A65D32"},
   rose:{bg:WHITE,ring:"#FBEAEA",fg:DANGER},   // overdue / alert
 };
 
@@ -1667,6 +1672,14 @@ ${inv.notes?`<div class="notes">${inv.notes}</div>`:""}
 }
 
 // ── Dashboard ─────────────────────────────────────────────────────────────
+// Clickable dashboard list row — soft hover highlight that bleeds into the card padding; no trailing hairline.
+function DashRow({onClick,last,children}){
+  const[h,setH]=useState(false);
+  return <div onClick={onClick} onMouseEnter={()=>setH(true)} onMouseLeave={()=>setH(false)}
+    style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:12,padding:"10px",margin:"0 -10px",borderRadius:6,borderBottom:last?"none":`1px solid ${BD_SOFT}`,background:h&&onClick?PARCH:"transparent",cursor:onClick?"pointer":"default",transition:"background 0.12s"}}>
+    {children}
+  </div>;
+}
 function Dashboard({clients,jobs,quotes,payments,invoices,appointments=[],proposals=[],markProposalSeen,markRepairSeen,markupTable,setView,setSelClient}){
   // Proposals a client accepted that haven't been acknowledged yet → dashboard alert
   const acceptedUnseen=proposals.filter(p=>p.status==="accepted"&&p.seen===false);
@@ -1729,7 +1742,8 @@ function Dashboard({clients,jobs,quotes,payments,invoices,appointments=[],propos
     <div style={{marginBottom:28}}>
       <div style={{fontSize:11,fontWeight:700,color:WG,letterSpacing:"0.14em",textTransform:"uppercase",marginBottom:5}}>Workshop overview</div>
       <h1 style={{margin:0,fontSize:32,fontWeight:500,color:INK,letterSpacing:"-0.01em",fontFamily:"'DM Sans',sans-serif"}}>{(()=>{const h=new Date().getHours();return h<12?"Good morning":h<17?"Good afternoon":"Good evening";})()}</h1>
-      <div style={{color:WG,fontSize:14,marginTop:4}}>{fmtDate(today())}</div>
+      <div style={{color:INK,fontSize:15,marginTop:6,lineHeight:1.5}}>Here's everything happening in your workshop today.</div>
+      <div style={{color:WG,fontSize:12.5,marginTop:3}}>{fmtDate(today())}</div>
     </div>
     <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(150px,1fr))",gap:14,marginBottom:24}}>
       <Stat label="Today's appts" value={todaysAppts.length} sub={todaysAppts.length>0?fmtTime(todaysAppts.slice().sort((a,b)=>String(a.time||"").localeCompare(String(b.time||"")))[0].time)+" first":"none today"} tint="blue" icon="◷" onClick={()=>setView("appointments")}/>
@@ -1747,14 +1761,14 @@ function Dashboard({clients,jobs,quotes,payments,invoices,appointments=[],propos
           <Btn sm ghost onClick={()=>setView("jobs")}>View all</Btn>
         </div>
         {active.length===0&&<div style={{color:WG,fontSize:14}}>No active jobs.</div>}
-        {active.slice(0,8).map(j=>{
+        {active.slice(0,8).map((j,i,arr)=>{
           const c=clients.find(x=>x.id===j.clientId);
           const od=j.deadline&&j.deadline<today();
-          return <div key={j.id} onClick={()=>setView("jobDetail_"+j.id)} style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"9px 0",borderBottom:`1px solid ${BD}`,cursor:"pointer"}}>
+          return <DashRow key={j.id} onClick={()=>setView("jobDetail_"+j.id)} last={i===arr.length-1}>
             <div><div style={{fontWeight:600,fontSize:13,color:INK}}>{j.type} <span style={{color:WG,fontWeight:400}}>· {clientDisplayName(c)}</span></div>
             <div style={{fontSize:12,color:od?DANGER:WG,marginTop:1}}>Due {fmtDate(j.deadline)}{od?" — OVERDUE":""}</div></div>
             <Badge label={j.stage} color={SC[j.stage]||WG}/>
-          </div>;
+          </DashRow>;
         })}
       </Card>
       <div style={{display:"flex",flexDirection:"column",gap:16}}>
@@ -1764,34 +1778,34 @@ function Dashboard({clients,jobs,quotes,payments,invoices,appointments=[],propos
             <Btn sm ghost onClick={()=>setView("appointments")}>View all</Btn>
           </div>
           {upcomingAppts.length===0&&<div style={{color:WG,fontSize:14}}>None scheduled.</div>}
-          {upcomingAppts.map(a=>{
+          {upcomingAppts.map((a,i,arr)=>{
             const col=APPT_COLORS[a.type]||GOLD;const c=a.clientId&&clients.find(x=>x.id===a.clientId);
-            return <div key={a.id} onClick={c?()=>{setSelClient&&setSelClient(a.clientId);setView("clientDetail");}:()=>setView("appointments")} style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"9px 0",borderBottom:`1px solid ${BD}`,cursor:"pointer"}}>
+            return <DashRow key={a.id} onClick={c?()=>{setSelClient&&setSelClient(a.clientId);setView("clientDetail");}:()=>setView("appointments")} last={i===arr.length-1}>
               <div style={{minWidth:0}}>
                 <div style={{fontWeight:600,fontSize:13,color:INK,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{apptName(a,clients)} <span style={{color:WG,fontWeight:400}}>· {a.type}</span></div>
                 <div style={{fontSize:12,color:a.date===tISO?GOLD:WG,marginTop:1}}>{a.date===tISO?"Today":fmtDayShort(a.date)}{a.time?` · ${fmtTime(a.time)}`:""}</div>
               </div>
               <span style={{width:8,height:8,borderRadius:"50%",background:col,flexShrink:0,marginLeft:10}}/>
-            </div>;
+            </DashRow>;
           })}
         </Card>
         {balanceOwing.length>0&&<Card style={{marginBottom:0}}>
           <div style={{fontWeight:700,fontSize:15,color:INK,marginBottom:14}}>Balance owing by job</div>
-          {balanceOwing.map(({job,balance})=>{
+          {balanceOwing.map(({job,balance},i,arr)=>{
             const c=clients.find(x=>x.id===job.clientId);
-            return <div key={job.id} onClick={()=>setView("jobDetail_"+job.id)} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"9px 0",borderBottom:`1px solid ${BD}`,cursor:"pointer"}}>
+            return <DashRow key={job.id} onClick={()=>setView("jobDetail_"+job.id)} last={i===arr.length-1}>
               <div><div style={{fontWeight:600,fontSize:13,color:INK}}>{job.type} · {clientDisplayName(c)}</div><div style={{fontSize:12,color:WG}}>{job.stage}</div></div>
               <div style={{fontWeight:800,fontSize:15,color:WARN}}>{fmt(balance)} owing</div>
-            </div>;
+            </DashRow>;
           })}
         </Card>}
         <Card style={{marginBottom:0}}>
           <div style={{fontWeight:700,fontSize:15,color:INK,marginBottom:14}}>Anniversary reminders</div>
           {clients.filter(c=>c.anniversary).length===0?<div style={{color:WG,fontSize:14}}>None recorded.</div>
-          :clients.filter(c=>c.anniversary).sort((a,b)=>a.anniversary.slice(5).localeCompare(b.anniversary.slice(5))).map(c=>(
-            <div key={c.id} onClick={()=>{setSelClient&&setSelClient(c.id);setView("clientDetail");}} style={{display:"flex",justifyContent:"space-between",padding:"8px 0",borderBottom:`1px solid ${BD}`,fontSize:13,cursor:"pointer"}}>
-              <span style={{fontWeight:600,color:INK}}>{c.name}</span><span style={{color:WG}}>{fmtDate(c.anniversary)}</span>
-            </div>
+          :clients.filter(c=>c.anniversary).sort((a,b)=>a.anniversary.slice(5).localeCompare(b.anniversary.slice(5))).map((c,i,arr)=>(
+            <DashRow key={c.id} onClick={()=>{setSelClient&&setSelClient(c.id);setView("clientDetail");}} last={i===arr.length-1}>
+              <span style={{fontWeight:600,color:INK,fontSize:13}}>{c.name}</span><span style={{color:WG,fontSize:13}}>{fmtDate(c.anniversary)}</span>
+            </DashRow>
           ))}
         </Card>
       </div>
