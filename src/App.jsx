@@ -957,10 +957,9 @@ const quoteInvoiceLineItems=(q,markupTable)=>{
   if(!lineItems.length)lineItems.push({id:uid(),description:quoteLabel(q),detail:"As quoted",costLow:quoteGrandTotal(q,markupTable).toFixed(2),noMarkup:true});
   return lineItems;
 };
-// Build one invoice from one or more approved quotes on a job (GST-inclusive model). For 2+
-// quotes it itemises per option (customerLines) so the client sees each piece and its price.
-// Shared by the Invoices tab and the job card so both produce identical combined invoices.
-const buildCombinedInvoice=(qs,job,invoices,markupTable)=>{
+// Financial fields of an invoice, derived from its quotes (GST-inclusive model). Single source of
+// truth shared by invoice creation AND re-sync after a quote edit, so the two can never diverge.
+const invoiceFieldsFromQuotes=(qs,job,markupTable)=>{
   const totalIncGST=qs.reduce((s,q)=>s+quoteGrandTotal(q,markupTable),0);   // manual price wins per quote
   const gst=totalIncGST-totalIncGST/(1+GST_RATE);
   const exGST=totalIncGST-gst;
@@ -970,7 +969,25 @@ const buildCombinedInvoice=(qs,job,invoices,markupTable)=>{
     :(job?.description||qs.map(q=>q.clientDescription||quoteLabel(q)).filter(Boolean).join(" + "));
   const notes=qs.map(q=>q.notes).filter(Boolean).join("\n");
   const customerLines=qs.length>1?qs.map(q=>({id:uid(),description:(q.clientDescription||"").trim()||job?.description||quoteLabel(q),amount:quoteGrandTotal(q,markupTable)})):null;
-  return{id:uid(),jobId:job.id,quoteId:qs[0].id,quoteIds:qs.map(q=>q.id),number:nextInvoiceNumber(invoices),date:today(),status:"Unpaid",exGST,gst,totalIncGST,lineItems,notes,tradeInCredit:qs.reduce((s,q)=>s+(Number(q.tradeInCredit)||0),0),tradeInNote:qs.map(q=>(q.tradeInNote||"").trim()).filter(Boolean).join(" · "),descriptionOverride,customerLines};
+  return{exGST,gst,totalIncGST,lineItems,notes,tradeInCredit:qs.reduce((s,q)=>s+(Number(q.tradeInCredit)||0),0),tradeInNote:qs.map(q=>(q.tradeInNote||"").trim()).filter(Boolean).join(" · "),descriptionOverride,customerLines};
+};
+// Build one invoice from one or more approved quotes on a job. For 2+ quotes it itemises per
+// option (customerLines) so the client sees each piece and its price.
+// Shared by the Invoices tab and the job card so both produce identical combined invoices.
+const buildCombinedInvoice=(qs,job,invoices,markupTable)=>
+  ({id:uid(),jobId:job.id,quoteId:qs[0].id,quoteIds:qs.map(q=>q.id),number:nextInvoiceNumber(invoices),date:today(),status:"Unpaid",...invoiceFieldsFromQuotes(qs,job,markupTable)});
+// Re-derive an existing invoice's figures from its (just-edited) quotes. Keeps identity and
+// history — id, number, date, status — and re-applies any manual discount onto the fresh gross
+// (same net/GST model as setDiscount: subtotalIncGST = gross, totalIncGST = net of discount).
+const resyncInvoiceWithQuotes=(inv,allQuotes,job,markupTable)=>{
+  const ids=inv.quoteIds||(inv.quoteId?[inv.quoteId]:[]);
+  const qs=ids.map(id=>allQuotes.find(q=>q.id===id)).filter(Boolean);
+  if(!qs.length)return inv;   // quotes gone — leave the invoice untouched
+  const fields=invoiceFieldsFromQuotes(qs,job,markupTable);   // fields.totalIncGST is the gross
+  const sub=fields.totalIncGST;
+  const disc=Math.min(Math.max(0,Number(inv.discount)||0),sub);
+  const net=sub-disc;
+  return{...inv,...fields,subtotalIncGST:sub,discount:disc,totalIncGST:net,gst:net-net/(1+GST_RATE)};
 };
 
 const buildProposalSnapshot=({proposal,job,client,biz,quotes,markupTable,payments,photoMap})=>{
@@ -2713,7 +2730,7 @@ function JobDetail({jobId,jobs,setJobs,clients,quotes,setQuotes,payments,setPaym
         </div>;
       })}
     </Card>
-    <JobProposals job={job} client={c} quotes={jq} proposals={proposals} setProposals={setProposals} setQuotes={setQuotes} biz={biz} markupTable={markupTable} payments={jp}/>
+    <JobProposals job={job} client={c} quotes={jq} proposals={proposals} setProposals={setProposals} setQuotes={setQuotes} biz={biz} markupTable={markupTable} payments={jp} invoices={invoices}/>
     <ActivityLog jobId={jobId} notes={notes} setNotes={setNotes}/>
     {payModal&&<Modal title="Record payment" onClose={()=>setPayModal(false)}>
       <PaymentForm onSave={addPay} onCancel={()=>setPayModal(false)} suggestedAmount={balance>0?balance:""}/>
@@ -3012,7 +3029,7 @@ function CentreStonePicker({onAdd,onAddManual,centreRates=DEFAULT_CENTRE_RATES,s
   </div>;
 }
 
-function QuoteBuilder({jobId:jobIdProp,editQuoteId,stockId,stock,setStock,jobs,clients,quotes,setQuotes,pricing,setPricing,markupTable,naturalStoneMarkup,labStoneMarkup,centreRates=DEFAULT_CENTRE_RATES,setCentreRates,setView}){
+function QuoteBuilder({jobId:jobIdProp,editQuoteId,stockId,stock,setStock,jobs,clients,quotes,setQuotes,pricing,setPricing,markupTable,naturalStoneMarkup,labStoneMarkup,centreRates=DEFAULT_CENTRE_RATES,setCentreRates,invoices=[],setInvoices,setView}){
   const existingQuote=editQuoteId?quotes.find(q=>q.id===editQuoteId):null;
   // Stock-pricing mode: same builder, but the total becomes a stock piece's price (no quote/proposal chrome).
   const stockMode=!!stockId;
@@ -3174,6 +3191,10 @@ function QuoteBuilder({jobId:jobIdProp,editQuoteId,stockId,stock,setStock,jobs,c
   const tradeInN=Number(tradeInCredit)||0;                                   // gold trade-in credit (deduction)
   const payableTotal=Math.max(0,(manualOn?Number(manualTotal):grandTotal)-tradeInN);   // amount payable after trade-in
 
+  // If this quote is already on an invoice, editing it can drift the invoice's figures — warn, and
+  // offer to re-sync the invoice (same maths as invoice creation; keeps number/date/status/discount).
+  const linkedInvoice=editQuoteId?(invoices||[]).find(i=>(i.quoteIds||(i.quoteId?[i.quoteId]:[])).includes(editQuoteId)):null;
+
   const save_=status=>{
     const baseValidItems=items.filter(i=>i.description.trim()&&Number(i.costLow)>0);
     const hasSourcedStones=stoneMode==="sourcing"&&validStoneItems.length>0;
@@ -3197,7 +3218,19 @@ function QuoteBuilder({jobId:jobIdProp,editQuoteId,stockId,stock,setStock,jobs,c
       const updated={...existingQuote,status,title:title.trim(),pieceTitle:pieceTitle.trim(),markupOverride:Number(markupOverride)||0,manualTotal:Number(manualTotal)||0,validUntil,notes,lineItems:validItems,
         stoneMode,stoneType:stoneMode==="sourcing"?stoneType:"",stoneItems:stoneMode==="sourcing"?validStoneItems:[],stoneMarkupOverride:Number(stoneOverride)||0,
         stoneNotes,stoneClientTotal:stoneCalc?.clientTotal||0,accentStoneTotal,tradeInCredit:Number(tradeInCredit)||0,tradeInNote:tradeInNote.trim(),clientDescription,updatedAt:today()};
-      setQuotes(p=>{const n=p.map(q=>q.id===editQuoteId?updated:q);persist(K.qu,n);return n;});
+      const nextQuotes=quotes.map(q=>q.id===editQuoteId?updated:q);
+      setQuotes(()=>{persist(K.qu,nextQuotes);return nextQuotes;});
+      // Invoiced quote edited → bring the invoice's figures in line with the new quote.
+      // Total changed: ask first (the client may already have the issued invoice).
+      // Total unchanged: refresh descriptions/line detail silently — the money is untouched.
+      if(linkedInvoice&&setInvoices){
+        const oldTotal=Number(linkedInvoice.totalIncGST)||0;
+        const synced=resyncInvoiceWithQuotes(linkedInvoice,nextQuotes,job,markupTable);
+        const newTotal=Number(synced.totalIncGST)||0;
+        const apply=Math.abs(newTotal-oldTotal)<=0.005
+          ||confirm(`This quote is on invoice ${linkedInvoice.number||""} (currently ${fmt(oldTotal)}).\n\nUpdate the invoice to match the new figures (${fmt(newTotal)})? It keeps its number, date, status and any discount.\n\nOK = update invoice · Cancel = leave the invoice as issued`);
+        if(apply)setInvoices(p=>{const n=p.map(i=>i.id===linkedInvoice.id?synced:i);persist(K.inv,n);return n;});
+      }
     }else{
       const q={id:uid(),jobId,status,title:title.trim(),pieceTitle:pieceTitle.trim(),markupOverride:Number(markupOverride)||0,manualTotal:Number(manualTotal)||0,createdAt:today(),validUntil,notes,lineItems:validItems,
         stoneMode,stoneType:stoneMode==="sourcing"?stoneType:"",stoneItems:stoneMode==="sourcing"?validStoneItems:[],stoneMarkupOverride:Number(stoneOverride)||0,
@@ -3220,6 +3253,10 @@ function QuoteBuilder({jobId:jobIdProp,editQuoteId,stockId,stock,setStock,jobs,c
       {job&&<div style={{color:WG,fontSize:13,marginTop:3}}>{job.type} · {clientDisplayName(c)}</div>}
       {stockMode&&<div style={{color:WG,fontSize:13,marginTop:3}}>Pricing a stock piece — builds like a quote, but the total becomes this piece's price.</div>}
       {isEditing&&!stockMode&&<div style={{fontSize:12,color:WG,marginTop:2}}>Quote {quoteRef(existingQuote)} · created {fmtDate(existingQuote.createdAt)}</div>}
+      {linkedInvoice&&<div style={{display:"flex",alignItems:"center",gap:10,marginTop:12,background:GOLD_L,border:`1px solid ${GOLD}66`,borderRadius:6,padding:"10px 14px",fontSize:12.5,color:GOLD_D,lineHeight:1.5}}>
+        <span style={{fontSize:15}}>⚠</span>
+        <span>This quote is already on <strong>invoice {linkedInvoice.number||""}</strong> ({fmt(Number(linkedInvoice.totalIncGST)||0)}). If your changes alter the price, you'll be asked whether to update the invoice to match when you save.</span>
+      </div>}
     </div>
 
     <Card>
@@ -3673,7 +3710,7 @@ function QuoteBuilder({jobId:jobIdProp,editQuoteId,stockId,stock,setStock,jobs,c
 // ── Multi-option proposals (staff side) ───────────────────────────────────
 // A proposal bundles several quotes as "options" for one job and produces a public
 // link the client opens to pick one and accept online. See PublicProposalPage below.
-function JobProposals({job,client,quotes,proposals,setProposals,setQuotes,biz,markupTable,payments=[]}){
+function JobProposals({job,client,quotes,proposals,setProposals,setQuotes,biz,markupTable,payments=[],invoices=[]}){
   const jobProposals=(proposals||[]).filter(p=>p.jobId===job?.id).slice().reverse();
   const [builder,setBuilder]=useState(false);
   const [sel,setSel]=useState([]);            // chosen option quote ids
@@ -3766,7 +3803,8 @@ function JobProposals({job,client,quotes,proposals,setProposals,setQuotes,biz,ma
     if(data.status==="accepted"&&p.status!=="accepted"){
       const acceptedQuoteId=data.accepted_option;
       setProposals(prev=>{const n=prev.map(x=>x.id===p.id?{...x,status:"accepted",acceptedQuoteId,acceptedName:data.accepted_name||"",acceptedAt:data.accepted_at||today()}:x);persist(K.pp,n);return n;});
-      setQuotes(prev=>{const n=prev.map(q=>q.id===acceptedQuoteId?{...q,status:"Approved"}:(q.jobId===job.id&&q.status==="Approved"?{...q,status:"Declined"}:q));persist(K.qu,n);return n;});
+      // Same safeguard as reconcileAccept: never demote an invoiced quote.
+      setQuotes(prev=>{const n=prev.map(q=>q.id===acceptedQuoteId?{...q,status:"Approved"}:(q.jobId===job.id&&q.status==="Approved"&&!quoteHasInvoice(invoices,q.id)?{...q,status:"Declined"}:q));persist(K.qu,n);return n;});
     }else if(!silent&&data.status!=="accepted"){
       alert("No acceptance yet — the client hasn't accepted this proposal.");
     }
@@ -4632,7 +4670,7 @@ function ProposalPreview({quote,job,clients=[],biz,calc,payments=[],reconcilePay
 }
 
 // ── Quote detail ──────────────────────────────────────────────────────────
-function QuoteDetail({quoteId,quotes,setQuotes,jobs,clients,biz,markupTable,naturalStoneMarkup,labStoneMarkup,payments=[],setView}){
+function QuoteDetail({quoteId,quotes,setQuotes,jobs,clients,biz,markupTable,naturalStoneMarkup,labStoneMarkup,payments=[],invoices=[],setView}){
   const q=quotes.find(x=>x.id===quoteId);
   if(!q)return null;
   const job=jobs.find(j=>j.id===q.jobId);
@@ -4653,11 +4691,24 @@ function QuoteDetail({quoteId,quotes,setQuotes,jobs,clients,biz,markupTable,natu
   // Set this quote's status only — other quotes on the job are left untouched, so a job can hold
   // several approved quotes at once (needed when a client accepts a multi-item bundle proposal).
   // The job's agreed charge sums every approved quote, so multiple approvals total up correctly.
-  const setStatus=s=>setQuotes(p=>{
-    const n=p.map(x=>x.id===quoteId?{...x,status:s}:x);
-    persist(K.qu,n);return n;
-  });
+  // Safeguard: an invoiced quote must stay Approved. Otherwise the Dashboard/Reports (which only
+  // count approved quotes) and the Invoices page silently disagree on what's outstanding.
+  const invoiceFor=(invoices||[]).find(i=>(i.quoteIds||(i.quoteId?[i.quoteId]:[])).includes(quoteId));
+  const setStatus=s=>{
+    if(s!=="Approved"&&invoiceFor){
+      alert(`This quote is on invoice ${invoiceFor.number||""} — it has to stay Approved so your totals reconcile.\n\nIf the client hasn't actually accepted, delete the invoice first (Invoices page), then change the quote's status.`);
+      return;
+    }
+    setQuotes(p=>{
+      const n=p.map(x=>x.id===quoteId?{...x,status:s}:x);
+      persist(K.qu,n);return n;
+    });
+  };
   const delQuote=()=>{
+    if(invoiceFor){
+      alert(`This quote is on invoice ${invoiceFor.number||""} — deleting it would orphan that invoice.\n\nDelete the invoice first (Invoices page), then delete the quote.`);
+      return;
+    }
     if(!confirm("Delete this quote? This cannot be undone."))return;
     setQuotes(p=>{const n=p.filter(x=>x.id!==quoteId);persist(K.qu,n);return n;});
     setView("jobDetail_"+q.jobId);
@@ -5143,7 +5194,8 @@ function InvoiceDetail({invoiceId,invoices,setInvoices,jobs,clients,payments,biz
     if(!srcQuote)return alert("The quote this invoice was created from no longer exists.");
     if(!confirm("Replace this invoice's line items and totals with the current quote (including any gold trade-in credit)? Any manual edits to the invoice lines — and any invoice-level discount — will be reset to match the quote. The invoice number, date and status are kept."))return;
     const content=invoiceContentFromQuote(srcQuote,job,markupTable);
-    setInvoices(p=>{const n=p.map(i=>i.id===inv.id?{...i,...content,discount:0,discountLabel:""}:i);persist(K.inv,n);return n;});
+    // Reset subtotalIncGST to the fresh gross too — otherwise a later discount would net off a stale baseline.
+    setInvoices(p=>{const n=p.map(i=>i.id===inv.id?{...i,...content,subtotalIncGST:content.totalIncGST,discount:0,discountLabel:""}:i);persist(K.inv,n);return n;});
     setResynced(true);setTimeout(()=>setResynced(false),2500);
   };
   const setRequestAmount=v=>setInvoices(p=>{const n=p.map(x=>x.id===invoiceId?{...x,requestAmount:v}:x);persist(K.inv,n);return n;});
@@ -7730,6 +7782,7 @@ export default function App(){
   const proposalsRef=useRef(proposals);proposalsRef.current=proposals;
   const quotesRef=useRef(quotes);quotesRef.current=quotes;
   const jobsRef=useRef(jobs);jobsRef.current=jobs;
+  const invoicesRef=useRef(invoices);invoicesRef.current=invoices;
   const [acceptToast,setAcceptToast]=useState(null);   // {title,body,jobId,color} for the live pop-up
 
   // Reconcile a cloud acceptance into local state: flag the proposal accepted (unseen → drives
@@ -7743,8 +7796,10 @@ export default function App(){
     const np=proposalsRef.current.map(x=>x.token===row.token?{...x,status:"accepted",acceptedQuoteId:row.accepted_option,acceptedName:row.accepted_name||"",acceptedAt:row.accepted_at||today(),seen:false}:x);
     setProposals(np);persist(K.pp,np);
     // Approve every accepted quote. Multi: decline the proposal's non-selected options. Single: demote other approved on the job.
+    // Never demote a quote that's already on an invoice — an invoiced quote must stay Approved so totals reconcile.
     const nq=quotesRef.current.map(q=>{
       if(acceptedIds.includes(q.id))return{...q,status:"Approved"};
+      if(quoteHasInvoice(invoicesRef.current,q.id))return q;
       if(multi)return (p.optionIds||[]).includes(q.id)?{...q,status:"Declined"}:q;
       return (q.jobId===p.jobId&&q.status==="Approved")?{...q,status:"Declined"}:q;
     });
@@ -7825,9 +7880,9 @@ export default function App(){
     if(view==="jobs")return <Jobs clients={clients} jobs={jobs} setJobs={setJobs} quotes={quotes} setQuotes={setQuotes} payments={payments} setPayments={setPayments} notes={notes} setNotes={setNotes} invoices={invoices} setInvoices={setInvoices} markupTable={markupTable} setView={setView} setSelJob={setSelJob}/>;
     if(view==="jobDetail")return <JobDetail jobId={selJob} jobs={jobs} setJobs={setJobs} clients={clients} quotes={quotes} setQuotes={setQuotes} payments={payments} setPayments={setPayments} notes={notes} setNotes={setNotes} invoices={invoices} setInvoices={setInvoices} proposals={proposals} setProposals={setProposals} biz={biz} markupTable={markupTable} pricing={pricing} setView={setView}/>;
     if(view==="quotes")return <QuotesList quotes={quotes} jobs={jobs} clients={clients} markupTable={markupTable} biz={biz} setView={setView}/>;
-    if(view.startsWith("quoteDetail_"))return <QuoteDetail quoteId={view.split("_")[1]} quotes={quotes} setQuotes={setQuotes} jobs={jobs} clients={clients} biz={biz} markupTable={markupTable} naturalStoneMarkup={naturalStoneMarkup} labStoneMarkup={labStoneMarkup} payments={payments} setView={setView}/>;
+    if(view.startsWith("quoteDetail_"))return <QuoteDetail quoteId={view.split("_")[1]} quotes={quotes} setQuotes={setQuotes} jobs={jobs} clients={clients} biz={biz} markupTable={markupTable} naturalStoneMarkup={naturalStoneMarkup} labStoneMarkup={labStoneMarkup} payments={payments} invoices={invoices} setView={setView}/>;
     if(view.startsWith("newQuote_"))return <QuoteBuilder jobId={view.split("_")[1]} jobs={jobs} clients={clients} quotes={quotes} setQuotes={setQuotes} pricing={pricing} setPricing={setPricing} markupTable={markupTable} naturalStoneMarkup={naturalStoneMarkup} labStoneMarkup={labStoneMarkup} centreRates={centreRates} setCentreRates={setCentreRates} setView={setView}/>;
-    if(view.startsWith("editQuote_"))return <QuoteBuilder editQuoteId={view.split("_")[1]} jobs={jobs} clients={clients} quotes={quotes} setQuotes={setQuotes} pricing={pricing} setPricing={setPricing} markupTable={markupTable} naturalStoneMarkup={naturalStoneMarkup} labStoneMarkup={labStoneMarkup} centreRates={centreRates} setCentreRates={setCentreRates} setView={setView}/>;
+    if(view.startsWith("editQuote_"))return <QuoteBuilder editQuoteId={view.split("_")[1]} jobs={jobs} clients={clients} quotes={quotes} setQuotes={setQuotes} pricing={pricing} setPricing={setPricing} markupTable={markupTable} naturalStoneMarkup={naturalStoneMarkup} labStoneMarkup={labStoneMarkup} centreRates={centreRates} setCentreRates={setCentreRates} invoices={invoices} setInvoices={setInvoices} setView={setView}/>;
     if(view==="invoices")return <InvoicesList invoices={invoices} jobs={jobs} clients={clients} quotes={quotes} payments={payments} setInvoices={setInvoices} markupTable={markupTable} setView={setView}/>;
     if(view.startsWith("invoiceDetail_"))return <InvoiceDetail invoiceId={view.split("_")[1]} invoices={invoices} setInvoices={setInvoices} jobs={jobs} clients={clients} payments={payments} biz={biz} setView={setView} quotes={quotes} markupTable={markupTable}/>;
     if(view==="stock")return <StockBoard stock={stock} setStock={setStock} setView={setView}/>;
