@@ -5956,7 +5956,11 @@ function PricingDB({pricing,setPricing,spotPrices,setSpotPrices,markupTable,cent
 
   const DCOLORS={"Lab Grown Diamonds | D-E":"#7B5EA7","Natural diamonds G-H SI1":"#3B6E8F","Natural diamonds D-E VS":"#2D7A4F"};
   return <div>
-    <SectionHeader title="Pricing database" action={<Btn onClick={()=>setModal("add")}>+ Add item</Btn>}/>
+    <SectionHeader title="Pricing database" action={<div style={{display:"flex",gap:10,alignItems:"center"}}>
+      <Btn ghost onClick={()=>setSpotModal(true)}>⟳ Update spot prices</Btn>
+      <Btn onClick={()=>setModal("add")}>+ Add item</Btn>
+    </div>}/>
+    {spotPrices?.updatedAt&&<div style={{fontSize:12,color:WG,marginTop:-14,marginBottom:16}}>Metal spot prices last updated <strong style={{color:INK}}>{fmtDate(spotPrices.updatedAt)}</strong>{(Number(spotPrices.premGold)||Number(spotPrices.premPlatinum)||Number(spotPrices.premSilver))?" · casting premiums applied":""}</div>}
     {savedToast&&<div style={{position:"fixed",top:18,right:24,background:OK,color:WHITE,fontSize:13,fontWeight:700,padding:"10px 20px",borderRadius:4,boxShadow:"0 4px 18px rgba(0,0,0,0.18)",zIndex:9999,display:"flex",alignItems:"center",gap:8}}>
       ✓ Prices saved — all future quotes will use updated figures
     </div>}
@@ -6262,25 +6266,71 @@ function SpotPriceUpdater({spotPrices,setSpotPrices,pricing,setPricing,onClose})
   const[g,setG]=useState(String(spotPrices.gold));
   const[pt,setPt]=useState(String(spotPrices.platinum));
   const[ag,setAg]=useState(String(spotPrices.silver));
+  // Casting-house premium (%) per metal — what your supplier charges ABOVE spot. Saved with the
+  // spot prices, so live fetches keep producing your real landed cost, not the market price.
+  const[pmG,setPmG]=useState(String(spotPrices.premGold??0));
+  const[pmPt,setPmPt]=useState(String(spotPrices.premPlatinum??0));
+  const[pmAg,setPmAg]=useState(String(spotPrices.premSilver??0));
+  const loaded=(spot,prem)=>Number(spot)*(1+(Number(prem)||0)/100);   // spot → your cost/g of fine metal
+  const[fetching,setFetching]=useState(false);
+  const[fetched,setFetched]=useState(null);   // {marketTimestamp} once live prices have filled the fields
+  // Pull live AUD/gram spot from the metal-prices edge function (metals.dev behind it).
+  // Fills the fields only — you still review the numbers and press Apply.
+  const fetchLive=async()=>{
+    setFetching(true);
+    try{
+      const{data,error}=await supabase.functions.invoke("metal-prices");
+      if(error||!data||data.error||!(Number(data.gold)>0))throw new Error(data?.error||error?.message||"No prices returned");
+      setG(String(data.gold));
+      if(Number(data.platinum)>0)setPt(String(data.platinum));
+      setAg(String(data.silver));
+      setFetched({marketTimestamp:data.marketTimestamp});
+    }catch(e){
+      alert("Couldn't fetch live prices — "+(e.message||e)+"\n\nYou can still enter the spot prices manually.");
+    }
+    setFetching(false);
+  };
   const apply=()=>{
-    const ns={gold:Number(g),platinum:Number(pt),silver:Number(ag),updatedAt:today()};
+    const ns={gold:Number(g),platinum:Number(pt),silver:Number(ag),
+      premGold:Number(pmG)||0,premPlatinum:Number(pmPt)||0,premSilver:Number(pmAg)||0,updatedAt:today()};
     setSpotPrices(ns);persist(K.spot,ns);
-    setPricing(prev=>{const u=prev.map(item=>{if(item.category!=="Metals"||!item.metalKey||item.purity==null)return item;const sv=ns[item.metalKey];if(!sv)return item;return{...item,baseCost:Number((sv*item.purity).toFixed(4))};});persist(K.pr,u);return u;});
+    // Pricing DB metal costs = (spot × (1 + premium%)) × purity — your cost, not the market's.
+    const rate={gold:loaded(ns.gold,ns.premGold),platinum:loaded(ns.platinum,ns.premPlatinum),silver:loaded(ns.silver,ns.premSilver)};
+    setPricing(prev=>{const u=prev.map(item=>{if(item.category!=="Metals"||!item.metalKey||item.purity==null)return item;const sv=rate[item.metalKey];if(!sv)return item;return{...item,baseCost:Number((sv*item.purity).toFixed(4))};});persist(K.pr,u);return u;});
     onClose();
   };
   return <div>
     <div style={{background:GOLD_L,borderRadius:4,padding:"12px 16px",marginBottom:16,fontSize:13,color:GOLD_D,lineHeight:1.6}}>Enter today's fine metal spot price per gram (AUD). All metal pricing items update automatically based on purity.</div>
+    {supabaseEnabled&&<div style={{display:"flex",alignItems:"center",gap:12,marginBottom:16}}>
+      <Btn sm onClick={fetchLive} disabled={fetching}>{fetching?"Fetching…":"⟳ Fetch live prices"}</Btn>
+      {fetched&&<span style={{fontSize:12,color:OK,fontWeight:600}}>✓ Live spot loaded{fetched.marketTimestamp?` · market time ${new Date(fetched.marketTimestamp).toLocaleString("en-AU",{day:"numeric",month:"short",hour:"numeric",minute:"2-digit"})}`:""} — review &amp; apply below</span>}
+      {!fetched&&!fetching&&<span style={{fontSize:12,color:WG}}>Live AUD spot per gram via metals.dev</span>}
+    </div>}
     <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:"0 16px"}}>
       <Input label="Fine gold ($/g)" value={g} onChange={setG} type="number" min="0" step="0.01"/>
       <Input label="Platinum ($/g)" value={pt} onChange={setPt} type="number" min="0" step="0.01"/>
       <Input label="Silver ($/g)" value={ag} onChange={setAg} type="number" min="0" step="0.01"/>
     </div>
+    {/* Casting-house premium — the % your supplier charges above spot for casted metal */}
+    <div style={{background:PARCH,border:`1px solid ${BD}`,borderRadius:4,padding:"12px 16px",marginBottom:14}}>
+      <div style={{fontSize:11,fontWeight:800,color:INK,textTransform:"uppercase",letterSpacing:"0.06em",marginBottom:2}}>Casting house premium</div>
+      <div style={{fontSize:12,color:WG,marginBottom:12,lineHeight:1.5}}>What your casting house charges <strong style={{color:INK}}>above spot</strong>, per metal. Saved once — every price update (manual or live) applies it automatically, so your Pricing DB reflects what you actually pay.</div>
+      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:"0 16px"}}>
+        <Input label="Gold premium (%)" value={pmG} onChange={setPmG} type="number" min="0" step="0.5" placeholder="0"/>
+        <Input label="Platinum premium (%)" value={pmPt} onChange={setPmPt} type="number" min="0" step="0.5" placeholder="0"/>
+        <Input label="Silver premium (%)" value={pmAg} onChange={setPmAg} type="number" min="0" step="0.5" placeholder="0"/>
+      </div>
+    </div>
     <div style={{background:PARCH,borderRadius:4,padding:"12px 16px",marginBottom:14,fontSize:13}}>
-      <div style={{fontWeight:700,color:INK,marginBottom:8}}>Preview</div>
+      <div style={{fontWeight:700,color:INK,marginBottom:8}}>Preview — your cost per gram</div>
       {[{n:"9ct yellow gold",k:"gold",p:0.375},{n:"18ct gold (all alloys)",k:"gold",p:0.75},{n:"Platinum 950",k:"platinum",p:0.95},{n:"Silver 925",k:"silver",p:0.925}].map(m=>{
         const spot=m.k==="gold"?Number(g):m.k==="platinum"?Number(pt):Number(ag);
-        return <div key={m.n} style={{display:"flex",justifyContent:"space-between",fontSize:13,padding:"4px 0",borderBottom:`1px solid ${BD}`}}>
-          <span style={{color:WG}}>{m.n}</span><span style={{fontWeight:700,color:INK}}>{fmt(spot*m.p)}/g</span>
+        const prem=m.k==="gold"?pmG:m.k==="platinum"?pmPt:pmAg;
+        const yours=loaded(spot,prem)*m.p;
+        const hasPrem=(Number(prem)||0)>0;
+        return <div key={m.n} style={{display:"flex",justifyContent:"space-between",alignItems:"center",fontSize:13,padding:"4px 0",borderBottom:`1px solid ${BD}`}}>
+          <span style={{color:WG}}>{m.n}</span>
+          <span>{hasPrem&&<span style={{color:WG,fontSize:12,marginRight:8}}>spot {fmt(spot*m.p)} +{Number(prem)}% →</span>}<span style={{fontWeight:700,color:INK}}>{fmt(yours)}/g</span></span>
         </div>;
       })}
     </div>
