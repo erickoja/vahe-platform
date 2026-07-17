@@ -2965,7 +2965,7 @@ function CentreStoneModal({stoneType,activeStoneMarkup,stoneOverride,onAdd,onClo
     if(cn<=0)return alert(perCtMode?"Enter the carat weight and price per carat.":"Enter the cost.");
     onAdd({description:desc||`${stoneType==="lab"?"Lab-grown":"Natural"} centre stone`,detail,cost:cn.toFixed(2)});
   };
-  return <Modal title={`Add centre stone — ${stoneType==="lab"?"lab-grown":"natural"}`} onClose={onClose}>
+  return <Modal title={`Centre Stone — ${stoneType==="lab"?"Lab-Grown":"Natural"} Diamond/Gemstone`} onClose={onClose}>
     <div style={{background:PARCH,border:`1px solid ${BD}`,borderRadius:RADIUS,padding:"20px 22px"}}>
       <div style={{fontSize:11,fontWeight:800,color:INK,textTransform:"uppercase",letterSpacing:"0.08em",marginBottom:3}}>Centre / feature stone</div>
       <div style={{fontSize:12,color:WG,marginBottom:18,lineHeight:1.5}}>Builds the stone description for the quote — priced on your <strong style={{color:accent}}>{stoneType==="lab"?"lab-grown":"natural"}</strong> stone markup.</div>
