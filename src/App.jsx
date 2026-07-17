@@ -2846,7 +2846,7 @@ function AccentStoneModal({pricing,setPricing,naturalStoneMarkup,labStoneMarkup,
     const detail=perCtMode?`${caratN}ct × ${fmt(perCtN)}/ct`:"";
     onAdd({description:quickDesc,detail,costLow:cn.toFixed(2),markupMode:qMarkup});
   };
-  return <Modal title="Add accent & fancy stone" onClose={onClose}>
+  return <Modal title="Add accent, feature or fancy stone" onClose={onClose}>
       {/* Quick structured cut/fancy stone entry */}
       <div style={{background:PARCH,border:`1px solid ${BD}`,borderRadius:RADIUS,padding:"20px 22px"}}>
         <div style={{fontSize:11,fontWeight:800,color:INK,textTransform:"uppercase",letterSpacing:"0.08em",marginBottom:3}}>Quick add</div>
@@ -2915,6 +2915,121 @@ function AccentStoneModal({pricing,setPricing,naturalStoneMarkup,labStoneMarkup,
           <Btn onClick={addQuick} disabled={!canAdd}>Add to quote</Btn>
         </div>
       </div>
+  </Modal>;
+}
+
+// ── Centre stone modal — structured entry for the sourced centre stone ─────
+// Mirrors the accent/fancy modal, adapted for centre stones: no markup choice (always the
+// section's Natural/Lab stone markup), plus certificate and diamond-grading fields.
+const CERT_LABS=["GIA","IGI","GCAL","HRD","GSL","Other"];
+const GRADE_EXVG=[{value:"",label:"— Select —"},{value:"EX",label:"EX — Excellent"},{value:"VG",label:"VG — Very Good"},{value:"G",label:"G — Good"},{value:"F",label:"F — Fair"}];
+const FLUORO=["None","Faint","Medium","Strong","Very Strong"];
+function CentreStoneModal({stoneType,activeStoneMarkup,stoneOverride,onAdd,onClose}){
+  const[type,setType]=useState("Diamond");
+  const[certLab,setCertLab]=useState("");
+  const[certNo,setCertNo]=useState("");
+  const[colour,setColour]=useState("");
+  const[fancyIntensity,setFancyIntensity]=useState("");
+  const[fancyHue,setFancyHue]=useState("");
+  const[clarity,setClarity]=useState("");
+  const[shape,setShape]=useState("");
+  const[carat,setCarat]=useState("");
+  const[size,setSize]=useState("");
+  const[cutG,setCutG]=useState("");
+  const[polish,setPolish]=useState("");
+  const[symmetry,setSymmetry]=useState("");
+  const[fluoro,setFluoro]=useState("");
+  const[source,setSource]=useState("");
+  const[cost,setCost]=useState("");
+  const[perCt,setPerCt]=useState("");
+  const[costMode,setCostMode]=useState("total");
+  const caratN=Number(carat)||0;
+  const perCtN=Number(perCt)||0;
+  const perCtMode=costMode==="perCt";
+  const cn=perCtMode?+(caratN*perCtN).toFixed(2):Number(cost)||0;
+  const isDiamond=type==="Diamond";
+  const pickType=v=>{setType(v);setColour("");setClarity("");setCutG("");setPolish("");setSymmetry("");setFluoro("");};
+  const colourOpts=isDiamond
+    ?[{value:"",label:"— Select grade —"},...DIAMOND_COLOURS]
+    :[{value:"",label:"— None —"},...STONE_COLOURS.map(c=>({value:c,label:c}))];
+  // "GIA Natural Oval 1.50ct D SI1 EX EX None" — the format already used across real quotes.
+  const colourPart=!colour?"":isDiamond?(colour==="Fancy"?[fancyIntensity,fancyHue].filter(Boolean).join(" "):colour):colour;
+  const gradingPart=isDiamond?[cutG,polish,symmetry].filter(Boolean).join(" "):"";
+  const parts=[certLab,stoneType==="lab"?"Lab-Grown":"Natural",shape,carat?`${carat}ct`:"",colourPart,isDiamond?clarity:"",gradingPart,isDiamond?fluoro:"",isDiamond?"":type,size].filter(Boolean).join(" ");
+  const desc=parts.trim();
+  const detail=[certNo?`Cert ${certNo}`:"",perCtMode&&cn>0?`${caratN}ct × ${fmt(perCtN)}/ct`:"",source.trim()].filter(Boolean).join(" · ");
+  // Live client price on the section's stone markup (same maths as the quote's stone section)
+  const preview=cn>0?calcStoneQuote([{cost:cn}],activeStoneMarkup,stoneOverride):null;
+  const accent=stoneType==="lab"?"#7B5EA7":"#3B6E8F";
+  const addStone=()=>{
+    if(cn<=0)return alert(perCtMode?"Enter the carat weight and price per carat.":"Enter the cost.");
+    onAdd({description:desc||`${stoneType==="lab"?"Lab-grown":"Natural"} centre stone`,detail,cost:cn.toFixed(2)});
+  };
+  return <Modal title={`Add centre stone — ${stoneType==="lab"?"lab-grown":"natural"}`} onClose={onClose}>
+    <div style={{background:PARCH,border:`1px solid ${BD}`,borderRadius:RADIUS,padding:"20px 22px"}}>
+      <div style={{fontSize:11,fontWeight:800,color:INK,textTransform:"uppercase",letterSpacing:"0.08em",marginBottom:3}}>Centre / feature stone</div>
+      <div style={{fontSize:12,color:WG,marginBottom:18,lineHeight:1.5}}>Builds the stone description for the quote — priced on your <strong style={{color:accent}}>{stoneType==="lab"?"lab-grown":"natural"}</strong> stone markup.</div>
+      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"0 16px"}}>
+        <Input label="Stone type" value={type} onChange={pickType} as="select" options={GEM_TYPES.map(t=>({value:t,label:t}))}/>
+        <Input label="Cut / shape" value={shape} onChange={setShape} as="select" options={STONE_SHAPES}/>
+        <Input label="Certificate" value={certLab} onChange={setCertLab} as="select" options={[{value:"",label:"— None —"},...CERT_LABS.map(l=>({value:l,label:l}))]}/>
+        <Input label="Certificate number" value={certNo} onChange={setCertNo} placeholder="e.g. 2141234567"/>
+        <Input label={isDiamond?"Colour grade":"Colour"} value={colour} onChange={setColour} as="select" options={colourOpts}/>
+        {isDiamond&&<Input label="Clarity" value={clarity} onChange={setClarity} as="select" options={[{value:"",label:"— Select clarity —"},...DIAMOND_CLARITY]}/>}
+        {isDiamond&&colour==="Fancy"&&<div style={{gridColumn:"1 / -1",marginBottom:14,padding:"14px 16px",background:WHITE,border:`1px solid ${BD}`,borderRadius:RADIUS}}>
+          <div style={{fontSize:10,fontWeight:700,color:WG,textTransform:"uppercase",letterSpacing:"0.08em",marginBottom:10}}>Fancy colour grading</div>
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"0 16px"}}>
+            <Input label="Intensity" value={fancyIntensity} onChange={setFancyIntensity} as="select" options={[{value:"",label:"— Select —"},...FANCY_INTENSITY.map(x=>({value:x,label:x}))]}/>
+            <Input label="Hue" value={fancyHue} onChange={setFancyHue} as="select" options={[{value:"",label:"— Select —"},...FANCY_HUES.map(x=>({value:x,label:x}))]}/>
+          </div>
+        </div>}
+        {isDiamond&&<div style={{gridColumn:"1 / -1",marginBottom:14,padding:"14px 16px",background:WHITE,border:`1px solid ${BD}`,borderRadius:RADIUS}}>
+          <div style={{fontSize:10,fontWeight:700,color:WG,textTransform:"uppercase",letterSpacing:"0.08em",marginBottom:10}}>Diamond grading <span style={{fontWeight:400,textTransform:"none",letterSpacing:0}}>(optional — e.g. EX EX None)</span></div>
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"0 16px"}}>
+            <Input label="Cut" value={cutG} onChange={setCutG} as="select" options={GRADE_EXVG}/>
+            <Input label="Polish" value={polish} onChange={setPolish} as="select" options={GRADE_EXVG}/>
+            <Input label="Symmetry" value={symmetry} onChange={setSymmetry} as="select" options={GRADE_EXVG}/>
+            <Input label="Fluorescence" value={fluoro} onChange={setFluoro} as="select" options={[{value:"",label:"— Select —"},...FLUORO.map(x=>({value:x,label:x}))]}/>
+          </div>
+        </div>}
+        <Input label={perCtMode?"Total carat weight (ct)":"Carat weight"} value={carat} onChange={setCarat} type="number" min="0" step="0.01" placeholder="e.g. 1.50"/>
+        <Input label="Size / dimensions" value={size} onChange={setSize} placeholder="e.g. 7.3×5.4mm"/>
+        <div style={{gridColumn:"1 / -1"}}>
+          <Input label="Source / notes" value={source} onChange={setSource} placeholder="e.g. supplier, memo ref — goes in the detail column"/>
+        </div>
+        <div style={{gridColumn:"1 / -1"}}>
+          <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:2}}>
+            <label style={SS.lbl}>Cost</label>
+            <div style={{display:"inline-flex",border:`1px solid ${BD}`,borderRadius:3,overflow:"hidden"}}>
+              {[["total","Total cost"],["perCt","Per carat"]].map(([k,lbl])=>(
+                <button key={k} onClick={()=>setCostMode(k)} style={{padding:"4px 12px",border:"none",background:costMode===k?INK:WHITE,color:costMode===k?WHITE:INK,fontSize:10.5,fontWeight:700,letterSpacing:"0.04em",cursor:"pointer",fontFamily:"inherit"}}>{lbl}</button>
+              ))}
+            </div>
+          </div>
+          {perCtMode
+            ?<div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"0 16px"}}>
+              <Input label="Price per carat ($/ct)" value={perCt} onChange={setPerCt} type="number" min="0" step="0.01" placeholder="e.g. 4500"/>
+              <div style={{marginBottom:14}}>
+                <label style={SS.lbl}>Calculated total</label>
+                <div style={{...SS.inp,background:PARCH,fontWeight:cn>0?700:400,color:cn>0?INK:WG,textAlign:"right"}}>
+                  {cn>0?fmt(cn):(caratN<=0&&perCtN>0?"Enter the carat weight above":"—")}
+                </div>
+              </div>
+            </div>
+            :<Input label="Total cost ($)" value={cost} onChange={setCost} type="number" min="0" step="0.01" placeholder="0.00"/>}
+        </div>
+      </div>
+      {desc&&<div style={{fontSize:12,color:INK,marginTop:2,lineHeight:1.5,background:WHITE,border:`1px solid ${BD}`,borderRadius:4,padding:"9px 12px"}}><span style={{fontSize:10,fontWeight:700,color:WG,textTransform:"uppercase",letterSpacing:"0.06em",marginRight:8}}>Preview</span>{desc}</div>}
+      {/* Client price on the stone markup — same maths as the quote's stone section */}
+      <div style={{fontSize:12,marginTop:12,lineHeight:1.5,color:preview?(preview.bracket?accent:WARN):WG}}>
+        {preview
+          ?(preview.bracket?<>→ <strong>{fmtR(preview.clientTotal)}</strong> to client (×{preview.mult} + GST)</>:"Cost is outside your stone markup table — check the rates in Pricing DB.")
+          :"Enter a cost to preview the client price."}
+      </div>
+      <div style={{display:"flex",justifyContent:"center",marginTop:20}}>
+        <Btn onClick={addStone} disabled={cn<=0}>Add to quote</Btn>
+      </div>
+    </div>
   </Modal>;
 }
 
@@ -3082,15 +3197,14 @@ function QuoteBuilder({jobId:jobIdProp,editQuoteId,stockId,stock,setStock,jobs,c
     return()=>window.removeEventListener("keydown",h);
   },[pricingModal]);
   const[accentModal,setAccentModal]=useState(false);
+  const[centreModal,setCentreModal]=useState(false);
   // Centre stone section
   const[stoneMode,setStoneMode]=useState(seed?.stoneMode||"none");
   const[stoneType,setStoneType]=useState(seed?.stoneType||"");
   const[stoneItems,setStoneItems]=useState(()=>seed?.stoneItems?.length?seed.stoneItems.map(i=>({...i})):[]);
   const[stoneNotes,setStoneNotes]=useState(seed?.stoneNotes||"");
   const setStonItem=(id,k,v)=>setStoneItems(p=>p.map(i=>i.id===id?{...i,[k]:v}:i));
-  const addStoneItem=()=>setStoneItems(p=>[...p,blankStoneItem()]);
   const removeStoneItem=id=>setStoneItems(p=>p.filter(i=>i.id!==id));
-  const blankStoneItem=()=>({id:uid(),description:"",detail:"",cost:""});
 
   const setItem=(id,k,v)=>setItems(p=>p.map(i=>i.id===id?{...i,[k]:v}:i));
   const removeItem=id=>setItems(p=>p.filter(i=>i.id!==id));
@@ -3326,7 +3440,7 @@ function QuoteBuilder({jobId:jobIdProp,editQuoteId,stockId,stock,setStock,jobs,c
         const totalStr=cost>0?fmt(cost):"—";
         return <div key={li.id} style={{display:"grid",gridTemplateColumns:"minmax(240px,1.6fr) 1fr 120px 104px",gap:8,marginBottom:8,alignItems:"center"}}>
           <div style={{display:"flex",alignItems:"center",gap:6,minWidth:0}}>
-            <span style={{background:"#EEF4FB",color:"#3B6E8F",fontSize:8,fontWeight:800,padding:"3px 5px",borderRadius:3,letterSpacing:"0.04em",flexShrink:0}} title="Accent / fancy stone">ACCENT</span>
+            <span style={{background:"#EEF4FB",color:"#3B6E8F",fontSize:8,fontWeight:800,padding:"3px 5px",borderRadius:3,letterSpacing:"0.04em",flexShrink:0}} title="Accent, feature or fancy stone">ACCENT</span>
             <input value={li.description} onChange={e=>setAccentItem(li.id,"description",e.target.value)} placeholder="e.g. pear sapphire" style={{...SS.inp,marginTop:0,fontSize:13,padding:"7px 10px",flex:1,minWidth:0}}/>
           </div>
           <input value={li.detail||""} onChange={e=>setAccentItem(li.id,"detail",e.target.value)} placeholder="notes (optional)" style={{...SS.inp,marginTop:0,fontSize:13,padding:"7px 10px",color:WG}}/>
@@ -3365,10 +3479,10 @@ function QuoteBuilder({jobId:jobIdProp,editQuoteId,stockId,stock,setStock,jobs,c
       <div style={{display:"flex",gap:10,marginTop:8,flexWrap:"wrap"}}>
         <button onClick={()=>setItems(p=>[...p,blankItem()])} style={{background:"none",border:`1px dashed ${GOLD}`,borderRadius:4,padding:"6px 14px",color:GOLD,fontSize:12,fontWeight:700,cursor:"pointer",fontFamily:"inherit"}}>+ Add item</button>
         <button onClick={openPricing} style={{background:GOLD_L,border:`1px solid ${GOLD}`,borderRadius:4,padding:"6px 14px",color:GOLD_D,fontSize:12,fontWeight:700,cursor:"pointer",fontFamily:"inherit"}}>⊕ Pricing DB</button>
-        <button onClick={()=>setAccentModal(true)} style={{background:"#EEF4FB",border:"1px solid #8EB5D4",borderRadius:4,padding:"6px 14px",color:"#3B6E8F",fontSize:12,fontWeight:700,cursor:"pointer",fontFamily:"inherit"}}>+ Accent / fancy stone</button>
-        {stoneMode==="sourcing"&&stoneType&&<button onClick={addStoneItem} style={{background:(stoneType==="lab"?"#7B5EA7":"#3B6E8F")+"18",border:`1px solid ${stoneType==="lab"?"#7B5EA7":"#3B6E8F"}`,borderRadius:4,padding:"6px 14px",color:stoneType==="lab"?"#7B5EA7":"#3B6E8F",fontSize:12,fontWeight:700,cursor:"pointer",fontFamily:"inherit"}}>+ Centre stone</button>}
+        <button onClick={()=>setAccentModal(true)} style={{background:"#EEF4FB",border:"1px solid #8EB5D4",borderRadius:4,padding:"6px 14px",color:"#3B6E8F",fontSize:12,fontWeight:700,cursor:"pointer",fontFamily:"inherit"}}>+ Accent, feature or fancy stone</button>
+        {stoneMode==="sourcing"&&stoneType&&<button onClick={()=>setCentreModal(true)} style={{background:(stoneType==="lab"?"#7B5EA7":"#3B6E8F")+"18",border:`1px solid ${stoneType==="lab"?"#7B5EA7":"#3B6E8F"}`,borderRadius:4,padding:"6px 14px",color:stoneType==="lab"?"#7B5EA7":"#3B6E8F",fontSize:12,fontWeight:700,cursor:"pointer",fontFamily:"inherit"}}>+ Centre stone</button>}
       </div>
-      <div style={{fontSize:11,color:WG,margin:"8px 0 20px",lineHeight:1.5}}>Custom coloured or fancy-cut stones aren't in the pricing DB — add them with <strong style={{color:"#3B6E8F"}}>+ Accent / fancy stone</strong>. They default to manufacturing markup and join the costs above; switch a pricey one to <strong>Natural</strong>/<strong>Lab</strong> stone markup to price it separately below.</div>
+      <div style={{fontSize:11,color:WG,margin:"8px 0 20px",lineHeight:1.5}}>Custom coloured or fancy-cut stones aren't in the pricing DB — add them with <strong style={{color:"#3B6E8F"}}>+ Accent, feature or fancy stone</strong>. They default to manufacturing markup and join the costs above; switch a pricey one to <strong>Natural</strong>/<strong>Lab</strong> stone markup to price it separately below.</div>
       {validItems.length>0&&<div style={{marginBottom:28}}>
         <div style={{fontSize:11,fontWeight:700,color:WG,textTransform:"uppercase",letterSpacing:"0.06em",marginBottom:10}}>Markup preview</div>
         <MarkupSummary {...calc} large/>
@@ -3703,6 +3817,11 @@ function QuoteBuilder({jobId:jobIdProp,editQuoteId,stockId,stock,setStock,jobs,c
       pricing={pricing} setPricing={setPricing} naturalStoneMarkup={naturalStoneMarkup} labStoneMarkup={labStoneMarkup}
       onAdd={item=>{setAccentItems(p=>[...p,{...item,id:uid(),accentStone:true,noMarkup:false,markupMode:item.markupMode||"mfg"}]);setAccentModal(false);}}
       onClose={()=>setAccentModal(false)}
+    />}
+    {centreModal&&<CentreStoneModal
+      stoneType={stoneType} activeStoneMarkup={activeStoneMarkup} stoneOverride={stoneOverride}
+      onAdd={item=>{setStoneItems(p=>[...p,{...item,id:uid()}]);setCentreModal(false);}}
+      onClose={()=>setCentreModal(false)}
     />}
   </div>;
 }
