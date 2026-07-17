@@ -7891,7 +7891,7 @@ export default function App(){
       [K.pr]:setPricing,[K.biz]:setBiz,[K.no]:setNotes,[K.inv]:setInvoices,
       [K.mt]:setMarkupTable,[K.smn]:setNaturalStoneMarkup,[K.sml]:setLabStoneMarkup,[K.csr]:setCentreRates,
       [K.ap]:setAppointments,[K.pp]:setProposals,[K.td]:setTodos,[K.st]:setStock,
-      [K.gc]:setGemCustody,
+      [K.gc]:setGemCustody,[K.spot]:setSpotPrices,
     };
     // Normalise legacy values before applying to state
     const applyLoaded=(k,v,setter)=>{
