@@ -6220,7 +6220,7 @@ function PricingDB({pricing,setPricing,spotPrices,setSpotPrices,markupTable,cent
       </div>}
     </>}
     {modal&&<Modal title={modal==="add"?"New pricing item":"Edit item"} onClose={()=>setModal(null)}>
-      <PricingItemForm initial={modal==="add"?{}:modal} onSave={f=>saveItem(f,modal==="add"?null:modal.id)} onCancel={()=>setModal(null)}/>
+      <PricingItemForm initial={modal==="add"?{}:modal} spotPrices={spotPrices} onSave={f=>saveItem(f,modal==="add"?null:modal.id)} onCancel={()=>setModal(null)}/>
     </Modal>}
     {spotModal&&<Modal title="Update metal spot prices" onClose={()=>setSpotModal(false)}>
       <SpotPriceUpdater spotPrices={spotPrices} setSpotPrices={setSpotPrices} pricing={pricing} setPricing={setPricing} onClose={()=>setSpotModal(false)}/>
@@ -6228,18 +6228,41 @@ function PricingDB({pricing,setPricing,spotPrices,setSpotPrices,markupTable,cent
   </div>;
 }
 
-function PricingItemForm({initial={},onSave,onCancel}){
+// Carat / fineness presets → purity as a decimal (share of fine metal), per linked metal.
+const PURITY_PRESETS={
+  gold:[["0.375","9ct (37.5%)"],["0.417","10ct (41.7%)"],["0.585","14ct (58.5%)"],["0.625","15ct (62.5%)"],["0.75","18ct (75%)"],["0.833","20ct (83.3%)"],["0.916","22ct (91.6%)"],["0.999","24ct (99.9%)"]],
+  platinum:[["0.85","Platinum 850"],["0.90","Platinum 900"],["0.95","Platinum 950"],["0.999","Platinum 999"]],
+  silver:[["0.925","Sterling 925"],["0.958","Britannia 958"],["0.999","Fine 999"]],
+};
+function PricingItemForm({initial={},spotPrices={},onSave,onCancel}){
   const[f,setF]=useState({category:PCAT[0],name:"",unit:"stone",baseCost:"",detail:"",group:"",...initial});
   const set=k=>v=>setF(p=>({...p,[k]:v}));
   const isAccent=f.category==="Accent Stones";
   const isRepair=f.category===REPAIRS_CAT;
+  const isMetal=f.category==="Metals";
+  // A metal item that's linked to a spot key + purity auto-recalculates on every spot update.
+  const linked=isMetal&&f.metalKey&&f.purity!=null&&f.purity!=="";
+  const spotFor=k=>Number(spotPrices?.[k])||0;
+  const premFor=k=>Number(spotPrices?.[{gold:"premGold",platinum:"premPlatinum",silver:"premSilver"}[k]])||0;
+  const autoCost=linked?+((spotFor(f.metalKey)*(1+premFor(f.metalKey)/100))*Number(f.purity)).toFixed(4):0;
   return <div>
     <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"0 16px"}}>
       <Input label="Category" value={f.category} onChange={v=>{setF(p=>({...p,category:v,group:""}));}} as="select" options={PCAT.filter(c=>c!=="Accent Stones"||f.category==="Accent Stones").map(c=>({value:c,label:catTitle(c)}))}/>
       {!isAccent&&<Input label="Unit" value={f.unit} onChange={set("unit")} as="select" options={["job","g","stone","ct","item","pair","hr","piece","set"]}/>}
     </div>
     {isRepair&&<Input label="Group" value={f.group||""} onChange={set("group")} as="select" options={["(no group)",...REPAIR_GROUPS]}/>}
-    <Input label="Item name / description" value={f.name} onChange={set("name")} placeholder={isAccent?"e.g. 2mm blue sapphires":"e.g. 9ct white gold"}/>
+    <Input label="Item name / description" value={f.name} onChange={set("name")} placeholder={isAccent?"e.g. 2mm blue sapphires":"e.g. 14ct white gold"}/>
+    {isMetal&&<>
+      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"0 16px"}}>
+        <Input label="Linked metal" value={f.metalKey||""} onChange={v=>setF(p=>({...p,metalKey:v,purity:v?p.purity:null}))} as="select" options={[{value:"",label:"— Not linked (manual price) —"},{value:"gold",label:"Gold"},{value:"platinum",label:"Platinum"},{value:"silver",label:"Silver"}]}/>
+        {f.metalKey&&<Input label="Purity / carat" value={f.purity!=null?String(f.purity):""} onChange={v=>set("purity")(v===""?null:v)} as="select" options={[{value:"",label:"— Select —"},...(PURITY_PRESETS[f.metalKey]||[]).map(([val,lbl])=>({value:val,label:lbl}))]}/>}
+      </div>
+      <div style={{background:"#EEF4FB",border:"1px solid #C8DFF0",borderRadius:4,padding:"10px 14px",fontSize:12,color:"#3B6E8F",marginBottom:14,lineHeight:1.5}}>
+        {linked
+          ?<>Cost updates automatically to <strong>spot × purity</strong> whenever you update spot prices{autoCost>0?<> — currently <strong>{fmt(autoCost)}/g</strong></>:" (set your spot prices to calculate)"}.</>
+          :<>Link this to a metal + purity so it recalculates automatically with spot prices. Leave unlinked to keep a fixed manual cost.</>}
+      </div>
+    </>}
     {isAccent
       ?<>
         <Input label="Notes / detail (optional)" value={f.detail||""} onChange={set("detail")} placeholder="e.g. heat treated, round, supplier XYZ"/>
@@ -6247,15 +6270,25 @@ function PricingItemForm({initial={},onSave,onCancel}){
           Cost is entered per quote — accent stone prices vary job to job.
         </div>
       </>
-      :<Input label="Your cost per unit ($)" value={f.baseCost} onChange={set("baseCost")} type="number" min="0" step="0.01"/>
+      :linked
+        ?<div style={{marginBottom:14}}>
+          <label style={SS.lbl}>Cost per gram <span style={{textTransform:"none",letterSpacing:0,fontWeight:400,color:WG}}>(auto from spot)</span></label>
+          <div style={{...SS.inp,marginTop:4,background:PARCH,color:autoCost>0?INK:WG,fontWeight:autoCost>0?700:400}}>{autoCost>0?`${fmt(autoCost)} / g`:"Update spot prices to calculate"}</div>
+        </div>
+        :<Input label="Your cost per unit ($)" value={f.baseCost} onChange={set("baseCost")} type="number" min="0" step="0.01"/>
     }
     <div style={{display:"flex",gap:10,justifyContent:"flex-end"}}>
       <Btn ghost onClick={onCancel}>Cancel</Btn>
       <Btn onClick={()=>{
         if(!f.name.trim())return alert("Name required");
-        if(!isAccent&&!f.baseCost)return alert("Cost required");
+        if(isMetal&&f.metalKey&&(f.purity==null||f.purity==="")) return alert("Select a purity / carat for the linked metal — or set it to “Not linked”.");
+        if(!isAccent&&!linked&&!f.baseCost)return alert("Cost required");
         const saved={...f,noMarkup:isRepair?true:f.noMarkup};
         if(isRepair&&saved.group==="(no group)")saved.group="";
+        if(isMetal){
+          if(linked){saved.metalKey=f.metalKey;saved.purity=Number(f.purity);saved.baseCost=autoCost;saved.unit="g";}
+          else{saved.metalKey="";saved.purity=null;}   // unlinked → clear so the spot updater skips it
+        }
         onSave(saved);
       }}>Save item</Btn>
     </div>
