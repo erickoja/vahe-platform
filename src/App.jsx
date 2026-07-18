@@ -170,6 +170,18 @@ const DEFAULT_LAB_STONE_MARKUP=[
 
 // ── Pricing seed ─────────────────────────────────────────────────────────
 const SEED_SPOT={gold:105,platinum:148,silver:1.45,updatedAt:"2025-05-01"};
+// Gold colour of a metal item — explicit `colour` field wins; legacy items fall back to a name sniff.
+// White gold carries a higher casting-house premium (palladium in the master alloy).
+const goldColourOf=(item={})=>item.colour||(/\bwhite\b/i.test(item.name||"")?"white":/\b(rose|red|pink)\b/i.test(item.name||"")?"rose":"yellow");
+const isWhiteGold=item=>item&&item.metalKey==="gold"&&goldColourOf(item)==="white";
+// Casting-house premium % that applies to a metal item, honouring the white-gold uplift.
+// If no white premium is set yet, white falls back to the base gold premium (unchanged behaviour).
+const premForMetal=(item,sp={})=>{
+  if(item.metalKey==="gold")return Number(isWhiteGold(item)?(sp.premGoldWhite??sp.premGold):sp.premGold)||0;
+  if(item.metalKey==="platinum")return Number(sp.premPlatinum)||0;
+  if(item.metalKey==="silver")return Number(sp.premSilver)||0;
+  return 0;
+};
 // Seed pricing ids that have been retired from the catalogue — stripped from saved data on load
 // so they don't linger (and aren't re-added by the missing-seed merge).
 const RETIRED_PRICING_IDS=new Set(["p10","cad0","cad1","cad2","cad3"]);   // cad0-3: old CAD design tiers, replaced by hourly rate (cad_hr)
@@ -177,15 +189,15 @@ const RETIRED_PRICING_IDS=new Set(["p10","cad0","cad1","cad2","cad3"]);   // cad
 // merge skips these so a deleted built-in item doesn't reappear. (SEED_PRICING_IDS defined after the seed array.)
 const _deletedSeedIds=new Set();
 const SEED_PRICING=[
-  {id:"p1",category:"Metals",name:"9ct yellow gold",unit:"g",baseCost:39.38,metalKey:"gold",purity:0.375},
-  {id:"p2",category:"Metals",name:"18ct yellow gold",unit:"g",baseCost:78.75,metalKey:"gold",purity:0.75},
-  {id:"p3",category:"Metals",name:"18ct white gold",unit:"g",baseCost:78.75,metalKey:"gold",purity:0.75},
-  {id:"p4",category:"Metals",name:"18ct rose gold",unit:"g",baseCost:78.75,metalKey:"gold",purity:0.75},
-  {id:"p5",category:"Metals",name:"9ct white gold",unit:"g",baseCost:39.38,metalKey:"gold",purity:0.375},
-  {id:"p5b",category:"Metals",name:"9ct rose gold",unit:"g",baseCost:39.38,metalKey:"gold",purity:0.375},
-  {id:"p5c",category:"Metals",name:"14ct yellow gold",unit:"g",baseCost:61.43,metalKey:"gold",purity:0.585},
-  {id:"p5d",category:"Metals",name:"14ct white gold",unit:"g",baseCost:61.43,metalKey:"gold",purity:0.585},
-  {id:"p5e",category:"Metals",name:"14ct rose gold",unit:"g",baseCost:61.43,metalKey:"gold",purity:0.585},
+  {id:"p1",category:"Metals",name:"9ct yellow gold",unit:"g",baseCost:39.38,metalKey:"gold",purity:0.375,colour:"yellow"},
+  {id:"p2",category:"Metals",name:"18ct yellow gold",unit:"g",baseCost:78.75,metalKey:"gold",purity:0.75,colour:"yellow"},
+  {id:"p3",category:"Metals",name:"18ct white gold",unit:"g",baseCost:78.75,metalKey:"gold",purity:0.75,colour:"white"},
+  {id:"p4",category:"Metals",name:"18ct rose gold",unit:"g",baseCost:78.75,metalKey:"gold",purity:0.75,colour:"rose"},
+  {id:"p5",category:"Metals",name:"9ct white gold",unit:"g",baseCost:39.38,metalKey:"gold",purity:0.375,colour:"white"},
+  {id:"p5b",category:"Metals",name:"9ct rose gold",unit:"g",baseCost:39.38,metalKey:"gold",purity:0.375,colour:"rose"},
+  {id:"p5c",category:"Metals",name:"14ct yellow gold",unit:"g",baseCost:61.43,metalKey:"gold",purity:0.585,colour:"yellow"},
+  {id:"p5d",category:"Metals",name:"14ct white gold",unit:"g",baseCost:61.43,metalKey:"gold",purity:0.585,colour:"white"},
+  {id:"p5e",category:"Metals",name:"14ct rose gold",unit:"g",baseCost:61.43,metalKey:"gold",purity:0.585,colour:"rose"},
   {id:"p6",category:"Metals",name:"Platinum 950",unit:"g",baseCost:140.60,metalKey:"platinum",purity:0.95},
   {id:"p7",category:"Metals",name:"Silver 925",unit:"g",baseCost:1.34,metalKey:"silver",purity:0.925},
   {id:"p8",category:"Labour",name:"Bench Labour (Casting Assembly)",unit:"hr",baseCost:70},
@@ -3212,6 +3224,13 @@ function QuoteBuilder({jobId:jobIdProp,editQuoteId,stockId,stock,setStock,jobs,c
 
   const setItem=(id,k,v)=>setItems(p=>p.map(i=>i.id===id?{...i,[k]:v}:i));
   const removeItem=id=>setItems(p=>p.filter(i=>i.id!==id));
+  // Switch a metal line between cast and hand-fabricated — recompute cost from the snapshotted per-gram rates.
+  const setMetalMethod=(id,method)=>setItems(p=>p.map(li=>{
+    if(li.id!==id||!li.metalMethod)return li;
+    const perG=method==="fab"?(Number(li.metalFabPerG)||0):(Number(li.metalCastPerG)||0);
+    const g=Number(li.metalGrams)||0;
+    return{...li,metalMethod:method,costLow:(perG*g).toFixed(2),detail:`${g}g × ${fmt(perG)}/g · ${method==="fab"?"fabricated":"cast"}`};
+  }));
   const setAccentItem=(id,k,v)=>setAccentItems(p=>p.map(i=>i.id===id?{...i,[k]:v}:i));
   const removeAccentItem=id=>setAccentItems(p=>p.filter(i=>i.id!==id));
   const moveItem=(id,dir)=>{
@@ -3224,6 +3243,8 @@ function QuoteBuilder({jobId:jobIdProp,editQuoteId,stockId,stock,setStock,jobs,c
     const isDiamond=DIAMOND_CATS.includes(item.category);
     const isSetting=item.category==="Basic Setting"||item.category==="Complex Setting";
     const isPrintCast=item.category==="3D Print & Cast";
+    // A spot-linked metal (sold by gram) gets a cast/fabricated toggle on its quote line.
+    const isMetalLine=item.category==="Metals"&&!!item.metalKey&&item.unit==="g";
     const desc=isDiamond?`${item.category} ${item.sizeMm}mm`
       :isSetting?(item.category==="Complex Setting"?`Complex setting ${item.sizeMm}mm`:`Basic setting ${item.sizeMm}mm`)
       :isPrintCast?`${item.name} (${q} piece${q!==1?"s":""})`
@@ -3236,11 +3257,14 @@ function QuoteBuilder({jobId:jobIdProp,editQuoteId,stockId,stock,setStock,jobs,c
       :isPrintCast
       ?`${q} piece${q!==1?"s":""} × ${fmt(item.baseCost)}/piece`
       :item.unit==="hr"?`${q} hr × ${fmt(item.baseCost)}/hr`
+      :isMetalLine?`${q}g × ${fmt(item.baseCost)}/g · cast`
       :item.unit==="g"?`${q}g × ${fmt(item.baseCost)}/g`
       :item.unit==="piece"?`${q} piece${q!==1?"s":""}`
       :item.unit==="stone"?`${q} stone${q!==1?"s":""}`
       :q>1?`× ${q}`:"";
-    setItems(p=>[...p,{id:uid(),description:desc,detail,costLow:String(totalCost),noMarkup:item.noMarkup||false}]);
+    // Snapshot both per-gram costs so the line's Cast/Fabricated toggle can switch without spot access.
+    const metalFields=isMetalLine?{metalMethod:"cast",metalGrams:q,metalCastPerG:Number(item.baseCost)||0,metalFabPerG:Number(item.baseCostFab!=null?item.baseCostFab:item.baseCost)||0}:{};
+    setItems(p=>[...p,{id:uid(),description:desc,detail,costLow:String(totalCost),noMarkup:item.noMarkup||false,...metalFields}]);
     setPQty(p=>({...p,[item.id]:""}));   // clear this row's qty; popup stays open for more adds
     markAdded(item.id,totalCost);
   };
@@ -3427,6 +3451,14 @@ function QuoteBuilder({jobId:jobIdProp,editQuoteId,stockId,stock,setStock,jobs,c
           <input type="number" value={li.costLow} onChange={e=>setItem(li.id,"costLow",e.target.value)} placeholder="0.00" min="0" step="0.01" style={{...SS.inp,marginTop:0,fontSize:13,padding:"7px 8px",textAlign:"right"}}/>
           <div style={{fontSize:13,fontWeight:700,color:INK,textAlign:"right",whiteSpace:"nowrap"}}>{totalStr}</div>
           <div style={{display:"flex",gap:3,alignItems:"center"}}>
+            {li.metalMethod&&<div style={{display:"inline-flex",border:`1px solid ${BD}`,borderRadius:2,overflow:"hidden",flexShrink:0}} title="Metal supply — pick one: Cast (casting-house premium) or hand-Fabricated (mill metal)">
+              {[["cast","CAST",Number(li.metalCastPerG)||0],["fab","FAB",Number(li.metalFabPerG)||0]].map(([m,lbl,perG],i)=>{
+                const on=li.metalMethod===m;
+                return <button key={m} onClick={()=>setMetalMethod(li.id,m)}
+                  title={`${m==="fab"?"Hand-fabricated (mill metal)":"Cast (casting-house premium)"} — ${fmt(perG)}/g`}
+                  style={{background:on?GOLD:WHITE,border:"none",borderLeft:i?`1px solid ${BD}`:"none",padding:"2px 7px",fontSize:9,fontWeight:700,color:on?WHITE:WG,cursor:on?"default":"pointer",letterSpacing:"0.04em",lineHeight:"16px",whiteSpace:"nowrap"}}>{lbl}</button>;
+              })}
+            </div>}
             <button
               onClick={()=>setItem(li.id,"noMarkup",!li.noMarkup)}
               title={li.noMarkup?"No markup applied — click to include in markup":"Click to exclude this item from markup"}
@@ -5964,7 +5996,7 @@ function PricingDB({pricing,setPricing,spotPrices,setSpotPrices,markupTable,cent
       <Btn ghost onClick={()=>setSpotModal(true)}>⟳ Update spot prices</Btn>
       <Btn onClick={()=>setModal("add")}>+ Add item</Btn>
     </div>}/>
-    {spotPrices?.updatedAt&&<div style={{fontSize:12,color:WG,marginTop:-14,marginBottom:16}}>Metal spot prices last updated <strong style={{color:INK}}>{fmtDate(spotPrices.updatedAt)}</strong>{(Number(spotPrices.premGold)||Number(spotPrices.premPlatinum)||Number(spotPrices.premSilver))?" · casting premiums applied":""}</div>}
+    {spotPrices?.updatedAt&&<div style={{fontSize:12,color:WG,marginTop:-14,marginBottom:16}}>Metal spot prices last updated <strong style={{color:INK}}>{fmtDate(spotPrices.updatedAt)}</strong>{(Number(spotPrices.premGold)||Number(spotPrices.premGoldWhite)||Number(spotPrices.premPlatinum)||Number(spotPrices.premSilver))?" · casting premiums applied":""}</div>}
     {savedToast&&<div style={{position:"fixed",top:18,right:24,background:OK,color:WHITE,fontSize:13,fontWeight:700,padding:"10px 20px",borderRadius:4,boxShadow:"0 4px 18px rgba(0,0,0,0.18)",zIndex:9999,display:"flex",alignItems:"center",gap:8}}>
       ✓ Prices saved — all future quotes will use updated figures
     </div>}
@@ -6247,8 +6279,11 @@ function PricingItemForm({initial={},spotPrices={},onSave,onCancel}){
   // A metal item that's linked to a spot key + purity auto-recalculates on every spot update.
   const linked=isMetal&&f.metalKey&&f.purity!=null&&f.purity!=="";
   const spotFor=k=>Number(spotPrices?.[k])||0;
-  const premFor=k=>Number(spotPrices?.[{gold:"premGold",platinum:"premPlatinum",silver:"premSilver"}[k]])||0;
-  const autoCost=linked?+((spotFor(f.metalKey)*(1+premFor(f.metalKey)/100))*Number(f.purity)).toFixed(4):0;
+  // Colour only matters for gold; resolves to white/yellow/rose so the right casting premium applies.
+  const goldColour=f.metalKey==="gold"?goldColourOf(f):null;
+  const autoCost=linked?+((spotFor(f.metalKey)*(1+premForMetal({...f,colour:goldColour},spotPrices)/100))*Number(f.purity)).toFixed(4):0;
+  // Hand-fabricated cost per gram: single global mill premium, no casting-house charge.
+  const fabCost=linked?+((spotFor(f.metalKey)*(1+(Number(spotPrices?.premFab)||0)/100))*Number(f.purity)).toFixed(4):0;
   return <div>
     <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"0 16px"}}>
       <Input label="Category" value={f.category} onChange={v=>{setF(p=>({...p,category:v,group:""}));}} as="select" options={PCAT.filter(c=>c!=="Accent Stones"||f.category==="Accent Stones").map(c=>({value:c,label:catTitle(c)}))}/>
@@ -6260,10 +6295,11 @@ function PricingItemForm({initial={},spotPrices={},onSave,onCancel}){
       <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"0 16px"}}>
         <Input label="Linked metal" value={f.metalKey||""} onChange={v=>setF(p=>({...p,metalKey:v,purity:v?p.purity:null}))} as="select" options={[{value:"",label:"— Not linked (manual price) —"},{value:"gold",label:"Gold"},{value:"platinum",label:"Platinum"},{value:"silver",label:"Silver"}]}/>
         {f.metalKey&&<Input label="Purity / carat" value={f.purity!=null?String(f.purity):""} onChange={v=>set("purity")(v===""?null:v)} as="select" options={[{value:"",label:"— Select —"},...(PURITY_PRESETS[f.metalKey]||[]).map(([val,lbl])=>({value:val,label:lbl}))]}/>}
+        {f.metalKey==="gold"&&<Input label="Gold colour" value={goldColour||"yellow"} onChange={set("colour")} as="select" options={[{value:"yellow",label:"Yellow"},{value:"white",label:"White — palladium premium"},{value:"rose",label:"Rose"}]}/>}
       </div>
       <div style={{background:"#EEF4FB",border:"1px solid #C8DFF0",borderRadius:4,padding:"10px 14px",fontSize:12,color:"#3B6E8F",marginBottom:14,lineHeight:1.5}}>
         {linked
-          ?<>Cost updates automatically to <strong>spot × purity</strong> whenever you update spot prices{autoCost>0?<> — currently <strong>{fmt(autoCost)}/g</strong></>:" (set your spot prices to calculate)"}.</>
+          ?<>Cost updates automatically whenever you update spot prices{autoCost>0?<> — <strong>cast {fmt(autoCost)}/g</strong> · <strong>fabricated {fmt(fabCost)}/g</strong>{goldColour==="white"?" (white-gold casting premium applied)":""}</>:" (set your spot prices to calculate)"}.</>
           :<>Link this to a metal + purity so it recalculates automatically with spot prices. Leave unlinked to keep a fixed manual cost.</>}
       </div>
     </>}
@@ -6276,8 +6312,8 @@ function PricingItemForm({initial={},spotPrices={},onSave,onCancel}){
       </>
       :linked
         ?<div style={{marginBottom:14}}>
-          <label style={SS.lbl}>Cost per gram <span style={{textTransform:"none",letterSpacing:0,fontWeight:400,color:WG}}>(auto from spot)</span></label>
-          <div style={{...SS.inp,marginTop:4,background:PARCH,color:autoCost>0?INK:WG,fontWeight:autoCost>0?700:400}}>{autoCost>0?`${fmt(autoCost)} / g`:"Update spot prices to calculate"}</div>
+          <label style={SS.lbl}>Cost per gram <span style={{textTransform:"none",letterSpacing:0,fontWeight:400,color:WG}}>(auto from spot — cast · fabricated)</span></label>
+          <div style={{...SS.inp,marginTop:4,background:PARCH,color:autoCost>0?INK:WG,fontWeight:autoCost>0?700:400}}>{autoCost>0?<>{fmt(autoCost)} <span style={{color:WG,fontWeight:400}}>cast</span> · {fmt(fabCost)} <span style={{color:WG,fontWeight:400}}>fabricated</span> / g</>:"Update spot prices to calculate"}</div>
         </div>
         :<Input label="Your cost per unit ($)" value={f.baseCost} onChange={set("baseCost")} type="number" min="0" step="0.01"/>
     }
@@ -6290,8 +6326,8 @@ function PricingItemForm({initial={},spotPrices={},onSave,onCancel}){
         const saved={...f,noMarkup:isRepair?true:f.noMarkup};
         if(isRepair&&saved.group==="(no group)")saved.group="";
         if(isMetal){
-          if(linked){saved.metalKey=f.metalKey;saved.purity=Number(f.purity);saved.baseCost=autoCost;saved.unit="g";}
-          else{saved.metalKey="";saved.purity=null;}   // unlinked → clear so the spot updater skips it
+          if(linked){saved.metalKey=f.metalKey;saved.purity=Number(f.purity);saved.baseCost=autoCost;saved.unit="g";saved.colour=f.metalKey==="gold"?goldColour:null;}
+          else{saved.metalKey="";saved.purity=null;saved.colour=null;}   // unlinked → clear so the spot updater skips it
         }
         onSave(saved);
       }}>Save item</Btn>
@@ -6306,8 +6342,14 @@ function SpotPriceUpdater({spotPrices,setSpotPrices,pricing,setPricing,onClose})
   // Casting-house premium (%) per metal — what your supplier charges ABOVE spot. Saved with the
   // spot prices, so live fetches keep producing your real landed cost, not the market price.
   const[pmG,setPmG]=useState(String(spotPrices.premGold??0));
+  // White gold's higher casting premium (palladium alloy). Defaults to the base gold premium so
+  // upgrading users see no change until they bump it up.
+  const[pmGW,setPmGW]=useState(String(spotPrices.premGoldWhite??spotPrices.premGold??0));
   const[pmPt,setPmPt]=useState(String(spotPrices.premPlatinum??0));
   const[pmAg,setPmAg]=useState(String(spotPrices.premSilver??0));
+  // Hand-fabricated metal: bought as mill product (sheet/wire), no casting-house premium.
+  // One premium over spot for all metals (usually lower than casting). Bench labour is billed separately.
+  const[pmFab,setPmFab]=useState(String(spotPrices.premFab??0));
   const loaded=(spot,prem)=>Number(spot)*(1+(Number(prem)||0)/100);   // spot → your cost/g of fine metal
   const[fetching,setFetching]=useState(false);
   const[fetched,setFetched]=useState(null);   // {marketTimestamp} once live prices have filled the fields
@@ -6329,11 +6371,13 @@ function SpotPriceUpdater({spotPrices,setSpotPrices,pricing,setPricing,onClose})
   };
   const apply=()=>{
     const ns={gold:Number(g),platinum:Number(pt),silver:Number(ag),
-      premGold:Number(pmG)||0,premPlatinum:Number(pmPt)||0,premSilver:Number(pmAg)||0,updatedAt:today()};
+      premGold:Number(pmG)||0,premGoldWhite:Number(pmGW)||0,premPlatinum:Number(pmPt)||0,premSilver:Number(pmAg)||0,premFab:Number(pmFab)||0,updatedAt:today()};
     setSpotPrices(ns);persist(K.spot,ns);
     // Pricing DB metal costs = (spot × (1 + premium%)) × purity — your cost, not the market's.
-    const rate={gold:loaded(ns.gold,ns.premGold),platinum:loaded(ns.platinum,ns.premPlatinum),silver:loaded(ns.silver,ns.premSilver)};
-    setPricing(prev=>{const u=prev.map(item=>{if(item.category!=="Metals"||!item.metalKey||item.purity==null)return item;const sv=rate[item.metalKey];if(!sv)return item;return{...item,baseCost:Number((sv*item.purity).toFixed(4))};});persist(K.pr,u);return u;});
+    // baseCost = CAST cost (casting-house premium, white-aware via premForMetal).
+    // baseCostFab = HAND-FABRICATED cost (single mill premium, no casting-house charge).
+    const spotOf=k=>k==="gold"?ns.gold:k==="platinum"?ns.platinum:k==="silver"?ns.silver:0;
+    setPricing(prev=>{const u=prev.map(item=>{if(item.category!=="Metals"||!item.metalKey||item.purity==null)return item;const spot=spotOf(item.metalKey);if(!spot)return item;const cast=loaded(spot,premForMetal(item,ns))*item.purity;const fab=loaded(spot,ns.premFab)*item.purity;return{...item,baseCost:Number(cast.toFixed(4)),baseCostFab:Number(fab.toFixed(4))};});persist(K.pr,u);return u;});
     onClose();
   };
   return <div>
@@ -6350,24 +6394,33 @@ function SpotPriceUpdater({spotPrices,setSpotPrices,pricing,setPricing,onClose})
     </div>
     {/* Casting-house premium — the % your supplier charges above spot for casted metal */}
     <div style={{background:PARCH,border:`1px solid ${BD}`,borderRadius:4,padding:"12px 16px",marginBottom:14}}>
-      <div style={{fontSize:11,fontWeight:800,color:INK,textTransform:"uppercase",letterSpacing:"0.06em",marginBottom:2}}>Casting house premium</div>
-      <div style={{fontSize:12,color:WG,marginBottom:12,lineHeight:1.5}}>What your casting house charges <strong style={{color:INK}}>above spot</strong>, per metal. Saved once — every price update (manual or live) applies it automatically, so your Pricing DB reflects what you actually pay.</div>
-      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:"0 16px"}}>
-        <Input label="Gold premium (%)" value={pmG} onChange={setPmG} type="number" min="0" step="0.5" placeholder="0"/>
+      <div style={{fontSize:11,fontWeight:800,color:INK,textTransform:"uppercase",letterSpacing:"0.06em",marginBottom:2}}>Casting house premium <span style={{color:GOLD,fontWeight:700}}>· cast metal</span></div>
+      <div style={{fontSize:12,color:WG,marginBottom:12,lineHeight:1.5}}>What your casting house charges <strong style={{color:INK}}>above spot</strong> to cast a piece in each metal — this is your <strong style={{color:INK}}>cast</strong> cost. Saved once; every price update (manual or live) applies it automatically.</div>
+      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"0 16px"}}>
+        <Input label="Gold — yellow / rose (%)" value={pmG} onChange={setPmG} type="number" min="0" step="0.5" placeholder="0"/>
+        <Input label="Gold — white (%)" value={pmGW} onChange={setPmGW} type="number" min="0" step="0.5" placeholder="0"/>
         <Input label="Platinum premium (%)" value={pmPt} onChange={setPmPt} type="number" min="0" step="0.5" placeholder="0"/>
         <Input label="Silver premium (%)" value={pmAg} onChange={setPmAg} type="number" min="0" step="0.5" placeholder="0"/>
       </div>
+      <div style={{fontSize:11,color:WG,marginTop:8,lineHeight:1.5}}>White gold usually costs more to cast — palladium in the master alloy. Set a higher % here; it applies only to metal items marked <strong style={{color:INK}}>white</strong>.</div>
+    </div>
+    {/* Fabrication premium — mill metal (sheet/wire) bought for hand-fabricated work; usually lower, no casting-house charge */}
+    <div style={{background:PARCH,border:`1px solid ${BD}`,borderRadius:4,padding:"12px 16px",marginBottom:14}}>
+      <div style={{fontSize:11,fontWeight:800,color:INK,textTransform:"uppercase",letterSpacing:"0.06em",marginBottom:2}}>Fabrication premium <span style={{color:GOLD,fontWeight:700}}>· hand-fabricated metal</span></div>
+      <div style={{fontSize:12,color:WG,marginBottom:12,lineHeight:1.5}}>The premium over spot when you buy <strong style={{color:INK}}>mill metal</strong> (sheet, wire, grain) and build the piece at the bench — usually lower than casting, sometimes near spot. Bench labour is billed separately. Each metal then has a <strong style={{color:INK}}>cast</strong> and a <strong style={{color:INK}}>fabricated</strong> cost; you pick per line in the quote.</div>
+      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"0 16px"}}>
+        <Input label="Fabrication / mill premium (%)" value={pmFab} onChange={setPmFab} type="number" min="0" step="0.5" placeholder="0"/>
+      </div>
     </div>
     <div style={{background:PARCH,borderRadius:4,padding:"12px 16px",marginBottom:14,fontSize:13}}>
-      <div style={{fontWeight:700,color:INK,marginBottom:8}}>Preview — your cost per gram</div>
-      {[{n:"9ct yellow gold",k:"gold",p:0.375},{n:"18ct gold (all alloys)",k:"gold",p:0.75},{n:"Platinum 950",k:"platinum",p:0.95},{n:"Silver 925",k:"silver",p:0.925}].map(m=>{
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"baseline",marginBottom:8}}><span style={{fontWeight:700,color:INK}}>Preview — your cost per gram</span><span style={{fontSize:11,color:WG,textTransform:"uppercase",letterSpacing:"0.05em"}}>cast · fabricated</span></div>
+      {[{n:"9ct yellow / rose gold",k:"gold",p:0.375,prem:pmG},{n:"18ct yellow / rose gold",k:"gold",p:0.75,prem:pmG},{n:"18ct white gold",k:"gold",p:0.75,prem:pmGW},{n:"Platinum 950",k:"platinum",p:0.95,prem:pmPt},{n:"Silver 925",k:"silver",p:0.925,prem:pmAg}].map(m=>{
         const spot=m.k==="gold"?Number(g):m.k==="platinum"?Number(pt):Number(ag);
-        const prem=m.k==="gold"?pmG:m.k==="platinum"?pmPt:pmAg;
-        const yours=loaded(spot,prem)*m.p;
-        const hasPrem=(Number(prem)||0)>0;
+        const cast=loaded(spot,m.prem)*m.p;
+        const fab=loaded(spot,pmFab)*m.p;
         return <div key={m.n} style={{display:"flex",justifyContent:"space-between",alignItems:"center",fontSize:13,padding:"4px 0",borderBottom:`1px solid ${BD}`}}>
           <span style={{color:WG}}>{m.n}</span>
-          <span>{hasPrem&&<span style={{color:WG,fontSize:12,marginRight:8}}>spot {fmt(spot*m.p)} +{Number(prem)}% →</span>}<span style={{fontWeight:700,color:INK}}>{fmt(yours)}/g</span></span>
+          <span><span style={{fontWeight:700,color:INK}}>{fmt(cast)}</span><span style={{color:WG,margin:"0 6px"}}>·</span><span style={{fontWeight:700,color:GOLD_D}}>{fmt(fab)}</span><span style={{color:WG,fontSize:11}}>/g</span></span>
         </div>;
       })}
     </div>
