@@ -6979,34 +6979,102 @@ function NavIcon({name,size=17}){
 
 // ── Login screen ──────────────────────────────────────────────────────────
 function Login(){
+  const[mode,setMode]=useState("in");   // "in" = sign in · "up" = create account
   const[email,setEmail]=useState("");
   const[password,setPassword]=useState("");
+  const[studioName,setStudioName]=useState("");
   const[busy,setBusy]=useState(false);
   const[err,setErr]=useState("");
+  const[sentTo,setSentTo]=useState("");   // set after a successful sign-up → "check your email" state
+  // Public sign-up is opt-in per deployment (VITE_ALLOW_SIGNUP="true"). Off by default, so the
+  // single-tenant business deployment keeps an admin-only login; the tester deployment turns it on.
+  const allowSignup=import.meta.env.VITE_ALLOW_SIGNUP==="true";
+  const signUp=allowSignup&&mode==="up";
   const submit=async(e)=>{
     e&&e.preventDefault();
     if(!email.trim()||!password)return setErr("Enter your email and password.");
+    if(signUp&&!studioName.trim())return setErr("Enter your studio / business name.");
+    if(signUp&&password.length<6)return setErr("Choose a password of at least 6 characters.");
     setBusy(true);setErr("");
-    const{error}=await supabase.auth.signInWithPassword({email:email.trim(),password});
-    setBusy(false);
-    if(error)setErr(error.message||"Sign in failed.");
+    if(signUp){
+      // Studio name rides in user_metadata so it survives the email-confirmation gap and
+      // pre-fills the "create your studio" step on first sign-in.
+      const{data,error}=await supabase.auth.signUp({email:email.trim(),password,options:{data:{studio_name:studioName.trim()}}});
+      setBusy(false);
+      if(error)return setErr(error.message||"Sign up failed.");
+      // Confirmation required → no active session yet; tell them to check their inbox.
+      if(!data.session)setSentTo(email.trim());
+    }else{
+      const{error}=await supabase.auth.signInWithPassword({email:email.trim(),password});
+      setBusy(false);
+      if(error)setErr(error.message||"Sign in failed.");
+    }
   };
+  const switchMode=to=>{setMode(to);setErr("");setSentTo("");};
+  const darkInp={...SS.inp,marginTop:4,marginBottom:14,background:"#161616",border:"1px solid rgba(255,255,255,0.12)",color:WHITE};
   return <div style={{minHeight:"100vh",display:"flex",alignItems:"center",justifyContent:"center",background:"#000000",fontFamily:"'DM Sans',sans-serif",padding:20}}>
     <form onSubmit={submit} style={{width:"100%",maxWidth:360,background:"#0E0E0E",border:"1px solid rgba(255,255,255,0.08)",borderRadius:16,padding:"36px 32px"}}>
       <div style={{textAlign:"center",marginBottom:28}}>
         <div style={{fontSize:22,fontWeight:700,color:WHITE,letterSpacing:"0.16em",textTransform:"uppercase",lineHeight:1}}>Workshop Pilot</div>
       </div>
-      <label style={{...SS.lbl,color:"rgba(255,255,255,0.5)"}}>Email</label>
-      <input type="email" value={email} onChange={e=>setEmail(e.target.value)} autoFocus placeholder="you@studio.com"
-        style={{...SS.inp,marginTop:4,marginBottom:14,background:"#161616",border:"1px solid rgba(255,255,255,0.12)",color:WHITE}}/>
-      <label style={{...SS.lbl,color:"rgba(255,255,255,0.5)"}}>Password</label>
-      <input type="password" value={password} onChange={e=>setPassword(e.target.value)} placeholder="••••••••"
-        style={{...SS.inp,marginTop:4,marginBottom:18,background:"#161616",border:"1px solid rgba(255,255,255,0.12)",color:WHITE}}/>
-      {err&&<div style={{background:DANGER+"22",border:`1px solid ${DANGER}55`,color:"#FF9B91",fontSize:12,padding:"9px 12px",borderRadius:4,marginBottom:14}}>{err}</div>}
-      <button type="submit" disabled={busy} style={{width:"100%",background:busy?"#7A5F0F":GOLD,color:WHITE,border:"none",borderRadius:4,padding:"11px",fontSize:14,fontWeight:700,cursor:busy?"default":"pointer",fontFamily:"inherit",letterSpacing:"0.04em"}}>
-        {busy?"Signing in…":"Sign in"}
-      </button>
-      <div style={{fontSize:11,color:"rgba(255,255,255,0.3)",textAlign:"center",marginTop:16,lineHeight:1.6}}>Accounts are created by your studio administrator.</div>
+      {sentTo
+        ?<div style={{textAlign:"center"}}>
+          <div style={{fontSize:30,marginBottom:12}}>📧</div>
+          <div style={{fontSize:16,fontWeight:800,color:WHITE,marginBottom:8}}>Check your email</div>
+          <div style={{fontSize:13,color:"rgba(255,255,255,0.55)",lineHeight:1.6,marginBottom:22}}>We sent a confirmation link to <strong style={{color:WHITE}}>{sentTo}</strong>. Click it, then sign in to set up your studio.</div>
+          <button type="button" onClick={()=>switchMode("in")} style={{background:"none",border:"none",color:GOLD,fontSize:12,fontWeight:700,cursor:"pointer",fontFamily:"inherit"}}>Back to sign in</button>
+        </div>
+        :<>
+          {signUp&&<>
+            <label style={{...SS.lbl,color:"rgba(255,255,255,0.5)"}}>Studio / business name</label>
+            <input value={studioName} onChange={e=>setStudioName(e.target.value)} autoFocus placeholder="e.g. Aurora Fine Jewellery" style={darkInp}/>
+          </>}
+          <label style={{...SS.lbl,color:"rgba(255,255,255,0.5)"}}>Email</label>
+          <input type="email" value={email} onChange={e=>setEmail(e.target.value)} autoFocus={!signUp} placeholder="you@studio.com" style={darkInp}/>
+          <label style={{...SS.lbl,color:"rgba(255,255,255,0.5)"}}>Password</label>
+          <input type="password" value={password} onChange={e=>setPassword(e.target.value)} placeholder={signUp?"At least 6 characters":"••••••••"} style={{...darkInp,marginBottom:18}}/>
+          {err&&<div style={{background:DANGER+"22",border:`1px solid ${DANGER}55`,color:"#FF9B91",fontSize:12,padding:"9px 12px",borderRadius:4,marginBottom:14}}>{err}</div>}
+          <button type="submit" disabled={busy} style={{width:"100%",background:busy?"#7A5F0F":GOLD,color:WHITE,border:"none",borderRadius:4,padding:"11px",fontSize:14,fontWeight:700,cursor:busy?"default":"pointer",fontFamily:"inherit",letterSpacing:"0.04em"}}>
+            {busy?(signUp?"Creating account…":"Signing in…"):(signUp?"Create account":"Sign in")}
+          </button>
+          <div style={{fontSize:12,color:"rgba(255,255,255,0.4)",textAlign:"center",marginTop:16,lineHeight:1.6}}>
+            {!allowSignup
+              ?"Accounts are created by your studio administrator."
+              :signUp
+                ?<>Already have an account? <button type="button" onClick={()=>switchMode("in")} style={{background:"none",border:"none",color:GOLD,fontSize:12,fontWeight:700,cursor:"pointer",fontFamily:"inherit",padding:0}}>Sign in</button></>
+                :<>New here? <button type="button" onClick={()=>switchMode("up")} style={{background:"none",border:"none",color:GOLD,fontSize:12,fontWeight:700,cursor:"pointer",fontFamily:"inherit",padding:0}}>Create a studio account</button></>}
+          </div>
+        </>}
+    </form>
+  </div>;
+}
+
+// First sign-in for a new account: create the studio (via the security-definer RPC that
+// bootstraps studios + membership), then hand the id back so the app can drop straight in.
+function StudioOnboarding({defaultName,onCreated}){
+  const[name,setName]=useState(defaultName||"");
+  const[busy,setBusy]=useState(false);
+  const[err,setErr]=useState("");
+  const create=async(e)=>{
+    e&&e.preventDefault();
+    if(!name.trim())return setErr("Enter your studio / business name.");
+    setBusy(true);setErr("");
+    const{data,error}=await supabase.rpc("create_studio_for_current_user",{studio_name:name.trim()});
+    setBusy(false);
+    if(error)return setErr(error.message||"Couldn't create your studio. Please try again.");
+    onCreated(data);   // RPC returns the new studio id
+  };
+  return <div style={{display:"flex",alignItems:"center",justifyContent:"center",minHeight:"100vh",background:CREAM,fontFamily:"'DM Sans',sans-serif",padding:20}}>
+    <form onSubmit={create} style={{width:"100%",maxWidth:420,background:WHITE,border:`1px solid ${BD}`,borderRadius:RADIUS,padding:"32px 30px",boxShadow:SHADOW}}>
+      <div style={{fontSize:30,marginBottom:12,textAlign:"center"}}>✨</div>
+      <div style={{fontSize:18,fontWeight:800,color:INK,marginBottom:6,textAlign:"center"}}>Set up your studio</div>
+      <div style={{fontSize:13,color:WG,lineHeight:1.6,marginBottom:20,textAlign:"center"}}>Name your studio to get started. You can change it (and add your logo &amp; details) anytime in Settings.</div>
+      <Input label="Studio / business name" value={name} onChange={setName} placeholder="e.g. Aurora Fine Jewellery"/>
+      {err&&<div style={{background:DANGER+"18",border:`1px solid ${DANGER}44`,color:DANGER,fontSize:12,padding:"9px 12px",borderRadius:4,margin:"12px 0"}}>{err}</div>}
+      <div style={{display:"flex",gap:10,justifyContent:"space-between",alignItems:"center",marginTop:18}}>
+        <button type="button" onClick={()=>supabase.auth.signOut()} style={{background:"none",border:"none",color:WG,fontSize:12,fontWeight:700,cursor:"pointer",fontFamily:"inherit",padding:0}}>Sign out</button>
+        <Btn onClick={create} disabled={busy}>{busy?"Creating…":"Create studio"}</Btn>
+      </div>
     </form>
   </div>;
 }
@@ -7903,6 +7971,10 @@ export default function App(){
   // Resolve the user's studio once we have a session, before any data loads.
   useEffect(()=>{
     if(!supabaseEnabled||!userId){setStudioIdModule(null);setStudioId(null);return;}
+    // Hold the loading screen until THIS account's studio is resolved and its data has
+    // loaded — otherwise a previously signed-in studio's in-memory data flashes (or worse,
+    // gets written into the new studio) during an account switch on the same browser.
+    setStorageReady(false);
     let cancelled=false;
     (async()=>{
       try{
@@ -7945,6 +8017,16 @@ export default function App(){
       [K.mt]:setMarkupTable,[K.smn]:setNaturalStoneMarkup,[K.sml]:setLabStoneMarkup,[K.csr]:setCentreRates,
       [K.ap]:setAppointments,[K.pp]:setProposals,[K.td]:setTodos,[K.st]:setStock,
       [K.gc]:setGemCustody,[K.spot]:setSpotPrices,
+    };
+    // When a studio has no saved row for a key (a brand-new/empty studio, or one that just
+    // switched in), reset that slice to a CLEAN default rather than leaving the previously
+    // loaded studio's value in memory. Data lists → empty; catalogue/settings → seed defaults
+    // so a new studio is immediately usable. Keys must match keyToSetter exactly.
+    const studioDefaults={
+      [K.cl]:[],[K.jo]:[],[K.qu]:[],[K.pa]:[],[K.no]:[],[K.inv]:[],[K.pp]:[],[K.ap]:[],
+      [K.td]:{people:[],items:[]},[K.st]:[],[K.gc]:[],[K.biz]:{},
+      [K.pr]:SEED_PRICING,[K.mt]:DEFAULT_MARKUP_TABLE,[K.smn]:DEFAULT_NATURAL_STONE_MARKUP,
+      [K.sml]:DEFAULT_LAB_STONE_MARKUP,[K.csr]:DEFAULT_CENTRE_RATES,[K.spot]:SEED_SPOT,
     };
     // Normalise legacy values before applying to state
     const applyLoaded=(k,v,setter)=>{
@@ -7991,7 +8073,11 @@ export default function App(){
         try{
           const entries=Object.entries(keyToSetter);
           const values=await Promise.all(entries.map(([k])=>_cloudGet(k)));
-          entries.forEach(([k,setter],i)=>applyLoaded(k,values[i],setter));
+          entries.forEach(([k,setter],i)=>{
+            const v=values[i];
+            if(v===null||v===undefined){if(k in studioDefaults)setter(studioDefaults[k]);}   // empty studio → clean default, never the prior studio's data
+            else applyLoaded(k,v,setter);
+          });
           setCloudLoaded(true);   // ✅ now safe to persist to the cloud
         }catch(e){
           setCloudLoaded(false);
@@ -8160,14 +8246,7 @@ export default function App(){
     // Resolving which studio this user belongs to — hold before showing any data
     if(studioId===null)return <div style={{display:"flex",alignItems:"center",justifyContent:"center",minHeight:"100vh",background:CREAM,fontFamily:"'DM Sans',sans-serif",color:WG,fontSize:14}}>Loading…</div>;
     // Signed in but not linked to any studio (onboarding comes in phase 2)
-    if(studioId==="none")return <div style={{display:"flex",alignItems:"center",justifyContent:"center",minHeight:"100vh",background:CREAM,fontFamily:"'DM Sans',sans-serif",padding:20}}>
-      <div style={{maxWidth:420,textAlign:"center",background:WHITE,border:`1px solid ${BD}`,borderRadius:RADIUS,padding:"32px 30px",boxShadow:SHADOW}}>
-        <div style={{fontSize:32,marginBottom:12}}>🔑</div>
-        <div style={{fontSize:17,fontWeight:800,color:INK,marginBottom:8}}>No studio linked to this account</div>
-        <div style={{fontSize:13,color:WG,lineHeight:1.6,marginBottom:22}}>Your login isn't attached to a studio yet. Ask your studio owner for an invite, or contact support to get set up.</div>
-        <Btn ghost onClick={()=>supabase.auth.signOut()}>Sign out</Btn>
-      </div>
-    </div>;
+    if(studioId==="none")return <StudioOnboarding defaultName={session?.user?.user_metadata?.studio_name||""} onCreated={id=>{setStudioIdModule(id);setStudioId(id);}}/>;
     // Cloud load failed — block the app so stale/seed data can't be saved over good cloud data
     if(loadError)return <div style={{display:"flex",alignItems:"center",justifyContent:"center",minHeight:"100vh",background:CREAM,fontFamily:"'DM Sans',sans-serif",padding:20}}>
       <div style={{maxWidth:420,textAlign:"center",background:WHITE,border:`1px solid ${BD}`,borderRadius:RADIUS,padding:"32px 30px",boxShadow:SHADOW}}>
