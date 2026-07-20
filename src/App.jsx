@@ -6986,7 +6986,10 @@ function Login(){
   const[busy,setBusy]=useState(false);
   const[err,setErr]=useState("");
   const[sentTo,setSentTo]=useState("");   // set after a successful sign-up → "check your email" state
-  const signUp=mode==="up";
+  // Public sign-up is opt-in per deployment (VITE_ALLOW_SIGNUP="true"). Off by default, so the
+  // single-tenant business deployment keeps an admin-only login; the tester deployment turns it on.
+  const allowSignup=import.meta.env.VITE_ALLOW_SIGNUP==="true";
+  const signUp=allowSignup&&mode==="up";
   const submit=async(e)=>{
     e&&e.preventDefault();
     if(!email.trim()||!password)return setErr("Enter your email and password.");
@@ -7035,9 +7038,11 @@ function Login(){
             {busy?(signUp?"Creating account…":"Signing in…"):(signUp?"Create account":"Sign in")}
           </button>
           <div style={{fontSize:12,color:"rgba(255,255,255,0.4)",textAlign:"center",marginTop:16,lineHeight:1.6}}>
-            {signUp
-              ?<>Already have an account? <button type="button" onClick={()=>switchMode("in")} style={{background:"none",border:"none",color:GOLD,fontSize:12,fontWeight:700,cursor:"pointer",fontFamily:"inherit",padding:0}}>Sign in</button></>
-              :<>New here? <button type="button" onClick={()=>switchMode("up")} style={{background:"none",border:"none",color:GOLD,fontSize:12,fontWeight:700,cursor:"pointer",fontFamily:"inherit",padding:0}}>Create a studio account</button></>}
+            {!allowSignup
+              ?"Accounts are created by your studio administrator."
+              :signUp
+                ?<>Already have an account? <button type="button" onClick={()=>switchMode("in")} style={{background:"none",border:"none",color:GOLD,fontSize:12,fontWeight:700,cursor:"pointer",fontFamily:"inherit",padding:0}}>Sign in</button></>
+                :<>New here? <button type="button" onClick={()=>switchMode("up")} style={{background:"none",border:"none",color:GOLD,fontSize:12,fontWeight:700,cursor:"pointer",fontFamily:"inherit",padding:0}}>Create a studio account</button></>}
           </div>
         </>}
     </form>
