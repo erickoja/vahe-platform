@@ -7966,6 +7966,10 @@ export default function App(){
   // Resolve the user's studio once we have a session, before any data loads.
   useEffect(()=>{
     if(!supabaseEnabled||!userId){setStudioIdModule(null);setStudioId(null);return;}
+    // Hold the loading screen until THIS account's studio is resolved and its data has
+    // loaded — otherwise a previously signed-in studio's in-memory data flashes (or worse,
+    // gets written into the new studio) during an account switch on the same browser.
+    setStorageReady(false);
     let cancelled=false;
     (async()=>{
       try{
@@ -8008,6 +8012,16 @@ export default function App(){
       [K.mt]:setMarkupTable,[K.smn]:setNaturalStoneMarkup,[K.sml]:setLabStoneMarkup,[K.csr]:setCentreRates,
       [K.ap]:setAppointments,[K.pp]:setProposals,[K.td]:setTodos,[K.st]:setStock,
       [K.gc]:setGemCustody,[K.spot]:setSpotPrices,
+    };
+    // When a studio has no saved row for a key (a brand-new/empty studio, or one that just
+    // switched in), reset that slice to a CLEAN default rather than leaving the previously
+    // loaded studio's value in memory. Data lists → empty; catalogue/settings → seed defaults
+    // so a new studio is immediately usable. Keys must match keyToSetter exactly.
+    const studioDefaults={
+      [K.cl]:[],[K.jo]:[],[K.qu]:[],[K.pa]:[],[K.no]:[],[K.inv]:[],[K.pp]:[],[K.ap]:[],
+      [K.td]:{people:[],items:[]},[K.st]:[],[K.gc]:[],[K.biz]:{},
+      [K.pr]:SEED_PRICING,[K.mt]:DEFAULT_MARKUP_TABLE,[K.smn]:DEFAULT_NATURAL_STONE_MARKUP,
+      [K.sml]:DEFAULT_LAB_STONE_MARKUP,[K.csr]:DEFAULT_CENTRE_RATES,[K.spot]:SEED_SPOT,
     };
     // Normalise legacy values before applying to state
     const applyLoaded=(k,v,setter)=>{
@@ -8054,7 +8068,11 @@ export default function App(){
         try{
           const entries=Object.entries(keyToSetter);
           const values=await Promise.all(entries.map(([k])=>_cloudGet(k)));
-          entries.forEach(([k,setter],i)=>applyLoaded(k,values[i],setter));
+          entries.forEach(([k,setter],i)=>{
+            const v=values[i];
+            if(v===null||v===undefined){if(k in studioDefaults)setter(studioDefaults[k]);}   // empty studio → clean default, never the prior studio's data
+            else applyLoaded(k,v,setter);
+          });
           setCloudLoaded(true);   // ✅ now safe to persist to the cloud
         }catch(e){
           setCloudLoaded(false);
