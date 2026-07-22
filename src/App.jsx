@@ -6442,6 +6442,9 @@ function SpotPriceUpdater({spotPrices,setSpotPrices,pricing,setPricing,onClose})
 
 // ── Reports ───────────────────────────────────────────────────────────────
 function Reports({jobs,clients,quotes,payments,invoices,markupTable}){
+  const isMobile=useIsMobile();
+  // Compact money for the tight bar-chart labels on mobile (e.g. $84k) so they don't overflow.
+  const compactMoney=n=>"$"+(n>=1000?Math.round(n/1000)+"k":Math.round(n));
   const months=Array.from({length:6},(_,i)=>{const d=new Date();d.setMonth(d.getMonth()-i);return d.toISOString().slice(0,7);}).reverse();
   const monthData=months.map(m=>({
     month:new Date(m+"-01").toLocaleDateString("en-AU",{month:"short",year:"numeric"}),
@@ -6482,7 +6485,7 @@ function Reports({jobs,clients,quotes,payments,invoices,markupTable}){
       <div style={{display:"flex",gap:8,alignItems:"flex-end",height:110}}>
         {monthData.map(m=>(
           <div key={m.month} style={{flex:1,display:"flex",flexDirection:"column",alignItems:"center",gap:4}}>
-            <div style={{fontSize:10,fontWeight:700,color:m.paid>0?OK:BD,whiteSpace:"nowrap"}}>{m.paid>0?fmt(m.paid):""}</div>
+            <div style={{fontSize:isMobile?9:10,fontWeight:700,color:m.paid>0?OK:BD,whiteSpace:"nowrap"}}>{m.paid>0?(isMobile?compactMoney(m.paid):fmt(m.paid)):""}</div>
             <div style={{width:"100%",height:`${Math.max(4,Math.round(m.paid/maxPaid*100))}%`,background:m.paid>0?OK:BD,borderRadius:"4px 4px 0 0",minHeight:4}}/>
             <div style={{fontSize:10,color:WG,textAlign:"center",whiteSpace:"nowrap"}}>{m.month}</div>
           </div>
