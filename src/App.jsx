@@ -6520,6 +6520,7 @@ function Reports({jobs,clients,quotes,payments,invoices,markupTable}){
 
 // ── Settings ──────────────────────────────────────────────────────────────
 function Settings({biz,setBiz,markupTable,setMarkupTable,naturalStoneMarkup,setNaturalStoneMarkup,labStoneMarkup,setLabStoneMarkup}){
+  const isMobile=useIsMobile();
   const[bForm,setBForm]=useState({name:"",email:"",phone:"",abn:"",address:"",depositPercent:50,quoteValidityDays:30,quoteTerms:"",bankName:"Commonwealth Bank of Australia",bankAccountName:"",bankBSB:"",bankAccount:"",...biz});
   const setBF=k=>v=>setBForm(p=>({...p,[k]:v}));
   const[mt,setMt]=useState(markupTable.map(b=>({...b})));
@@ -6557,7 +6558,7 @@ function Settings({biz,setBiz,markupTable,setMarkupTable,naturalStoneMarkup,setN
           </div>
           <div>
             <div style={{display:"flex",gap:8,alignItems:"center"}}>
-              <label style={{background:INK,color:WHITE,borderRadius:3,padding:"8px 18px",fontSize:12,fontWeight:700,cursor:"pointer",fontFamily:"inherit",letterSpacing:"0.1em",textTransform:"uppercase"}}>
+              <label style={{background:INK,color:WHITE,borderRadius:3,padding:"6px 12px",fontSize:11,fontWeight:700,cursor:"pointer",fontFamily:"inherit",letterSpacing:"0.06em",textTransform:"uppercase",whiteSpace:"nowrap"}}>
                 {bForm.logo?"Replace logo":"Upload logo"}
                 <input type="file" accept="image/*" style={{display:"none"}} onChange={async e=>{
                   const f=e.target.files?.[0];e.target.value="";if(!f)return;
@@ -6599,20 +6600,20 @@ function Settings({biz,setBiz,markupTable,setMarkupTable,naturalStoneMarkup,setN
       <div style={{fontWeight:700,fontSize:15,color:INK,marginBottom:4}}>Markup table</div>
       <div style={{fontSize:13,color:WG,marginBottom:16,lineHeight:1.6}}>Your tiered multiplier table. The quote builder uses this to find the right bracket and calculate your final price automatically. Adjust any row and save.</div>
       <div style={{background:WHITE,borderRadius:5,border:`1px solid ${BD}`,overflow:"hidden",marginBottom:16}}>
-        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 120px",padding:"9px 16px",background:PARCH,borderBottom:`1px solid ${BD}`}}>
+        <div style={{display:"grid",gridTemplateColumns:isMobile?"repeat(2,1fr)":"1fr 1fr 120px",padding:"9px 16px",background:PARCH,borderBottom:`1px solid ${BD}`}}>
           {["Cost from ($)","Cost to ($)","Multiplier"].map(h=><div key={h} style={{fontSize:10,fontWeight:700,color:WG,textTransform:"uppercase",letterSpacing:"0.05em"}}>{h}</div>)}
         </div>
         {mt.map((b,i)=>{
           const exGST=1000;
           const finalEx=exGST*b.multiplier;
-          return <div key={b.id} style={{display:"grid",gridTemplateColumns:"1fr 1fr 120px",padding:"8px 16px",borderBottom:i<mt.length-1?`1px solid ${BD}`:"none",alignItems:"center",background:i%2===0?WHITE:PARCH+"88"}}>
+          return <div key={b.id} style={{display:"grid",gridTemplateColumns:isMobile?"repeat(2,1fr)":"1fr 1fr 120px",padding:"8px 16px",borderBottom:i<mt.length-1?`1px solid ${BD}`:"none",alignItems:"center",background:i%2===0?WHITE:PARCH+"88"}}>
             <div style={{display:"flex",alignItems:"center",gap:6}}>
               <span style={{fontSize:12,color:WG,marginRight:2}}>$</span>
-              <input type="number" value={b.low} onChange={e=>setMtRow(b.id,"low",Number(e.target.value))} style={{...SS.inp,marginTop:0,fontSize:13,padding:"5px 8px",width:100}}/>
+              <input type="number" value={b.low} onChange={e=>setMtRow(b.id,"low",Number(e.target.value))} style={{...SS.inp,marginTop:0,fontSize:13,padding:"5px 8px",width:isMobile?"100%":100,minWidth:0}}/>
             </div>
             <div style={{display:"flex",alignItems:"center",gap:6}}>
               <span style={{fontSize:12,color:WG,marginRight:2}}>$</span>
-              <input type="number" value={b.high} onChange={e=>setMtRow(b.id,"high",Number(e.target.value))} style={{...SS.inp,marginTop:0,fontSize:13,padding:"5px 8px",width:100}}/>
+              <input type="number" value={b.high} onChange={e=>setMtRow(b.id,"high",Number(e.target.value))} style={{...SS.inp,marginTop:0,fontSize:13,padding:"5px 8px",width:isMobile?"100%":100,minWidth:0}}/>
             </div>
             <div style={{display:"flex",alignItems:"center",gap:8}}>
               <input type="number" value={b.multiplier} onChange={e=>setMtRow(b.id,"multiplier",Number(e.target.value))} step="0.1" min="1" style={{...SS.inp,marginTop:0,fontSize:14,fontWeight:700,padding:"5px 8px",width:70,color:GOLD_D}}/>
@@ -6668,18 +6669,18 @@ function Settings({biz,setBiz,markupTable,setMarkupTable,naturalStoneMarkup,setN
       </div>
       <div style={{fontSize:12,color:WG,marginBottom:14,lineHeight:1.5}}>"Natural" is selected in the quote builder stone section. <strong style={{color:INK}}>GST added at invoice time.</strong></div>
       <div style={{background:WHITE,borderRadius:4,border:`1px solid ${BD}`,overflow:"hidden",marginBottom:12}}>
-        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 130px 44px",padding:"9px 16px",background:PARCH,borderBottom:`1px solid ${BD}`}}>
+        <div style={{display:"grid",gridTemplateColumns:isMobile?"repeat(2,1fr)":"1fr 1fr 130px 44px",padding:"9px 16px",background:PARCH,borderBottom:`1px solid ${BD}`}}>
           {["Cost from ($)","Cost to ($)","Multiplier",""].map(h=><div key={h} style={{fontSize:10,fontWeight:700,color:WG,textTransform:"uppercase",letterSpacing:"0.05em"}}>{h}</div>)}
         </div>
         {smn.map((b,i)=>(
-          <div key={b.id} style={{display:"grid",gridTemplateColumns:"1fr 1fr 130px 44px",padding:"8px 16px",borderBottom:i<smn.length-1?`1px solid ${BD}`:"none",alignItems:"center",background:i%2===0?WHITE:PARCH+"88"}}>
+          <div key={b.id} style={{display:"grid",gridTemplateColumns:isMobile?"repeat(2,1fr)":"1fr 1fr 130px 44px",padding:"8px 16px",borderBottom:i<smn.length-1?`1px solid ${BD}`:"none",alignItems:"center",background:i%2===0?WHITE:PARCH+"88"}}>
             <div style={{display:"flex",alignItems:"center",gap:6}}>
               <span style={{fontSize:12,color:WG}}>$</span>
-              <input type="number" value={b.low} onChange={e=>setSmNRow(b.id,"low",Number(e.target.value))} style={{...SS.inp,marginTop:0,fontSize:13,padding:"5px 8px",width:100}}/>
+              <input type="number" value={b.low} onChange={e=>setSmNRow(b.id,"low",Number(e.target.value))} style={{...SS.inp,marginTop:0,fontSize:13,padding:"5px 8px",width:isMobile?"100%":100,minWidth:0}}/>
             </div>
             <div style={{display:"flex",alignItems:"center",gap:6}}>
               <span style={{fontSize:12,color:WG}}>$</span>
-              <input type="number" value={b.high} onChange={e=>setSmNRow(b.id,"high",Number(e.target.value))} style={{...SS.inp,marginTop:0,fontSize:13,padding:"5px 8px",width:100}}/>
+              <input type="number" value={b.high} onChange={e=>setSmNRow(b.id,"high",Number(e.target.value))} style={{...SS.inp,marginTop:0,fontSize:13,padding:"5px 8px",width:isMobile?"100%":100,minWidth:0}}/>
             </div>
             <div style={{display:"flex",alignItems:"center",gap:8}}>
               <input type="number" value={b.multiplier} onChange={e=>setSmNRow(b.id,"multiplier",Number(e.target.value))} step="0.01" min="1"
@@ -6702,18 +6703,18 @@ function Settings({biz,setBiz,markupTable,setMarkupTable,naturalStoneMarkup,setN
       </div>
       <div style={{fontSize:12,color:WG,marginBottom:14,lineHeight:1.5}}>"Lab-Grown" is selected in the quote builder stone section. <strong style={{color:INK}}>GST added at invoice time.</strong></div>
       <div style={{background:WHITE,borderRadius:4,border:`1px solid ${BD}`,overflow:"hidden",marginBottom:12}}>
-        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 130px 44px",padding:"9px 16px",background:PARCH,borderBottom:`1px solid ${BD}`}}>
+        <div style={{display:"grid",gridTemplateColumns:isMobile?"repeat(2,1fr)":"1fr 1fr 130px 44px",padding:"9px 16px",background:PARCH,borderBottom:`1px solid ${BD}`}}>
           {["Cost from ($)","Cost to ($)","Multiplier",""].map(h=><div key={h} style={{fontSize:10,fontWeight:700,color:WG,textTransform:"uppercase",letterSpacing:"0.05em"}}>{h}</div>)}
         </div>
         {sml.map((b,i)=>(
-          <div key={b.id} style={{display:"grid",gridTemplateColumns:"1fr 1fr 130px 44px",padding:"8px 16px",borderBottom:i<sml.length-1?`1px solid ${BD}`:"none",alignItems:"center",background:i%2===0?WHITE:PARCH+"88"}}>
+          <div key={b.id} style={{display:"grid",gridTemplateColumns:isMobile?"repeat(2,1fr)":"1fr 1fr 130px 44px",padding:"8px 16px",borderBottom:i<sml.length-1?`1px solid ${BD}`:"none",alignItems:"center",background:i%2===0?WHITE:PARCH+"88"}}>
             <div style={{display:"flex",alignItems:"center",gap:6}}>
               <span style={{fontSize:12,color:WG}}>$</span>
-              <input type="number" value={b.low} onChange={e=>setSmLRow(b.id,"low",Number(e.target.value))} style={{...SS.inp,marginTop:0,fontSize:13,padding:"5px 8px",width:100}}/>
+              <input type="number" value={b.low} onChange={e=>setSmLRow(b.id,"low",Number(e.target.value))} style={{...SS.inp,marginTop:0,fontSize:13,padding:"5px 8px",width:isMobile?"100%":100,minWidth:0}}/>
             </div>
             <div style={{display:"flex",alignItems:"center",gap:6}}>
               <span style={{fontSize:12,color:WG}}>$</span>
-              <input type="number" value={b.high} onChange={e=>setSmLRow(b.id,"high",Number(e.target.value))} style={{...SS.inp,marginTop:0,fontSize:13,padding:"5px 8px",width:100}}/>
+              <input type="number" value={b.high} onChange={e=>setSmLRow(b.id,"high",Number(e.target.value))} style={{...SS.inp,marginTop:0,fontSize:13,padding:"5px 8px",width:isMobile?"100%":100,minWidth:0}}/>
             </div>
             <div style={{display:"flex",alignItems:"center",gap:8}}>
               <input type="number" value={b.multiplier} onChange={e=>setSmLRow(b.id,"multiplier",Number(e.target.value))} step="0.01" min="1"
