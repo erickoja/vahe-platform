@@ -1884,6 +1884,7 @@ function ClientForm({initial={},onSave,onCancel}){
 }
 
 function Clients({clients,setClients,jobs,payments,setView,setSelClient,quotes=[]}){
+  const isMobile=useIsMobile();
   const[modal,setModal]=useState(null);
   const[search,setSearch]=useState("");
   const filtered=clients.filter(c=>{const s=search.toLowerCase();return [c.name,c.partnerName,c.email,c.partnerEmail].filter(Boolean).some(v=>v.toLowerCase().includes(s));})
@@ -1906,18 +1907,18 @@ function Clients({clients,setClients,jobs,payments,setView,setSelClient,quotes=[
       const spent=cj.flatMap(j=>payments.filter(p=>p.jobId===j.id&&p.status==="Received")).reduce((s,p)=>s+Number(p.amount),0);
       const received=spent+cj.reduce((s,j)=>s+jobTradeInCredit(j,quotes),0);   // cash + gold trade-in
       return <Card key={c.id} onClick={()=>{setSelClient(c.id);setView("clientDetail");}}>
-        <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start"}}>
-          <div style={{display:"flex",gap:14,alignItems:"flex-start",flex:1}}>
+        <div style={{display:"flex",flexDirection:isMobile?"column":"row",justifyContent:"space-between",alignItems:isMobile?"stretch":"flex-start",gap:isMobile?12:0}}>
+          <div style={{display:"flex",gap:14,alignItems:"flex-start",flex:1,minWidth:0}}>
             <div style={{width:38,height:38,borderRadius:"50%",background:GOLD_L,display:"flex",alignItems:"center",justifyContent:"center",fontSize:16,fontWeight:800,color:GOLD_D,flexShrink:0}}>{c.name.charAt(0)}</div>
-            <div><div style={{fontWeight:700,fontSize:15,color:INK}}>{clientDisplayName(c)}</div>
-            <div style={{fontSize:12,color:WG,marginTop:2}}>{c.email} · {c.phone}</div>
+            <div style={{minWidth:0}}><div style={{fontWeight:700,fontSize:15,color:INK}}>{clientDisplayName(c)}</div>
+            <div style={{fontSize:12,color:WG,marginTop:2,overflowWrap:"anywhere"}}>{c.email} · {c.phone}</div>
             <div style={{display:"flex",gap:12,fontSize:12,color:WG,marginTop:4,flexWrap:"wrap"}}>
               {received>0&&<span>Received: <b style={{color:OK}}>{fmt(received)}</b></span>}
             </div></div>
           </div>
-          <div style={{display:"flex",flexDirection:"column",gap:8,alignItems:"flex-end"}}>
+          <div style={{display:"flex",flexDirection:isMobile?"row":"column",gap:8,alignItems:"center",justifyContent:isMobile?"flex-start":"flex-end",flexShrink:0}}>
             <Badge label={`${cj.length} job${cj.length!==1?"s":""}`} color={WG}/>
-            <div style={{display:"flex",gap:6}} onClick={e=>e.stopPropagation()}>
+            <div style={{display:"flex",gap:6,marginLeft:isMobile?"auto":0}} onClick={e=>e.stopPropagation()}>
               <Btn sm ghost onClick={()=>setModal(c)}>Edit</Btn>
               <Btn sm danger onClick={()=>del(c.id)}>×</Btn>
             </div>
