@@ -6158,9 +6158,9 @@ function PricingDB({pricing,setPricing,spotPrices,setSpotPrices,markupTable,cent
     {!isDiamondView&&!isSettingView&&!isComplexSettingView&&!isPrintCastView&&!isCentreView&&<>
       {filteredRegular.length>0&&<div style={{background:WHITE,borderRadius:5,border:`1px solid ${regularEditing?GOLD:BD}`,overflow:"hidden",marginBottom:16,transition:"border-color 0.15s"}}>
         {/* Table header bar with edit button */}
-        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"10px 16px",background:regularEditing?GOLD_L:PARCH,borderBottom:`1px solid ${regularEditing?GOLD+"55":BD}`}}>
+        <div style={{display:"flex",flexDirection:isMobile?"column":"row",justifyContent:"space-between",alignItems:isMobile?"flex-start":"center",gap:isMobile?10:0,padding:"10px 16px",background:regularEditing?GOLD_L:PARCH,borderBottom:`1px solid ${regularEditing?GOLD+"55":BD}`}}>
           <div style={{fontSize:11,fontWeight:700,color:regularEditing?GOLD_D:WG,textTransform:"uppercase",letterSpacing:"0.06em"}}>
-            {regularEditing?"Editing prices — update then save":"Drag ⠿ to reorder · click ✎ to update cost prices"}
+            {regularEditing?"Editing prices — update then save":(isMobile?"Tap ✎ to edit cost prices":"Drag ⠿ to reorder · click ✎ to update cost prices")}
           </div>
           <div style={{display:"flex",gap:8}}>
             {regularEditing
