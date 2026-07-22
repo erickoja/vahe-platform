@@ -1323,7 +1323,7 @@ function StoneMarkupSummary({calc}){
 function Badge({label,color=WG,size="sm"}){
   return <span style={{display:"inline-block",padding:size==="lg"?"4px 14px":"2px 9px",borderRadius:3,fontSize:size==="lg"?12:11,fontWeight:700,letterSpacing:"0.04em",background:color+"22",color,border:`1px solid ${color}44`,whiteSpace:"nowrap"}}>{label}</span>;
 }
-function Btn({onClick,children,sm,danger,ghost,disabled}){
+function Btn({onClick,children,sm,xs,danger,ghost,disabled}){
   const[h,setH]=useState(false);
   // Fine-editorial style: flat, near-square, hairline borders, uppercase letter-spaced labels.
   let bg,fg,bc;
@@ -1332,7 +1332,7 @@ function Btn({onClick,children,sm,danger,ghost,disabled}){
   else if(ghost){bg=h?"#F1EFE8":"transparent";fg=INK;bc=h?"#A99F8C":"#C9BFAE";}
   else{bg=h?"#000000":INK;fg=WHITE;bc=bg;}
   return <button onClick={disabled?undefined:onClick} onMouseEnter={()=>setH(true)} onMouseLeave={()=>setH(false)} disabled={disabled}
-    style={{background:bg,color:fg,border:`1px solid ${bc}`,borderRadius:2,padding:sm?"7px 15px":"10px 23px",fontSize:sm?11:12.5,fontWeight:700,letterSpacing:"0.12em",textTransform:"uppercase",cursor:disabled?"default":"pointer",fontFamily:"inherit",transition:"all 0.15s",opacity:disabled?0.6:1,whiteSpace:"nowrap"}}>{children}</button>;
+    style={{background:bg,color:fg,border:`1px solid ${bc}`,borderRadius:2,padding:xs?"5px 10px":sm?"7px 15px":"10px 23px",fontSize:xs?10:sm?11:12.5,fontWeight:700,letterSpacing:xs?"0.06em":"0.12em",textTransform:"uppercase",cursor:disabled?"default":"pointer",fontFamily:"inherit",transition:"all 0.15s",opacity:disabled?0.6:1,whiteSpace:"nowrap"}}>{children}</button>;
 }
 function Input({label,value,onChange,type="text",placeholder,as,options,rows,min,step,disabled}){
   return <div style={{marginBottom:14}}>
@@ -7442,6 +7442,7 @@ const PIECE_TYPES=["Ring","Necklace","Pendant","Bracelet","Bangle","Earrings","B
 // Log any client-owned stone you're physically holding, and print a receipt as
 // proof for the customer. It's a bailment record: ownership stays with the client.
 function GemCustody({custody,setCustody,clients,biz}){
+  const isMobile=useIsMobile();
   const save=next=>{setCustody(next);persist(K.gc,next);};
   const[draft,setDraft]=useState(null);        // the record open in the modal (new or edit)
   const[filter,setFilter]=useState("Holding"); // Holding | Returned | All
@@ -7567,7 +7568,7 @@ function GemCustody({custody,setCustody,clients,biz}){
             {["Holding","Returned","All"].map(f=>(
               <button key={f} onClick={()=>setFilter(f)} style={{padding:"7px 15px",borderRadius:2,border:`1px solid ${filter===f?INK:"#C9BFAE"}`,background:filter===f?INK:"transparent",color:filter===f?WHITE:INK,fontSize:11,fontWeight:700,letterSpacing:"0.08em",textTransform:"uppercase",cursor:"pointer",fontFamily:"inherit"}}>{f}</button>
             ))}
-            <input value={qStr} onChange={e=>setQStr(e.target.value)} placeholder="Search client, item or certificate…" style={{...SS.inp,marginTop:0,maxWidth:280,marginLeft:"auto"}}/>
+            <input value={qStr} onChange={e=>setQStr(e.target.value)} placeholder="Search client, item or certificate…" style={{...SS.inp,marginTop:0,maxWidth:isMobile?"none":280,width:isMobile?"100%":undefined}}/>
           </div>
 
           {shown.length===0
@@ -7594,9 +7595,9 @@ function GemCustody({custody,setCustody,clients,biz}){
                       </div>
                     </div>
                     <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
-                      <Btn sm onClick={()=>printGemCustodyReceipt(biz||{},c,r)}>Print / Save PDF</Btn>
-                      <Btn sm ghost onClick={()=>toggleReturned(r)}>{returned?"Reopen":"Mark returned"}</Btn>
-                      <Btn sm ghost onClick={()=>openEdit(r)}>Edit</Btn>
+                      <Btn sm={!isMobile} xs={isMobile} onClick={()=>printGemCustodyReceipt(biz||{},c,r)}>Print / Save PDF</Btn>
+                      <Btn sm={!isMobile} xs={isMobile} ghost onClick={()=>toggleReturned(r)}>{returned?"Reopen":"Mark returned"}</Btn>
+                      <Btn sm={!isMobile} xs={isMobile} ghost onClick={()=>openEdit(r)}>Edit</Btn>
                     </div>
                   </div>
                 </Card>;
