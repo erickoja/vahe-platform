@@ -1707,10 +1707,12 @@ ${inv.notes?`<div class="notes">${inv.notes}</div>`:""}
 
 // ── Dashboard ─────────────────────────────────────────────────────────────
 // Clickable dashboard list row — soft hover highlight that bleeds into the card padding; no trailing hairline.
-function DashRow({onClick,last,children}){
+function DashRow({onClick,last,children,col}){
   const[h,setH]=useState(false);
+  // `col` stacks the two children vertically (used on mobile so a long job name + its amount
+  // don't fight for width on one line).
   return <div onClick={onClick} onMouseEnter={()=>setH(true)} onMouseLeave={()=>setH(false)}
-    style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:12,padding:"10px",margin:"0 -10px",borderRadius:6,borderBottom:last?"none":`1px solid ${BD_SOFT}`,background:h&&onClick?PARCH:"transparent",cursor:onClick?"pointer":"default",transition:"background 0.12s"}}>
+    style={{display:"flex",flexDirection:col?"column":"row",alignItems:col?"flex-start":"center",justifyContent:"space-between",gap:col?3:12,padding:"10px",margin:"0 -10px",borderRadius:6,borderBottom:last?"none":`1px solid ${BD_SOFT}`,background:h&&onClick?PARCH:"transparent",cursor:onClick?"pointer":"default",transition:"background 0.12s"}}>
     {children}
   </div>;
 }
@@ -1828,9 +1830,9 @@ function Dashboard({clients,jobs,quotes,payments,invoices,appointments=[],propos
           <div style={{fontWeight:700,fontSize:15,color:INK,marginBottom:14}}>Balance owing by job</div>
           {balanceOwing.map(({job,balance},i,arr)=>{
             const c=clients.find(x=>x.id===job.clientId);
-            return <DashRow key={job.id} onClick={()=>setView("jobDetail_"+job.id)} last={i===arr.length-1}>
-              <div><div style={{fontWeight:600,fontSize:13,color:INK}}>{job.type} · {clientDisplayName(c)}</div><div style={{fontSize:12,color:WG}}>{job.stage}</div></div>
-              <div style={{fontWeight:800,fontSize:15,color:WARN}}>{fmt(balance)} owing</div>
+            return <DashRow key={job.id} onClick={()=>setView("jobDetail_"+job.id)} last={i===arr.length-1} col={isMobile}>
+              <div style={{minWidth:0}}><div style={{fontWeight:600,fontSize:13,color:INK}}>{job.type} · {clientDisplayName(c)}</div><div style={{fontSize:12,color:WG}}>{job.stage}</div></div>
+              <div style={{fontWeight:800,fontSize:15,color:WARN,whiteSpace:"nowrap",flexShrink:0}}>{fmt(balance)} <span style={{fontSize:11,fontWeight:600,opacity:0.75}}>owing</span></div>
             </DashRow>;
           })}
         </Card>}
