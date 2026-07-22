@@ -7918,6 +7918,17 @@ function StockBoard({stock,setStock,setView}){
   </div>;
 }
 
+// True when the viewport is phone-width. Drives the shell's drawer nav + tighter padding.
+function useIsMobile(bp=768){
+  const[m,setM]=useState(typeof window!=="undefined"&&window.innerWidth<bp);
+  useEffect(()=>{
+    const on=()=>setM(window.innerWidth<bp);
+    window.addEventListener("resize",on);
+    return()=>window.removeEventListener("resize",on);
+  },[bp]);
+  return m;
+}
+
 export default function App(){
   // Public client-facing proposal link (?p=<token>) — render the standalone proposal page,
   // outside the auth gate and the studio shell. Derived from the URL (constant per page load).
@@ -7948,6 +7959,8 @@ export default function App(){
   const[storageReady,setStorageReady]=useState(false);
   const[loadError,setLoadError]=useState(false);
   const[loadNonce,setLoadNonce]=useState(0);
+  const isMobile=useIsMobile();
+  const[drawerOpen,setDrawerOpen]=useState(false);
   const[session,setSession]=useState(null);
   const[authReady,setAuthReady]=useState(!supabaseEnabled);
   // Stable across token refreshes — only changes on real sign-in/out
@@ -8262,9 +8275,30 @@ export default function App(){
   }
 
   return <div style={{display:"flex",minHeight:"100vh",background:CREAM,fontFamily:"'DM Sans',sans-serif"}}>
-    <div style={{width:210,background:"#000000",display:"flex",flexDirection:"column",padding:"40px 0 28px",flexShrink:0,position:"sticky",top:0,height:"100vh",overflowY:"auto"}}>
-      <div style={{padding:"0 20px 28px",borderBottom:"1px solid rgba(255,255,255,0.06)",textAlign:"center"}}>
+    {/* Mobile Phase 2: collapse the common multi-column inline grids to a single column below
+        768px. The [style*=…] selector matches React's serialized inline style, and !important
+        beats the (non-important) inline value — so no per-element edits are needed. Grids that
+        start "1fr 1fr…" (2/3-col forms + most tile rows) and the 220px sidebar splits collapse;
+        fixed-width data-table rows keep their columns (those get horizontal scroll in Phase 3). */}
+    <style>{`@media(max-width:767px){
+      [style*="grid-template-columns: 1fr 1fr"]{grid-template-columns:1fr!important}
+      [style*="grid-template-columns: 220px 1fr"]{grid-template-columns:1fr!important}
+    }`}</style>
+    {/* Mobile top bar — hamburger opens the nav drawer (desktop keeps the fixed sidebar) */}
+    {isMobile&&<div style={{position:"fixed",top:0,left:0,right:0,height:52,background:"#000000",display:"flex",alignItems:"center",gap:12,padding:"0 14px",zIndex:1000}}>
+      <button onClick={()=>setDrawerOpen(true)} aria-label="Open menu" style={{background:"none",border:"none",cursor:"pointer",padding:6,display:"flex",flexDirection:"column",gap:4}}>
+        {[0,1,2].map(i=><span key={i} style={{width:20,height:2,background:WHITE,display:"block",borderRadius:2}}/>)}
+      </button>
+      <div style={{fontSize:14,fontWeight:700,color:WHITE,letterSpacing:"0.14em",textTransform:"uppercase"}}>Workshop Pilot</div>
+    </div>}
+    {/* Tap-away backdrop while the drawer is open */}
+    {isMobile&&drawerOpen&&<div onClick={()=>setDrawerOpen(false)} style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.5)",zIndex:1001}}/>}
+    <div style={isMobile
+      ?{width:250,maxWidth:"85vw",background:"#000000",display:"flex",flexDirection:"column",padding:"20px 0 28px",position:"fixed",top:0,left:0,height:"100vh",overflowY:"auto",zIndex:1002,transform:drawerOpen?"translateX(0)":"translateX(-100%)",transition:"transform 0.22s ease",boxShadow:drawerOpen?"2px 0 24px rgba(0,0,0,0.45)":"none"}
+      :{width:210,background:"#000000",display:"flex",flexDirection:"column",padding:"40px 0 28px",flexShrink:0,position:"sticky",top:0,height:"100vh",overflowY:"auto"}}>
+      <div style={{padding:"0 20px 28px",borderBottom:"1px solid rgba(255,255,255,0.06)",textAlign:"center",position:"relative"}}>
         <div style={{fontSize:17,fontWeight:700,color:WHITE,letterSpacing:"0.16em",textTransform:"uppercase",lineHeight:1.15}}>Workshop Pilot</div>
+        {isMobile&&<button onClick={()=>setDrawerOpen(false)} aria-label="Close menu" style={{position:"absolute",top:-2,right:10,background:"none",border:"none",color:"rgba(255,255,255,0.55)",fontSize:26,lineHeight:1,cursor:"pointer",padding:4}}>×</button>}
       </div>
       <nav style={{padding:"16px 12px",flex:1}}>
         {NAV_GROUPS.map((g,gi)=>(
@@ -8272,7 +8306,7 @@ export default function App(){
             {g.label&&<div style={{fontSize:9,fontWeight:700,letterSpacing:"0.2em",textTransform:"uppercase",color:"rgba(255,255,255,0.26)",padding:"0 12px",marginBottom:8}}>{g.label}</div>}
             {g.ids.map(id=>{
               const n=NAV_MAP[id];const active=activeNav===id;
-              return <button key={id} onClick={()=>setView(id)} style={{display:"flex",alignItems:"center",gap:12,width:"100%",padding:"9px 12px",borderRadius:6,border:"none",background:active?"rgba(184,146,42,0.13)":"transparent",color:active?GOLD:"rgba(255,255,255,0.5)",fontSize:11,fontWeight:active?700:500,cursor:"pointer",fontFamily:"inherit",textAlign:"left",letterSpacing:"0.09em",textTransform:"uppercase",marginBottom:2,transition:"background 0.12s,color 0.12s"}}
+              return <button key={id} onClick={()=>{setView(id);setDrawerOpen(false);}} style={{display:"flex",alignItems:"center",gap:12,width:"100%",padding:"9px 12px",borderRadius:6,border:"none",background:active?"rgba(184,146,42,0.13)":"transparent",color:active?GOLD:"rgba(255,255,255,0.5)",fontSize:11,fontWeight:active?700:500,cursor:"pointer",fontFamily:"inherit",textAlign:"left",letterSpacing:"0.09em",textTransform:"uppercase",marginBottom:2,transition:"background 0.12s,color 0.12s"}}
                 onMouseEnter={e=>{if(!active){e.currentTarget.style.background="rgba(255,255,255,0.05)";e.currentTarget.style.color="rgba(255,255,255,0.92)";}}}
                 onMouseLeave={e=>{if(!active){e.currentTarget.style.background="transparent";e.currentTarget.style.color="rgba(255,255,255,0.5)";}}}>
                 <NavIcon name={id} size={17}/><span>{n.label}</span>
@@ -8294,7 +8328,7 @@ export default function App(){
         </div>
       </div>
     </div>
-    <div style={{flex:1,padding:"40px 56px",width:"100%",minWidth:0}}>
+    <div style={{flex:1,padding:isMobile?"16px 14px":"40px 56px",paddingTop:isMobile?68:40,width:"100%",minWidth:0,overflowX:isMobile?"auto":undefined}}>
       {!storageReady
         ?<div style={{display:"flex",alignItems:"center",justifyContent:"center",height:300,flexDirection:"column",gap:12}}>
             <div style={{fontSize:13,color:WG}}>Loading your data…</div>
