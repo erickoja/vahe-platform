@@ -6690,7 +6690,7 @@ function Settings({biz,setBiz,markupTable,setMarkupTable,naturalStoneMarkup,setN
           </div>
         ))}
       </div>
-      <div style={{display:"flex",gap:10,justifyContent:"space-between",alignItems:"center"}}>
+      <div style={{display:"flex",gap:10,rowGap:12,justifyContent:"space-between",alignItems:"center",flexWrap:"wrap"}}>
         <button onClick={addSmNRow} style={{background:"none",border:"1px dashed #3B6E8F",borderRadius:4,padding:"6px 14px",color:"#3B6E8F",fontSize:12,fontWeight:700,cursor:"pointer",fontFamily:"inherit"}}>+ Add tier</button>
         <Btn onClick={saveSmNTable}>Save natural stone markup</Btn>
       </div>
@@ -6724,7 +6724,7 @@ function Settings({biz,setBiz,markupTable,setMarkupTable,naturalStoneMarkup,setN
           </div>
         ))}
       </div>
-      <div style={{display:"flex",gap:10,justifyContent:"space-between",alignItems:"center"}}>
+      <div style={{display:"flex",gap:10,rowGap:12,justifyContent:"space-between",alignItems:"center",flexWrap:"wrap"}}>
         <button onClick={addSmLRow} style={{background:"none",border:"1px dashed #7B5EA7",borderRadius:4,padding:"6px 14px",color:"#7B5EA7",fontSize:12,fontWeight:700,cursor:"pointer",fontFamily:"inherit"}}>+ Add tier</button>
         <Btn onClick={saveSmLTable}>Save lab-grown stone markup</Btn>
       </div>
