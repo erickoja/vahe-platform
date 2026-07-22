@@ -8275,6 +8275,15 @@ export default function App(){
   }
 
   return <div style={{display:"flex",minHeight:"100vh",background:CREAM,fontFamily:"'DM Sans',sans-serif"}}>
+    {/* Mobile Phase 2: collapse the common multi-column inline grids to a single column below
+        768px. The [style*=…] selector matches React's serialized inline style, and !important
+        beats the (non-important) inline value — so no per-element edits are needed. Grids that
+        start "1fr 1fr…" (2/3-col forms + most tile rows) and the 220px sidebar splits collapse;
+        fixed-width data-table rows keep their columns (those get horizontal scroll in Phase 3). */}
+    <style>{`@media(max-width:767px){
+      [style*="grid-template-columns: 1fr 1fr"]{grid-template-columns:1fr!important}
+      [style*="grid-template-columns: 220px 1fr"]{grid-template-columns:1fr!important}
+    }`}</style>
     {/* Mobile top bar — hamburger opens the nav drawer (desktop keeps the fixed sidebar) */}
     {isMobile&&<div style={{position:"fixed",top:0,left:0,right:0,height:52,background:"#000000",display:"flex",alignItems:"center",gap:12,padding:"0 14px",zIndex:1000}}>
       <button onClick={()=>setDrawerOpen(true)} aria-label="Open menu" style={{background:"none",border:"none",cursor:"pointer",padding:6,display:"flex",flexDirection:"column",gap:4}}>
