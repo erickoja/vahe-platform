@@ -5520,7 +5520,7 @@ function InvoiceDetail({invoiceId,invoices,setInvoices,jobs,clients,payments,biz
         </div>
       ))}
       <div style={{display:"flex",justifyContent:"flex-end",marginTop:16}}>
-        <div style={{minWidth:280}}>
+        <div style={{minWidth:isMobile?0:280,width:isMobile?"100%":undefined}}>
           {discount>0&&<div style={{display:"flex",justifyContent:"space-between",fontSize:13,padding:"4px 0",color:WG}}><span>Subtotal</span><span>{fmt(subtotalIncGST)}</span></div>}
           {discount>0&&<div style={{display:"flex",justifyContent:"space-between",fontSize:13,padding:"4px 0",color:OK}}><span>{inv.discountLabel||"Discount"}</span><span>−{fmt(discount)}</span></div>}
           <div style={{display:"flex",justifyContent:"space-between",fontSize:13,padding:"4px 0",color:WG}}><span>Includes GST</span><span>{fmt(inv.gst)}</span></div>
@@ -5531,9 +5531,11 @@ function InvoiceDetail({invoiceId,invoices,setInvoices,jobs,clients,payments,biz
         </div>
       </div>
       {inv.notes&&<div style={{marginTop:14,fontSize:13,color:WG,fontStyle:"italic",borderTop:`1px solid ${BD}`,paddingTop:10}}>{inv.notes}</div>}
-      <div style={{display:"flex",gap:8,marginTop:18,flexWrap:"wrap",alignItems:"center"}}>
+      <div style={{display:"flex",flexDirection:isMobile?"column":"row",alignItems:isMobile?"flex-start":"center",gap:isMobile?8:8,marginTop:18}}>
         <span style={{fontSize:11,color:WG,fontWeight:700,textTransform:"uppercase",letterSpacing:"0.06em"}}>Mark as:</span>
-        {["Unpaid","Paid","Overdue"].map(s=><Btn key={s} sm ghost={inv.status!==s} onClick={()=>setStatus(s)}>{inv.status===s?"✓ ":""}{s}</Btn>)}
+        <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
+          {["Unpaid","Paid","Overdue"].map(s=><Btn key={s} sm ghost={inv.status!==s} onClick={()=>setStatus(s)}>{inv.status===s?"✓ ":""}{s}</Btn>)}
+        </div>
       </div>
       {autoPaid&&<div style={{fontSize:12,color:OK,marginTop:10}}>✓ Automatically marked <strong>Paid</strong> — recorded payments cover this invoice.</div>}
     </Card>
