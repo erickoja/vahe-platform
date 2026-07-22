@@ -3815,7 +3815,7 @@ function QuoteBuilder({jobId:jobIdProp,editQuoteId,stockId,stock,setStock,jobs,c
                           :`${fmt(item.baseCost)} per ${item.unit}`}
                         </div>
                       </div>
-                      <div style={{display:"flex",gap:8,alignItems:"center",flexWrap:"wrap",justifyContent:isMobile?"flex-start":"flex-end",flexShrink:0}}>
+                      <div style={{display:"flex",gap:8,alignItems:"center",flexWrap:isMobile?"nowrap":"wrap",justifyContent:isMobile?"flex-start":"flex-end",flexShrink:0}}>
                       {isFixedJob
                         ?<>
                           <span style={{fontSize:13,fontWeight:700,color:INK,whiteSpace:"nowrap"}}>{fmt(item.baseCost)}</span>
@@ -3833,8 +3833,8 @@ function QuoteBuilder({jobId:jobIdProp,editQuoteId,stockId,stock,setStock,jobs,c
                             onChange={e=>setPQty(p=>({...p,[item.id]:e.target.value}))}
                             onKeyDown={e=>{if(e.key==="Enter")addNow();}}
                             placeholder={amtMode?"$ price":qtyLabel}
-                            style={{...SS.inp,marginTop:0,width:96,padding:"6px 9px",fontSize:13,textAlign:"right",flexShrink:0}}/>
-                          <span style={{fontSize:12,fontWeight:800,color:OK,whiteSpace:"nowrap",width:84,textAlign:"right",flexShrink:0}}>{amtMode?(Number(qty)>0?`= ${fmt(qty)}`:""):previewCost?`= ${fmt(previewCost)}`:""}</span>
+                            style={{...SS.inp,marginTop:0,width:isMobile?"auto":96,flex:isMobile?1:undefined,minWidth:0,padding:"6px 9px",fontSize:13,textAlign:"right",flexShrink:isMobile?1:0}}/>
+                          <span style={{fontSize:12,fontWeight:800,color:OK,whiteSpace:"nowrap",width:isMobile?"auto":84,textAlign:"right",flexShrink:0}}>{amtMode?(Number(qty)>0?`= ${fmt(qty)}`:""):previewCost?`= ${fmt(previewCost)}`:""}</span>
                           <Btn sm onClick={addNow}>Add</Btn>
                         </>}
                       </div>
