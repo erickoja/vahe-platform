@@ -3743,21 +3743,23 @@ function QuoteBuilder({jobId:jobIdProp,editQuoteId,stockId,stock,setStock,jobs,c
           <div style={{marginTop:8,fontSize:11.5,color:WG,lineHeight:1.5}}>These are your cost prices, the mark-up is applied automatically by the multiplier table. The one exception is the repair prices that are already shown as a retail guide.</div>
         </div>
 
-        {/* ── Body: category sidebar + item list ── */}
-        <div style={{flex:1,display:"flex",minHeight:0}}>
-          <div style={{width:220,flexShrink:0,borderRight:`1px solid ${BD}`,overflowY:"auto",padding:"10px 8px",background:PARCH}}>
+        {/* ── Body: category sidebar + item list (stacks on mobile) ── */}
+        <div style={{flex:1,display:"flex",flexDirection:isMobile?"column":"row",minHeight:0}}>
+          <div style={isMobile
+            ?{flexShrink:0,borderBottom:`1px solid ${BD}`,overflowX:"auto",padding:"8px 10px",background:PARCH,display:"flex",gap:6}
+            :{width:220,flexShrink:0,borderRight:`1px solid ${BD}`,overflowY:"auto",padding:"10px 8px",background:PARCH}}>
             {NAV_CATS.map(cat=>{
               const n=cat==="All"?pricing.filter(p=>p.category!=="Accent Stones").length:pricing.filter(p=>p.category===cat).length;
               const active=!pSearching&&pCat===cat;
               return <button key={cat} onClick={()=>{setPCat(cat);setSelCAD(null);setPSearch("");}}
-                style={{display:"flex",justifyContent:"space-between",alignItems:"center",gap:8,width:"100%",textAlign:"left",padding:"8px 12px",borderRadius:6,border:"none",background:active?GOLD:"transparent",color:active?WHITE:INK,fontSize:12,fontWeight:700,cursor:"pointer",fontFamily:"inherit",marginBottom:2}}>
+                style={{display:"flex",justifyContent:"space-between",alignItems:"center",gap:8,width:isMobile?"auto":"100%",flexShrink:isMobile?0:undefined,whiteSpace:isMobile?"nowrap":undefined,textAlign:"left",padding:"8px 12px",borderRadius:6,border:isMobile?`1px solid ${active?GOLD:BD}`:"none",background:active?GOLD:(isMobile?WHITE:"transparent"),color:active?WHITE:INK,fontSize:12,fontWeight:700,cursor:"pointer",fontFamily:"inherit",marginBottom:isMobile?0:2}}>
                 <span>{catTitle(cat)}</span>
                 {n>0&&<span style={{fontSize:10,fontWeight:700,color:active?"rgba(255,255,255,0.75)":WG}}>{n}</span>}
               </button>;
             })}
           </div>
 
-          <div style={{flex:1,display:"flex",flexDirection:"column",minHeight:0,padding:"0 24px"}}>
+          <div style={{flex:1,display:"flex",flexDirection:"column",minHeight:0,padding:isMobile?"0 14px":"0 24px"}}>
             {/* Manual override price — available on every category (pinned above the list) */}
             <div style={{flexShrink:0,background:GOLD_L+"66",border:`1px solid ${GOLD}55`,borderRadius:4,padding:"11px 14px",margin:"12px 0 10px"}}>
               <div style={{fontSize:12,fontWeight:700,color:GOLD_D,marginBottom:2}}>Manual price{!pSearching&&pCat!=="All"?` (${catTitle(pCat)})`:""}</div>
@@ -3799,13 +3801,13 @@ function QuoteBuilder({jobId:jobIdProp,editQuoteId,stockId,stock,setStock,jobs,c
                     const addNow=()=>amtMode?addManualAmount(item,qty):addFromDB(item,qty||1);
                     const timesAdded=addedIds[item.id]||0;
                     const flashing=pFlash===item.id;
-                    const row=<div key={item.id} style={{display:"flex",alignItems:"center",gap:10,padding:"8px 0",borderBottom:`1px solid ${BD}`}}>
+                    const row=<div key={item.id} style={{display:"flex",flexDirection:isMobile?"column":"row",alignItems:isMobile?"stretch":"center",gap:isMobile?8:10,padding:"8px 0",borderBottom:`1px solid ${BD}`}}>
                       <div style={{flex:1,minWidth:0}}>
                         <div style={{display:"flex",alignItems:"center",gap:8,minWidth:0}}>
-                          <span style={{fontWeight:600,fontSize:13,color:INK,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{(isDiamond||isSetting)?`${item.sizeMm}mm`:item.name}</span>
+                          <span style={{fontWeight:600,fontSize:13,color:INK,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:isMobile?"normal":"nowrap"}}>{(isDiamond||isSetting)?`${item.sizeMm}mm`:item.name}</span>
                           {timesAdded>0&&<span style={{background:flashing?OK:OK+"1A",color:flashing?WHITE:OK,fontSize:9,fontWeight:800,padding:"2px 8px",borderRadius:4,letterSpacing:"0.05em",whiteSpace:"nowrap",flexShrink:0,transition:"all 0.25s"}}>✓ {timesAdded>1?`ON QUOTE ×${timesAdded}`:"ON QUOTE"}</span>}
                         </div>
-                        <div style={{fontSize:11,color:WG,marginTop:1,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>
+                        <div style={{fontSize:11,color:WG,marginTop:1,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:isMobile?"normal":"nowrap"}}>
                           {showCat?`${catTitle(item.category)} · `:""}
                           {isDiamond?`${item.caratWeight}ct · ${fmt(item.baseCost)}/stone · ${fmt(item.pricePerCarat)}/ct`
                           :isSetting?`stone fits ${item.caratWeight}ct · ${fmt(item.baseCost)}/stone setting`
@@ -3813,6 +3815,7 @@ function QuoteBuilder({jobId:jobIdProp,editQuoteId,stockId,stock,setStock,jobs,c
                           :`${fmt(item.baseCost)} per ${item.unit}`}
                         </div>
                       </div>
+                      <div style={{display:"flex",gap:8,alignItems:"center",flexWrap:"wrap",justifyContent:isMobile?"flex-start":"flex-end",flexShrink:0}}>
                       {isFixedJob
                         ?<>
                           <span style={{fontSize:13,fontWeight:700,color:INK,whiteSpace:"nowrap"}}>{fmt(item.baseCost)}</span>
@@ -3834,6 +3837,7 @@ function QuoteBuilder({jobId:jobIdProp,editQuoteId,stockId,stock,setStock,jobs,c
                           <span style={{fontSize:12,fontWeight:800,color:OK,whiteSpace:"nowrap",width:84,textAlign:"right",flexShrink:0}}>{amtMode?(Number(qty)>0?`= ${fmt(qty)}`:""):previewCost?`= ${fmt(previewCost)}`:""}</span>
                           <Btn sm onClick={addNow}>Add</Btn>
                         </>}
+                      </div>
                     </div>;
                     const prefix=[];
                     if(showGroupHeader)prefix.push(<div key={item.id+"_g"} style={{padding:"10px 0 2px"}}><span style={{fontSize:10,fontWeight:800,color:GOLD_D,textTransform:"uppercase",letterSpacing:"0.08em"}}>{item.group}</span></div>);
