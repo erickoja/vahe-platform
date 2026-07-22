@@ -8328,7 +8328,7 @@ export default function App(){
         </div>
       </div>
     </div>
-    <div style={{flex:1,padding:isMobile?"16px 14px":"40px 56px",paddingTop:isMobile?68:40,width:"100%",minWidth:0}}>
+    <div style={{flex:1,padding:isMobile?"16px 14px":"40px 56px",paddingTop:isMobile?68:40,width:"100%",minWidth:0,overflowX:isMobile?"auto":undefined}}>
       {!storageReady
         ?<div style={{display:"flex",alignItems:"center",justifyContent:"center",height:300,flexDirection:"column",gap:12}}>
             <div style={{fontSize:13,color:WG}}>Loading your data…</div>
