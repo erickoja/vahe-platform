@@ -6616,9 +6616,7 @@ function Settings({biz,setBiz,markupTable,setMarkupTable,naturalStoneMarkup,setN
               <input type="number" value={b.high} onChange={e=>setMtRow(b.id,"high",Number(e.target.value))} style={{...SS.inp,marginTop:0,fontSize:13,padding:"5px 8px",width:isMobile?"100%":100,minWidth:0}}/>
             </div>
             <div style={{display:"flex",alignItems:"center",gap:8}}>
-              <input type="number" value={b.multiplier} onChange={e=>setMtRow(b.id,"multiplier",Number(e.target.value))} step="0.1" min="1" style={{...SS.inp,marginTop:0,fontSize:14,fontWeight:700,padding:"5px 8px",width:isMobile?52:70,color:GOLD_D}}/>
-              <span style={{fontSize:11,color:WG}}>×</span>
-            </div>
+              <input type="number" value={b.multiplier} onChange={e=>setMtRow(b.id,"multiplier",Number(e.target.value))} step="0.1" min="1" style={{...SS.inp,marginTop:0,fontSize:14,fontWeight:700,padding:"5px 8px",width:isMobile?52:70,color:GOLD_D}}/>            </div>
           </div>;
         })}
       </div>
@@ -6684,9 +6682,7 @@ function Settings({biz,setBiz,markupTable,setMarkupTable,naturalStoneMarkup,setN
             </div>
             <div style={{display:"flex",alignItems:"center",gap:8}}>
               <input type="number" value={b.multiplier} onChange={e=>setSmNRow(b.id,"multiplier",Number(e.target.value))} step="0.01" min="1"
-                style={{...SS.inp,marginTop:0,fontSize:14,fontWeight:700,padding:"5px 8px",width:isMobile?52:80,color:"#3B6E8F"}}/>
-              <span style={{fontSize:11,color:WG}}>×</span>
-            </div>
+                style={{...SS.inp,marginTop:0,fontSize:14,fontWeight:700,padding:"5px 8px",width:isMobile?52:80,color:"#3B6E8F"}}/>            </div>
             <button onClick={()=>delSmNRow(b.id)} style={{background:"none",border:"none",cursor:"pointer",color:DANGER,fontSize:16,padding:0,justifySelf:"center"}}>×</button>
           </div>
         ))}
@@ -6718,9 +6714,7 @@ function Settings({biz,setBiz,markupTable,setMarkupTable,naturalStoneMarkup,setN
             </div>
             <div style={{display:"flex",alignItems:"center",gap:8}}>
               <input type="number" value={b.multiplier} onChange={e=>setSmLRow(b.id,"multiplier",Number(e.target.value))} step="0.01" min="1"
-                style={{...SS.inp,marginTop:0,fontSize:14,fontWeight:700,padding:"5px 8px",width:isMobile?52:80,color:"#7B5EA7"}}/>
-              <span style={{fontSize:11,color:WG}}>×</span>
-            </div>
+                style={{...SS.inp,marginTop:0,fontSize:14,fontWeight:700,padding:"5px 8px",width:isMobile?52:80,color:"#7B5EA7"}}/>            </div>
             <button onClick={()=>delSmLRow(b.id)} style={{background:"none",border:"none",cursor:"pointer",color:DANGER,fontSize:16,padding:0,justifySelf:"center"}}>×</button>
           </div>
         ))}
