@@ -1367,11 +1367,12 @@ function SectionHeader({title,action}){
 }
 function Stat({label,value,accent,sub,onClick,tint,icon}){
   const[h,setH]=useState(false);
+  const isMobile=useIsMobile();
   const t=tint?TINTS[tint]:null;
   return <div onClick={onClick} onMouseEnter={()=>setH(true)} onMouseLeave={()=>setH(false)}
-    style={{background:t?t.bg:WHITE,border:`1px solid ${t?"transparent":(accent?GOLD+"66":BD_SOFT)}`,borderRadius:RADIUS,padding:"18px 20px",cursor:onClick?"pointer":"default",transition:"all 0.18s",boxShadow:h?SHADOW_HV:SHADOW,transform:onClick&&h?"translateY(-2px)":"none"}}>
-    {icon&&<div style={{width:40,height:40,borderRadius:13,background:t?t.ring:GOLD_L,display:"flex",alignItems:"center",justifyContent:"center",fontSize:19,marginBottom:14,color:t?t.fg:GOLD_D}}>{icon}</div>}
-    <div style={{fontSize:27,fontWeight:800,color:t?t.fg:(accent?GOLD:INK),letterSpacing:"-0.02em",lineHeight:1.1}}>{value}</div>
+    style={{background:t?t.bg:WHITE,border:`1px solid ${t?"transparent":(accent?GOLD+"66":BD_SOFT)}`,borderRadius:RADIUS,padding:isMobile?"14px 14px":"18px 20px",cursor:onClick?"pointer":"default",transition:"all 0.18s",boxShadow:h?SHADOW_HV:SHADOW,transform:onClick&&h?"translateY(-2px)":"none",minWidth:0}}>
+    {icon&&<div style={{width:isMobile?32:40,height:isMobile?32:40,borderRadius:isMobile?10:13,background:t?t.ring:GOLD_L,display:"flex",alignItems:"center",justifyContent:"center",fontSize:isMobile?16:19,marginBottom:isMobile?9:14,color:t?t.fg:GOLD_D}}>{icon}</div>}
+    <div style={{fontSize:isMobile?20:27,fontWeight:800,color:t?t.fg:(accent?GOLD:INK),letterSpacing:"-0.02em",lineHeight:1.1,overflowWrap:"anywhere"}}>{value}</div>
     <div style={{fontSize:11,color:t?t.fg:WG,opacity:t?0.85:1,fontWeight:700,marginTop:5,textTransform:"uppercase",letterSpacing:"0.06em"}}>{label}</div>
     {sub&&<div style={{fontSize:11,color:t?t.fg:WG,opacity:t?0.7:1,marginTop:2}}>{sub}</div>}
   </div>;
@@ -1714,6 +1715,7 @@ function DashRow({onClick,last,children}){
   </div>;
 }
 function Dashboard({clients,jobs,quotes,payments,invoices,appointments=[],proposals=[],markProposalSeen,markRepairSeen,markupTable,setView,setSelClient}){
+  const isMobile=useIsMobile();
   // Proposals a client accepted that haven't been acknowledged yet → dashboard alert
   const acceptedUnseen=proposals.filter(p=>p.status==="accepted"&&p.seen===false);
   // Repair links a client accepted/declined that haven't been acknowledged yet
@@ -1787,7 +1789,7 @@ function Dashboard({clients,jobs,quotes,payments,invoices,appointments=[],propos
       <Stat label="Ready to collect" value={ready.length} tint="gold" icon="✓" onClick={()=>setView("jobs")}/>
       <Stat label="Overdue" value={overdue.length} tint={overdue.length>0?"rose":"mint"} icon="!" onClick={()=>setView("jobs")}/>
     </div>
-    <div style={{display:"grid",gridTemplateColumns:"minmax(0,1.6fr) minmax(0,1fr)",gap:16,alignItems:"start"}}>
+    <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"minmax(0,1.6fr) minmax(0,1fr)",gap:16,alignItems:"start"}}>
       <Card style={{marginBottom:0}}>
         <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:14}}>
           <span style={{fontWeight:700,fontSize:15,color:INK}}>Active jobs</span>
