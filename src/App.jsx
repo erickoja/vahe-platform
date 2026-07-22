@@ -1933,6 +1933,7 @@ function Clients({clients,setClients,jobs,payments,setView,setSelClient,quotes=[
 }
 
 function ClientDetail({clientId,clients,setClients,jobs,setJobs,quotes,payments,invoices,markupTable,setView,setSelJob}){
+  const isMobile=useIsMobile();
   const c=clients.find(x=>x.id===clientId);
   const[jobModal,setJobModal]=useState(false);
   const[editModal,setEditModal]=useState(false);
@@ -1947,10 +1948,10 @@ function ClientDetail({clientId,clients,setClients,jobs,setJobs,quotes,payments,
   return <div>
     <button onClick={()=>setView("clients")} style={{background:"none",border:"none",cursor:"pointer",color:GOLD,fontSize:13,fontWeight:700,fontFamily:"inherit",marginBottom:18,padding:0}}>← Back to clients</button>
     <div style={{display:"flex",alignItems:"center",gap:14,marginBottom:20}}>
-      <div style={{width:50,height:50,borderRadius:"50%",background:GOLD_L,display:"flex",alignItems:"center",justifyContent:"center",fontSize:20,fontWeight:800,color:GOLD_D}}>{c.name.charAt(0)}</div>
-      <div style={{flex:1}}><h1 style={{margin:0,fontSize:24,fontWeight:800,color:INK,letterSpacing:"-0.02em"}}>{clientDisplayName(c)}</h1>
+      <div style={{width:isMobile?42:50,height:isMobile?42:50,borderRadius:"50%",background:GOLD_L,display:"flex",alignItems:"center",justifyContent:"center",fontSize:isMobile?17:20,fontWeight:800,color:GOLD_D,flexShrink:0}}>{c.name.charAt(0)}</div>
+      <div style={{flex:1,minWidth:0}}><h1 style={{margin:0,fontSize:isMobile?19:24,fontWeight:800,color:INK,letterSpacing:"-0.02em",wordBreak:"break-word"}}>{clientDisplayName(c)}</h1>
       <div style={{fontSize:13,color:WG}}>Since {fmtDate(c.createdAt)} · {fmt(spent+tradeIn)} received to date</div></div>
-      <Btn sm ghost onClick={()=>setEditModal(true)}>✎ Edit client</Btn>
+      <Btn sm={!isMobile} xs={isMobile} ghost onClick={()=>setEditModal(true)} >✎ Edit</Btn>
     </div>
     {charged>0&&<div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:12,marginBottom:16}}>
       {[["Total charged",fmt(charged),INK],["Received",fmt(spent+tradeIn),OK],["Outstanding",fmt(owing),owing>0.5?WARN:OK]].map(([l,v,col])=>(
@@ -2573,6 +2574,7 @@ function RepairIntakeCard({job,setJobs,biz,clients,markupTable,pricing=[],invoic
 }
 
 function JobDetail({jobId,jobs,setJobs,clients,quotes,setQuotes,payments,setPayments,notes,setNotes,invoices,setInvoices,proposals,setProposals,biz,markupTable,pricing=[],setView}){
+  const isMobile=useIsMobile();
   const job=jobs.find(j=>j.id===jobId);
   if(!job)return null;
   const c=clients.find(x=>x.id===job.clientId);
@@ -2653,16 +2655,16 @@ function JobDetail({jobId,jobs,setJobs,clients,quotes,setQuotes,payments,setPaym
   };
   return <div>
     <button onClick={()=>setView("jobs")} style={{background:"none",border:"none",cursor:"pointer",color:GOLD,fontSize:13,fontWeight:700,fontFamily:"inherit",marginBottom:18,padding:0}}>← Back to jobs</button>
-    <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:20}}>
-      <div><h1 style={{margin:0,fontSize:24,fontWeight:800,color:INK,letterSpacing:"-0.02em"}}>{job.type}</h1>
+    <div style={{display:"flex",flexDirection:isMobile?"column":"row",justifyContent:"space-between",alignItems:isMobile?"stretch":"flex-start",gap:isMobile?14:10,marginBottom:20}}>
+      <div style={{minWidth:0}}><h1 style={{margin:0,fontSize:isMobile?20:24,fontWeight:800,color:INK,letterSpacing:"-0.02em",wordBreak:"break-word"}}>{job.type}</h1>
       <div style={{color:WG,fontSize:13,marginTop:3}}>{clientDisplayName(c)} · Due {fmtDate(job.deadline)}</div>
       {(job.dateIn||job.dateOut)&&<div style={{fontSize:12,color:WG,marginTop:2}}>Taken in: <b style={{color:INK}}>{job.dateIn?fmtDate(job.dateIn):"—"}</b> · Pickup: <b style={{color:INK}}>{job.dateOut?fmtDate(job.dateOut):"—"}</b></div>}
       {job.supplier&&<div style={{fontSize:12,color:WG,marginTop:2}}>Supplier: {job.supplier}{job.supplierRef?` · ${job.supplierRef}`:""}</div>}</div>
-      <div style={{display:"flex",gap:8,alignItems:"center"}}>
+      <div style={{display:"flex",gap:8,alignItems:"center",flexWrap:"wrap",flexShrink:0}}>
         <Badge label={job.stage} color={SC[job.stage]||WG} size="lg"/>
-        <Btn sm ghost onClick={()=>setEditStage(v=>!v)}>Move stage</Btn>
-        <Btn sm ghost onClick={()=>setEditJobModal(true)}>Edit job</Btn>
-        <Btn sm danger onClick={delJob}>Delete job</Btn>
+        <Btn sm={!isMobile} xs={isMobile} ghost onClick={()=>setEditStage(v=>!v)}>Move stage</Btn>
+        <Btn sm={!isMobile} xs={isMobile} ghost onClick={()=>setEditJobModal(true)}>Edit job</Btn>
+        <Btn sm={!isMobile} xs={isMobile} danger onClick={delJob}>Delete job</Btn>
       </div>
     </div>
     {editStage&&<Card style={{background:PARCH}}>
@@ -5339,6 +5341,7 @@ function InvoicePrintView({inv,job,client,biz,payments,onClose}){
 
 // ── Invoice detail ────────────────────────────────────────────────────────
 function InvoiceDetail({invoiceId,invoices,setInvoices,jobs,clients,payments,biz,setView,quotes=[],markupTable}){
+  const isMobile=useIsMobile();
   const inv=invoices.find(x=>x.id===invoiceId);
   if(!inv)return null;
   const job=jobs.find(j=>j.id===inv.jobId);
@@ -5417,18 +5420,18 @@ function InvoiceDetail({invoiceId,invoices,setInvoices,jobs,clients,payments,biz
       <button onClick={()=>setView("invoices")} style={{background:"none",border:"none",cursor:"pointer",color:GOLD,fontSize:13,fontWeight:700,fontFamily:"inherit",padding:0}}>← Invoices</button>
       {job&&<><span style={{color:BD}}>·</span><button onClick={()=>setView("jobDetail_"+inv.jobId)} style={{background:"none",border:"none",cursor:"pointer",color:WG,fontSize:13,fontFamily:"inherit",padding:0}}>View job</button></>}
     </div>
-    <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:20}}>
-      <div>
-        <h1 style={{margin:0,fontSize:24,fontWeight:700,color:INK}}>{inv.number}</h1>
+    <div style={{display:"flex",flexDirection:isMobile?"column":"row",justifyContent:"space-between",alignItems:isMobile?"stretch":"flex-start",gap:isMobile?14:10,marginBottom:20}}>
+      <div style={{minWidth:0}}>
+        <h1 style={{margin:0,fontSize:isMobile?20:24,fontWeight:700,color:INK,wordBreak:"break-word"}}>{inv.number}</h1>
         <div style={{color:WG,fontSize:13,marginTop:3}}>{job?.type} · {clientDisplayName(c)} · {fmtDate(inv.date)}</div>
       </div>
-      <div style={{display:"flex",gap:10,alignItems:"center"}}>
+      <div style={{display:"flex",gap:8,alignItems:"center",flexWrap:"wrap",flexShrink:0}}>
         <Badge label={es} color={es==="Paid"?OK:es==="Overdue"?DANGER:WARN} size="lg"/>
-        <Btn sm onClick={shareInvoice}>{linkBusy?"Creating…":linkCopied?"✓ Link copied":inv.publicToken?"🔗 Copy link":"🔗 Create link"}</Btn>
-        {inv.publicToken&&<Btn sm ghost onClick={()=>window.open(invLink,"_blank")}>Preview</Btn>}
-        {canResync&&<Btn sm ghost onClick={updateFromQuote}>{resynced?"✓ Updated":"↻ Update from quote"}</Btn>}
-        <Btn sm onClick={()=>setShowPrint(true)}>🖨 Preview &amp; Print</Btn>
-        <Btn sm danger onClick={del}>Delete</Btn>
+        <Btn sm={!isMobile} xs={isMobile} onClick={shareInvoice}>{linkBusy?"Creating…":linkCopied?"✓ Link copied":inv.publicToken?"🔗 Copy link":"🔗 Create link"}</Btn>
+        {inv.publicToken&&<Btn sm={!isMobile} xs={isMobile} ghost onClick={()=>window.open(invLink,"_blank")}>Preview</Btn>}
+        {canResync&&<Btn sm={!isMobile} xs={isMobile} ghost onClick={updateFromQuote}>{resynced?"✓ Updated":"↻ Update from quote"}</Btn>}
+        <Btn sm={!isMobile} xs={isMobile} onClick={()=>setShowPrint(true)}>🖨 Preview &amp; Print</Btn>
+        <Btn sm={!isMobile} xs={isMobile} danger onClick={del}>Delete</Btn>
       </div>
     </div>
     {inv.publicToken&&<div style={{background:GOLD_L+"55",border:`1px solid ${GOLD}55`,borderRadius:4,padding:"10px 14px",marginBottom:16,display:"flex",alignItems:"center",gap:12,flexWrap:"wrap"}}>
