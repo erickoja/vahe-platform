@@ -1360,7 +1360,7 @@ function Modal({title,onClose,children,wide}){
   </div>;
 }
 function SectionHeader({title,action}){
-  return <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:20}}>
+  return <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:12,flexWrap:"wrap",marginBottom:20}}>
     <h2 style={{margin:0,fontSize:22,fontWeight:800,color:INK,letterSpacing:"-0.02em"}}>{title}</h2>
     {action}
   </div>;
@@ -5926,6 +5926,7 @@ function PrintCastTable({items,onSavePrices,onQtyChange}){
 }
 
 function PricingDB({pricing,setPricing,spotPrices,setSpotPrices,markupTable,centreRates=DEFAULT_CENTRE_RATES,setCentreRates}){
+  const isMobile=useIsMobile();
   const[modal,setModal]=useState(null);
   const[cf,setCf]=useState("All");
   const[spotModal,setSpotModal]=useState(false);
@@ -6003,7 +6004,7 @@ function PricingDB({pricing,setPricing,spotPrices,setSpotPrices,markupTable,cent
 
   const DCOLORS={"Lab Grown Diamonds | D-E":"#7B5EA7","Natural diamonds G-H SI1":"#3B6E8F","Natural diamonds D-E VS":"#2D7A4F"};
   return <div>
-    <SectionHeader title="Pricing database" action={<div style={{display:"flex",gap:10,alignItems:"center"}}>
+    <SectionHeader title="Pricing database" action={<div style={{display:"flex",gap:10,alignItems:"center",flexWrap:"wrap"}}>
       <Btn ghost onClick={()=>setSpotModal(true)}>⟳ Update spot prices</Btn>
       <Btn onClick={()=>setModal("add")}>+ Add item</Btn>
     </div>}/>
@@ -6173,10 +6174,10 @@ function PricingDB({pricing,setPricing,spotPrices,setSpotPrices,markupTable,cent
                 }}>✎ Edit prices</Btn>}
           </div>
         </div>
-        {/* Column headers */}
-        <div style={{display:"grid",gridTemplateColumns:"2fr 1fr 60px 110px 92px",padding:"9px 16px",background:PARCH,borderBottom:`1px solid ${BD}`}}>
+        {/* Column headers — hidden on mobile where rows become stacked cards */}
+        {!isMobile&&<div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"2fr 1fr 60px 110px 92px",padding:"9px 16px",background:PARCH,borderBottom:`1px solid ${BD}`}}>
           {["Item","Category","Unit","Your cost",""].map(h=><div key={h} style={{fontSize:10,fontWeight:700,color:WG,textTransform:"uppercase",letterSpacing:"0.05em"}}>{h}</div>)}
-        </div>
+        </div>}
         {(()=>{
           const isRepairsView=cf===REPAIRS_CAT;
           let lastGroup=null;let lastSubgroup=null;
@@ -6194,8 +6195,8 @@ function PricingDB({pricing,setPricing,spotPrices,setSpotPrices,markupTable,cent
                 onDragLeave={canDrag?(()=>setDragOverId(o=>o===item.id?null:o)):undefined}
                 onDrop={canDrag?(e=>{e.preventDefault();reorderRegular(dragId,item.id);setDragId(null);setDragOverId(null);}):undefined}
                 onDragEnd={()=>{setDragId(null);setDragOverId(null);}}
-                style={{display:"grid",gridTemplateColumns:"2fr 1fr 60px 110px 92px",padding:"10px 16px",borderBottom:i<filteredRegular.length-1?`1px solid ${BD}`:"none",borderTop:isDragTarget?`2px solid ${GOLD}`:"2px solid transparent",alignItems:"center",opacity:dragId===item.id?0.4:1,background:isDragTarget?GOLD_L+"66":"transparent",transition:"background 0.1s"}}>
-                <div style={{fontWeight:600,fontSize:13,color:INK,display:"flex",alignItems:"center",gap:8}}>{canDrag&&<span title="Drag to reorder" style={{cursor:"grab",color:WG,fontSize:14,lineHeight:1,flexShrink:0}}>⠿</span>}{item.name}</div>
+                style={{display:"grid",gridTemplateColumns:isMobile?"1fr auto":"2fr 1fr 60px 110px 92px",columnGap:10,rowGap:isMobile?8:0,padding:"10px 16px",borderBottom:i<filteredRegular.length-1?`1px solid ${BD}`:"none",borderTop:isDragTarget?`2px solid ${GOLD}`:"2px solid transparent",alignItems:"center",opacity:dragId===item.id?0.4:1,background:isDragTarget?GOLD_L+"66":"transparent",transition:"background 0.1s"}}>
+                <div style={{fontWeight:600,fontSize:13,color:INK,display:"flex",alignItems:"center",gap:8,gridColumn:isMobile?"1 / -1":"auto",minWidth:0}}>{canDrag&&<span title="Drag to reorder" style={{cursor:"grab",color:WG,fontSize:14,lineHeight:1,flexShrink:0}}>⠿</span>}{item.name}</div>
                 <div><Badge label={item.category} color={WG}/></div>
                 <div style={{fontSize:12,color:WG}}>/{item.unit}</div>
                 <div>
@@ -6212,8 +6213,8 @@ function PricingDB({pricing,setPricing,spotPrices,setSpotPrices,markupTable,cent
                 </div>
               </div>;
             const prefix2=[];
-            if(showGroupHeader)prefix2.push(<div key={item.id+"_g"} style={{display:"grid",gridTemplateColumns:"2fr 1fr 60px 110px 92px",padding:"7px 16px",background:PARCH,borderTop:i>0?`1px solid ${BD}`:"none",borderBottom:`1px solid ${BD}`}}><div style={{gridColumn:"1/-1",fontSize:10,fontWeight:800,color:GOLD_D,textTransform:"uppercase",letterSpacing:"0.08em"}}>{item.group}</div></div>);
-            if(showSubgroupHeader)prefix2.push(<div key={item.id+"_sg"} style={{display:"grid",gridTemplateColumns:"2fr 1fr 60px 110px 92px",padding:"5px 16px",background:"transparent",borderBottom:`1px solid ${BD}`}}><div style={{gridColumn:"1/-1",fontSize:10,fontWeight:700,color:WG,textTransform:"uppercase",letterSpacing:"0.07em",paddingLeft:2}}>{item.subgroup}</div></div>);
+            if(showGroupHeader)prefix2.push(<div key={item.id+"_g"} style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"2fr 1fr 60px 110px 92px",padding:"7px 16px",background:PARCH,borderTop:i>0?`1px solid ${BD}`:"none",borderBottom:`1px solid ${BD}`}}><div style={{gridColumn:"1/-1",fontSize:10,fontWeight:800,color:GOLD_D,textTransform:"uppercase",letterSpacing:"0.08em"}}>{item.group}</div></div>);
+            if(showSubgroupHeader)prefix2.push(<div key={item.id+"_sg"} style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"2fr 1fr 60px 110px 92px",padding:"5px 16px",background:"transparent",borderBottom:`1px solid ${BD}`}}><div style={{gridColumn:"1/-1",fontSize:10,fontWeight:700,color:WG,textTransform:"uppercase",letterSpacing:"0.07em",paddingLeft:2}}>{item.subgroup}</div></div>);
             if(!prefix2.length)return row;
             return [...prefix2,row];
           });
