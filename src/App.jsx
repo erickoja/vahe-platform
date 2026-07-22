@@ -2700,12 +2700,12 @@ function JobDetail({jobId,jobs,setJobs,clients,quotes,setQuotes,payments,setPaym
       })()}
       {jp.length===0&&<div style={{color:WG,fontSize:14}}>No payments yet.</div>}
       {jp.map(p=>(
-        <div key={p.id} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"9px 0",borderBottom:`1px solid ${BD}`}}>
-          <div style={{flex:1}}><div style={{fontWeight:600,fontSize:13,color:INK,textAlign:"center"}}>{p.type}</div><div style={{fontSize:12,color:WG,marginTop:1}}>{fmtDate(p.date)} · {p.method}{p.notes?` · ${p.notes}`:""}</div></div>
-          <div style={{display:"flex",gap:10,alignItems:"center"}}>
+        <div key={p.id} style={{display:"flex",flexDirection:isMobile?"column":"row",justifyContent:"space-between",alignItems:isMobile?"stretch":"center",gap:isMobile?6:0,padding:"9px 0",borderBottom:`1px solid ${BD}`}}>
+          <div style={{flex:1,minWidth:0}}><div style={{fontWeight:600,fontSize:13,color:INK}}>{p.type}</div><div style={{fontSize:12,color:WG,marginTop:1}}>{fmtDate(p.date)} · {p.method}{p.notes?` · ${p.notes}`:""}</div></div>
+          <div style={{display:"flex",gap:10,alignItems:"center",justifyContent:isMobile?"flex-start":"flex-end",flexShrink:0}}>
             <Badge label={p.status} color={p.status==="Received"?OK:WARN}/>
-            <div style={{fontWeight:800,fontSize:14,color:INK,minWidth:76,textAlign:"right"}}>{fmt(p.amount)}</div>
-            <button onClick={()=>delPay(p.id)} style={{background:"none",border:"none",cursor:"pointer",color:DANGER,fontSize:16,padding:0}}>×</button>
+            <div style={{fontWeight:800,fontSize:14,color:INK,minWidth:76,textAlign:isMobile?"left":"right"}}>{fmt(p.amount)}</div>
+            <button onClick={()=>delPay(p.id)} title="Delete payment" style={{background:"none",border:"none",cursor:"pointer",color:DANGER,fontSize:16,padding:0,marginLeft:isMobile?"auto":0}}>×</button>
           </div>
         </div>
       ))}
@@ -2715,9 +2715,9 @@ function JobDetail({jobId,jobs,setJobs,clients,quotes,setQuotes,payments,setPaym
       {ji.length===0&&<div style={{color:WG,fontSize:14}}>No invoices yet. Create one from an approved quote below.</div>}
       {ji.map(inv=>{
         const es=invoiceEffectiveStatus(inv,payments,invoices);
-        return <div key={inv.id} onClick={()=>setView("invoiceDetail_"+inv.id)} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"9px 0",borderBottom:`1px solid ${BD}`,cursor:"pointer"}}>
-          <div><div style={{fontWeight:600,fontSize:14,color:INK}}>{inv.number}</div><div style={{fontSize:12,color:WG,marginTop:1}}>{fmtDate(inv.date)}</div></div>
-          <div style={{display:"flex",gap:12,alignItems:"center"}}>
+        return <div key={inv.id} onClick={()=>setView("invoiceDetail_"+inv.id)} style={{display:"flex",flexDirection:isMobile?"column":"row",justifyContent:"space-between",alignItems:isMobile?"stretch":"center",gap:isMobile?6:0,padding:"9px 0",borderBottom:`1px solid ${BD}`,cursor:"pointer"}}>
+          <div style={{minWidth:0}}><div style={{fontWeight:600,fontSize:14,color:INK}}>{inv.number}</div><div style={{fontSize:12,color:WG,marginTop:1}}>{fmtDate(inv.date)}</div></div>
+          <div style={{display:"flex",gap:12,alignItems:"center",justifyContent:isMobile?"space-between":"flex-end",flexShrink:0}}>
             <Badge label={es} color={es==="Paid"?OK:es==="Overdue"?DANGER:WARN}/>
             <div style={{fontWeight:800,fontSize:14,color:INK}}>{fmt(inv.totalIncGST)} <span style={{fontSize:11,color:WG,fontWeight:400}}>inc GST</span></div>
           </div>
