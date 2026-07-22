@@ -2740,19 +2740,21 @@ function JobDetail({jobId,jobs,setJobs,clients,quotes,setQuotes,payments,setPaym
         const manual=quoteIsManual(q);
         const stoneTotal=(q.stoneClientTotal||0)+(q.accentStoneTotal||0);
         const priceStr=manual?fmtR(Number(q.manualTotal)):(calc.base>0&&!calc.bracket&&!calc.overridden)?"—":fmtR(calc.finalLow+stoneTotal);
-        return <div key={q.id} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"10px 0",borderBottom:`1px solid ${BD}`}}>
-          {jq.length>1&&<div style={{display:"flex",flexDirection:"column",marginRight:10}}>
-            <button onClick={()=>moveQuote(q.id,-1)} disabled={qi===0} title="Move up" style={{background:"none",border:"none",cursor:qi===0?"default":"pointer",color:qi===0?BD:WG,fontSize:11,lineHeight:1,padding:"1px 3px",fontFamily:"inherit"}}>▲</button>
-            <button onClick={()=>moveQuote(q.id,1)} disabled={qi===jq.length-1} title="Move down" style={{background:"none",border:"none",cursor:qi===jq.length-1?"default":"pointer",color:qi===jq.length-1?BD:WG,fontSize:11,lineHeight:1,padding:"1px 3px",fontFamily:"inherit"}}>▼</button>
-          </div>}
-          <div style={{cursor:"pointer",flex:1}} onClick={()=>setView("quoteDetail_"+q.id)}>
-            <div style={{fontWeight:600,fontSize:14,color:INK}}>{quoteLabel(q)} <span style={{fontWeight:400,color:WG,fontSize:12}}>{q.title?.trim()?quoteRef(q):""}</span></div>
-            <div style={{fontSize:12,color:WG,marginTop:1}}>{manual?<>Manual quoted price → </>:<>Base: {fmt(calc.baseLow)} → {calc.mult}× → </>}<strong style={{color:OK}}>{priceStr}</strong></div>
+        return <div key={q.id} style={{display:"flex",flexDirection:isMobile?"column":"row",justifyContent:"space-between",alignItems:isMobile?"stretch":"center",gap:isMobile?8:0,padding:"10px 0",borderBottom:`1px solid ${BD}`}}>
+          <div style={{display:"flex",alignItems:"center",gap:10,minWidth:0,flex:1}}>
+            {jq.length>1&&<div style={{display:"flex",flexDirection:"column",flexShrink:0}}>
+              <button onClick={()=>moveQuote(q.id,-1)} disabled={qi===0} title="Move up" style={{background:"none",border:"none",cursor:qi===0?"default":"pointer",color:qi===0?BD:WG,fontSize:11,lineHeight:1,padding:"1px 3px",fontFamily:"inherit"}}>▲</button>
+              <button onClick={()=>moveQuote(q.id,1)} disabled={qi===jq.length-1} title="Move down" style={{background:"none",border:"none",cursor:qi===jq.length-1?"default":"pointer",color:qi===jq.length-1?BD:WG,fontSize:11,lineHeight:1,padding:"1px 3px",fontFamily:"inherit"}}>▼</button>
+            </div>}
+            <div style={{cursor:"pointer",flex:1,minWidth:0}} onClick={()=>setView("quoteDetail_"+q.id)}>
+              <div style={{fontWeight:600,fontSize:14,color:INK}}>{quoteLabel(q)} <span style={{fontWeight:400,color:WG,fontSize:12}}>{q.title?.trim()?quoteRef(q):""}</span></div>
+              <div style={{fontSize:12,color:WG,marginTop:1}}>{manual?<>Manual quoted price → </>:<>Base: {fmt(calc.baseLow)} → {calc.mult}× → </>}<strong style={{color:OK}}>{priceStr}</strong></div>
+            </div>
           </div>
-          <div style={{display:"flex",gap:10,alignItems:"center"}}>
+          <div style={{display:"flex",gap:8,alignItems:"center",flexWrap:"wrap",flexShrink:0}}>
             <Badge label={q.status} color={q.status==="Approved"?OK:q.status==="Draft"?WG:GOLD_D}/>
-            <Btn sm ghost onClick={()=>duplicateQuote(q)}>⧉ Duplicate</Btn>
-            {q.status==="Approved"&&!hasInv&&<Btn sm onClick={()=>createInvoice(q.id)}>→ Invoice</Btn>}
+            <Btn sm={!isMobile} xs={isMobile} ghost onClick={()=>duplicateQuote(q)}>⧉ Duplicate</Btn>
+            {q.status==="Approved"&&!hasInv&&<Btn sm={!isMobile} xs={isMobile} onClick={()=>createInvoice(q.id)}>→ Invoice</Btn>}
           </div>
         </div>;
       })}
