@@ -7262,8 +7262,8 @@ function TodoBoard({todos,setTodos,jobs=[],clients=[],setView,setSelJob}){
         <div style={{color:WG,fontSize:14,marginTop:4}}>A running task list for each person — link a task to a job to see its live stage at a glance.</div>
       </div>
       <div style={{display:"flex",gap:8,alignItems:"center",background:WHITE,border:`1px solid ${BD_SOFT}`,borderRadius:RADIUS,padding:"8px 10px",boxShadow:SHADOW}}>
-        <input value={newPerson} onChange={e=>setNewPerson(e.target.value)} onKeyDown={e=>{if(e.key==="Enter")addPerson();}} placeholder="New person's name…" style={{...SS.inp,marginTop:0,width:200}}/>
-        <Btn onClick={addPerson}>+ Add person</Btn>
+        <input value={newPerson} onChange={e=>setNewPerson(e.target.value)} onKeyDown={e=>{if(e.key==="Enter")addPerson();}} placeholder="New person's name…" style={{...SS.inp,marginTop:0,width:isMobile?"auto":200,flex:isMobile?1:undefined,minWidth:0}}/>
+        <Btn onClick={addPerson}>{isMobile?"Add":"+ Add person"}</Btn>
       </div>
     </div>
 
