@@ -4835,6 +4835,7 @@ function ProposalPreview({quote,job,clients=[],biz,calc,payments=[],reconcilePay
 
 // ── Quote detail ──────────────────────────────────────────────────────────
 function QuoteDetail({quoteId,quotes,setQuotes,jobs,clients,biz,markupTable,naturalStoneMarkup,labStoneMarkup,payments=[],invoices=[],setView}){
+  const isMobile=useIsMobile();
   const q=quotes.find(x=>x.id===quoteId);
   if(!q)return null;
   const job=jobs.find(j=>j.id===q.jobId);
@@ -4888,34 +4889,43 @@ function QuoteDetail({quoteId,quotes,setQuotes,jobs,clients,biz,markupTable,natu
   return <div>
     {showProposal&&<ProposalPreview quote={q} job={job} clients={clients} biz={biz} calc={calc} payments={payments} reconcilePayments={soleBilled} onClose={()=>setShowProposal(false)}/>}
     <button onClick={()=>setView("jobDetail_"+q.jobId)} style={{background:"none",border:"none",cursor:"pointer",color:GOLD,fontSize:13,fontWeight:700,fontFamily:"inherit",marginBottom:18,padding:0}}>← Back to job</button>
-    <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:20}}>
-      <div><h1 style={{margin:0,fontSize:24,fontWeight:800,color:INK,letterSpacing:"-0.02em"}}>{quoteLabel(q)}</h1>
+    <div style={{display:"flex",flexDirection:isMobile?"column":"row",justifyContent:"space-between",alignItems:isMobile?"stretch":"flex-start",gap:isMobile?14:10,marginBottom:20}}>
+      <div style={{minWidth:0}}><h1 style={{margin:0,fontSize:isMobile?20:24,fontWeight:800,color:INK,letterSpacing:"-0.02em",wordBreak:"break-word"}}>{quoteLabel(q)}</h1>
       <div style={{color:WG,fontSize:13,marginTop:3}}>Quote {quoteRef(q)} · {job?.type} · {clientDisplayName(c)} · {fmtDate(q.createdAt)}</div>
       {(job?.dateIn||job?.dateOut)&&<div style={{color:WG,fontSize:12,marginTop:2}}>Taken in: <b style={{color:INK}}>{job?.dateIn?fmtDate(job.dateIn):"—"}</b> · Pickup: <b style={{color:INK}}>{job?.dateOut?fmtDate(job.dateOut):"—"}</b></div>}</div>
-      <div style={{display:"flex",gap:10,alignItems:"center"}}>
+      <div style={{display:"flex",gap:8,alignItems:"center",flexWrap:"wrap",flexShrink:0}}>
         <Badge label={q.status} color={q.status==="Approved"?OK:q.status==="Draft"?WG:GOLD_D}/>
-        <Btn sm ghost onClick={()=>setView("editQuote_"+q.id)}>✏ Edit quote</Btn>
-        <Btn sm ghost onClick={dupQuote}>⧉ Duplicate</Btn>
-        <Btn sm danger onClick={delQuote}>Delete</Btn>
-        <Btn sm onClick={()=>setShowProposal(true)}>📄 Preview &amp; Print quote</Btn>
+        <Btn sm={!isMobile} xs={isMobile} ghost onClick={()=>setView("editQuote_"+q.id)}>✏ Edit quote</Btn>
+        <Btn sm={!isMobile} xs={isMobile} ghost onClick={dupQuote}>⧉ Duplicate</Btn>
+        <Btn sm={!isMobile} xs={isMobile} danger onClick={delQuote}>Delete</Btn>
+        <Btn sm={!isMobile} xs={isMobile} onClick={()=>setShowProposal(true)}>📄 Preview &amp; Print quote</Btn>
       </div>
     </div>
 
     <Card>
       {/* Cost breakdown table */}
       <div style={{fontWeight:700,fontSize:14,color:INK,marginBottom:12}}>Cost breakdown</div>
-      <div style={{display:"grid",gridTemplateColumns:"180px 1fr 130px",gap:6,marginBottom:8}}>
+      {!isMobile&&<div style={{display:"grid",gridTemplateColumns:"180px 1fr 130px",gap:6,marginBottom:8}}>
         {["Item","Detail","Cost"].map(h=><div key={h} style={{fontSize:10,fontWeight:700,color:WG,textTransform:"uppercase",letterSpacing:"0.05em"}}>{h}</div>)}
-      </div>
+      </div>}
       {q.lineItems.length===0&&<div style={{fontSize:13,color:WG,fontStyle:"italic",padding:"10px 0"}}>No itemised costs — this quote uses a manual quoted price.</div>}
       {q.lineItems.map(li=>{
         const cost=lineCost(li);
         const stoneMU=li.markupMode==="natural"||li.markupMode==="lab";
+        const muBadge=stoneMU?<span style={{background:"#C4A8F0",color:"#3A2A6A",fontSize:9,fontWeight:700,padding:"2px 6px",borderRadius:2,letterSpacing:"0.04em",whiteSpace:"nowrap"}}>STONE MU</span>:li.noMarkup?<span style={{background:"#7B5EA7",color:WHITE,fontSize:9,fontWeight:700,padding:"2px 6px",borderRadius:2,letterSpacing:"0.04em",whiteSpace:"nowrap"}}>NO MU</span>:null;
+        const costCol=stoneMU?"#7B5EA7":li.noMarkup?"#7B5EA7":INK;
+        if(isMobile)return <div key={li.id} style={{padding:"10px 0",borderBottom:`1px solid ${BD}`,fontSize:13}}>
+          <div style={{display:"flex",justifyContent:"space-between",gap:10,alignItems:"baseline"}}>
+            <span style={{fontWeight:600,color:INK,minWidth:0}}>{li.description}</span>
+            <span style={{fontWeight:700,color:costCol,whiteSpace:"nowrap",flexShrink:0}}>{fmt(cost)}</span>
+          </div>
+          {(li.detail||muBadge)&&<div style={{color:WG,fontSize:12,marginTop:3,display:"flex",gap:6,alignItems:"center",flexWrap:"wrap"}}>{li.detail&&<span>{li.detail}</span>}{muBadge}</div>}
+        </div>;
         return <div key={li.id} style={{display:"grid",gridTemplateColumns:"180px 1fr 44px 110px",gap:6,padding:"9px 0",borderBottom:`1px solid ${BD}`,fontSize:13,alignItems:"center"}}>
           <span style={{fontWeight:600,color:INK}}>{li.description}</span>
           <span style={{color:WG,fontSize:12}}>{li.detail}</span>
-          <span>{stoneMU?<span style={{background:"#C4A8F0",color:"#3A2A6A",fontSize:9,fontWeight:700,padding:"2px 6px",borderRadius:2,letterSpacing:"0.04em",whiteSpace:"nowrap"}}>STONE MU</span>:li.noMarkup&&<span style={{background:"#7B5EA7",color:WHITE,fontSize:9,fontWeight:700,padding:"2px 6px",borderRadius:2,letterSpacing:"0.04em",whiteSpace:"nowrap"}}>NO MU</span>}</span>
-          <span style={{fontWeight:700,color:stoneMU?"#7B5EA7":li.noMarkup?"#7B5EA7":INK,textAlign:"right"}}>{fmt(cost)}</span>
+          <span>{muBadge}</span>
+          <span style={{fontWeight:700,color:costCol,textAlign:"right"}}>{fmt(cost)}</span>
         </div>;
       })}
 
