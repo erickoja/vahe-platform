@@ -1801,8 +1801,8 @@ function Dashboard({clients,jobs,quotes,payments,invoices,appointments=[],propos
         {active.slice(0,8).map((j,i,arr)=>{
           const c=clients.find(x=>x.id===j.clientId);
           const od=j.deadline&&j.deadline<today();
-          return <DashRow key={j.id} onClick={()=>setView("jobDetail_"+j.id)} last={i===arr.length-1}>
-            <div><div style={{fontWeight:600,fontSize:13,color:INK}}>{j.type} <span style={{color:WG,fontWeight:400}}>· {clientDisplayName(c)}</span></div>
+          return <DashRow key={j.id} onClick={()=>setView("jobDetail_"+j.id)} last={i===arr.length-1} col={isMobile}>
+            <div style={{minWidth:0}}><div style={{fontWeight:600,fontSize:13,color:INK}}>{j.type} <span style={{color:WG,fontWeight:400}}>· {clientDisplayName(c)}</span></div>
             <div style={{fontSize:12,color:od?DANGER:WG,marginTop:1}}>Due {fmtDate(j.deadline)}{od?" — OVERDUE":""}</div></div>
             <Badge label={j.stage} color={SC[j.stage]||WG}/>
           </DashRow>;
