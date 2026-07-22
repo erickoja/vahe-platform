@@ -7169,6 +7169,7 @@ function JobPicker({jobs,clients,value,onChange,onOpen}){
 
 // ── To-do board (per-person running checklists, shared across the studio) ──
 function TodoBoard({todos,setTodos,jobs=[],clients=[],setView,setSelJob}){
+  const isMobile=useIsMobile();
   const people=todos?.people||[];
   const items=todos?.items||[];
   const[newPerson,setNewPerson]=useState("");
@@ -7311,7 +7312,7 @@ function TodoBoard({todos,setTodos,jobs=[],clients=[],setView,setSelJob}){
               const showCompleted=(!!showDone[person.id]||statusFilter==="done"||!!q)&&done.length>0;
               // With a filter active, drop cards that have nothing matching.
               if(filterActive&&open.length===0&&done.length===0)return null;
-              return <div key={person.id} style={{flex:"1 1 360px",maxWidth:560,background:WHITE,border:`1px solid ${BD_SOFT}`,borderRadius:RADIUS,boxShadow:SHADOW,padding:"22px 22px 24px",display:"flex",flexDirection:"column"}}>
+              return <div key={person.id} style={{flex:isMobile?"1 1 100%":"1 1 360px",minWidth:0,maxWidth:isMobile?"100%":560,background:WHITE,border:`1px solid ${BD_SOFT}`,borderRadius:RADIUS,boxShadow:SHADOW,padding:isMobile?"16px 14px 18px":"22px 22px 24px",display:"flex",flexDirection:"column"}}>
                 {/* Person header */}
                 <div style={{display:"flex",alignItems:"center",gap:12,marginBottom:16,paddingBottom:16,borderBottom:`1px solid ${BD_SOFT}`}}>
                   <div style={{width:38,height:38,borderRadius:"50%",background:GOLD_L,color:GOLD_D,display:"flex",alignItems:"center",justifyContent:"center",fontSize:15,fontWeight:800,flexShrink:0}}>{(person.name||"?").slice(0,1).toUpperCase()}</div>
