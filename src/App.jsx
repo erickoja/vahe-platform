@@ -4987,6 +4987,7 @@ function QuoteDetail({quoteId,quotes,setQuotes,jobs,clients,biz,markupTable,natu
 }
 
 function QuotesList({quotes,jobs,clients,markupTable,biz,setView}){
+  const isMobile=useIsMobile();
   const[modal,setModal]=useState(false);
   const[selClient,setSelClient]=useState("");
   const[selJob,setSelJob]=useState("");
@@ -5106,8 +5107,8 @@ function QuotesList({quotes,jobs,clients,markupTable,biz,setView}){
               const calc=calcQuote(q.lineItems,markupTable,q.markupOverride);
               const priceStr=priceKnown?fmtR(price):"—";
               return <Card key={q.id} onClick={()=>setView("quoteDetail_"+q.id)}>
-                <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
-                  <div>
+                <div style={{display:"flex",flexDirection:isMobile?"column":"row",justifyContent:"space-between",alignItems:isMobile?"stretch":"center",gap:isMobile?10:0}}>
+                  <div style={{minWidth:0}}>
                     <div style={{fontWeight:700,fontSize:14,color:INK}}>{quoteLabel(q)} {q.title?.trim()&&<span style={{fontWeight:400,color:WG,fontSize:12}}>· {quoteRef(q)}</span>}</div>
                     <div style={{display:"flex",gap:10,fontSize:12,color:WG,marginTop:3,flexWrap:"wrap"}}>
                       <span>{fmtDate(q.createdAt)}</span>
@@ -5121,7 +5122,7 @@ function QuotesList({quotes,jobs,clients,markupTable,biz,setView}){
                       {expired&&<span style={{background:DANGER+"14",color:DANGER,border:`1px solid ${DANGER}44`,borderRadius:3,padding:"2px 10px",fontSize:11,fontWeight:700}}>⚠ Expired {fmtDate(expiryISO)}</span>}
                     </div>}
                   </div>
-                  <div style={{display:"flex",gap:14,alignItems:"center"}}>
+                  <div style={{display:"flex",gap:14,alignItems:"center",justifyContent:isMobile?"space-between":"flex-start",flexShrink:0}}>
                     <Badge label={q.status} color={q.status==="Approved"?OK:q.status==="Draft"?WG:q.status==="Declined"?DANGER:GOLD_D}/>
                     <div style={{fontWeight:800,fontSize:17,color:OK,textAlign:"right"}}>{priceStr}</div>
                   </div>
@@ -5518,6 +5519,7 @@ function InvoiceDetail({invoiceId,invoices,setInvoices,jobs,clients,payments,biz
 }
 
 function InvoicesList({invoices,jobs,clients,quotes,payments,setInvoices,markupTable,setView}){
+  const isMobile=useIsMobile();
   const[modal,setModal]=useState(false);
   const[selClient,setSelClient]=useState("");
   const[selJob,setSelJob]=useState("");
@@ -5585,13 +5587,13 @@ function InvoicesList({invoices,jobs,clients,quotes,payments,setInvoices,markupT
       const bal=Math.max(0,inv.totalIncGST-(Number(inv.tradeInCredit)||0)-paid);   // net of gold trade-in
       const es=invoiceEffectiveStatus(inv,payments,invoices);
       return <Card key={inv.id} onClick={()=>setView("invoiceDetail_"+inv.id)}>
-        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
-          <div>
+        <div style={{display:"flex",flexDirection:isMobile?"column":"row",justifyContent:"space-between",alignItems:isMobile?"stretch":"center",gap:isMobile?10:0}}>
+          <div style={{minWidth:0}}>
             <div style={{fontWeight:700,fontSize:15,color:INK}}>{inv.number}</div>
             <div style={{fontSize:13,color:WG,marginTop:3}}>{job?.type} · {cl?.name} · {fmtDate(inv.date)}</div>
             {bal>0&&es!=="Paid"&&<div style={{fontSize:12,color:WARN,marginTop:2,fontWeight:600}}>Balance owing: {fmt(bal)}</div>}
           </div>
-          <div style={{display:"flex",gap:14,alignItems:"center"}}>
+          <div style={{display:"flex",gap:14,alignItems:"center",justifyContent:isMobile?"space-between":"flex-start",flexShrink:0}}>
             <Badge label={es} color={es==="Paid"?OK:es==="Overdue"?DANGER:WARN}/>
             <div style={{fontWeight:800,fontSize:17,color:INK,textAlign:"right"}}>
               {fmt(inv.totalIncGST)}<div style={{fontSize:11,color:WG,fontWeight:400}}>inc GST</div>
