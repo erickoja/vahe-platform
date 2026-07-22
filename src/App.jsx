@@ -6661,9 +6661,9 @@ function Settings({biz,setBiz,markupTable,setMarkupTable,naturalStoneMarkup,setN
       <div style={{fontSize:13,color:WG,lineHeight:1.6}}>Two separate markup tables for centre &amp; feature stones — one for natural, one for lab-grown. Applied in the quote builder based on stone type. GST (10%) is added at invoice time on top of the marked-up price.</div>
     </div>
     <Card>
-      <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:6}}>
-        <div style={{background:"#3B6E8F",color:WHITE,borderRadius:2,padding:"2px 10px",fontSize:10,fontWeight:700,letterSpacing:"0.08em",textTransform:"uppercase"}}>Natural Diamond &amp; Gemstone</div>
-        <div style={{fontSize:11,color:WG}}>3.00× down to 1.20×</div>
+      <div style={{display:"flex",alignItems:"center",gap:10,flexWrap:"wrap",rowGap:6,marginBottom:6}}>
+        <div style={{background:"#3B6E8F",color:WHITE,borderRadius:3,padding:"4px 12px",fontSize:10.5,fontWeight:700,letterSpacing:"0.08em",textTransform:"uppercase",whiteSpace:"nowrap"}}>Natural Diamond &amp; Gemstone</div>
+        <div style={{fontSize:11,color:WG,fontWeight:600}}>3.00× down to 1.20×</div>
       </div>
       <div style={{fontSize:12,color:WG,marginBottom:14,lineHeight:1.5}}>"Natural" is selected in the quote builder stone section. <strong style={{color:INK}}>GST added at invoice time.</strong></div>
       <div style={{background:WHITE,borderRadius:4,border:`1px solid ${BD}`,overflow:"hidden",marginBottom:12}}>
@@ -6693,9 +6693,9 @@ function Settings({biz,setBiz,markupTable,setMarkupTable,naturalStoneMarkup,setN
       </div>
     </Card>
     <Card>
-      <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:6}}>
-        <div style={{background:"#7B5EA7",color:WHITE,borderRadius:2,padding:"2px 10px",fontSize:10,fontWeight:700,letterSpacing:"0.08em",textTransform:"uppercase"}}>Lab-Grown Diamond &amp; Gemstone</div>
-        <div style={{fontSize:11,color:WG}}>4.25× down to 1.20×</div>
+      <div style={{display:"flex",alignItems:"center",gap:10,flexWrap:"wrap",rowGap:6,marginBottom:6}}>
+        <div style={{background:"#7B5EA7",color:WHITE,borderRadius:3,padding:"4px 12px",fontSize:10.5,fontWeight:700,letterSpacing:"0.08em",textTransform:"uppercase",whiteSpace:"nowrap"}}>Lab-Grown Diamond &amp; Gemstone</div>
+        <div style={{fontSize:11,color:WG,fontWeight:600}}>4.25× down to 1.20×</div>
       </div>
       <div style={{fontSize:12,color:WG,marginBottom:14,lineHeight:1.5}}>"Lab-Grown" is selected in the quote builder stone section. <strong style={{color:INK}}>GST added at invoice time.</strong></div>
       <div style={{background:WHITE,borderRadius:4,border:`1px solid ${BD}`,overflow:"hidden",marginBottom:12}}>
