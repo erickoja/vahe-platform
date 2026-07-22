@@ -2688,7 +2688,7 @@ function JobDetail({jobId,jobs,setJobs,clients,quotes,setQuotes,payments,setPaym
           ["Received",fmt(totalReceived),OK,jobTradeIn>0?`${fmt(paidTotal)} paid · ${fmt(jobTradeIn)} gold trade-in`:null],
           ["Outstanding",fmt(Math.max(0,balance)),balance>0.5?WARN:OK,null],
         ];
-        return <div style={{display:"grid",gridTemplateColumns:`repeat(${stats.length},1fr)`,gap:10,marginBottom:14}}>
+        return <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":`repeat(${stats.length},1fr)`,gap:10,marginBottom:14}}>
           {stats.map(([l,v,col,sub])=>(
             <div key={l} style={{background:PARCH,borderRadius:4,padding:"10px 12px",border:`1px solid ${BD}`}}>
               <div style={{fontSize:10,color:WG,fontWeight:700,textTransform:"uppercase",letterSpacing:"0.05em"}}>{l}</div>
