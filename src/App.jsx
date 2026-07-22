@@ -5501,11 +5501,19 @@ function InvoiceDetail({invoiceId,invoices,setInvoices,jobs,clients,payments,biz
         </>}
     </Card>
     <Card>
-      <div style={{display:"grid",gridTemplateColumns:"1fr 100px 120px",gap:6,marginBottom:8,paddingBottom:8,borderBottom:`1px solid ${BD}`}}>
+      {!isMobile&&<div style={{display:"grid",gridTemplateColumns:"1fr 100px 120px",gap:6,marginBottom:8,paddingBottom:8,borderBottom:`1px solid ${BD}`}}>
         {["Item / Description (internal)","Tax","Amount inc GST"].map(h=><div key={h} style={{fontSize:10,fontWeight:700,color:WG,textTransform:"uppercase",letterSpacing:"0.05em"}}>{h}</div>)}
-      </div>
-      {inv.lineItems.map(li=>(
-        <div key={li.id} style={{display:"grid",gridTemplateColumns:"1fr 100px 120px",gap:6,padding:"10px 0",borderBottom:`1px solid ${BD}`,fontSize:13,alignItems:"start"}}>
+      </div>}
+      {isMobile&&<div style={{fontSize:10,fontWeight:700,color:WG,textTransform:"uppercase",letterSpacing:"0.05em",marginBottom:6,paddingBottom:8,borderBottom:`1px solid ${BD}`}}>Internal cost breakdown · all lines incl. GST</div>}
+      {inv.lineItems.map(li=>(isMobile
+        ? <div key={li.id} style={{padding:"10px 0",borderBottom:`1px solid ${BD}`,fontSize:13}}>
+            <div style={{display:"flex",justifyContent:"space-between",gap:10,alignItems:"baseline"}}>
+              <span style={{fontWeight:600,color:INK,minWidth:0}}>{li.description}</span>
+              <span style={{fontWeight:700,color:INK,whiteSpace:"nowrap",flexShrink:0}}>{fmt(lineCostLow(li))}</span>
+            </div>
+            {li.detail&&<div style={{fontSize:11,color:WG,marginTop:3}}>{li.detail}</div>}
+          </div>
+        : <div key={li.id} style={{display:"grid",gridTemplateColumns:"1fr 100px 120px",gap:6,padding:"10px 0",borderBottom:`1px solid ${BD}`,fontSize:13,alignItems:"start"}}>
           <div><div style={{fontWeight:600,color:INK}}>{li.description}</div>{li.detail&&<div style={{fontSize:11,color:WG,marginTop:2}}>{li.detail}</div>}</div>
           <div style={{fontSize:11,color:WG,paddingTop:2}}>GST</div>
           <div style={{fontWeight:700,color:INK,textAlign:"right"}}>{fmt(lineCostLow(li))}</div>
