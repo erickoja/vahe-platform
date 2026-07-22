@@ -2040,6 +2040,10 @@ function Jobs({clients,jobs,setJobs,quotes,setQuotes,payments,setPayments,notes,
   const[tf,setTf]=useState("All");
   const[search,setSearch]=useState("");
   const[mode,setMode]=useState("list");        // list | board (production board)
+  const isMobile=useIsMobile();
+  // The board is drag-and-drop, which isn't practical on touch — force List on mobile
+  // and hide the toggle. Board stays fully available on desktop.
+  const vMode=isMobile?"list":mode;
   const[dragOver,setDragOver]=useState(null);   // stage column being dragged over
   const moveJobToStage=(id,stage)=>{setJobs(p=>{const n=p.map(j=>j.id===id&&j.stage!==stage?{...j,stage}:j);persist(K.jo,n);return n;});};
   const typeCounts=useMemo(()=>{const m={};jobs.forEach(j=>{m[j.type]=(m[j.type]||0)+1;});return m;},[jobs]);
@@ -2092,20 +2096,20 @@ function Jobs({clients,jobs,setJobs,quotes,setQuotes,payments,setPayments,notes,
         ))}
       </div>
     </div>}
-    {/* List / Board view toggle */}
-    <div style={{display:"flex",gap:6,marginBottom:14,alignItems:"center"}}>
+    {/* List / Board view toggle — hidden on mobile (board needs drag-and-drop) */}
+    {!isMobile&&<div style={{display:"flex",gap:6,marginBottom:14,alignItems:"center"}}>
       {[["list","☰ List"],["board","▦ Board"]].map(([m,label])=>(
         <button key={m} onClick={()=>setMode(m)} style={{padding:"6px 16px",borderRadius:3,border:`1px solid ${mode===m?INK:BD}`,background:mode===m?INK:"transparent",color:mode===m?WHITE:WG,fontSize:11,fontWeight:700,letterSpacing:"0.1em",textTransform:"uppercase",cursor:"pointer",fontFamily:"inherit"}}>{label}</button>
       ))}
       {mode==="board"&&<span style={{fontSize:11,color:WG,marginLeft:6}}>Drag a card to move it to another stage.</span>}
-    </div>
-    {mode==="list"&&<div style={{display:"flex",gap:6,flexWrap:"wrap",marginBottom:14}}>
+    </div>}
+    {vMode==="list"&&<div style={{display:"flex",gap:6,flexWrap:"wrap",marginBottom:14}}>
       {["All",...JOB_STAGES].map(s=><button key={s} onClick={()=>setSf(s)} style={{padding:"4px 11px",borderRadius:3,border:`1px solid ${sf===s?GOLD:BD}`,background:sf===s?GOLD:"transparent",color:sf===s?WHITE:WG,fontSize:11,fontWeight:700,cursor:"pointer",fontFamily:"inherit"}}>{s}</button>)}
     </div>}
-    {mode==="list"&&(q||tf!=="All"||sf!=="All")&&<div style={{fontSize:12,color:WG,marginBottom:12}}>Showing <b style={{color:INK}}>{filtered.length}</b> of {jobs.length} job{jobs.length!==1?"s":""}{tf!=="All"?` · ${tf}`:""}{sf!=="All"?` · ${sf}`:""}{q?` · “${search.trim()}”`:""}{(q||tf!=="All"||sf!=="All")&&<button onClick={()=>{setSearch("");setTf("All");setSf("All");}} style={{background:"none",border:"none",color:GOLD,fontWeight:700,fontSize:12,cursor:"pointer",fontFamily:"inherit",marginLeft:8,padding:0}}>Clear</button>}</div>}
+    {vMode==="list"&&(q||tf!=="All"||sf!=="All")&&<div style={{fontSize:12,color:WG,marginBottom:12}}>Showing <b style={{color:INK}}>{filtered.length}</b> of {jobs.length} job{jobs.length!==1?"s":""}{tf!=="All"?` · ${tf}`:""}{sf!=="All"?` · ${sf}`:""}{q?` · “${search.trim()}”`:""}{(q||tf!=="All"||sf!=="All")&&<button onClick={()=>{setSearch("");setTf("All");setSf("All");}} style={{background:"none",border:"none",color:GOLD,fontWeight:700,fontSize:12,cursor:"pointer",fontFamily:"inherit",marginLeft:8,padding:0}}>Clear</button>}</div>}
 
     {/* ── Production board ── */}
-    {mode==="board"&&(()=>{
+    {vMode==="board"&&(()=>{
       const byStage={};JOB_STAGES.forEach(s=>byStage[s]=[]);
       filtered.forEach(j=>{(byStage[j.stage]=byStage[j.stage]||[]).push(j);});
       return <div style={{display:"flex",gap:14,overflowX:"auto",paddingBottom:18,width:"100%"}}>
@@ -2138,8 +2142,8 @@ function Jobs({clients,jobs,setJobs,quotes,setQuotes,payments,setPayments,notes,
       </div>;
     })()}
 
-    {mode==="list"&&filtered.length===0&&<Card><div style={{color:WG,fontSize:14,textAlign:"center",padding:"14px 0"}}>No jobs found{q?` for “${search.trim()}”`:""}.</div></Card>}
-    {mode==="list"&&filtered.map(j=>{
+    {vMode==="list"&&filtered.length===0&&<Card><div style={{color:WG,fontSize:14,textAlign:"center",padding:"14px 0"}}>No jobs found{q?` for “${search.trim()}”`:""}.</div></Card>}
+    {vMode==="list"&&filtered.map(j=>{
       const c=clients.find(x=>x.id===j.clientId);
       const od=j.deadline&&j.deadline<today()&&!jobIsDone(j);
       const total=jobChargeTotal(j,quotes,markupTable,invoices);
