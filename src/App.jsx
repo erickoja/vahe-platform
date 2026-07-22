@@ -3426,9 +3426,9 @@ function QuoteBuilder({jobId:jobIdProp,editQuoteId,stockId,stock,setStock,jobs,c
               <Input label="Piece name on documents (optional)" value={pieceTitle} onChange={setPieceTitle} placeholder={`Heading for the piece — blank uses the job type${job?.type?` (“${job.type}”)`:""}. e.g. Solitaire engagement ring`}/>
             </div>
             <div>
-              <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:6}}>
+              <div style={{display:"flex",alignItems:"center",gap:10,flexWrap:"wrap",rowGap:6,marginBottom:6}}>
                 <label style={SS.lbl}>Description for client</label>
-                <div style={{background:OK+"22",color:OK,fontSize:10,fontWeight:700,padding:"2px 8px",borderRadius:4,letterSpacing:"0.04em"}}>APPEARS ON PROPOSAL</div>
+                <div style={{background:OK+"22",color:OK,fontSize:10,fontWeight:700,padding:"2px 8px",borderRadius:4,letterSpacing:"0.04em",whiteSpace:"nowrap"}}>APPEARS ON PROPOSAL</div>
               </div>
               <textarea value={clientDescription} onChange={e=>setClientDescription(e.target.value)} rows={4}
                 placeholder="e.g. Custom 18ct white gold engagement ring featuring a 1.52ct oval-cut sapphire with a diamond pavé halo. All stones hand-selected and set in our studio."
