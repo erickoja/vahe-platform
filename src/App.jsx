@@ -3170,6 +3170,7 @@ function CentreStonePicker({onAdd,onAddManual,centreRates=DEFAULT_CENTRE_RATES,s
 }
 
 function QuoteBuilder({jobId:jobIdProp,editQuoteId,stockId,stock,setStock,jobs,clients,quotes,setQuotes,pricing,setPricing,markupTable,naturalStoneMarkup,labStoneMarkup,centreRates=DEFAULT_CENTRE_RATES,setCentreRates,invoices=[],setInvoices,setView}){
+  const isMobile=useIsMobile();
   const existingQuote=editQuoteId?quotes.find(q=>q.id===editQuoteId):null;
   // Stock-pricing mode: same builder, but the total becomes a stock piece's price (no quote/proposal chrome).
   const stockMode=!!stockId;
@@ -3400,7 +3401,7 @@ function QuoteBuilder({jobId:jobIdProp,editQuoteId,stockId,stock,setStock,jobs,c
   return <div>
     <button onClick={()=>setView(stockMode?"stock":"jobDetail_"+jobId)} style={{background:"none",border:"none",cursor:"pointer",color:GOLD,fontSize:13,fontWeight:700,fontFamily:"inherit",marginBottom:18,padding:0}}>{stockMode?"← Back to stock":"← Back to job"}</button>
     <div style={{marginBottom:20}}>
-      <h1 style={{margin:0,fontSize:24,fontWeight:700,color:INK}}>{stockMode?(seed?"Update price":"Generate price"):(isEditing?"Edit quote":"New quote")}{title.trim()?`: ${title.trim()}`:(stockMode&&stockItem?.title?`: ${stockItem.title}`:"")}</h1>
+      <h1 style={{margin:0,fontSize:isMobile?19:24,fontWeight:700,color:INK,wordBreak:"break-word"}}>{stockMode?(seed?"Update price":"Generate price"):(isEditing?"Edit quote":"New quote")}{title.trim()?`: ${title.trim()}`:(stockMode&&stockItem?.title?`: ${stockItem.title}`:"")}</h1>
       {job&&<div style={{color:WG,fontSize:13,marginTop:3}}>{job.type} · {clientDisplayName(c)}</div>}
       {stockMode&&<div style={{color:WG,fontSize:13,marginTop:3}}>Pricing a stock piece — builds like a quote, but the total becomes this piece's price.</div>}
       {isEditing&&!stockMode&&<div style={{fontSize:12,color:WG,marginTop:2}}>Quote {quoteRef(existingQuote)} · created {fmtDate(existingQuote.createdAt)}</div>}
@@ -3417,7 +3418,7 @@ function QuoteBuilder({jobId:jobIdProp,editQuoteId,stockId,stock,setStock,jobs,c
             <Input label="Price label (optional)" value={title} onChange={setTitle} placeholder="What this pricing covers — for your reference only"/>
           </div>
         : <div style={{marginBottom:20}}>
-            <div style={{display:"grid",gridTemplateColumns:"1fr 200px",gap:"0 24px",marginBottom:16}}>
+            <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"1fr 200px",gap:"0 24px",marginBottom:16}}>
               <Input label="Quote title / label" value={title} onChange={setTitle} placeholder="e.g. Engagement ring, Diamond upgrade, Repair…"/>
               <Input label="Quote expiry date" value={validUntil} onChange={setValidUntil} type="date"/>
             </div>
@@ -3443,9 +3444,9 @@ function QuoteBuilder({jobId:jobIdProp,editQuoteId,stockId,stock,setStock,jobs,c
         <div style={{color:WG,marginTop:6}}>For example, making a wedding ring with 15 × 2mm blue sapphires? Call your supplier for your real cost, then add it here as a manual entry — that way your quote always reflects your actual pricing.</div>
         <div style={{color:WG,marginTop:6}}>You can also do this straight from <strong>⊕ Pricing DB</strong> — the <strong>Manual price</strong> box at the top lets you type a label and price and add it to the quote as its own line entry.</div>
       </div>
-      {(items.length>0||mfgAccents.length>0)&&<><div style={{display:"grid",gridTemplateColumns:"minmax(240px,1.6fr) 1fr 120px 104px",gap:8,marginBottom:6,padding:"0 2px"}}>
+      {(items.length>0||mfgAccents.length>0)&&<>{!isMobile&&<div style={{display:"grid",gridTemplateColumns:"minmax(240px,1.6fr) 1fr 120px 104px",gap:8,marginBottom:6,padding:"0 2px"}}>
         {["Item","Detail / calculation","Cost",""].map(h=><div key={h} style={{fontSize:10,fontWeight:700,color:WG,textTransform:"uppercase",letterSpacing:"0.04em"}}>{h}</div>)}
-      </div>
+      </div>}
       <div style={{fontSize:11,color:WG,marginBottom:10,lineHeight:1.5}}>Toggle <strong style={{color:"#7B5EA7"}}>No markup</strong> on any item to add it at exact cost after markup is applied.</div></>}
       {items.length===0&&mfgAccents.length===0&&!(stoneMode==="sourcing"&&stoneType&&stoneItems.length>0)&&
         <div style={{border:`1px dashed ${BD}`,borderRadius:5,padding:"16px 18px",marginBottom:12,fontSize:12.5,color:WG,lineHeight:1.6,textAlign:"center"}}>
@@ -3454,12 +3455,12 @@ function QuoteBuilder({jobId:jobIdProp,editQuoteId,stockId,stock,setStock,jobs,c
       {items.map((li,idx)=>{
         const cost=Number(li.costLow)||0;
         const totalStr=cost>0?fmt(cost):"—";
-        return <div key={li.id} style={{display:"grid",gridTemplateColumns:"minmax(240px,1.6fr) 1fr 120px 104px",gap:8,marginBottom:8,alignItems:"center"}}>
-          <input value={li.description} onChange={e=>setItem(li.id,"description",e.target.value)} placeholder="e.g. 9ct white gold" style={{...SS.inp,marginTop:0,fontSize:13,padding:"7px 10px"}}/>
-          <input value={li.detail} onChange={e=>setItem(li.id,"detail",e.target.value)} placeholder="e.g. 5g × $110/g" style={{...SS.inp,marginTop:0,fontSize:13,padding:"7px 10px",color:WG}}/>
+        return <div key={li.id} style={{display:"grid",gridTemplateColumns:isMobile?"1fr auto":"minmax(240px,1.6fr) 1fr 120px 104px",columnGap:8,rowGap:isMobile?7:8,marginBottom:isMobile?16:8,alignItems:"center",...(isMobile?{padding:"10px",border:`1px solid ${BD}`,borderRadius:6,background:PARCH}:{})}}>
+          <input value={li.description} onChange={e=>setItem(li.id,"description",e.target.value)} placeholder="Item — e.g. 9ct white gold" style={{...SS.inp,marginTop:0,fontSize:13,padding:"7px 10px",gridColumn:isMobile?"1 / -1":"auto"}}/>
+          <input value={li.detail} onChange={e=>setItem(li.id,"detail",e.target.value)} placeholder="Detail — e.g. 5g × $110/g" style={{...SS.inp,marginTop:0,fontSize:13,padding:"7px 10px",color:WG,gridColumn:isMobile?"1 / -1":"auto"}}/>
           <input type="number" value={li.costLow} onChange={e=>setItem(li.id,"costLow",e.target.value)} placeholder="0.00" min="0" step="0.01" style={{...SS.inp,marginTop:0,fontSize:13,padding:"7px 8px",textAlign:"right"}}/>
           <div style={{fontSize:13,fontWeight:700,color:INK,textAlign:"right",whiteSpace:"nowrap"}}>{totalStr}</div>
-          <div style={{display:"flex",gap:3,alignItems:"center"}}>
+          <div style={{display:"flex",gap:3,alignItems:"center",flexWrap:"wrap",gridColumn:isMobile?"1 / -1":"auto"}}>
             {li.metalMethod&&<div style={{display:"inline-flex",border:`1px solid ${BD}`,borderRadius:2,overflow:"hidden",flexShrink:0}} title="Metal supply — pick one: Cast (casting-house premium) or hand-Fabricated (mill metal)">
               {[["cast","CAST",Number(li.metalCastPerG)||0],["fab","FAB",Number(li.metalFabPerG)||0]].map(([m,lbl,perG],i)=>{
                 const on=li.metalMethod===m;
