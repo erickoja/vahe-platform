@@ -3127,15 +3127,15 @@ function SettingPicker({onAdd,settingRates=DEFAULT_SETTING_RATES,pricing=[]}){
   const fee=settingFee({mode,sizeMm,carat,styleMult,careful,count:n},settingRates,pricing);
   const add=()=>{
     if(fee<=0)return;
-    const upTxt=careful?` · careful +${upPct}%`:"";
-    const desc=`${style.name} setting${careful?" (careful stone)":""}`;
+    const upTxt=careful?` · extra care +${upPct}%`:"";
+    const desc=`${style.name} setting${careful?" (precious / high value)":""}`;
     const detail=mode==="carat"
       ?`${Number(carat)||0}ct · ${style.name}${upTxt} (${fmt(settingRates.baseCaratRate)}/ct × ${styleMult})`
       :`${n} stone${n!==1?"s":""} × ${sizeMm}mm · ${style.name}${upTxt}`;
     onAdd(desc,detail,fee);
   };
   return <div>
-    <div style={{fontSize:12,color:WG,lineHeight:1.6,marginBottom:14}}>Pick the setting style, size the stone(s), and flag a <strong style={{color:INK}}>careful set</strong> for precious / high-value stones. Edit the rates in <strong style={{color:INK}}>Pricing DB → Stone Setting</strong>.</div>
+    <div style={{fontSize:12,color:WG,lineHeight:1.6,marginBottom:14}}>Pick the setting style, size the stone(s), and mark it <strong style={{color:INK}}>precious / high value</strong> if it needs extra care to set. Edit the rates in <strong style={{color:INK}}>Pricing DB → Stone Setting</strong>.</div>
     <label style={SS.lbl}>Setting style</label>
     <div style={{display:"flex",gap:6,flexWrap:"wrap",marginTop:6,marginBottom:14}}>
       {styles.map(s=>{const on=s.id===styleId;return <button key={s.id} onClick={()=>setStyleId(s.id)} style={{padding:"7px 12px",borderRadius:4,border:`1px solid ${on?GOLD:BD}`,background:on?GOLD:WHITE,color:on?WHITE:INK,fontSize:12,fontWeight:700,cursor:"pointer",fontFamily:"inherit"}}>{s.name}{Number(s.mult)!==1&&<span style={{opacity:0.7,fontWeight:400}}> ×{s.mult}</span>}</button>;})}
@@ -3160,11 +3160,11 @@ function SettingPicker({onAdd,settingRates=DEFAULT_SETTING_RATES,pricing=[]}){
     </div>
     <label style={{display:"flex",alignItems:"center",gap:10,marginBottom:16,cursor:"pointer"}}>
       <input type="checkbox" checked={careful} onChange={e=>setCareful(e.target.checked)}/>
-      <span style={{fontSize:13,color:INK,fontWeight:600}}>Careful stone <span style={{fontWeight:400,color:WG}}>— precious gem / high-value natural (+{upPct}%)</span></span>
+      <span style={{fontSize:13,color:INK,fontWeight:600}}>Precious / High Value <span style={{fontWeight:400,color:WG}}>(Extra Care Needed) · +{upPct}%</span></span>
     </label>
     <div style={{background:fee>0?OK+"11":PARCH,border:`1px solid ${fee>0?OK:BD}`,borderRadius:4,padding:"14px 18px",display:"flex",justifyContent:"space-between",alignItems:"center",gap:12,flexWrap:"wrap"}}>
       <div style={{minWidth:0}}>
-        <div style={{fontSize:12,fontWeight:700,color:INK}}>{style?.name} setting{careful?" · careful":""}</div>
+        <div style={{fontSize:12,fontWeight:700,color:INK}}>{style?.name} setting{careful?" · extra care":""}</div>
         <div style={{fontSize:12,color:WG,marginTop:2}}>{fee>0?(mode==="carat"?`${Number(carat)||0}ct × ${fmt(settingRates.baseCaratRate)}/ct × ${styleMult}${careful?` × ${upMult.toFixed(2)}`:""}`:`${n} × ${sizeMm}mm base × ${styleMult}${careful?` × ${upMult.toFixed(2)}`:""}`):"Set the size to calculate"}</div>
       </div>
       <div style={{display:"flex",gap:12,alignItems:"center",flexShrink:0}}>
