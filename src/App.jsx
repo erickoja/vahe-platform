@@ -85,11 +85,21 @@ const SETTING_STYLES_SEED=[
   {id:"pave",   name:"French pavé",          mult:1.25},
   {id:"pear",   name:"Pear / Marquise claw", mult:1.5},
 ];
+// #3 — a sensible starting carat-band schedule scaled off the base $/ct: full rate up to 1ct,
+// then tapering (setting a big centre isn't a straight multiple of a small one). Fully editable.
+const defaultCaratBands=(base=50)=>{
+  const b=Number(base)||50;
+  return [
+    {upTo:1,   perCt:Math.round(b)},        // 0–1ct  · full rate
+    {upTo:2,   perCt:Math.round(b*0.8)},    // 1–2ct  · 80%
+    {upTo:null,perCt:Math.round(b*0.6)},    // 2ct+   · 60%
+  ];
+};
 const DEFAULT_SETTING_RATES={
-  baseCaratRate:50,                  // legacy single per-carat rate; seeds the first carat band
+  baseCaratRate:50,                  // legacy single per-carat rate; seeds the carat bands
   carefulUpliftPct:35,               // precious / high-value stones
   platinumUpliftPct:20,              // #4 — platinum is harder to set than gold (per-line toggle)
-  caratBands:[{upTo:null,perCt:50}], // #3 — marginal carat bands; one unbounded band = flat $/ct
+  caratBands:defaultCaratBands(50),  // #3 — marginal carat bands (tapered starting point)
   volumeTiers:[],                    // #5 — per-stone volume discounts (empty = no discount)
   styles:SETTING_STYLES_SEED,
 };
@@ -103,7 +113,7 @@ const normalizeSettingRates=(raw)=>{
     baseCaratRate:Number(r.baseCaratRate)||50,
     carefulUpliftPct:Number(r.carefulUpliftPct)||0,
     platinumUpliftPct:r.platinumUpliftPct!=null?(Number(r.platinumUpliftPct)||0):20,
-    caratBands:Array.isArray(r.caratBands)&&r.caratBands.length?r.caratBands:[{upTo:null,perCt:Number(r.baseCaratRate)||50}],
+    caratBands:Array.isArray(r.caratBands)&&r.caratBands.length?r.caratBands:defaultCaratBands(r.baseCaratRate),
     volumeTiers:Array.isArray(r.volumeTiers)?r.volumeTiers:[],
     styles:r.styles,
   });
