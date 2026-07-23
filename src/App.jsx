@@ -3142,10 +3142,11 @@ function SettingPicker({onAdd,settingRates=DEFAULT_SETTING_RATES,pricing=[]}){
     </div>
     <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"auto 1fr",gap:isMobile?12:20,alignItems:"end",marginBottom:14}}>
       <div>
-        <label style={SS.lbl}>Size by</label>
+        <label style={SS.lbl}>What are you setting?</label>
         <div style={{display:"inline-flex",border:`1px solid ${BD}`,borderRadius:4,overflow:"hidden",marginTop:6}}>
-          {[["mm","By size (mm)"],["carat","By carat"]].map(([m,lbl],i)=><button key={m} onClick={()=>setMode(m)} style={{padding:"8px 14px",border:"none",borderLeft:i?`1px solid ${BD}`:"none",background:mode===m?INK:WHITE,color:mode===m?WHITE:WG,fontSize:12,fontWeight:700,cursor:"pointer",fontFamily:"inherit",whiteSpace:"nowrap"}}>{lbl}</button>)}
+          {[["mm","Accent / melee — by mm"],["carat","Centre / feature stone — by carat"]].map(([m,lbl],i)=><button key={m} onClick={()=>setMode(m)} style={{padding:"8px 14px",border:"none",borderLeft:i?`1px solid ${BD}`:"none",background:mode===m?INK:WHITE,color:mode===m?WHITE:WG,fontSize:12,fontWeight:700,cursor:"pointer",fontFamily:"inherit",whiteSpace:"nowrap"}}>{lbl}</button>)}
         </div>
+        <div style={{fontSize:11,color:WG,marginTop:6,lineHeight:1.5,maxWidth:isMobile?"none":360}}>{mode==="mm"?"Small accent/melee stones — priced per stone by size (mm).":"Your centre or feature stone — priced by its carat weight."}</div>
       </div>
       {mode==="mm"
         ?<div style={{display:"flex",gap:10,flexWrap:"wrap"}}>
@@ -3153,7 +3154,7 @@ function SettingPicker({onAdd,settingRates=DEFAULT_SETTING_RATES,pricing=[]}){
           <div><label style={SS.lbl}>How many</label><input type="number" min="1" value={count} onChange={e=>setCount(e.target.value)} style={{...SS.inp,marginTop:4,width:90}}/></div>
         </div>
         :<div style={{display:"flex",gap:10,flexWrap:"wrap"}}>
-          <div><label style={SS.lbl}>Carat weight</label><input type="number" min="0" step="0.01" value={carat} onChange={e=>setCarat(e.target.value)} placeholder="e.g. 1.50" style={{...SS.inp,marginTop:4,width:120}}/></div>
+          <div><label style={SS.lbl}>Centre stone carat</label><input type="number" min="0" step="0.01" value={carat} onChange={e=>setCarat(e.target.value)} placeholder="e.g. 1.50" style={{...SS.inp,marginTop:4,width:120}}/></div>
           <div><label style={SS.lbl}>How many</label><input type="number" min="1" value={count} onChange={e=>setCount(e.target.value)} style={{...SS.inp,marginTop:4,width:90}}/></div>
         </div>}
     </div>
