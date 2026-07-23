@@ -85,18 +85,35 @@ const SETTING_STYLES_SEED=[
   {id:"pave",   name:"French pavé",          mult:1.25},
   {id:"pear",   name:"Pear / Marquise claw", mult:1.5},
 ];
-const DEFAULT_SETTING_RATES={baseCaratRate:50,carefulUpliftPct:35,styles:SETTING_STYLES_SEED};
+const DEFAULT_SETTING_RATES={
+  baseCaratRate:50,                  // legacy single per-carat rate; seeds the first carat band
+  carefulUpliftPct:35,               // precious / high-value stones
+  platinumUpliftPct:20,              // #4 — platinum is harder to set than gold (per-line toggle)
+  caratBands:[{upTo:null,perCt:50}], // #3 — marginal carat bands; one unbounded band = flat $/ct
+  volumeTiers:[],                    // #5 — per-stone volume discounts (empty = no discount)
+  styles:SETTING_STYLES_SEED,
+};
 // Legacy shape kept so old saved centre rates still migrate cleanly.
 const DEFAULT_CENTRE_RATES={basicPerCt:50,complexPerCt:75};
 // Normalise whatever is stored under K.csr (old {basicPerCt,complexPerCt} OR new settingRates) into the new shape.
 const normalizeSettingRates=(raw)=>{
-  if(raw&&Array.isArray(raw.styles))return {baseCaratRate:Number(raw.baseCaratRate)||50,carefulUpliftPct:Number(raw.carefulUpliftPct)||0,styles:raw.styles};
+  // Backfill the newer fields (platinum uplift / carat bands / volume tiers) WITHOUT changing
+  // existing prices: missing bands become one unbounded band at the saved per-carat rate.
+  const withDefaults=(r)=>({
+    baseCaratRate:Number(r.baseCaratRate)||50,
+    carefulUpliftPct:Number(r.carefulUpliftPct)||0,
+    platinumUpliftPct:r.platinumUpliftPct!=null?(Number(r.platinumUpliftPct)||0):20,
+    caratBands:Array.isArray(r.caratBands)&&r.caratBands.length?r.caratBands:[{upTo:null,perCt:Number(r.baseCaratRate)||50}],
+    volumeTiers:Array.isArray(r.volumeTiers)?r.volumeTiers:[],
+    styles:r.styles,
+  });
+  if(raw&&Array.isArray(raw.styles))return withDefaults(raw);
   // migrate from legacy centre rates
   const basic=Number(raw?.basicPerCt)||50;
   const complex=Number(raw?.complexPerCt)||75;
   const complexMult=basic>0?complex/basic:1.5;   // e.g. 75/50 = 1.5
   const styles=SETTING_STYLES_SEED.map(s=>s.id==="prong"?s:({...s,mult:s.mult>=1.5?complexMult:1.25}));
-  return {baseCaratRate:basic,carefulUpliftPct:35,styles};
+  return withDefaults({baseCaratRate:basic,carefulUpliftPct:35,styles});
 };
 // Per-stone base rate (Prong/Claw baseline) for a given mm size, read from the base mm table (Basic Setting items).
 const settingBaseMmRate=(sizeMm,pricing)=>{
@@ -108,11 +125,41 @@ const settingBaseMmRate=(sizeMm,pricing)=>{
   const near=items.slice().sort((a,b)=>Math.abs(a.sizeMm-sizeMm)-Math.abs(b.sizeMm-sizeMm))[0];
   return near?Number(near.baseCost)||0:0;
 };
+// #3 — carat base via marginal bands: each band prices only the portion of carat weight that
+// falls inside it, so a big stone isn't charged as a straight multiple of a small one. A single
+// unbounded band reduces to plain (carat × rate). `upTo:null` marks the top, open-ended band.
+const settingCaratBase=(carat,rates=DEFAULT_SETTING_RATES)=>{
+  const ct=Number(carat)||0;
+  if(ct<=0)return 0;
+  const raw=Array.isArray(rates.caratBands)&&rates.caratBands.length?rates.caratBands:[{upTo:null,perCt:Number(rates.baseCaratRate)||0}];
+  const bands=raw.slice().sort((a,b)=>(a.upTo==null?Infinity:Number(a.upTo))-(b.upTo==null?Infinity:Number(b.upTo)));
+  let prev=0,total=0;
+  for(const b of bands){
+    const cap=b.upTo==null?Infinity:(Number(b.upTo)||0);
+    const span=Math.max(0,Math.min(ct,cap)-prev);
+    total+=span*(Number(b.perCt)||0);
+    prev=cap;
+    if(ct<=cap)return total;
+  }
+  // carat above the highest finite band → charge the remainder at the top band's rate
+  const top=bands[bands.length-1];
+  return total+(ct-prev)*(Number(top.perCt)||0);
+};
+// #5 — volume discount: the highest tier whose minimum quantity is met sets a per-stone % off.
+const settingVolumeMult=(count,rates=DEFAULT_SETTING_RATES)=>{
+  const tiers=Array.isArray(rates.volumeTiers)?rates.volumeTiers:[];
+  if(!tiers.length)return 1;
+  const n=Math.max(1,Number(count)||1);
+  const hit=tiers.filter(t=>n>=(Number(t.minQty)||1)).sort((a,b)=>(Number(b.minQty)||1)-(Number(a.minQty)||1))[0];
+  return hit?Math.max(0,1-(Number(hit.offPct)||0)/100):1;
+};
 // The one formula. mode: "mm" (per-stone by size) | "carat" (centre/large by carat).
-const settingFee=({mode="mm",sizeMm,carat,styleMult=1,careful=false,count=1},rates=DEFAULT_SETTING_RATES,pricing=[])=>{
-  const base=mode==="carat"?(Number(carat)||0)*(Number(rates.baseCaratRate)||0):settingBaseMmRate(sizeMm,pricing);
+const settingFee=({mode="mm",sizeMm,carat,styleMult=1,careful=false,platinum=false,count=1},rates=DEFAULT_SETTING_RATES,pricing=[])=>{
+  const base=mode==="carat"?settingCaratBase(carat,rates):settingBaseMmRate(sizeMm,pricing);
   const up=careful?1+(Number(rates.carefulUpliftPct)||0)/100:1;
-  return base*(Number(styleMult)||1)*up*Math.max(1,Number(count)||1);
+  const plat=platinum?1+(Number(rates.platinumUpliftPct)||0)/100:1;
+  const n=Math.max(1,Number(count)||1);
+  return base*(Number(styleMult)||1)*up*plat*n*settingVolumeMult(n,rates);
 };
 // Single source of truth for category order — drives BOTH the Pricing Database page tabs
 // and the quote-builder pricing picker sidebar, so the two stay identical.
@@ -3117,19 +3164,24 @@ function SettingPicker({onAdd,settingRates=DEFAULT_SETTING_RATES,pricing=[]}){
   const[carat,setCarat]=useState("");
   const[count,setCount]=useState("1");
   const[careful,setCareful]=useState(false);
+  const[platinum,setPlatinum]=useState(false);
   const style=styles.find(s=>s.id===styleId)||styles[0];
   const styleMult=Number(style?.mult)||1;
   const n=Math.max(1,Number(count)||1);
   const upPct=Number(settingRates.carefulUpliftPct)||0;
   const upMult=careful?1+upPct/100:1;
-  const fee=settingFee({mode,sizeMm,carat,styleMult,careful,count:n},settingRates,pricing);
+  const platPct=Number(settingRates.platinumUpliftPct)||0;
+  const platMult=platinum?1+platPct/100:1;
+  const volMult=settingVolumeMult(n,settingRates);
+  const fee=settingFee({mode,sizeMm,carat,styleMult,careful,platinum,count:n},settingRates,pricing);
   const add=()=>{
     if(fee<=0)return;
-    const upTxt=careful?` · extra care +${upPct}%`:"";
-    const desc=`${style.name} setting${careful?" (precious / high value)":""}`;
+    const tags=[careful&&`extra care +${upPct}%`,platinum&&`platinum +${platPct}%`,volMult<1&&`volume −${Math.round((1-volMult)*100)}%`].filter(Boolean);
+    const tagTxt=tags.length?` · ${tags.join(" · ")}`:"";
+    const desc=`${style.name} setting${careful?" (precious / high value)":""}${platinum?" · platinum":""}`;
     const detail=mode==="carat"
-      ?`${Number(carat)||0}ct · ${style.name}${upTxt} (${fmt(settingRates.baseCaratRate)}/ct × ${styleMult})`
-      :`${n} stone${n!==1?"s":""} × ${sizeMm}mm · ${style.name}${upTxt}`;
+      ?`${Number(carat)||0}ct · ${style.name}${tagTxt}`
+      :`${n} stone${n!==1?"s":""} × ${sizeMm}mm · ${style.name}${tagTxt}`;
     onAdd(desc,detail,fee);
   };
   return <div>
@@ -3151,14 +3203,27 @@ function SettingPicker({onAdd,settingRates=DEFAULT_SETTING_RATES,pricing=[]}){
         :<div><label style={SS.lbl}>Centre stone carat</label><input type="number" min="0" step="0.01" value={carat} onChange={e=>setCarat(e.target.value)} placeholder="e.g. 1.50" style={{...SS.inp,marginTop:6,width:140}}/></div>}
       <div><label style={SS.lbl}>How many</label><input type="number" min="1" value={count} onChange={e=>setCount(e.target.value)} style={{...SS.inp,marginTop:6,width:120}}/></div>
     </div>
-    <label style={{display:"flex",alignItems:"center",gap:10,marginBottom:16,cursor:"pointer"}}>
-      <input type="checkbox" checked={careful} onChange={e=>setCareful(e.target.checked)}/>
-      <span style={{fontSize:13,color:INK,fontWeight:600}}>Precious / High Value <span style={{fontWeight:400,color:WG}}>(Extra Care Needed) · +{upPct}%</span></span>
-    </label>
+    <div style={{display:"flex",flexDirection:"column",gap:10,marginBottom:16}}>
+      <label style={{display:"flex",alignItems:"center",gap:10,cursor:"pointer"}}>
+        <input type="checkbox" checked={careful} onChange={e=>setCareful(e.target.checked)}/>
+        <span style={{fontSize:13,color:INK,fontWeight:600}}>Precious / High Value <span style={{fontWeight:400,color:WG}}>(Extra Care Needed) · +{upPct}%</span></span>
+      </label>
+      <label style={{display:"flex",alignItems:"center",gap:10,cursor:"pointer"}}>
+        <input type="checkbox" checked={platinum} onChange={e=>setPlatinum(e.target.checked)}/>
+        <span style={{fontSize:13,color:INK,fontWeight:600}}>Platinum <span style={{fontWeight:400,color:WG}}>(harder to set) · +{platPct}%</span></span>
+      </label>
+      {volMult<1&&<div style={{fontSize:12,color:OK,fontWeight:700}}>Volume rate — {Math.round((1-volMult)*100)}% off per stone for {n} stones.</div>}
+    </div>
     <div style={{background:fee>0?OK+"11":PARCH,border:`1px solid ${fee>0?OK:BD}`,borderRadius:4,padding:"14px 18px",display:"flex",justifyContent:"space-between",alignItems:"center",gap:12,flexWrap:"wrap"}}>
       <div style={{minWidth:0}}>
-        <div style={{fontSize:12,fontWeight:700,color:INK}}>{style?.name} setting{careful?" · extra care":""}</div>
-        <div style={{fontSize:12,color:WG,marginTop:2}}>{fee>0?(mode==="carat"?`${Number(carat)||0}ct × ${fmt(settingRates.baseCaratRate)}/ct × ${styleMult}${careful?` × ${upMult.toFixed(2)}`:""}`:`${n} × ${sizeMm}mm base × ${styleMult}${careful?` × ${upMult.toFixed(2)}`:""}`):"Set the size to calculate"}</div>
+        <div style={{fontSize:12,fontWeight:700,color:INK}}>{style?.name} setting{careful?" · extra care":""}{platinum?" · platinum":""}</div>
+        <div style={{fontSize:12,color:WG,marginTop:2}}>{fee>0?[
+          mode==="carat"?`${Number(carat)||0}ct → ${fmt(settingCaratBase(carat,settingRates))} base`:`${n} × ${sizeMm}mm base`,
+          styleMult!==1&&`× ${styleMult}`,
+          careful&&`× ${upMult.toFixed(2)} care`,
+          platinum&&`× ${platMult.toFixed(2)} plat`,
+          volMult<1&&`× ${volMult.toFixed(2)} vol`,
+        ].filter(Boolean).join(" "):"Set the size to calculate"}</div>
       </div>
       <div style={{display:"flex",gap:12,alignItems:"center",flexShrink:0}}>
         <div style={{fontSize:20,fontWeight:800,color:fee>0?OK:WG}}>{fmt(fee)}</div>
@@ -5992,6 +6057,16 @@ function PricingDB({pricing,setPricing,spotPrices,setSpotPrices,markupTable,cent
   const updateStyle=(id,patch)=>updateRates({styles:(centreRates.styles||[]).map(s=>s.id===id?{...s,...patch}:s)});
   const addStyle=()=>updateRates({styles:[...(centreRates.styles||[]),{id:uid(),name:"New style",mult:1}]});
   const removeStyle=id=>updateRates({styles:(centreRates.styles||[]).filter(s=>s.id!==id)});
+  // Carat bands (#3) — marginal $/ct tiers for centre/large stones.
+  const setBands=bands=>updateRates({caratBands:bands});
+  const addBand=()=>setBands([...(centreRates.caratBands||[]),{upTo:null,perCt:Number(centreRates.baseCaratRate)||50}]);
+  const updateBand=(i,patch)=>setBands((centreRates.caratBands||[]).map((b,j)=>j===i?{...b,...patch}:b));
+  const removeBand=i=>setBands((centreRates.caratBands||[]).filter((_,j)=>j!==i));
+  // Volume tiers (#5) — per-stone % off once the count reaches a threshold.
+  const setTiers=tiers=>updateRates({volumeTiers:tiers});
+  const addTier=()=>setTiers([...(centreRates.volumeTiers||[]),{minQty:10,offPct:10}]);
+  const updateTier=(i,patch)=>setTiers((centreRates.volumeTiers||[]).map((t,j)=>j===i?{...t,...patch}:t));
+  const removeTier=i=>setTiers((centreRates.volumeTiers||[]).filter((_,j)=>j!==i));
   const filteredDiamond=isDiamondView?pricing.filter(p=>p.category===cf):[];
   const filteredSetting=isSettingView?pricing.filter(p=>p.category==="Basic Setting"):[];
   const filteredComplex=isComplexSettingView?pricing.filter(p=>p.category==="Complex Setting"):[];
@@ -6061,13 +6136,29 @@ function PricingDB({pricing,setPricing,spotPrices,setSpotPrices,markupTable,cent
     {/* Unified Stone Setting view — base rates + style multipliers + careful-stone uplift */}
     {isSettingUnifiedView&&<div>
       <div style={{background:WHITE,border:`1px solid ${BD}`,borderRadius:5,padding:"12px 16px",marginBottom:14,fontSize:13,lineHeight:1.6}}>
-        <strong style={{color:INK}}>Stone setting</strong> — cost = <strong style={{color:INK}}>base rate × style multiplier × careful uplift × count</strong>. Prong/Claw is the base (×1); other styles multiply it; a careful set (precious / high-value stones) adds the uplift. These are cost prices — your markup table applies on top.
+        <strong style={{color:INK}}>Stone setting</strong> — cost = <strong style={{color:INK}}>base rate × style multiplier × careful uplift × platinum uplift × volume rate × count</strong>. Prong/Claw is the base (×1); other styles multiply it; the careful, platinum and volume adjustments only apply when ticked/triggered on a quote. These are cost prices — your markup table applies on top.
       </div>
-      {/* Base rates + uplift */}
+      {/* Uplifts */}
       <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:"0 16px",marginBottom:16}}>
-        <Input label="Centre / large — base rate ($ per carat)" type="number" min="0" value={String(centreRates.baseCaratRate??50)} onChange={v=>updateRates({baseCaratRate:Number(v)||0})}/>
         <Input label="Careful-stone uplift (%)" type="number" min="0" value={String(centreRates.carefulUpliftPct??0)} onChange={v=>updateRates({carefulUpliftPct:Number(v)||0})}/>
+        <Input label="Platinum uplift (%)" type="number" min="0" value={String(centreRates.platinumUpliftPct??0)} onChange={v=>updateRates({platinumUpliftPct:Number(v)||0})}/>
         <div/>
+      </div>
+      {/* #3 Carat rate bands (centre / large stones) */}
+      <div style={{fontSize:12,fontWeight:700,color:INK,marginBottom:2}}>Carat rate bands <span style={{fontWeight:400,color:WG}}>(centre / feature stones — each band prices only the carats inside it)</span></div>
+      <div style={{fontSize:11,color:WG,marginBottom:6,lineHeight:1.5}}>One band = flat $/ct (today's behaviour). Add bands to taper big stones — e.g. $50/ct up to 1ct, $40/ct from 1–2ct, $30/ct above. Leave the top band's <strong>up to</strong> blank for "and above".</div>
+      <div style={{background:WHITE,border:`1px solid ${BD}`,borderRadius:5,overflow:"hidden",marginBottom:16}}>
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 44px",gap:8,padding:"9px 16px",background:PARCH,borderBottom:`1px solid ${BD}`}}>
+          {["Up to (ct)","$ per carat",""].map(h=><div key={h} style={{fontSize:10,fontWeight:700,color:WG,textTransform:"uppercase",letterSpacing:"0.05em"}}>{h}</div>)}
+        </div>
+        {(centreRates.caratBands||[]).map((b,i,arr)=>(
+          <div key={i} style={{display:"grid",gridTemplateColumns:"1fr 1fr 44px",columnGap:8,alignItems:"center",padding:"8px 16px",borderBottom:i<arr.length-1?`1px solid ${BD}`:"none"}}>
+            <input type="number" min="0" step="0.1" placeholder={b.upTo==null?"and above":"e.g. 1"} value={b.upTo==null?"":String(b.upTo)} onChange={e=>updateBand(i,{upTo:e.target.value===""?null:Number(e.target.value)})} style={{...SS.inp,marginTop:0,fontSize:13,padding:"6px 9px"}}/>
+            <div style={{display:"flex",alignItems:"center",gap:6}}><span style={{fontSize:12,color:WG}}>$</span><input type="number" min="0" step="1" value={String(b.perCt??0)} onChange={e=>updateBand(i,{perCt:Number(e.target.value)||0})} style={{...SS.inp,marginTop:0,fontSize:13,padding:"6px 8px",fontWeight:700,color:GOLD_D}}/></div>
+            <button onClick={()=>removeBand(i)} title="Remove band" style={{background:"none",border:"none",cursor:"pointer",color:DANGER,fontSize:16,padding:0,justifySelf:"center"}}>×</button>
+          </div>
+        ))}
+        <div style={{padding:"10px 16px"}}><button onClick={addBand} style={{background:"none",border:`1px dashed ${GOLD}`,borderRadius:4,padding:"6px 14px",color:GOLD,fontSize:12,fontWeight:700,cursor:"pointer",fontFamily:"inherit"}}>+ Add band</button></div>
       </div>
       {/* Style multipliers */}
       <div style={{background:WHITE,border:`1px solid ${BD}`,borderRadius:5,overflow:"hidden",marginBottom:16}}>
@@ -6086,6 +6177,23 @@ function PricingDB({pricing,setPricing,spotPrices,setSpotPrices,markupTable,cent
       {/* Base per-stone rate table (mm) */}
       <div style={{fontSize:12,fontWeight:700,color:INK,marginBottom:6}}>Base per-stone rates <span style={{fontWeight:400,color:WG}}>(Prong/Claw baseline, by stone size — every style multiplies these)</span></div>
       <SettingTable items={filteredBase} onSavePrices={saveSettingPrices} label="Setting base rates"/>
+      {/* #5 Volume rates */}
+      <div style={{fontSize:12,fontWeight:700,color:INK,marginTop:18,marginBottom:2}}>Volume rates <span style={{fontWeight:400,color:WG}}>(per-stone discount for pavé / melee runs — optional)</span></div>
+      <div style={{fontSize:11,color:WG,marginBottom:6,lineHeight:1.5}}>Setting many small stones costs less per stone. The highest tier the quantity reaches applies to the whole line. Leave empty for no discount.</div>
+      <div style={{background:WHITE,border:`1px solid ${BD}`,borderRadius:5,overflow:"hidden"}}>
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 44px",gap:8,padding:"9px 16px",background:PARCH,borderBottom:`1px solid ${BD}`}}>
+          {["From (stones)","% off per stone",""].map(h=><div key={h} style={{fontSize:10,fontWeight:700,color:WG,textTransform:"uppercase",letterSpacing:"0.05em"}}>{h}</div>)}
+        </div>
+        {(centreRates.volumeTiers||[]).length===0&&<div style={{padding:"12px 16px",fontSize:12,color:WG}}>No volume tiers — every stone is charged the full rate.</div>}
+        {(centreRates.volumeTiers||[]).map((t,i,arr)=>(
+          <div key={i} style={{display:"grid",gridTemplateColumns:"1fr 1fr 44px",columnGap:8,alignItems:"center",padding:"8px 16px",borderBottom:i<arr.length-1?`1px solid ${BD}`:"none"}}>
+            <input type="number" min="1" step="1" value={String(t.minQty??1)} onChange={e=>updateTier(i,{minQty:Number(e.target.value)||1})} style={{...SS.inp,marginTop:0,fontSize:13,padding:"6px 9px"}}/>
+            <div style={{display:"flex",alignItems:"center",gap:6}}><input type="number" min="0" max="100" step="1" value={String(t.offPct??0)} onChange={e=>updateTier(i,{offPct:Number(e.target.value)||0})} style={{...SS.inp,marginTop:0,fontSize:13,padding:"6px 8px",fontWeight:700,color:GOLD_D}}/><span style={{fontSize:12,color:WG}}>%</span></div>
+            <button onClick={()=>removeTier(i)} title="Remove tier" style={{background:"none",border:"none",cursor:"pointer",color:DANGER,fontSize:16,padding:0,justifySelf:"center"}}>×</button>
+          </div>
+        ))}
+        <div style={{padding:"10px 16px"}}><button onClick={addTier} style={{background:"none",border:`1px dashed ${GOLD}`,borderRadius:4,padding:"6px 14px",color:GOLD,fontSize:12,fontWeight:700,cursor:"pointer",fontFamily:"inherit"}}>+ Add tier</button></div>
+      </div>
     </div>}
 
     {/* Complex Setting view (legacy, hidden) */}
