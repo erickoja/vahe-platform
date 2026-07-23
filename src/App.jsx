@@ -3138,23 +3138,18 @@ function SettingPicker({onAdd,settingRates=DEFAULT_SETTING_RATES,pricing=[]}){
     <div style={{display:"flex",gap:6,flexWrap:"wrap",marginTop:6,marginBottom:14}}>
       {styles.map(s=>{const on=s.id===styleId;return <button key={s.id} onClick={()=>setStyleId(s.id)} style={{padding:"7px 12px",borderRadius:4,border:`1px solid ${on?GOLD:BD}`,background:on?GOLD:WHITE,color:on?WHITE:INK,fontSize:12,fontWeight:700,cursor:"pointer",fontFamily:"inherit"}}>{s.name}{Number(s.mult)!==1&&<span style={{opacity:0.7,fontWeight:400}}> ×{s.mult}</span>}</button>;})}
     </div>
-    <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"auto 1fr",gap:isMobile?12:20,alignItems:"end",marginBottom:14}}>
-      <div>
-        <label style={SS.lbl}>What are you setting?</label>
-        <div style={{display:"inline-flex",border:`1px solid ${BD}`,borderRadius:4,overflow:"hidden",marginTop:6}}>
-          {[["mm","Accent / melee — by mm"],["carat","Centre / feature stone — by carat"]].map(([m,lbl],i)=><button key={m} onClick={()=>setMode(m)} style={{padding:"8px 14px",border:"none",borderLeft:i?`1px solid ${BD}`:"none",background:mode===m?INK:WHITE,color:mode===m?WHITE:WG,fontSize:12,fontWeight:700,cursor:"pointer",fontFamily:"inherit",whiteSpace:"nowrap"}}>{lbl}</button>)}
-        </div>
-        <div style={{fontSize:11,color:WG,marginTop:6,lineHeight:1.5,maxWidth:isMobile?"none":360}}>{mode==="mm"?"Small accent/melee stones — priced per stone by size (mm).":"Your centre or feature stone — priced by its carat weight."}</div>
+    <div style={{marginBottom:20}}>
+      <label style={SS.lbl}>What are you setting?</label>
+      <div style={{display:"inline-flex",border:`1px solid ${BD}`,borderRadius:4,overflow:"hidden",marginTop:6,maxWidth:"100%"}}>
+        {[["mm","Accent / melee — by mm"],["carat","Centre / feature stone — by carat"]].map(([m,lbl],i)=><button key={m} onClick={()=>setMode(m)} style={{padding:"8px 14px",border:"none",borderLeft:i?`1px solid ${BD}`:"none",background:mode===m?INK:WHITE,color:mode===m?WHITE:WG,fontSize:12,fontWeight:700,cursor:"pointer",fontFamily:"inherit",whiteSpace:"nowrap"}}>{lbl}</button>)}
       </div>
+      <div style={{fontSize:11,color:WG,marginTop:6,lineHeight:1.5}}>{mode==="mm"?"Small accent/melee stones — priced per stone by size (mm).":"Your centre or feature stone — priced by its carat weight."}</div>
+    </div>
+    <div style={{display:"flex",gap:16,flexWrap:"wrap",marginBottom:18}}>
       {mode==="mm"
-        ?<div style={{display:"flex",gap:10,flexWrap:"wrap"}}>
-          <div><label style={SS.lbl}>Stone size</label><Input as="select" value={String(sizeMm)} onChange={v=>setSizeMm(Number(v))} options={mmSizes.map(m=>({value:String(m),label:`${m}mm`}))}/></div>
-          <div><label style={SS.lbl}>How many</label><input type="number" min="1" value={count} onChange={e=>setCount(e.target.value)} style={{...SS.inp,marginTop:4,width:90}}/></div>
-        </div>
-        :<div style={{display:"flex",gap:10,flexWrap:"wrap"}}>
-          <div><label style={SS.lbl}>Centre stone carat</label><input type="number" min="0" step="0.01" value={carat} onChange={e=>setCarat(e.target.value)} placeholder="e.g. 1.50" style={{...SS.inp,marginTop:4,width:120}}/></div>
-          <div><label style={SS.lbl}>How many</label><input type="number" min="1" value={count} onChange={e=>setCount(e.target.value)} style={{...SS.inp,marginTop:4,width:90}}/></div>
-        </div>}
+        ?<div><label style={SS.lbl}>Stone size</label><select value={String(sizeMm)} onChange={e=>setSizeMm(Number(e.target.value))} style={{...SS.inp,marginTop:6,width:140}}>{mmSizes.map(m=><option key={m} value={String(m)}>{m}mm</option>)}</select></div>
+        :<div><label style={SS.lbl}>Centre stone carat</label><input type="number" min="0" step="0.01" value={carat} onChange={e=>setCarat(e.target.value)} placeholder="e.g. 1.50" style={{...SS.inp,marginTop:6,width:140}}/></div>}
+      <div><label style={SS.lbl}>How many</label><input type="number" min="1" value={count} onChange={e=>setCount(e.target.value)} style={{...SS.inp,marginTop:6,width:120}}/></div>
     </div>
     <label style={{display:"flex",alignItems:"center",gap:10,marginBottom:16,cursor:"pointer"}}>
       <input type="checkbox" checked={careful} onChange={e=>setCareful(e.target.checked)}/>
