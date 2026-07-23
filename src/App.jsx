@@ -3117,8 +3117,6 @@ function SettingPicker({onAdd,settingRates=DEFAULT_SETTING_RATES,pricing=[]}){
   const[carat,setCarat]=useState("");
   const[count,setCount]=useState("1");
   const[careful,setCareful]=useState(false);
-  const[manLabel,setManLabel]=useState("");
-  const[manFee,setManFee]=useState("");
   const style=styles.find(s=>s.id===styleId)||styles[0];
   const styleMult=Number(style?.mult)||1;
   const n=Math.max(1,Number(count)||1);
@@ -3170,17 +3168,6 @@ function SettingPicker({onAdd,settingRates=DEFAULT_SETTING_RATES,pricing=[]}){
       <div style={{display:"flex",gap:12,alignItems:"center",flexShrink:0}}>
         <div style={{fontSize:20,fontWeight:800,color:fee>0?OK:WG}}>{fmt(fee)}</div>
         <Btn disabled={fee<=0} onClick={add}>Add to quote</Btn>
-      </div>
-    </div>
-    <div style={{background:GOLD_L+"66",border:`1px solid ${GOLD}55`,borderRadius:4,padding:"11px 14px",marginTop:16}}>
-      <div style={{fontSize:12,fontWeight:700,color:GOLD_D,marginBottom:8}}>Manual setting price <span style={{fontWeight:400,color:WG}}>— type your own for anything the styles don't cover</span></div>
-      <div style={{display:"flex",alignItems:"center",gap:10,flexWrap:"wrap"}}>
-        <input value={manLabel} onChange={e=>setManLabel(e.target.value)} placeholder="Label (e.g. Bezel — emerald)" style={{...SS.inp,marginTop:0,flex:1,minWidth:160}}/>
-        <div style={{position:"relative",width:120,flexShrink:0}}>
-          <span style={{position:"absolute",left:10,top:"50%",transform:"translateY(-50%)",fontSize:13,color:WG,pointerEvents:"none"}}>$</span>
-          <input type="number" value={manFee} min="0" step="0.01" placeholder="0.00" onChange={e=>setManFee(e.target.value)} style={{...SS.inp,marginTop:0,padding:"9px 10px 9px 22px",textAlign:"right",width:"100%"}}/>
-        </div>
-        <Btn sm onClick={()=>{const amt=Number(manFee)||0;if(amt<=0)return;onAdd(manLabel.trim()||"Stone setting","Manual price",amt);setManLabel("");setManFee("");}}>Add</Btn>
       </div>
     </div>
   </div>;
