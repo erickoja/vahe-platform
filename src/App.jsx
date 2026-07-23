@@ -3125,12 +3125,6 @@ function SettingPicker({onAdd,settingRates=DEFAULT_SETTING_RATES,pricing=[]}){
   const upPct=Number(settingRates.carefulUpliftPct)||0;
   const upMult=careful?1+upPct/100:1;
   const fee=settingFee({mode,sizeMm,carat,styleMult,careful,count:n},settingRates,pricing);
-  const presets=[
-    {label:"Solitaire (claw)",styleId:"prong",mode:"carat",count:1},
-    {label:"Diamond halo",styleId:"pave",mode:"mm",sizeMm:mmSizes.includes(1.5)?1.5:sizeMm,count:12},
-    {label:"Eternity band",styleId:"channel",mode:"mm",sizeMm:mmSizes.includes(2)?2:sizeMm,count:18},
-  ];
-  const applyPreset=p=>{setStyleId(p.styleId);setMode(p.mode);if(p.sizeMm)setSizeMm(p.sizeMm);setCount(String(p.count||1));setCareful(!!p.careful);};
   const add=()=>{
     if(fee<=0)return;
     const upTxt=careful?` · careful +${upPct}%`:"";
@@ -3142,9 +3136,6 @@ function SettingPicker({onAdd,settingRates=DEFAULT_SETTING_RATES,pricing=[]}){
   };
   return <div>
     <div style={{fontSize:12,color:WG,lineHeight:1.6,marginBottom:14}}>Pick the setting style, size the stone(s), and flag a <strong style={{color:INK}}>careful set</strong> for precious / high-value stones. Edit the rates in <strong style={{color:INK}}>Pricing DB → Stone Setting</strong>.</div>
-    <div style={{display:"flex",gap:8,flexWrap:"wrap",marginBottom:16}}>
-      {presets.map(p=><button key={p.label} onClick={()=>applyPreset(p)} style={{padding:"6px 12px",borderRadius:20,border:`1px solid ${BD}`,background:WHITE,color:INK,fontSize:12,fontWeight:700,cursor:"pointer",fontFamily:"inherit"}}>{p.label}</button>)}
-    </div>
     <label style={SS.lbl}>Setting style</label>
     <div style={{display:"flex",gap:6,flexWrap:"wrap",marginTop:6,marginBottom:14}}>
       {styles.map(s=>{const on=s.id===styleId;return <button key={s.id} onClick={()=>setStyleId(s.id)} style={{padding:"7px 12px",borderRadius:4,border:`1px solid ${on?GOLD:BD}`,background:on?GOLD:WHITE,color:on?WHITE:INK,fontSize:12,fontWeight:700,cursor:"pointer",fontFamily:"inherit"}}>{s.name}{Number(s.mult)!==1&&<span style={{opacity:0.7,fontWeight:400}}> ×{s.mult}</span>}</button>;})}
