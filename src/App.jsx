@@ -6253,13 +6253,11 @@ function PricingDB({pricing,setPricing,spotPrices,setSpotPrices,markupTable,cent
         ))}
         <div style={{padding:"10px 16px"}}><button onClick={addTier} style={{background:"none",border:`1px dashed ${GOLD}`,borderRadius:4,padding:"6px 14px",color:GOLD,fontSize:12,fontWeight:700,cursor:"pointer",fontFamily:"inherit"}}>+ Add tier</button></div>
       </div>
-      {/* Save bar — sticks to the bottom of the viewport while there are unsaved edits */}
-      <div style={{position:"sticky",bottom:0,marginTop:20,padding:"12px 16px",background:WHITE,border:`1px solid ${dirty?GOLD:BD}`,borderRadius:5,display:"flex",alignItems:"center",justifyContent:"space-between",gap:12,flexWrap:"wrap",boxShadow:dirty?"0 -2px 14px rgba(0,0,0,0.06)":"none"}}>
-        <div style={{fontSize:12,color:dirty?GOLD_D:WG,fontWeight:dirty?700:400}}>{dirty?"You have unsaved changes to your setting rates.":"All setting rates saved."}</div>
-        <div style={{display:"flex",gap:10}}>
-          {dirty&&<Btn sm ghost onClick={discardSettingRates}>Discard</Btn>}
-          <Btn sm onClick={saveSettingRates} disabled={!dirty}>Save changes</Btn>
-        </div>
+      {/* Save bar — plain inline row at the end of the section */}
+      <div style={{marginTop:20,display:"flex",alignItems:"center",justifyContent:"flex-end",gap:12,flexWrap:"wrap"}}>
+        {dirty&&<div style={{fontSize:12,color:GOLD_D,fontWeight:700,marginRight:"auto"}}>Unsaved changes</div>}
+        {dirty&&<Btn sm ghost onClick={discardSettingRates}>Discard</Btn>}
+        <Btn sm onClick={saveSettingRates} disabled={!dirty}>Save changes</Btn>
       </div>
     </div>}
 
