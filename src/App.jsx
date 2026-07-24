@@ -161,6 +161,25 @@ const settingCaratBase=(carat,rates=DEFAULT_SETTING_RATES)=>{
   const top=bands[bands.length-1];
   return total+(ct-prev)*(Number(top.perCt)||0);
 };
+// Same walk as settingCaratBase but returns each per-band slice {span,perCt,cost} — used to render
+// a live worked example in the Pricing DB that always matches the user's own band figures.
+const settingCaratSegments=(carat,rates=DEFAULT_SETTING_RATES)=>{
+  const ct=Number(carat)||0;
+  if(ct<=0)return [];
+  const raw=Array.isArray(rates.caratBands)&&rates.caratBands.length?rates.caratBands:[{upTo:null,perCt:Number(rates.baseCaratRate)||0}];
+  const bands=raw.slice().sort((a,b)=>(a.upTo==null?Infinity:Number(a.upTo))-(b.upTo==null?Infinity:Number(b.upTo)));
+  let prev=0;const segs=[];
+  for(const b of bands){
+    const cap=b.upTo==null?Infinity:(Number(b.upTo)||0);
+    const span=Math.max(0,Math.min(ct,cap)-prev);
+    if(span>0){const perCt=Number(b.perCt)||0;segs.push({span:Math.round(span*100)/100,perCt,cost:span*perCt});}
+    prev=cap;
+    if(ct<=cap)return segs;
+  }
+  const top=bands[bands.length-1];const perCt=Number(top.perCt)||0;
+  if(ct>prev)segs.push({span:Math.round((ct-prev)*100)/100,perCt,cost:(ct-prev)*perCt});
+  return segs;
+};
 // #5 — volume discount: the highest tier whose minimum quantity is met sets a per-stone % off.
 const settingVolumeMult=(count,rates=DEFAULT_SETTING_RATES)=>{
   const tiers=Array.isArray(rates.volumeTiers)?rates.volumeTiers:[];
@@ -6078,6 +6097,14 @@ function PricingDB({pricing,setPricing,spotPrices,setSpotPrices,markupTable,cent
   const addBand=()=>setBands([...(centreRates.caratBands||[]),{upTo:null,perCt:Number(centreRates.baseCaratRate)||50}]);
   const updateBand=(i,patch)=>setBands((centreRates.caratBands||[]).map((b,j)=>j===i?{...b,...patch}:b));
   const removeBand=i=>setBands((centreRates.caratBands||[]).filter((_,j)=>j!==i));
+  // Live worked example for the carat-band help text — built from the user's actual bands so the
+  // figures always match. Pick a weight just past the highest fixed threshold so the taper shows.
+  const cBands=(centreRates.caratBands||[]).length?centreRates.caratBands:[{upTo:null,perCt:Number(centreRates.baseCaratRate)||0}];
+  const cFinite=cBands.map(b=>b.upTo==null?null:Number(b.upTo)).filter(v=>v!=null&&v>0);
+  const cExampleCt=cFinite.length?Math.max(...cFinite)+0.5:2;
+  const cSegs=settingCaratSegments(cExampleCt,centreRates);
+  const cSegStr=cSegs.map(s=>`${fmt(s.cost)} (${s.span}ct × ${fmt(s.perCt)}/ct)`).join(" + ");
+  const cTotal=cSegs.reduce((a,s)=>a+s.cost,0);
   // Volume tiers (#5) — per-stone % off once the count reaches a threshold.
   const setTiers=tiers=>updateRates({volumeTiers:tiers});
   const addTier=()=>setTiers([...(centreRates.volumeTiers||[]),{minQty:10,offPct:10}]);
@@ -6162,7 +6189,7 @@ function PricingDB({pricing,setPricing,spotPrices,setSpotPrices,markupTable,cent
       </div>
       {/* #3 Carat rate bands (centre / large stones) */}
       <div style={{fontSize:12,fontWeight:700,color:INK,marginBottom:2}}>Setting fee by carat weight <span style={{fontWeight:400,color:WG}}>(centre / feature stones)</span></div>
-      <div style={{fontSize:11,color:WG,marginBottom:6,lineHeight:1.6}}>What you charge to set a centre or feature stone, based on its carat weight. A bigger stone takes more time to set — but a 2ct isn't double the work of a 1ct — so you charge a bit less per carat as the stone gets heavier. Each row is a weight range with its own $/ct rate. <strong style={{color:INK}}>Example:</strong> with the rates below, a 2.5ct stone is charged $50 for its first carat, $40 for the second, then $30/ct on the remaining 0.5 = <strong style={{color:INK}}>$105</strong>. Leave the last row's <strong>“up to”</strong> blank so it covers everything heavier. Want one flat rate instead? Just set every row to the same $/ct.</div>
+      <div style={{fontSize:11,color:WG,marginBottom:6,lineHeight:1.6}}>What it costs to set a centre or feature stone, based on its carat weight. A bigger stone takes more time to set — but a 2ct isn't double the work of a 1ct — so you charge a bit less per carat as the stone gets heavier. Each row is a weight range with its own $/ct rate. <strong style={{color:INK}}>Example:</strong> with your rates below, a {cExampleCt}ct stone = {cSegStr} = <strong style={{color:INK}}>{fmt(cTotal)}</strong>. Leave the last row's <strong>“up to”</strong> blank so it covers everything heavier. Want one flat rate instead? Set every row to the same $/ct.<br/><span style={{color:INK,fontWeight:600}}>These are trade / wholesale cost prices</span> — your markup table is applied on top to reach the retail price the client sees.</div>
       <div style={{background:WHITE,border:`1px solid ${BD}`,borderRadius:5,overflow:"hidden",marginBottom:16}}>
         <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 44px",gap:8,padding:"9px 16px",background:PARCH,borderBottom:`1px solid ${BD}`}}>
           {["Up to (ct)","$ per carat",""].map(h=><div key={h} style={{fontSize:10,fontWeight:700,color:WG,textTransform:"uppercase",letterSpacing:"0.05em"}}>{h}</div>)}
