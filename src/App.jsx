@@ -2522,7 +2522,7 @@ function RepairIntakeCard({job,setJobs,biz,clients,markupTable,pricing=[],invoic
     setJobs(p=>{const n=p.map(j=>j.id===job.id?{...j,intake:{items,instructions},repairToken:token}:j);persist(K.jo,n);return n;});
     const photos=photoData.length?photoData:await jobImagesForPrint(job);
     const snap=buildRepairSnapshot({job:{...job,dateIn:dIn,dateOut:dOut,repairToken:token},client:c,biz,items:items.map(it=>({...it,clientPrice:itemClient(it)})),instructions,photos});
-    const{error}=await supabase.from(PUBLIC_PROPOSALS_TABLE).upsert({token,data:snap,status:"sent",created_at:new Date().toISOString()},{onConflict:"token"});
+    const{error}=await supabase.from(PUBLIC_PROPOSALS_TABLE).upsert({token,studio_id:_studioId,data:snap,status:"sent",created_at:new Date().toISOString()},{onConflict:"token"});
     setLinkBusy(false);
     if(error){alert("Couldn't create the link: "+error.message+"\n\nIf it mentions a missing table, the proposals Supabase setup hasn't been run.");return;}
     navigator.clipboard?.writeText(`${window.location.origin}/?p=${token}`).catch(()=>{});
@@ -4041,7 +4041,7 @@ function JobProposals({job,client,quotes,proposals,setProposals,setQuotes,biz,ma
     const proposal={id,jobId:job.id,token,optionIds:orderedIds,optionPhotos,optionVideos,recommendedId:selectMode==="multi"?"":(recommended||""),selectMode,intro:intro.trim()||defaultIntro,dueNow:Number(dueNow)>0?+(+dueNow).toFixed(2):null,paymentNote:payNote.trim(),createdAt:today(),status:"sent",acceptedQuoteId:null,acceptedName:"",acceptedAt:null};
     const photoMap=await jobImageMap(job);
     const snapshot=buildProposalSnapshot({proposal,job,client,biz,quotes,markupTable,payments,photoMap});
-    const{error}=await supabase.from(PUBLIC_PROPOSALS_TABLE).insert({token,data:snapshot,status:"sent",created_at:new Date().toISOString()});
+    const{error}=await supabase.from(PUBLIC_PROPOSALS_TABLE).insert({token,studio_id:_studioId,data:snapshot,status:"sent",created_at:new Date().toISOString()});
     setBusy(false);
     if(error){alert("Couldn't publish the proposal: "+error.message+"\n\nIf this mentions a missing table, the one-time Supabase setup hasn't been run yet.");return;}
     save([...proposals,proposal]);
@@ -5500,7 +5500,7 @@ function InvoiceDetail({invoiceId,invoices,setInvoices,jobs,clients,payments,biz
     let token=inv.publicToken;
     if(!token){token=proposalToken();setInvoices(p=>{const n=p.map(x=>x.id===invoiceId?{...x,publicToken:token}:x);persist(K.inv,n);return n;});}
     const snapshot=buildInvoiceSnapshot({inv,job,client:c,biz,payments});
-    const{error}=await supabase.from(PUBLIC_PROPOSALS_TABLE).upsert({token,data:snapshot,status:"sent",created_at:new Date().toISOString()},{onConflict:"token"});
+    const{error}=await supabase.from(PUBLIC_PROPOSALS_TABLE).upsert({token,studio_id:_studioId,data:snapshot,status:"sent",created_at:new Date().toISOString()},{onConflict:"token"});
     setLinkBusy(false);
     if(error){alert("Couldn't create the link: "+error.message+"\n\nIf it mentions a missing table, the proposals Supabase setup (supabase-public-proposals.sql) hasn't been run.");return;}
     navigator.clipboard?.writeText(`${window.location.origin}/?p=${token}`).catch(()=>{});
@@ -6637,7 +6637,18 @@ function Settings({biz,setBiz,markupTable,setMarkupTable,naturalStoneMarkup,setN
   const[toast,setToast]=useState(null);
   const showToast=msg=>{setToast(msg);setTimeout(()=>setToast(null),2400);};
   // Preserve markup-table-owned settings (buffer / rounding) so saving business details can't wipe them.
-  const saveBiz=()=>{const nb={...bForm,markupBuffer:biz.markupBuffer||0,quoteRounding:biz.quoteRounding||0};setBiz(nb);persist(K.biz,nb);showToast("Business details saved");};
+  const saveBiz=()=>{
+    const nb={...bForm,markupBuffer:biz.markupBuffer||0,quoteRounding:biz.quoteRounding||0};
+    setBiz(nb);persist(K.biz,nb);
+    // Sync this studio's name + acceptance-notification email to the studios table, so the
+    // server-side email function can reach the right studio. RLS lets an owner update its studio.
+    if(_studioId&&supabaseEnabled&&supabase){
+      const patch={notify_email:(nb.notifyEmail||nb.email||"").trim()||null};
+      if((nb.name||"").trim())patch.name=nb.name.trim();
+      supabase.from("studios").update(patch).eq("id",_studioId).then(()=>{}).catch(()=>{});
+    }
+    showToast("Business details saved");
+  };
   const saveMt=()=>{setMarkupTable(mt);persist(K.mt,mt);const nb={...biz,markupBuffer:Number(buffer)||0,quoteRounding:Number(rounding)||0};setBiz(nb);persist(K.biz,nb);setMarkupBuffer(Number(buffer)||0);setQuoteRounding(Number(rounding)||0);showToast("Markup table saved");};
   const saveSmNTable=()=>{setNaturalStoneMarkup(smn);persist(K.smn,smn);showToast("Natural stone markup saved");};
   const saveSmLTable=()=>{setLabStoneMarkup(sml);persist(K.sml,sml);showToast("Lab-grown stone markup saved");};
@@ -6677,6 +6688,10 @@ function Settings({biz,setBiz,markupTable,setMarkupTable,naturalStoneMarkup,setN
         <Input label="ABN" value={bForm.abn} onChange={setBF("abn")} placeholder="12 345 678 901"/>
       </div>
       <Input label="Address" value={bForm.address} onChange={setBF("address")} placeholder="123 Collins St, Melbourne VIC 3000"/>
+      <div style={{margin:"6px 0 4px",padding:"12px 14px",background:PARCH,border:`1px solid ${BD}`,borderRadius:5}}>
+        <Input label="Proposal-acceptance alerts — email" value={bForm.notifyEmail||""} onChange={setBF("notifyEmail")} placeholder={bForm.email||"you@studio.com.au"}/>
+        <div style={{fontSize:11,color:WG,marginTop:2,lineHeight:1.5}}>We'll email this address the moment a client accepts one of your online proposals — so you know even with the app closed. Leave blank to use your business email above.</div>
+      </div>
       <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"0 16px"}}>
         <Input label="Deposit required (%)" value={String(bForm.depositPercent)} onChange={v=>setBF("depositPercent")(Number(v)||50)} type="number" placeholder="50"/>
         <Input label="Quote validity (days)" value={String(bForm.quoteValidityDays)} onChange={v=>setBF("quoteValidityDays")(Number(v)||30)} type="number" placeholder="30"/>
