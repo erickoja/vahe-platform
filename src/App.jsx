@@ -6087,29 +6087,34 @@ function PricingDB({pricing,setPricing,spotPrices,setSpotPrices,markupTable,cent
   const regularItems=pricing.filter(p=>!specialCats.includes(p.category));
   const filteredRegular=isAllView?regularItems:(!isDiamondView&&!isSettingView&&!isComplexSettingView&&!isPrintCastView&&!isSettingUnifiedView?regularItems.filter(p=>p.category===cf):[]);
   const filteredBase=isSettingUnifiedView?pricing.filter(p=>p.category==="Basic Setting").slice().sort((a,b)=>a.sizeMm-b.sizeMm):[];
-  // Edit the unified setting-rates object (styles / base carat rate / careful uplift) — saved to K.csr.
-  const updateRates=patch=>{const nr={...centreRates,...patch};setCentreRates(nr);persist(K.csr,nr);showSaved();};
-  const updateStyle=(id,patch)=>updateRates({styles:(centreRates.styles||[]).map(s=>s.id===id?{...s,...patch}:s)});
-  const addStyle=()=>updateRates({styles:[...(centreRates.styles||[]),{id:uid(),name:"New style",mult:1}]});
-  const removeStyle=id=>updateRates({styles:(centreRates.styles||[]).filter(s=>s.id!==id)});
+  // Unified setting rates use a local DRAFT: edit freely, persist to K.csr only on Save (no
+  // per-keystroke writes / toast flashing). Re-sync from the prop when there are no unsaved edits.
+  const[draft,setDraft]=useState(centreRates);
+  const[dirty,setDirty]=useState(false);
+  useEffect(()=>{if(!dirty)setDraft(centreRates);},[centreRates]);   // eslint-disable-line react-hooks/exhaustive-deps
+  const patchDraft=patch=>{setDraft(d=>({...d,...patch}));setDirty(true);};
+  const updateStyle=(id,patch)=>patchDraft({styles:(draft.styles||[]).map(s=>s.id===id?{...s,...patch}:s)});
+  const addStyle=()=>patchDraft({styles:[...(draft.styles||[]),{id:uid(),name:"New style",mult:1}]});
+  const removeStyle=id=>patchDraft({styles:(draft.styles||[]).filter(s=>s.id!==id)});
   // Carat bands (#3) — marginal $/ct tiers for centre/large stones.
-  const setBands=bands=>updateRates({caratBands:bands});
-  const addBand=()=>setBands([...(centreRates.caratBands||[]),{upTo:null,perCt:Number(centreRates.baseCaratRate)||50}]);
-  const updateBand=(i,patch)=>setBands((centreRates.caratBands||[]).map((b,j)=>j===i?{...b,...patch}:b));
-  const removeBand=i=>setBands((centreRates.caratBands||[]).filter((_,j)=>j!==i));
-  // Live worked example for the carat-band help text — built from the user's actual bands so the
-  // figures always match. Pick a weight just past the highest fixed threshold so the taper shows.
-  const cBands=(centreRates.caratBands||[]).length?centreRates.caratBands:[{upTo:null,perCt:Number(centreRates.baseCaratRate)||0}];
+  const setBands=bands=>patchDraft({caratBands:bands});
+  const addBand=()=>setBands([...(draft.caratBands||[]),{upTo:null,perCt:Number(draft.baseCaratRate)||50}]);
+  const updateBand=(i,patch)=>setBands((draft.caratBands||[]).map((b,j)=>j===i?{...b,...patch}:b));
+  const removeBand=i=>setBands((draft.caratBands||[]).filter((_,j)=>j!==i));
+  // Live worked example for the carat-band help text — built from the draft so it previews as you type.
+  const cBands=(draft.caratBands||[]).length?draft.caratBands:[{upTo:null,perCt:Number(draft.baseCaratRate)||0}];
   const cFinite=cBands.map(b=>b.upTo==null?null:Number(b.upTo)).filter(v=>v!=null&&v>0);
   const cExampleCt=cFinite.length?Math.max(...cFinite)+0.5:2;
-  const cSegs=settingCaratSegments(cExampleCt,centreRates);
+  const cSegs=settingCaratSegments(cExampleCt,draft);
   const cSegStr=cSegs.map(s=>`${fmt(s.cost)} (${s.span}ct × ${fmt(s.perCt)}/ct)`).join(" + ");
   const cTotal=cSegs.reduce((a,s)=>a+s.cost,0);
   // Volume tiers (#5) — per-stone % off once the count reaches a threshold.
-  const setTiers=tiers=>updateRates({volumeTiers:tiers});
-  const addTier=()=>setTiers([...(centreRates.volumeTiers||[]),{minQty:10,offPct:10}]);
-  const updateTier=(i,patch)=>setTiers((centreRates.volumeTiers||[]).map((t,j)=>j===i?{...t,...patch}:t));
-  const removeTier=i=>setTiers((centreRates.volumeTiers||[]).filter((_,j)=>j!==i));
+  const setTiers=tiers=>patchDraft({volumeTiers:tiers});
+  const addTier=()=>setTiers([...(draft.volumeTiers||[]),{minQty:10,offPct:10}]);
+  const updateTier=(i,patch)=>setTiers((draft.volumeTiers||[]).map((t,j)=>j===i?{...t,...patch}:t));
+  const removeTier=i=>setTiers((draft.volumeTiers||[]).filter((_,j)=>j!==i));
+  const saveSettingRates=()=>{setCentreRates(draft);persist(K.csr,draft);setDirty(false);showSaved();};
+  const discardSettingRates=()=>{setDraft(centreRates);setDirty(false);};
   const filteredDiamond=isDiamondView?pricing.filter(p=>p.category===cf):[];
   const filteredSetting=isSettingView?pricing.filter(p=>p.category==="Basic Setting"):[];
   const filteredComplex=isComplexSettingView?pricing.filter(p=>p.category==="Complex Setting"):[];
@@ -6191,8 +6196,8 @@ function PricingDB({pricing,setPricing,spotPrices,setSpotPrices,markupTable,cent
       </div>
       {/* Uplifts */}
       <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:"0 16px",marginBottom:6}}>
-        <Input label="Precious / High Value (Extra Care Needed) — uplift (%)" type="number" min="0" value={String(centreRates.carefulUpliftPct??0)} onChange={v=>updateRates({carefulUpliftPct:Number(v)||0})}/>
-        <Input label="Platinum uplift (%)" type="number" min="0" value={String(centreRates.platinumUpliftPct??0)} onChange={v=>updateRates({platinumUpliftPct:Number(v)||0})}/>
+        <Input label="Precious / High Value (Extra Care Needed) — uplift (%)" type="number" min="0" value={String(draft.carefulUpliftPct??0)} onChange={v=>patchDraft({carefulUpliftPct:Number(v)||0})}/>
+        <Input label="Platinum uplift (%)" type="number" min="0" value={String(draft.platinumUpliftPct??0)} onChange={v=>patchDraft({platinumUpliftPct:Number(v)||0})}/>
         <div/>
       </div>
       <div style={{fontSize:11,color:WG,marginBottom:16,lineHeight:1.6}}><strong style={{color:INK}}>Platinum uplift:</strong> some setters charge more to set stones into platinum, as it's harder and slower to work than gold. Enter that surcharge as a % — it only applies when you tick <strong>Platinum</strong> on a setting line. <strong style={{color:INK}}>Leave it at 0 if your setter doesn't charge extra for platinum.</strong></div>
@@ -6203,7 +6208,7 @@ function PricingDB({pricing,setPricing,spotPrices,setSpotPrices,markupTable,cent
         <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 44px",gap:8,padding:"9px 16px",background:PARCH,borderBottom:`1px solid ${BD}`}}>
           {["Up to (ct)","$ per carat",""].map(h=><div key={h} style={{fontSize:10,fontWeight:700,color:WG,textTransform:"uppercase",letterSpacing:"0.05em"}}>{h}</div>)}
         </div>
-        {(centreRates.caratBands||[]).map((b,i,arr)=>(
+        {(draft.caratBands||[]).map((b,i,arr)=>(
           <div key={i} style={{display:"grid",gridTemplateColumns:"1fr 1fr 44px",columnGap:8,alignItems:"center",padding:"8px 16px",borderBottom:i<arr.length-1?`1px solid ${BD}`:"none"}}>
             <input type="number" min="0" step="0.1" placeholder={b.upTo==null?"and above":"e.g. 1"} value={b.upTo==null?"":String(b.upTo)} onChange={e=>updateBand(i,{upTo:e.target.value===""?null:Number(e.target.value)})} style={{...SS.inp,marginTop:0,fontSize:13,padding:"6px 9px"}}/>
             <div style={{display:"flex",alignItems:"center",gap:6}}><span style={{fontSize:12,color:WG}}>$</span><input type="number" min="0" step="1" value={String(b.perCt??0)} onChange={e=>updateBand(i,{perCt:Number(e.target.value)||0})} style={{...SS.inp,marginTop:0,fontSize:13,padding:"6px 8px",fontWeight:700,color:GOLD_D}}/></div>
@@ -6214,13 +6219,13 @@ function PricingDB({pricing,setPricing,spotPrices,setSpotPrices,markupTable,cent
       </div>
       {/* Style multipliers */}
       <div style={{fontSize:12,fontWeight:700,color:INK,marginBottom:2}}>Setting styles <span style={{fontWeight:400,color:WG}}>(how much each style costs vs a plain claw)</span></div>
-      <div style={{fontSize:11,color:WG,marginBottom:6,lineHeight:1.6}}>Claw / prong is the base at <strong>×1</strong>. A style at <strong>×1.5</strong> costs 1½× the base rate to set. Rename a style, change its multiplier, add your own, or remove one you don't use. <strong style={{color:OK}}>Changes save automatically</strong> — there's no save button.</div>
+      <div style={{fontSize:11,color:WG,marginBottom:6,lineHeight:1.6}}>Claw / prong is the base at <strong>×1</strong>. A style at <strong>×1.5</strong> costs 1½× the base rate to set. Rename a style, change its multiplier, add your own, or remove one you don't use — then hit <strong style={{color:INK}}>Save changes</strong> at the bottom.</div>
       <div style={{background:WHITE,border:`1px solid ${BD}`,borderRadius:5,overflow:"hidden",marginBottom:16}}>
         <div style={{display:"grid",gridTemplateColumns:"1fr 110px 44px",gap:8,padding:"9px 16px",background:PARCH,borderBottom:`1px solid ${BD}`}}>
           {["Setting style","Multiplier",""].map(h=><div key={h} style={{fontSize:10,fontWeight:700,color:WG,textTransform:"uppercase",letterSpacing:"0.05em"}}>{h}</div>)}
         </div>
-        {(centreRates.styles||[]).map((s,i)=>(
-          <div key={s.id} style={{display:"grid",gridTemplateColumns:"1fr 110px 44px",columnGap:8,alignItems:"center",padding:"8px 16px",borderBottom:i<(centreRates.styles.length-1)?`1px solid ${BD}`:"none"}}>
+        {(draft.styles||[]).map((s,i)=>(
+          <div key={s.id} style={{display:"grid",gridTemplateColumns:"1fr 110px 44px",columnGap:8,alignItems:"center",padding:"8px 16px",borderBottom:i<(draft.styles.length-1)?`1px solid ${BD}`:"none"}}>
             <input value={s.name} onChange={e=>updateStyle(s.id,{name:e.target.value})} style={{...SS.inp,marginTop:0,fontSize:13,padding:"6px 9px"}}/>
             <div style={{display:"flex",alignItems:"center",gap:6}}><span style={{fontSize:12,color:WG}}>×</span><input type="number" min="0" step="0.05" value={String(s.mult)} onChange={e=>updateStyle(s.id,{mult:Number(e.target.value)||0})} style={{...SS.inp,marginTop:0,fontSize:13,padding:"6px 8px",width:80,fontWeight:700,color:GOLD_D}}/></div>
             <button onClick={()=>removeStyle(s.id)} title="Remove style" style={{background:"none",border:"none",cursor:"pointer",color:DANGER,fontSize:16,padding:0,justifySelf:"center"}}>×</button>
@@ -6238,8 +6243,8 @@ function PricingDB({pricing,setPricing,spotPrices,setSpotPrices,markupTable,cent
         <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 44px",gap:8,padding:"9px 16px",background:PARCH,borderBottom:`1px solid ${BD}`}}>
           {["From (stones)","% off per stone",""].map(h=><div key={h} style={{fontSize:10,fontWeight:700,color:WG,textTransform:"uppercase",letterSpacing:"0.05em"}}>{h}</div>)}
         </div>
-        {(centreRates.volumeTiers||[]).length===0&&<div style={{padding:"12px 16px",fontSize:12,color:WG}}>No volume tiers — every stone is charged the full rate.</div>}
-        {(centreRates.volumeTiers||[]).map((t,i,arr)=>(
+        {(draft.volumeTiers||[]).length===0&&<div style={{padding:"12px 16px",fontSize:12,color:WG}}>No volume tiers — every stone is charged the full rate.</div>}
+        {(draft.volumeTiers||[]).map((t,i,arr)=>(
           <div key={i} style={{display:"grid",gridTemplateColumns:"1fr 1fr 44px",columnGap:8,alignItems:"center",padding:"8px 16px",borderBottom:i<arr.length-1?`1px solid ${BD}`:"none"}}>
             <input type="number" min="1" step="1" value={String(t.minQty??1)} onChange={e=>updateTier(i,{minQty:Number(e.target.value)||1})} style={{...SS.inp,marginTop:0,fontSize:13,padding:"6px 9px"}}/>
             <div style={{display:"flex",alignItems:"center",gap:6}}><input type="number" min="0" max="100" step="1" value={String(t.offPct??0)} onChange={e=>updateTier(i,{offPct:Number(e.target.value)||0})} style={{...SS.inp,marginTop:0,fontSize:13,padding:"6px 8px",fontWeight:700,color:GOLD_D}}/><span style={{fontSize:12,color:WG}}>%</span></div>
@@ -6247,6 +6252,14 @@ function PricingDB({pricing,setPricing,spotPrices,setSpotPrices,markupTable,cent
           </div>
         ))}
         <div style={{padding:"10px 16px"}}><button onClick={addTier} style={{background:"none",border:`1px dashed ${GOLD}`,borderRadius:4,padding:"6px 14px",color:GOLD,fontSize:12,fontWeight:700,cursor:"pointer",fontFamily:"inherit"}}>+ Add tier</button></div>
+      </div>
+      {/* Save bar — sticks to the bottom of the viewport while there are unsaved edits */}
+      <div style={{position:"sticky",bottom:0,marginTop:20,padding:"12px 16px",background:WHITE,border:`1px solid ${dirty?GOLD:BD}`,borderRadius:5,display:"flex",alignItems:"center",justifyContent:"space-between",gap:12,flexWrap:"wrap",boxShadow:dirty?"0 -2px 14px rgba(0,0,0,0.06)":"none"}}>
+        <div style={{fontSize:12,color:dirty?GOLD_D:WG,fontWeight:dirty?700:400}}>{dirty?"You have unsaved changes to your setting rates.":"All setting rates saved."}</div>
+        <div style={{display:"flex",gap:10}}>
+          {dirty&&<Btn sm ghost onClick={discardSettingRates}>Discard</Btn>}
+          <Btn sm onClick={saveSettingRates} disabled={!dirty}>Save changes</Btn>
+        </div>
       </div>
     </div>}
 
