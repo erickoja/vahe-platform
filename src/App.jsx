@@ -95,12 +95,18 @@ const defaultCaratBands=(base=50)=>{
     {upTo:null,perCt:Math.round(b*0.6)},    // 2ct+   · 60%
   ];
 };
+// #5 — a sensible starting pavé/melee volume schedule (per-stone % off once the count is reached).
+const defaultVolumeTiers=()=>[
+  {minQty:10,offPct:10},   // from 10 stones · 10% off
+  {minQty:25,offPct:15},   // from 25 stones · 15% off
+  {minQty:50,offPct:20},   // from 50 stones · 20% off
+];
 const DEFAULT_SETTING_RATES={
   baseCaratRate:50,                  // legacy single per-carat rate; seeds the carat bands
   carefulUpliftPct:35,               // precious / high-value stones
   platinumUpliftPct:20,              // #4 — platinum is harder to set than gold (per-line toggle)
   caratBands:defaultCaratBands(50),  // #3 — marginal carat bands (tapered starting point)
-  volumeTiers:[],                    // #5 — per-stone volume discounts (empty = no discount)
+  volumeTiers:defaultVolumeTiers(),  // #5 — per-stone volume discounts (tapered starting point)
   styles:SETTING_STYLES_SEED,
 };
 // Legacy shape kept so old saved centre rates still migrate cleanly.
@@ -114,7 +120,7 @@ const normalizeSettingRates=(raw)=>{
     carefulUpliftPct:Number(r.carefulUpliftPct)||0,
     platinumUpliftPct:r.platinumUpliftPct!=null?(Number(r.platinumUpliftPct)||0):20,
     caratBands:Array.isArray(r.caratBands)&&r.caratBands.length?r.caratBands:defaultCaratBands(r.baseCaratRate),
-    volumeTiers:Array.isArray(r.volumeTiers)?r.volumeTiers:[],
+    volumeTiers:Array.isArray(r.volumeTiers)?r.volumeTiers:defaultVolumeTiers(),
     styles:r.styles,
   });
   if(raw&&Array.isArray(raw.styles))return withDefaults(raw);
