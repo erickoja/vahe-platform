@@ -6088,7 +6088,7 @@ function PricingDB({pricing,setPricing,spotPrices,setSpotPrices,markupTable,cent
   const filteredRegular=isAllView?regularItems:(!isDiamondView&&!isSettingView&&!isComplexSettingView&&!isPrintCastView&&!isSettingUnifiedView?regularItems.filter(p=>p.category===cf):[]);
   const filteredBase=isSettingUnifiedView?pricing.filter(p=>p.category==="Basic Setting").slice().sort((a,b)=>a.sizeMm-b.sizeMm):[];
   // Edit the unified setting-rates object (styles / base carat rate / careful uplift) — saved to K.csr.
-  const updateRates=patch=>{const nr={...centreRates,...patch};setCentreRates(nr);persist(K.csr,nr);};
+  const updateRates=patch=>{const nr={...centreRates,...patch};setCentreRates(nr);persist(K.csr,nr);showSaved();};
   const updateStyle=(id,patch)=>updateRates({styles:(centreRates.styles||[]).map(s=>s.id===id?{...s,...patch}:s)});
   const addStyle=()=>updateRates({styles:[...(centreRates.styles||[]),{id:uid(),name:"New style",mult:1}]});
   const removeStyle=id=>updateRates({styles:(centreRates.styles||[]).filter(s=>s.id!==id)});
@@ -6213,6 +6213,8 @@ function PricingDB({pricing,setPricing,spotPrices,setSpotPrices,markupTable,cent
         <div style={{padding:"10px 16px"}}><button onClick={addBand} style={{background:"none",border:`1px dashed ${GOLD}`,borderRadius:4,padding:"6px 14px",color:GOLD,fontSize:12,fontWeight:700,cursor:"pointer",fontFamily:"inherit"}}>+ Add band</button></div>
       </div>
       {/* Style multipliers */}
+      <div style={{fontSize:12,fontWeight:700,color:INK,marginBottom:2}}>Setting styles <span style={{fontWeight:400,color:WG}}>(how much each style costs vs a plain claw)</span></div>
+      <div style={{fontSize:11,color:WG,marginBottom:6,lineHeight:1.6}}>Claw / prong is the base at <strong>×1</strong>. A style at <strong>×1.5</strong> costs 1½× the base rate to set. Rename a style, change its multiplier, add your own, or remove one you don't use. <strong style={{color:OK}}>Changes save automatically</strong> — there's no save button.</div>
       <div style={{background:WHITE,border:`1px solid ${BD}`,borderRadius:5,overflow:"hidden",marginBottom:16}}>
         <div style={{display:"grid",gridTemplateColumns:"1fr 110px 44px",gap:8,padding:"9px 16px",background:PARCH,borderBottom:`1px solid ${BD}`}}>
           {["Setting style","Multiplier",""].map(h=><div key={h} style={{fontSize:10,fontWeight:700,color:WG,textTransform:"uppercase",letterSpacing:"0.05em"}}>{h}</div>)}
