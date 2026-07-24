@@ -6234,7 +6234,7 @@ function PricingDB({pricing,setPricing,spotPrices,setSpotPrices,markupTable,cent
         <div style={{padding:"10px 16px"}}><button onClick={addStyle} style={{background:"none",border:`1px dashed ${GOLD}`,borderRadius:4,padding:"6px 14px",color:GOLD,fontSize:12,fontWeight:700,cursor:"pointer",fontFamily:"inherit"}}>+ Add style</button></div>
       </div>
       {/* Base per-stone rate table (mm) */}
-      <div style={{fontSize:12,fontWeight:700,color:INK,marginBottom:6}}>Base per-stone rates <span style={{fontWeight:400,color:WG}}>(Prong/Claw baseline, by stone size — every style multiplies these)</span></div>
+      <div style={{fontSize:12,fontWeight:700,color:INK,marginBottom:6}}>Base per-stone rates <span style={{fontWeight:400,color:WG}}>(Prong/Claw is generally the baseline, every setting style multiplies from this)</span></div>
       <SettingTable items={filteredBase} onSavePrices={saveSettingPrices} label="Setting base rates"/>
       {/* #5 Volume rates */}
       <div style={{fontSize:12,fontWeight:700,color:INK,marginTop:18,marginBottom:2}}>Volume rates <span style={{fontWeight:400,color:WG}}>(per-stone discount for pavé / melee runs — optional)</span></div>
