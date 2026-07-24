@@ -6237,8 +6237,7 @@ function PricingDB({pricing,setPricing,spotPrices,setSpotPrices,markupTable,cent
       <div style={{fontSize:12,fontWeight:700,color:INK,marginBottom:6}}>Base per-stone rates <span style={{fontWeight:400,color:WG}}>(Prong/Claw is generally the baseline for most setters, every setting style multiplies from this)</span></div>
       <SettingTable items={filteredBase} onSavePrices={saveSettingPrices} label="Setting base rates"/>
       {/* #5 Volume rates */}
-      <div style={{fontSize:12,fontWeight:700,color:INK,marginTop:18,marginBottom:2}}>Volume rates <span style={{fontWeight:400,color:WG}}>(per-stone discount for pavé / melee runs — optional)</span></div>
-      <div style={{fontSize:11,color:WG,marginBottom:6,lineHeight:1.5}}>Setting many small stones costs less per stone. The highest tier the quantity reaches applies to the whole line. Leave empty for no discount.</div>
+      <div style={{fontSize:12,fontWeight:700,color:INK,marginTop:18,marginBottom:6}}>Volume rates <span style={{fontWeight:400,color:WG}}>(Setting many small stones usually costs less per stone. The highest tier the quantity reaches applies to the whole line. Leave empty if you or your setter charges per stone with no discount for high-volume setting.)</span></div>
       <div style={{background:WHITE,border:`1px solid ${BD}`,borderRadius:5,overflow:"hidden"}}>
         <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 44px",gap:8,padding:"9px 16px",background:PARCH,borderBottom:`1px solid ${BD}`}}>
           {["From (stones)","% off per stone",""].map(h=><div key={h} style={{fontSize:10,fontWeight:700,color:WG,textTransform:"uppercase",letterSpacing:"0.05em"}}>{h}</div>)}
