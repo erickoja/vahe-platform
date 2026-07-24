@@ -6178,8 +6178,16 @@ function PricingDB({pricing,setPricing,spotPrices,setSpotPrices,markupTable,cent
 
     {/* Unified Stone Setting view — base rates + style multipliers + careful-stone uplift */}
     {isSettingUnifiedView&&<div>
-      <div style={{background:WHITE,border:`1px solid ${BD}`,borderRadius:5,padding:"12px 16px",marginBottom:14,fontSize:13,lineHeight:1.6}}>
-        <strong style={{color:INK}}>Stone setting</strong> — cost = <strong style={{color:INK}}>base rate × style multiplier × careful uplift × platinum uplift × volume rate × count</strong>. Prong/Claw is the base (×1); other styles multiply it; the careful, platinum and volume adjustments only apply when ticked/triggered on a quote. These are cost prices — your markup table applies on top.
+      <div style={{background:WHITE,border:`1px solid ${BD}`,borderRadius:5,padding:"14px 18px",marginBottom:14,fontSize:13,lineHeight:1.6}}>
+        <strong style={{color:INK}}>What this is:</strong> what it costs you to have stones set (the setting labour). Every setting price starts from a <strong style={{color:INK}}>base rate</strong>, then adjusts for the style — plus a few extras that only apply when they're relevant:
+        <ul style={{margin:"8px 0 0",paddingLeft:18,color:WG}}>
+          <li style={{marginBottom:4}}><strong style={{color:INK}}>Base rate</strong> — a plain claw / prong setting. Small stones are priced per stone by size (mm); a centre stone by its carat weight. Everything else builds on this.</li>
+          <li style={{marginBottom:4}}><strong style={{color:INK}}>Setting style</strong> — fancier styles (bezel, pavé, channel…) take more bench time, so each one multiplies the base rate (claw = ×1).</li>
+          <li style={{marginBottom:4}}><strong style={{color:INK}}>Extra care</strong> — a % added only for precious or fragile stones, when you tick <em>Precious / High Value</em> on a quote.</li>
+          <li style={{marginBottom:4}}><strong style={{color:INK}}>Platinum</strong> — an optional surcharge, if your setter charges more to set into platinum.</li>
+          <li><strong style={{color:INK}}>Volume</strong> — an automatic per-stone discount when you're setting lots of small stones (pavé / melee runs).</li>
+        </ul>
+        <div style={{marginTop:8}}>You set all of these below. They're <strong style={{color:INK}}>cost prices</strong> — your markup table is added on top to reach the client's retail price.</div>
       </div>
       {/* Uplifts */}
       <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:"0 16px",marginBottom:6}}>
