@@ -22,7 +22,7 @@ You only need to do this once. ~15–20 minutes.
 
 ## 2. Create the Edge Function
 
-In the Supabase dashboard (project `taeyvvvadujooanrktkq`):
+In the Supabase dashboard (project `ipbillmpehwgnlayyziz`):
 
 1. Go to **Edge Functions** → **Create a function**.
 2. Name it exactly **`notify-acceptance`**.
@@ -31,7 +31,7 @@ In the Supabase dashboard (project `taeyvvvadujooanrktkq`):
 4. **Deploy**.
 
 > No dashboard editor? Install the Supabase CLI and run
-> `supabase functions deploy notify-acceptance --project-ref taeyvvvadujooanrktkq`.
+> `supabase functions deploy notify-acceptance --project-ref ipbillmpehwgnlayyziz`.
 
 ## 3. Add the function's secrets
 
