@@ -6099,7 +6099,9 @@ function PricingDB({pricing,setPricing,spotPrices,setSpotPrices,markupTable,cent
   const removeBand=i=>setBands((centreRates.caratBands||[]).filter((_,j)=>j!==i));
   // Live worked example for the carat-band help text — built from the user's actual bands so the
   // figures always match. Pick a weight just past the highest fixed threshold so the taper shows.
-  const cExampleCt=2.5;   // fixed, round example weight so the total is easy to sanity-check
+  const cBands=(centreRates.caratBands||[]).length?centreRates.caratBands:[{upTo:null,perCt:Number(centreRates.baseCaratRate)||0}];
+  const cFinite=cBands.map(b=>b.upTo==null?null:Number(b.upTo)).filter(v=>v!=null&&v>0);
+  const cExampleCt=cFinite.length?Math.max(...cFinite)+0.5:2;
   const cSegs=settingCaratSegments(cExampleCt,centreRates);
   const cSegStr=cSegs.map(s=>`${fmt(s.cost)} (${s.span}ct × ${fmt(s.perCt)}/ct)`).join(" + ");
   const cTotal=cSegs.reduce((a,s)=>a+s.cost,0);
