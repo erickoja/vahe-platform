@@ -109,8 +109,6 @@ const DEFAULT_SETTING_RATES={
   volumeTiers:defaultVolumeTiers(),  // #5 — per-stone volume discounts (tapered starting point)
   styles:SETTING_STYLES_SEED,
 };
-// Legacy shape kept so old saved centre rates still migrate cleanly.
-const DEFAULT_CENTRE_RATES={basicPerCt:50,complexPerCt:75};
 // Normalise whatever is stored under K.csr (old {basicPerCt,complexPerCt} OR new settingRates) into the new shape.
 const normalizeSettingRates=(raw)=>{
   // Backfill the newer fields (platinum uplift / carat bands / volume tiers) WITHOUT changing
@@ -6055,16 +6053,6 @@ function PricingDB({pricing,setPricing,spotPrices,setSpotPrices,markupTable,cent
   const[savedToast,setSavedToast]=useState(false);
   const[regularEditing,setRegularEditing]=useState(false);
   const[regularEditPrices,setRegularEditPrices]=useState({});
-  const[centreCt,setCentreCt]=useState("");
-  const[centreComplex,setCentreComplex]=useState(false);
-  const[editRates,setEditRates]=useState(false);
-  const[rateDraft,setRateDraft]=useState({basicPerCt:"",complexPerCt:""});
-  const startEditRates=()=>{setRateDraft({basicPerCt:String(centreRates.basicPerCt),complexPerCt:String(centreRates.complexPerCt)});setEditRates(true);};
-  const saveRates=()=>{
-    const nr={basicPerCt:Number(rateDraft.basicPerCt)||0,complexPerCt:Number(rateDraft.complexPerCt)||0};
-    setCentreRates&&setCentreRates(nr);persist(K.csr,nr);
-    setEditRates(false);showSaved();
-  };
 
   const showSaved=()=>{setSavedToast(true);setTimeout(()=>setSavedToast(false),2200);};
 
@@ -6077,15 +6065,12 @@ function PricingDB({pricing,setPricing,spotPrices,setSpotPrices,markupTable,cent
   };
 
   const isDiamondView=DIAMOND_CATS.includes(cf);
-  const isSettingView=cf==="Basic Setting";
-  const isComplexSettingView=cf==="Complex Setting";
   const isPrintCastView=cf==="3D Print & Cast";
-  const isCentreView=cf===CENTRE_SET_CAT;
   const isSettingUnifiedView=cf===SETTING_CAT;
   const isAllView=cf==="All";
   const specialCats=[...DIAMOND_CATS,"Basic Setting","Complex Setting","3D Print & Cast"];
   const regularItems=pricing.filter(p=>!specialCats.includes(p.category));
-  const filteredRegular=isAllView?regularItems:(!isDiamondView&&!isSettingView&&!isComplexSettingView&&!isPrintCastView&&!isSettingUnifiedView?regularItems.filter(p=>p.category===cf):[]);
+  const filteredRegular=isAllView?regularItems:(!isDiamondView&&!isPrintCastView&&!isSettingUnifiedView?regularItems.filter(p=>p.category===cf):[]);
   const filteredBase=isSettingUnifiedView?pricing.filter(p=>p.category==="Basic Setting").slice().sort((a,b)=>a.sizeMm-b.sizeMm):[];
   // Unified setting rates use a local DRAFT: edit freely, persist to K.csr only on Save (no
   // per-keystroke writes / toast flashing). Re-sync from the prop when there are no unsaved edits.
@@ -6116,8 +6101,6 @@ function PricingDB({pricing,setPricing,spotPrices,setSpotPrices,markupTable,cent
   const saveSettingRates=()=>{setCentreRates(draft);persist(K.csr,draft);setDirty(false);showSaved();};
   const discardSettingRates=()=>{setDraft(centreRates);setDirty(false);};
   const filteredDiamond=isDiamondView?pricing.filter(p=>p.category===cf):[];
-  const filteredSetting=isSettingView?pricing.filter(p=>p.category==="Basic Setting"):[];
-  const filteredComplex=isComplexSettingView?pricing.filter(p=>p.category==="Complex Setting"):[];
   const filteredPrintCast=pricing.filter(p=>p.category==="3D Print & Cast");
 
   const saveItem=(f,id)=>{setPricing(p=>{const n=id?p.map(x=>x.id===id?{...x,...f}:x):[...p,{...f,id:uid()}];persist(K.pr,n);return n;});setModal(null);};
@@ -6171,15 +6154,6 @@ function PricingDB({pricing,setPricing,spotPrices,setSpotPrices,markupTable,cent
     <div style={{background:WHITE,border:`1px solid ${BD}`,borderRadius:5,padding:"11px 16px",marginBottom:14,fontSize:13,color:WG,lineHeight:1.6}}>
       <strong style={{color:INK}}>These are your cost prices, the mark-up is applied automatically by the multiplier table.</strong> The one exception is the repair prices that are already shown as a retail guide.
     </div>
-
-    {/* Basic Setting view */}
-    {isSettingView&&<div>
-      <div style={{background:WHITE,border:`1px solid ${BD}`,borderRadius:5,padding:"12px 16px",marginBottom:14,fontSize:13,lineHeight:1.5}}>
-        <strong style={{color:INK}}>Basic Setting — labour cost per stone</strong>
-        <div style={{marginTop:4,fontSize:12,color:WG,lineHeight:1.6}}>Fixed setting fee by stone size (AUD) · Applies to all round stones regardless of type — lab grown or natural · This is a separate cost from the stone price — both lines should appear in your quote.</div>
-      </div>
-      <SettingTable items={filteredSetting} onSavePrices={saveSettingPrices} label="Basic Setting"/>
-    </div>}
 
     {/* Unified Stone Setting view — base rates + style multipliers + careful-stone uplift */}
     {isSettingUnifiedView&&<div>
@@ -6260,15 +6234,6 @@ function PricingDB({pricing,setPricing,spotPrices,setSpotPrices,markupTable,cent
       </div>
     </div>}
 
-    {/* Complex Setting view (legacy, hidden) */}
-    {isComplexSettingView&&<div>
-      <div style={{background:WHITE,border:`1px solid ${BD}`,borderRadius:5,padding:"12px 16px",marginBottom:14,fontSize:13,lineHeight:1.5}}>
-        <strong style={{color:INK}}>Complex Setting — French Pavé / Channel / Bezel</strong>
-        <div style={{marginTop:4,fontSize:12,color:WG,lineHeight:1.6}}>Fixed setting fee by stone size (AUD) · For complex setting styles requiring extra bench time · This is a separate cost from the stone price — both lines should appear in your quote.</div>
-      </div>
-      <SettingTable items={filteredComplex} onSavePrices={saveSettingPrices} label="Complex Setting"/>
-    </div>}
-
     {/* Diamond view */}
     {isDiamondView&&<div>
       <div style={{background:WHITE,border:`1px solid ${BD}`,borderRadius:5,padding:"12px 16px",marginBottom:14,fontSize:13,lineHeight:1.5}}>
@@ -6288,101 +6253,8 @@ function PricingDB({pricing,setPricing,spotPrices,setSpotPrices,markupTable,cent
       <PrintCastTable items={filteredPrintCast} onSavePrices={saveSettingPrices}/>
     </div>}
 
-    {/* Centre Stone Setting view — interactive calculator feeding live calc */}
-    {isCentreView&&<div>
-      <div style={{background:WHITE,border:`1px solid ${editRates?GOLD:BD}`,borderRadius:5,padding:"14px 18px",marginBottom:14,fontSize:13,lineHeight:1.6}}>
-        <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:12}}>
-          <div>
-            <strong style={{color:INK}}>Centre Stone Setting — calculated fee</strong>
-            <span style={{display:"block",marginTop:4,fontSize:12,color:WG}}>Centre stones are larger and higher-risk to set, so the fee scales with carat weight. Enter a weight below to feed the live calculation above.</span>
-          </div>
-          {!editRates&&<Btn sm ghost onClick={startEditRates}>✎ Edit rates</Btn>}
-        </div>
-        {!editRates
-          ?<div style={{marginTop:8,display:"flex",gap:24,flexWrap:"wrap"}}>
-            <div style={{fontSize:12,color:INK}}><strong>Basic</strong> = carat × <strong style={{color:"#4A8E6A"}}>{fmt(centreRates.basicPerCt)}</strong>/ct</div>
-            <div style={{fontSize:12,color:INK}}><strong>Complex</strong> = carat × <strong style={{color:"#B05C3A"}}>{fmt(centreRates.complexPerCt)}</strong>/ct <span style={{color:WG}}>(pear claws, bezels, fragile / sapphire stones)</span></div>
-          </div>
-          :<div style={{marginTop:12,background:PARCH,border:`1px solid ${BD}`,borderRadius:4,padding:"14px 16px"}}>
-            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"0 16px"}}>
-              <div>
-                <label style={SS.lbl}>Basic setting ($ per carat)</label>
-                <div style={{position:"relative",marginTop:4}}>
-                  <span style={{position:"absolute",left:10,top:"50%",transform:"translateY(-50%)",fontSize:12,color:WG,pointerEvents:"none"}}>$</span>
-                  <input type="number" value={rateDraft.basicPerCt} min="0" step="1" onChange={e=>setRateDraft(d=>({...d,basicPerCt:e.target.value}))}
-                    style={{...SS.inp,marginTop:0,padding:"8px 10px 8px 22px",fontSize:14,fontWeight:700}}/>
-                </div>
-              </div>
-              <div>
-                <label style={SS.lbl}>Complex setting ($ per carat)</label>
-                <div style={{position:"relative",marginTop:4}}>
-                  <span style={{position:"absolute",left:10,top:"50%",transform:"translateY(-50%)",fontSize:12,color:WG,pointerEvents:"none"}}>$</span>
-                  <input type="number" value={rateDraft.complexPerCt} min="0" step="1" onChange={e=>setRateDraft(d=>({...d,complexPerCt:e.target.value}))}
-                    style={{...SS.inp,marginTop:0,padding:"8px 10px 8px 22px",fontSize:14,fontWeight:700}}/>
-                </div>
-              </div>
-            </div>
-            <div style={{display:"flex",gap:10,justifyContent:"flex-end",marginTop:14}}>
-              <Btn sm ghost onClick={()=>setEditRates(false)}>Cancel</Btn>
-              <Btn sm onClick={saveRates}>Save rates</Btn>
-            </div>
-          </div>}
-      </div>
-      <div style={{background:GOLD_L+"66",border:`1px solid ${GOLD}55`,borderRadius:4,padding:"11px 14px",marginBottom:14,display:"flex",alignItems:"center",gap:12,flexWrap:"wrap"}}>
-        <div style={{flex:1,minWidth:200,fontSize:12,color:INK,lineHeight:1.6}}>
-          <div style={{fontSize:12,fontWeight:700,color:GOLD_D,marginBottom:3}}>Manual price (Centre or Feature Stone Setting)</div>
-          The rates above are based on carat weight. Pricing varies between jewellers depending on stone size, stone type, and setting style — set your own per-carat rates here, or enter your own price for this setting on any quote.
-        </div>
-        {!editRates&&<Btn sm onClick={startEditRates}>✎ Change rates</Btn>}
-      </div>
-      <div style={{background:WHITE,border:`1px solid ${BD}`,borderRadius:5,padding:"18px 20px",marginBottom:16}}>
-        <div style={{display:"grid",gridTemplateColumns:"220px 1fr",gap:"0 20px",alignItems:"start"}}>
-          <div>
-            <label style={SS.lbl}>Centre stone carat weight</label>
-            <div style={{position:"relative",marginTop:6}}>
-              <input type="number" value={centreCt} min="0" step="0.01" placeholder="e.g. 1.50"
-                onChange={e=>setCentreCt(e.target.value)}
-                style={{...SS.inp,marginTop:0,padding:"18px 42px 18px 14px",fontSize:16,fontWeight:800,textAlign:"left"}}/>
-              <span style={{position:"absolute",right:14,top:"50%",transform:"translateY(-50%)",fontSize:13,fontWeight:600,color:WG,pointerEvents:"none"}}>ct</span>
-            </div>
-          </div>
-          <div>
-            <label style={SS.lbl}>Setting type</label>
-            <div style={{display:"flex",gap:10,marginTop:6}}>
-              {[[false,"Basic","Round diamond, standard claw"],[true,"Complex","Pear claws, bezels, fragile / sapphire"]].map(([val,label,sub])=>(
-                <button key={label} onClick={()=>setCentreComplex(val)} style={{
-                  flex:1,padding:"11px 14px",borderRadius:4,cursor:"pointer",fontFamily:"inherit",textAlign:"left",
-                  border:`2px solid ${centreComplex===val?(val?"#B05C3A":"#4A8E6A"):BD}`,
-                  background:centreComplex===val?(val?"#B05C3A11":"#4A8E6A11"):"transparent",transition:"all 0.12s"
-                }}>
-                  <div style={{fontSize:13,fontWeight:700,color:centreComplex===val?(val?"#B05C3A":"#4A8E6A"):INK}}>{label}</div>
-                  <div style={{fontSize:10.5,color:WG,marginTop:2,lineHeight:1.3}}>{sub}</div>
-                </button>
-              ))}
-            </div>
-          </div>
-        </div>
-        <div style={{marginTop:16,paddingTop:14,borderTop:`1px solid ${BD}`,display:"flex",justifyContent:"space-between",alignItems:"center"}}>
-          <div style={{fontSize:12,color:WG}}>{Number(centreCt)>0?`${Number(centreCt)}ct × ${fmt(centreComplex?centreRates.complexPerCt:centreRates.basicPerCt)}/ct`:"Enter a carat weight to calculate the setting fee"}</div>
-          <div style={{fontSize:20,fontWeight:800,color:centreSettingFee(centreCt,centreComplex,centreRates)>0?OK:WG}}>{fmt(centreSettingFee(centreCt,centreComplex,centreRates))}</div>
-        </div>
-      </div>
-      <div style={{background:WHITE,border:`1px solid ${BD}`,borderRadius:5,overflow:"hidden"}}>
-        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",background:PARCH,borderBottom:`1px solid ${BD}`}}>
-          {["Carat weight","Basic fee","Complex fee"].map(h=><div key={h} style={{padding:"10px 16px",fontSize:10,fontWeight:700,color:WG,textTransform:"uppercase",letterSpacing:"0.06em"}}>{h}</div>)}
-        </div>
-        {[0.5,1,1.5,2,2.5,3,3.5,4,5].map(ct=>(
-          <div key={ct} style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",borderBottom:`1px solid ${BD}`}}>
-            <div style={{padding:"9px 16px",fontSize:13,fontWeight:600,color:INK}}>{ct.toFixed(2)}ct</div>
-            <div style={{padding:"9px 16px",fontSize:13,color:INK}}>{fmt(centreSettingFee(ct,false,centreRates))}</div>
-            <div style={{padding:"9px 16px",fontSize:13,color:"#B05C3A",fontWeight:600}}>{fmt(centreSettingFee(ct,true,centreRates))}</div>
-          </div>
-        ))}
-      </div>
-    </div>}
-
     {/* Regular items view */}
-    {!isDiamondView&&!isSettingView&&!isComplexSettingView&&!isPrintCastView&&!isCentreView&&!isSettingUnifiedView&&<>
+    {!isDiamondView&&!isPrintCastView&&!isSettingUnifiedView&&<>
       {filteredRegular.length>0&&<div style={{background:WHITE,borderRadius:5,border:`1px solid ${regularEditing?GOLD:BD}`,overflow:"hidden",marginBottom:16,transition:"border-color 0.15s"}}>
         {/* Table header bar with edit button */}
         <div style={{display:"flex",flexDirection:isMobile?"column":"row",justifyContent:"space-between",alignItems:isMobile?"flex-start":"center",gap:isMobile?10:0,padding:"10px 16px",background:regularEditing?GOLD_L:PARCH,borderBottom:`1px solid ${regularEditing?GOLD+"55":BD}`}}>
