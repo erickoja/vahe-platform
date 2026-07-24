@@ -6161,8 +6161,8 @@ function PricingDB({pricing,setPricing,spotPrices,setSpotPrices,markupTable,cent
         <div/>
       </div>
       {/* #3 Carat rate bands (centre / large stones) */}
-      <div style={{fontSize:12,fontWeight:700,color:INK,marginBottom:2}}>Carat rate bands <span style={{fontWeight:400,color:WG}}>(centre / feature stones — each band prices only the carats inside it)</span></div>
-      <div style={{fontSize:11,color:WG,marginBottom:6,lineHeight:1.5}}>One band = flat $/ct (today's behaviour). Add bands to taper big stones — e.g. $50/ct up to 1ct, $40/ct from 1–2ct, $30/ct above. Leave the top band's <strong>up to</strong> blank for "and above".</div>
+      <div style={{fontSize:12,fontWeight:700,color:INK,marginBottom:2}}>Setting fee by carat weight <span style={{fontWeight:400,color:WG}}>(centre / feature stones)</span></div>
+      <div style={{fontSize:11,color:WG,marginBottom:6,lineHeight:1.6}}>What you charge to set a centre or feature stone, based on its carat weight. A bigger stone takes more time to set — but a 2ct isn't double the work of a 1ct — so you charge a bit less per carat as the stone gets heavier. Each row is a weight range with its own $/ct rate. <strong style={{color:INK}}>Example:</strong> with the rates below, a 2.5ct stone is charged $50 for its first carat, $40 for the second, then $30/ct on the remaining 0.5 = <strong style={{color:INK}}>$105</strong>. Leave the last row's <strong>“up to”</strong> blank so it covers everything heavier. Want one flat rate instead? Just set every row to the same $/ct.</div>
       <div style={{background:WHITE,border:`1px solid ${BD}`,borderRadius:5,overflow:"hidden",marginBottom:16}}>
         <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 44px",gap:8,padding:"9px 16px",background:PARCH,borderBottom:`1px solid ${BD}`}}>
           {["Up to (ct)","$ per carat",""].map(h=><div key={h} style={{fontSize:10,fontWeight:700,color:WG,textTransform:"uppercase",letterSpacing:"0.05em"}}>{h}</div>)}
