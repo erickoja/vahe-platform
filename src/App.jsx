@@ -6150,7 +6150,7 @@ function PricingDB({pricing,setPricing,spotPrices,setSpotPrices,markupTable,cent
       </div>
       {/* Uplifts */}
       <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:"0 16px",marginBottom:16}}>
-        <Input label="Careful-stone uplift (%)" type="number" min="0" value={String(centreRates.carefulUpliftPct??0)} onChange={v=>updateRates({carefulUpliftPct:Number(v)||0})}/>
+        <Input label="Precious / High Value (Extra Care Needed) — uplift (%)" type="number" min="0" value={String(centreRates.carefulUpliftPct??0)} onChange={v=>updateRates({carefulUpliftPct:Number(v)||0})}/>
         <Input label="Platinum uplift (%)" type="number" min="0" value={String(centreRates.platinumUpliftPct??0)} onChange={v=>updateRates({platinumUpliftPct:Number(v)||0})}/>
         <div/>
       </div>
