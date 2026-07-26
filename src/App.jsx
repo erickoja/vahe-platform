@@ -897,7 +897,9 @@ const proposalToken=()=>(uid()+uid()+Date.now().toString(36)).replace(/[^a-z0-9]
 const fmt=n=>`$${Number(n||0).toLocaleString("en-AU",{minimumFractionDigits:2,maximumFractionDigits:2})}`;
 
 // ── Client-facing email (proposal / invoice / repair links) via the `send-email` edge function ──
-const SEND_EMAIL_FN="send-email";
+// Supabase gives functions an auto-generated URL slug separate from the display name;
+// this one's display name is "send-email" but its slug (used in the URL) is "smart-worker".
+const SEND_EMAIL_FN="smart-worker";
 const _emlEsc=(s)=>String(s==null?"":s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
 // Branded, email-safe HTML: studio wordmark, greeting, message, a CTA button + raw link, footer.
 // Deliberately no <img>/data-URI logo — many mail clients block data URIs and show a broken image.
