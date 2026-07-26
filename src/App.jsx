@@ -895,6 +895,74 @@ const uid=()=>Math.random().toString(36).slice(2,9);
 // Longer, hard-to-guess token for public proposal share links (~20 chars)
 const proposalToken=()=>(uid()+uid()+Date.now().toString(36)).replace(/[^a-z0-9]/gi,"").slice(0,20);
 const fmt=n=>`$${Number(n||0).toLocaleString("en-AU",{minimumFractionDigits:2,maximumFractionDigits:2})}`;
+
+// ── Client-facing email (proposal / invoice / repair links) via the `send-email` edge function ──
+const SEND_EMAIL_FN="send-email";
+const _emlEsc=(s)=>String(s==null?"":s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
+// Branded, email-safe HTML: studio wordmark, greeting, message, a CTA button + raw link, footer.
+// Deliberately no <img>/data-URI logo — many mail clients block data URIs and show a broken image.
+function buildClientEmailHtml({biz,clientName,message,ctaLabel,linkUrl}){
+  const name=_emlEsc(biz?.name||"Your jeweller");
+  const contact=[biz?.email,biz?.phone].filter(Boolean).map(_emlEsc).join(" · ");
+  const greeting=clientName?`Hi ${_emlEsc(clientName)},`:"Hello,";
+  const body=_emlEsc(message).replace(/\n/g,"<br>");
+  const url=_emlEsc(linkUrl);
+  return `<div style="font-family:Arial,Helvetica,sans-serif;max-width:520px;margin:0 auto;color:#1a1a1a;padding:8px">`
+    +`<div style="border-bottom:2px solid #eeeeee;padding-bottom:14px;margin-bottom:20px"><div style="font-size:20px;font-weight:700;letter-spacing:0.02em">${name}</div></div>`
+    +`<p style="font-size:15px;margin:0 0 14px">${greeting}</p>`
+    +`<p style="font-size:15px;line-height:1.6;margin:0 0 22px">${body}</p>`
+    +`<a href="${url}" style="display:inline-block;background:#1a1a1a;color:#ffffff;text-decoration:none;padding:12px 26px;border-radius:6px;font-size:15px;font-weight:700">${_emlEsc(ctaLabel)}</a>`
+    +`<p style="font-size:13px;color:#888888;line-height:1.6;margin:26px 0 0">Or open this link in your browser:<br><a href="${url}" style="color:#666666">${url}</a></p>`
+    +`<div style="border-top:1px solid #eeeeee;margin-top:26px;padding-top:14px;font-size:12px;color:#999999">${name}${contact?` &middot; ${contact}`:""}</div>`
+    +`</div>`;
+}
+async function sendClientEmail({to,cc,replyTo,fromName,subject,html}){
+  if(!supabaseEnabled||!supabase) throw new Error("Email needs the cloud — you're in local-only mode.");
+  const{data,error}=await supabase.functions.invoke(SEND_EMAIL_FN,{body:{to,cc,replyTo,fromName,subject,html}});
+  if(error) throw new Error(error.message||"Couldn't reach the email service — is the send-email function deployed?");
+  if(data&&data.error) throw new Error(data.error);
+  return data;
+}
+// Reusable "✉️ Email" button + review dialog. Disabled until a shareable link exists.
+function EmailClientButton({to,clientName,biz,linkUrl,docType,defaultSubject,defaultMessage}){
+  const[open,setOpen]=useState(false);
+  const[email,setEmail]=useState("");
+  const[subject,setSubject]=useState("");
+  const[message,setMessage]=useState("");
+  const[busy,setBusy]=useState(false);
+  const[sent,setSent]=useState(false);
+  const[err,setErr]=useState("");
+  const openIt=()=>{setEmail(to||"");setSubject(defaultSubject||"");setMessage(defaultMessage||"");setErr("");setSent(false);setOpen(true);};
+  const send=async()=>{
+    if(!email.trim()){setErr("Enter the client's email address.");return;}
+    if(!linkUrl){setErr("Create the link first, then email it.");return;}
+    setBusy(true);setErr("");
+    try{
+      const html=buildClientEmailHtml({biz,clientName,message,ctaLabel:`View ${docType}`,linkUrl});
+      await sendClientEmail({to:email.trim(),replyTo:biz?.email||"",fromName:biz?.name||"Your jeweller",subject:subject.trim()||defaultSubject||docType,html});
+      setSent(true);setTimeout(()=>setOpen(false),1400);
+    }catch(e){setErr(e?.message||"Couldn't send the email.");}
+    setBusy(false);
+  };
+  return <>
+    <Btn sm ghost onClick={openIt} disabled={!linkUrl}>✉️ Email</Btn>
+    {open&&<Modal title={`Email ${docType} to client`} onClose={()=>setOpen(false)}>
+      {sent
+        ?<div style={{padding:"14px 2px",fontSize:14,color:OK,fontWeight:700}}>✓ Sent to {email}</div>
+        :<div>
+          <Input label="To" value={email} onChange={setEmail} placeholder="client@example.com"/>
+          <Input label="Subject" value={subject} onChange={setSubject}/>
+          <Input label="Message" value={message} onChange={setMessage} as="textarea" rows={4}/>
+          <div style={{fontSize:12,color:WG,margin:"4px 0 14px",lineHeight:1.5}}>A <strong style={{color:INK}}>View {docType}</strong> button linking to the {docType} is added automatically. Sent from <strong style={{color:INK}}>{biz?.name||"your studio"}</strong>{biz?.email?`; replies go to ${biz.email}`:""}.</div>
+          {err&&<div style={{fontSize:13,color:DANGER,marginBottom:12,lineHeight:1.5}}>{err}</div>}
+          <div style={{display:"flex",justifyContent:"flex-end",gap:10}}>
+            <Btn sm ghost onClick={()=>setOpen(false)}>Cancel</Btn>
+            <Btn sm onClick={send} disabled={busy}>{busy?"Sending…":"Send email"}</Btn>
+          </div>
+        </div>}
+    </Modal>}
+  </>;
+}
 const fmtR=n=>`$${Math.round(Number(n||0)).toLocaleString("en-AU")}`;
 const today=()=>new Date().toISOString().slice(0,10);
 const fmtDate=d=>d?new Date(d).toLocaleDateString("en-AU",{day:"numeric",month:"short",year:"numeric"}):"—";
@@ -2552,6 +2620,7 @@ function RepairIntakeCard({job,setJobs,biz,clients,markupTable,pricing=[],invoic
       <div style={{fontWeight:700,fontSize:15,color:INK}}>Repair Intake {items.length>1&&<span style={{fontWeight:400,color:WG,fontSize:13}}>· {items.length} items</span>}</div>
       <div style={{display:"flex",gap:8,alignItems:"center"}}>
         <Btn sm onClick={shareRepair}>{linkBusy?"Creating…":linkCopied?"✓ Link copied":job.repairToken?"🔗 Copy link":"🔗 Create link"}</Btn>
+        {job.repairToken&&<EmailClientButton to={c?.email} clientName={clientDisplayName(c)} biz={biz} linkUrl={repairLink} docType="receipt" defaultSubject={`Your receipt from ${biz?.name||"us"}`} defaultMessage={`Here is your receipt for the item(s) you've left with us. You can view it any time using the button below.`}/>}
         {job.repairToken&&<Btn sm ghost onClick={()=>window.open(repairLink,"_blank")}>Preview</Btn>}
         <Btn sm ghost onClick={()=>printRepairIntake(biz,c,{...job,dateIn:dIn,dateOut:dOut,intake:{items:items.map(it=>({...it,clientPrice:itemClient(it)})),instructions}})}>Print / Save PDF</Btn>
       </div>
@@ -4130,6 +4199,7 @@ function JobProposals({job,client,quotes,proposals,setProposals,setQuotes,biz,ma
           </div>
           <div style={{display:"flex",gap:8,alignItems:"center",flexWrap:"wrap"}}>
             <button onClick={()=>copyLink(p)} style={{background:copied===p.id?OK:GOLD_L,border:`1px solid ${copied===p.id?OK:GOLD}`,borderRadius:6,padding:"5px 12px",fontSize:12,fontWeight:700,color:copied===p.id?WHITE:GOLD_D,cursor:"pointer",fontFamily:"inherit"}}>{copied===p.id?"✓ Copied":"Copy link"}</button>
+            <EmailClientButton to={client?.email} clientName={clientDisplayName(client)} biz={biz} linkUrl={linkFor(p)} docType="proposal" defaultSubject={`Your proposal from ${biz?.name||"us"}`} defaultMessage={`Thank you for considering ${biz?.name||"us"} for your piece. Please review your proposal using the button below — you can accept your preferred option online.`}/>
             <button onClick={()=>window.open(linkFor(p),"_blank")} style={{background:"none",border:`1px solid ${BD}`,borderRadius:6,padding:"5px 12px",fontSize:12,fontWeight:700,color:WG,cursor:"pointer",fontFamily:"inherit"}}>Preview</button>
             <button onClick={()=>resendProposal(p)} title="Refresh the client's link from the current quote & payments" style={{background:resent===p.id?OK:"none",border:`1px solid ${resent===p.id?OK:BD}`,borderRadius:6,padding:"5px 12px",fontSize:12,fontWeight:700,color:resent===p.id?WHITE:WG,cursor:"pointer",fontFamily:"inherit"}}>{resent===p.id?"✓ Updated":"↻ Update from quote"}</button>
             {!accepted&&<button onClick={()=>checkAcceptance(p,false)} style={{background:"none",border:`1px solid ${BD}`,borderRadius:6,padding:"5px 12px",fontSize:12,fontWeight:700,color:WG,cursor:"pointer",fontFamily:"inherit"}}>{checking===p.id?"Checking…":"Check for acceptance"}</button>}
@@ -5520,6 +5590,7 @@ function InvoiceDetail({invoiceId,invoices,setInvoices,jobs,clients,payments,biz
       <div style={{display:"flex",gap:8,alignItems:"center",flexWrap:"wrap",flexShrink:0}}>
         <Badge label={es} color={es==="Paid"?OK:es==="Overdue"?DANGER:WARN} size="lg"/>
         <Btn sm={!isMobile} xs={isMobile} onClick={shareInvoice}>{linkBusy?"Creating…":linkCopied?"✓ Link copied":inv.publicToken?"🔗 Copy link":"🔗 Create link"}</Btn>
+        {inv.publicToken&&<EmailClientButton to={c?.email} clientName={clientDisplayName(c)} biz={biz} linkUrl={invLink} docType="invoice" defaultSubject={`Invoice ${inv.number} from ${biz?.name||"us"}`} defaultMessage={`Please find your invoice below. You can view the full details and payment information using the button.`}/>}
         {inv.publicToken&&<Btn sm={!isMobile} xs={isMobile} ghost onClick={()=>window.open(invLink,"_blank")}>Preview</Btn>}
         {canResync&&<Btn sm={!isMobile} xs={isMobile} ghost onClick={updateFromQuote}>{resynced?"✓ Updated":"↻ Update from quote"}</Btn>}
         <Btn sm={!isMobile} xs={isMobile} onClick={()=>setShowPrint(true)}>🖨 Preview &amp; Print</Btn>
