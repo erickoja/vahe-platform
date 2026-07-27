@@ -49,6 +49,7 @@ const TINTS={
   gold:{bg:WHITE,ring:GOLD_L,fg:GOLD_D},
   peach:{bg:WHITE,ring:"#F7EAE1",fg:"#A65D32"},
   rose:{bg:WHITE,ring:"#FBEAEA",fg:DANGER},   // overdue / alert
+  slate:{bg:WHITE,ring:"#EFE9E1",fg:"#5D5A57"},   // neutral — plain informational counts
 };
 
 // ── Constants ─────────────────────────────────────────────────────────────
@@ -2007,12 +2008,12 @@ function Dashboard({clients,jobs,quotes,payments,invoices,appointments=[],propos
       <div style={{color:WG,fontSize:12.5,marginTop:3}}>{fmtDate(today())}</div>
     </div>
     <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(150px,1fr))",gap:14,marginBottom:24}}>
-      <Stat label="Today's appts" value={todaysAppts.length} sub={todaysAppts.length>0?fmtTime(todaysAppts.slice().sort((a,b)=>String(a.time||"").localeCompare(String(b.time||"")))[0].time)+" first":"none today"} tint="blue" icon="◷" onClick={()=>setView("appointments")}/>
-      <Stat label="Clients" value={clients.length} tint="blue" icon="♦" onClick={()=>setView("clients")}/>
-      <Stat label="Active jobs" value={active.length} tint="lilac" icon="✦" onClick={()=>setView("jobs")}/>
+      <Stat label="Today's appts" value={todaysAppts.length} sub={todaysAppts.length>0?fmtTime(todaysAppts.slice().sort((a,b)=>String(a.time||"").localeCompare(String(b.time||"")))[0].time)+" first":"none today"} tint="slate" icon="◷" onClick={()=>setView("appointments")}/>
+      <Stat label="Clients" value={clients.length} tint="slate" icon="♦" onClick={()=>setView("clients")}/>
+      <Stat label="Active jobs" value={active.length} tint="slate" icon="✦" onClick={()=>setView("jobs")}/>
       <Stat label="This month" value={fmt(monthReceived)} sub="received (incl. trade-ins)" tint="mint" icon="↑"/>
       <Stat label="Outstanding" value={fmt(outstanding)} sub="balance owed" tint={outstanding>0?"peach":"mint"} icon="$"/>
-      <Stat label="Ready to collect" value={ready.length} tint="gold" icon="✓" onClick={()=>setView("jobs")}/>
+      <Stat label="Ready to collect" value={ready.length} tint="slate" icon="✓" onClick={()=>setView("jobs")}/>
       <Stat label="Overdue" value={overdue.length} tint={overdue.length>0?"rose":"mint"} icon="!" onClick={()=>setView("jobs")}/>
     </div>
     <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"minmax(0,1.6fr) minmax(0,1fr)",gap:16,alignItems:"start"}}>
@@ -7300,7 +7301,7 @@ function Login(){
   return <div style={{minHeight:"100vh",display:"flex",alignItems:"center",justifyContent:"center",background:"#000000",fontFamily:"'Poppins',sans-serif",padding:20}}>
     <form onSubmit={submit} style={{width:"100%",maxWidth:360,background:"#0E0E0E",border:"1px solid rgba(255,255,255,0.08)",borderRadius:16,padding:"36px 32px"}}>
       <div style={{textAlign:"center",marginBottom:28}}>
-        <div style={{fontSize:22,fontWeight:700,color:WHITE,letterSpacing:"0.16em",textTransform:"uppercase",lineHeight:1}}>Workshop Pilot</div>
+        <div style={{fontSize:22,fontWeight:700,color:WHITE,letterSpacing:"0.16em",textTransform:"uppercase",lineHeight:1}}>Prong Studio</div>
       </div>
       {sentTo
         ?<div style={{textAlign:"center"}}>
@@ -8577,7 +8578,7 @@ export default function App(){
       <button onClick={()=>setDrawerOpen(true)} aria-label="Open menu" style={{background:"none",border:"none",cursor:"pointer",padding:6,display:"flex",flexDirection:"column",gap:4}}>
         {[0,1,2].map(i=><span key={i} style={{width:20,height:2,background:WHITE,display:"block",borderRadius:2}}/>)}
       </button>
-      <div style={{fontSize:14,fontWeight:700,color:WHITE,letterSpacing:"0.14em",textTransform:"uppercase"}}>Workshop Pilot</div>
+      <div style={{fontSize:14,fontWeight:700,color:WHITE,letterSpacing:"0.14em",textTransform:"uppercase"}}>Prong Studio</div>
     </div>}
     {/* Tap-away backdrop while the drawer is open */}
     {isMobile&&drawerOpen&&<div onClick={()=>setDrawerOpen(false)} style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.5)",zIndex:1001}}/>}
@@ -8585,7 +8586,7 @@ export default function App(){
       ?{width:250,maxWidth:"85vw",background:"#000000",display:"flex",flexDirection:"column",padding:"20px 0 28px",position:"fixed",top:0,left:0,height:"100vh",overflowY:"auto",zIndex:1002,transform:drawerOpen?"translateX(0)":"translateX(-100%)",transition:"transform 0.22s ease",boxShadow:drawerOpen?"2px 0 24px rgba(0,0,0,0.45)":"none"}
       :{width:210,background:"#000000",display:"flex",flexDirection:"column",padding:"40px 0 28px",flexShrink:0,position:"sticky",top:0,height:"100vh",overflowY:"auto"}}>
       <div style={{padding:"0 20px 28px",borderBottom:"1px solid rgba(255,255,255,0.06)",textAlign:"center",position:"relative"}}>
-        <div style={{fontSize:17,fontWeight:700,color:WHITE,letterSpacing:"0.16em",textTransform:"uppercase",lineHeight:1.15}}>Workshop Pilot</div>
+        <div style={{fontSize:17,fontWeight:700,color:WHITE,letterSpacing:"0.16em",textTransform:"uppercase",lineHeight:1.15}}>Prong Studio</div>
         {isMobile&&<button onClick={()=>setDrawerOpen(false)} aria-label="Close menu" style={{position:"absolute",top:-2,right:10,background:"none",border:"none",color:"rgba(255,255,255,0.55)",fontSize:26,lineHeight:1,cursor:"pointer",padding:4}}>×</button>}
       </div>
       <nav style={{padding:"16px 12px",flex:1}}>
