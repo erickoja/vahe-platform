@@ -2313,11 +2313,11 @@ function Jobs({clients,jobs,setJobs,quotes,setQuotes,payments,setPayments,notes,
       <div style={{...SS.lbl,marginBottom:10}}>Job types</div>
       <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(150px,1fr))",gap:12}}>
         <div style={{borderRadius:RADIUS,boxShadow:tf==="All"?`0 0 0 2px ${GOLD}`:"none"}}>
-          <Stat tint="blue" icon="◎" value={jobs.length} label="All jobs" onClick={()=>setTf("All")}/>
+          <Stat tint="slate" icon="◎" value={jobs.length} label="All jobs" onClick={()=>setTf("All")}/>
         </div>
         {typesByCount.map(t=>(
           <div key={t} style={{borderRadius:RADIUS,boxShadow:tf===t?`0 0 0 2px ${GOLD}`:"none"}}>
-            <Stat tint="blue" icon={JOB_TYPE_ICONS[t]||"◎"} value={typeCounts[t]} label={t} onClick={()=>setTf(tf===t?"All":t)}/>
+            <Stat tint="slate" icon={JOB_TYPE_ICONS[t]||"◎"} value={typeCounts[t]} label={t} onClick={()=>setTf(tf===t?"All":t)}/>
           </div>
         ))}
       </div>
@@ -7558,11 +7558,11 @@ function TodoBoard({todos,setTodos,jobs=[],clients=[],setView,setSelJob}){
       : <>
           {/* Summary tiles */}
           <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(150px,1fr))",gap:14,marginBottom:18}}>
-            <Stat label="People" value={people.length} tint="blue" icon="♦"/>
-            <Stat label="To do" value={totalTodo} tint={totalTodo>0?"gold":"mint"} icon="○"/>
-            <Stat label="In progress" value={totalDoing} tint={totalDoing>0?"gold":"mint"} icon="◐"/>
-            <Stat label="High priority" value={totalHigh} tint={totalHigh>0?"rose":"mint"} icon="⚑"/>
-            <Stat label="Completed" value={totalDone} tint="mint" icon="✓"/>
+            <Stat label="People" value={people.length} tint="slate" icon="♦"/>
+            <Stat label="To do" value={totalTodo} tint="slate" icon="○"/>
+            <Stat label="In progress" value={totalDoing} tint="slate" icon="◐"/>
+            <Stat label="High priority" value={totalHigh} tint={totalHigh>0?"rose":"slate"} icon="⚑"/>
+            <Stat label="Completed" value={totalDone} tint="slate" icon="✓"/>
           </div>
 
           {/* Search + status filter */}
@@ -7833,7 +7833,7 @@ function GemCustody({custody,setCustody,clients,biz}){
       : <>
           {/* Summary */}
           <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(180px,1fr))",gap:14,marginBottom:22}}>
-            <Stat label="Currently holding" value={holding.length} tint="gold" icon="💎"/>
+            <Stat label="Currently holding" value={holding.length} tint="slate" icon="💎"/>
             <Stat label="Declared value held" value={fmtR(totalHeldValue)} sub="client-declared, for reference"/>
             <Stat label="Returned" value={custody.length-holding.length}/>
           </div>
@@ -8101,10 +8101,10 @@ function StockBoard({stock,setStock,setView}){
       : <>
           {/* Summary tiles */}
           <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(150px,1fr))",gap:14,marginBottom:20}}>
-            <Stat label="Pieces" value={stock.length} tint="blue" icon="◈"/>
-            <Stat label="Available" value={availCount} tint={availCount>0?"mint":"gold"} icon="✓"/>
-            <Stat label="Retail value" value={fmtR(retailVal)} tint="gold" icon="$" sub="excludes sold"/>
-            <Stat label="Potential margin" value={fmtR(marginVal)} tint="lilac" icon="▲" sub={`cost ${fmtR(costVal)} · excl. GST`}/>
+            <Stat label="Pieces" value={stock.length} tint="slate" icon="◈"/>
+            <Stat label="Available" value={availCount} tint="slate" icon="✓"/>
+            <Stat label="Retail value" value={fmtR(retailVal)} tint="slate" icon="$" sub="excludes sold"/>
+            <Stat label="Potential margin" value={fmtR(marginVal)} tint="slate" icon="▲" sub={`cost ${fmtR(costVal)} · excl. GST`}/>
           </div>
 
           {/* Filter bar */}
