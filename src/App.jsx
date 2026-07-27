@@ -1283,6 +1283,36 @@ const buildInvoiceSnapshot=({inv,job,client,biz,payments})=>{
   };
 };
 
+// ── Invoice CSV export (shared by the Invoices list range-export and single-invoice export) ──
+const _csvCell=v=>{const s=String(v==null?"":v);return /[",\r\n]/.test(s)?'"'+s.replace(/"/g,'""')+'"':s;};
+const INVOICE_CSV_HEADER=["Invoice","Date","Customer","Description","Subtotal (ex GST)","GST","Total (inc GST)","Trade-in credit","Amount received","Balance","Status"];
+// Per-invoice paid/balance: distribute each job's received cash across its invoices oldest-first
+// (payments are job-level), so figures reconcile with the summary tiles.
+const invoicePaidBalanceMap=(invoices,payments)=>{
+  const paidMap={},balMap={},byJob={};
+  (invoices||[]).forEach(i=>{(byJob[i.jobId]=byJob[i.jobId]||[]).push(i);});
+  Object.keys(byJob).forEach(jid=>{
+    let cash=(payments||[]).filter(p=>p.jobId===jid&&p.status==="Received").reduce((s,p)=>s+Number(p.amount),0);
+    byJob[jid].slice().sort((a,b)=>String(a.date).localeCompare(String(b.date))).forEach(inv=>{
+      const gross=Number(inv.totalIncGST)||0,afterTradeIn=Math.max(0,gross-(Number(inv.tradeInCredit)||0));
+      const cashApplied=Math.min(cash,afterTradeIn);cash-=cashApplied;
+      balMap[inv.id]=Math.max(0,afterTradeIn-cashApplied);paidMap[inv.id]=gross-balMap[inv.id];
+    });
+  });
+  return {paidMap,balMap};
+};
+const invoiceCsvRow=(inv,{jobs,clients,payments,allInvoices,paidMap,balMap})=>{
+  const job=(jobs||[]).find(j=>j.id===inv.jobId),cl=job?(clients||[]).find(x=>x.id===job.clientId):null;
+  const total=Number(inv.totalIncGST)||0,gst=Number(inv.gst)||0;
+  const desc=(inv.descriptionOverride||job?.type||"").replace(/\s+/g," ").trim();
+  return [inv.number,inv.date,cl?clientDisplayName(cl):"",desc,(total-gst).toFixed(2),gst.toFixed(2),total.toFixed(2),(Number(inv.tradeInCredit)||0).toFixed(2),(paidMap[inv.id]||0).toFixed(2),(balMap[inv.id]||0).toFixed(2),invoiceEffectiveStatus(inv,payments,allInvoices)];
+};
+const downloadInvoiceCsv=(rows,filename)=>{
+  const csv="﻿"+[INVOICE_CSV_HEADER,...rows].map(r=>r.map(_csvCell).join(",")).join("\r\n");
+  const url=URL.createObjectURL(new Blob([csv],{type:"text/csv;charset=utf-8;"}));
+  const a=document.createElement("a");a.href=url;a.download=filename;document.body.appendChild(a);a.click();a.remove();URL.revokeObjectURL(url);
+};
+
 // Snapshot of a repair intake/receipt for the public client link (kind:"repair").
 // items must already carry their customer-facing clientPrice (never the trade cost).
 const buildRepairSnapshot=({job,client,biz,items,instructions,photos})=>({
@@ -5587,6 +5617,10 @@ function InvoiceDetail({invoiceId,invoices,setInvoices,jobs,clients,payments,biz
     navigator.clipboard?.writeText(`${window.location.origin}/?p=${token}`).catch(()=>{});
     setLinkCopied(true);setTimeout(()=>setLinkCopied(false),2200);
   };
+  const exportOne=()=>{
+    const{paidMap,balMap}=invoicePaidBalanceMap(invoices,payments);
+    downloadInvoiceCsv([invoiceCsvRow(inv,{jobs,clients,payments,allInvoices:invoices,paidMap,balMap})],`invoice-${(inv.number||inv.id||"").replace(/[^\w-]/g,"")||"export"}.csv`);
+  };
   return <div>
     {showPrint&&<InvoicePrintView inv={inv} job={job} client={c} biz={biz} payments={payments} onClose={()=>setShowPrint(false)}/>}
     <div style={{display:"flex",gap:12,marginBottom:18,alignItems:"center"}}>
@@ -5605,6 +5639,7 @@ function InvoiceDetail({invoiceId,invoices,setInvoices,jobs,clients,payments,biz
         {inv.publicToken&&<Btn sm={!isMobile} xs={isMobile} ghost onClick={()=>window.open(invLink,"_blank")}>Preview</Btn>}
         {canResync&&<Btn sm={!isMobile} xs={isMobile} ghost onClick={updateFromQuote}>{resynced?"✓ Updated":"↻ Update from quote"}</Btn>}
         <Btn sm={!isMobile} xs={isMobile} onClick={()=>setShowPrint(true)}>🖨 Preview &amp; Print</Btn>
+        <Btn sm={!isMobile} xs={isMobile} ghost onClick={exportOne}>⬇ CSV</Btn>
         <Btn sm={!isMobile} xs={isMobile} danger onClick={del}>Delete</Btn>
       </div>
     </div>
@@ -5779,29 +5814,11 @@ function InvoicesList({invoices,jobs,clients,quotes,payments,setInvoices,markupT
   // paid, balance). Payments are job-level, so distribute each job's cash across its invoices
   // oldest-first — same rule as the summary tiles — for accurate per-invoice paid/balance.
   const exportCsv=()=>{
-    const csvCell=v=>{const s=String(v==null?"":v);return /[",\r\n]/.test(s)?'"'+s.replace(/"/g,'""')+'"':s;};
-    const paidMap={},balMap={};
-    const byJob={};invoices.forEach(i=>{(byJob[i.jobId]=byJob[i.jobId]||[]).push(i);});
-    Object.keys(byJob).forEach(jid=>{
-      let cash=payments.filter(p=>p.jobId===jid&&p.status==="Received").reduce((s,p)=>s+Number(p.amount),0);
-      byJob[jid].slice().sort((a,b)=>String(a.date).localeCompare(String(b.date))).forEach(inv=>{
-        const gross=Number(inv.totalIncGST)||0;const afterTradeIn=Math.max(0,gross-(Number(inv.tradeInCredit)||0));
-        const cashApplied=Math.min(cash,afterTradeIn);cash-=cashApplied;
-        balMap[inv.id]=Math.max(0,afterTradeIn-cashApplied);paidMap[inv.id]=gross-balMap[inv.id];
-      });
-    });
-    const rows=[["Invoice","Date","Customer","Description","Subtotal (ex GST)","GST","Total (inc GST)","Trade-in credit","Amount received","Balance","Status"]];
-    // Payment distribution is computed over ALL invoices above; only the chosen range is output.
-    invoices.filter(inExpRange).slice().sort((a,b)=>String(a.date).localeCompare(String(b.date))).forEach(inv=>{
-      const job=jobs.find(j=>j.id===inv.jobId);const cl=job?clients.find(x=>x.id===job.clientId):null;
-      const total=Number(inv.totalIncGST)||0,gst=Number(inv.gst)||0;
-      const desc=(inv.descriptionOverride||job?.type||"").replace(/\s+/g," ").trim();
-      rows.push([inv.number,inv.date,cl?clientDisplayName(cl):"",desc,(total-gst).toFixed(2),gst.toFixed(2),total.toFixed(2),(Number(inv.tradeInCredit)||0).toFixed(2),(paidMap[inv.id]||0).toFixed(2),(balMap[inv.id]||0).toFixed(2),invoiceEffectiveStatus(inv,payments,invoices)]);
-    });
-    const csv="﻿"+rows.map(r=>r.map(csvCell).join(",")).join("\r\n");
-    const url=URL.createObjectURL(new Blob([csv],{type:"text/csv;charset=utf-8;"}));
+    const{paidMap,balMap}=invoicePaidBalanceMap(invoices,payments);
+    const rows=invoices.filter(inExpRange).slice().sort((a,b)=>String(a.date).localeCompare(String(b.date)))
+      .map(inv=>invoiceCsvRow(inv,{jobs,clients,payments,allInvoices:invoices,paidMap,balMap}));
     const span=expFrom||expTo?`${expFrom||"start"}_to_${expTo||"end"}`:"all";
-    const a=document.createElement("a");a.href=url;a.download=`invoices-${span}.csv`;document.body.appendChild(a);a.click();a.remove();URL.revokeObjectURL(url);
+    downloadInvoiceCsv(rows,`invoices-${span}.csv`);
   };
   return <div>
     <SectionHeader title="Invoices" action={<div style={{display:"flex",gap:8,alignItems:"center",flexWrap:"wrap"}}>{invoices.length>0&&<Btn ghost sm onClick={()=>setExportOpen(true)}>⬇ Export CSV</Btn>}<Btn onClick={openModal}>+ New Invoice</Btn></div>}/>
