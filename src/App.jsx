@@ -5719,6 +5719,19 @@ function InvoiceDetail({invoiceId,invoices,setInvoices,jobs,clients,payments,biz
 function InvoicesList({invoices,jobs,clients,quotes,payments,setInvoices,markupTable,setView}){
   const isMobile=useIsMobile();
   const[modal,setModal]=useState(false);
+  const[exportOpen,setExportOpen]=useState(false);
+  const[expFrom,setExpFrom]=useState("");
+  const[expTo,setExpTo]=useState("");
+  // Preset date ranges (AU financial year = 1 Jul–30 Jun).
+  const setRange=(preset)=>{
+    const now=new Date(),y=now.getFullYear(),m=now.getMonth(),iso=d=>d.toISOString().slice(0,10);
+    if(preset==="month"){setExpFrom(iso(new Date(y,m,1)));setExpTo(iso(new Date(y,m+1,0)));}
+    else if(preset==="quarter"){const qs=Math.floor(m/3)*3;setExpFrom(iso(new Date(y,qs,1)));setExpTo(iso(new Date(y,qs+3,0)));}
+    else if(preset==="fy"){const s=m>=6?y:y-1;setExpFrom(iso(new Date(s,6,1)));setExpTo(iso(new Date(s+1,5,30)));}
+    else{setExpFrom("");setExpTo("");}
+  };
+  const inExpRange=inv=>{const d=String(inv.date||"");return (!expFrom||d>=expFrom)&&(!expTo||d<=expTo);};
+  const expCount=invoices.filter(inExpRange).length;
   const[selClient,setSelClient]=useState("");
   const[selJob,setSelJob]=useState("");
   const[selQuotes,setSelQuotes]=useState([]);   // approved quote ids to combine into one invoice
@@ -5778,7 +5791,8 @@ function InvoicesList({invoices,jobs,clients,quotes,payments,setInvoices,markupT
       });
     });
     const rows=[["Invoice","Date","Customer","Description","Subtotal (ex GST)","GST","Total (inc GST)","Trade-in credit","Amount received","Balance","Status"]];
-    invoices.slice().sort((a,b)=>String(a.date).localeCompare(String(b.date))).forEach(inv=>{
+    // Payment distribution is computed over ALL invoices above; only the chosen range is output.
+    invoices.filter(inExpRange).slice().sort((a,b)=>String(a.date).localeCompare(String(b.date))).forEach(inv=>{
       const job=jobs.find(j=>j.id===inv.jobId);const cl=job?clients.find(x=>x.id===job.clientId):null;
       const total=Number(inv.totalIncGST)||0,gst=Number(inv.gst)||0;
       const desc=(inv.descriptionOverride||job?.type||"").replace(/\s+/g," ").trim();
@@ -5786,10 +5800,28 @@ function InvoicesList({invoices,jobs,clients,quotes,payments,setInvoices,markupT
     });
     const csv="﻿"+rows.map(r=>r.map(csvCell).join(",")).join("\r\n");
     const url=URL.createObjectURL(new Blob([csv],{type:"text/csv;charset=utf-8;"}));
-    const a=document.createElement("a");a.href=url;a.download=`invoices-${today()}.csv`;document.body.appendChild(a);a.click();a.remove();URL.revokeObjectURL(url);
+    const span=expFrom||expTo?`${expFrom||"start"}_to_${expTo||"end"}`:"all";
+    const a=document.createElement("a");a.href=url;a.download=`invoices-${span}.csv`;document.body.appendChild(a);a.click();a.remove();URL.revokeObjectURL(url);
   };
   return <div>
-    <SectionHeader title="Invoices" action={<div style={{display:"flex",gap:8,alignItems:"center",flexWrap:"wrap"}}>{invoices.length>0&&<Btn ghost sm onClick={exportCsv}>⬇ Export CSV</Btn>}<Btn onClick={openModal}>+ New Invoice</Btn></div>}/>
+    <SectionHeader title="Invoices" action={<div style={{display:"flex",gap:8,alignItems:"center",flexWrap:"wrap"}}>{invoices.length>0&&<Btn ghost sm onClick={()=>setExportOpen(true)}>⬇ Export CSV</Btn>}<Btn onClick={openModal}>+ New Invoice</Btn></div>}/>
+    {exportOpen&&<Modal title="Export invoices to CSV" onClose={()=>setExportOpen(false)}>
+      <div style={{fontSize:13,color:WG,marginBottom:14,lineHeight:1.6}}>Pick a date range (by invoice date) for your bookkeeping, or leave both blank to export everything.</div>
+      <div style={{display:"flex",gap:8,flexWrap:"wrap",marginBottom:16}}>
+        {[["This month","month"],["This quarter","quarter"],["Financial year","fy"],["All time","all"]].map(([lbl,p])=>(
+          <button key={p} onClick={()=>setRange(p)} style={{padding:"7px 13px",borderRadius:4,border:`1px solid ${BD}`,background:WHITE,color:INK,fontSize:12,fontWeight:700,cursor:"pointer",fontFamily:"inherit"}}>{lbl}</button>
+        ))}
+      </div>
+      <div style={{display:"flex",gap:16,flexWrap:"wrap",marginBottom:16}}>
+        <div><label style={SS.lbl}>From</label><input type="date" value={expFrom} onChange={e=>setExpFrom(e.target.value)} style={{...SS.inp,marginTop:6,width:180}}/></div>
+        <div><label style={SS.lbl}>To</label><input type="date" value={expTo} onChange={e=>setExpTo(e.target.value)} style={{...SS.inp,marginTop:6,width:180}}/></div>
+      </div>
+      <div style={{fontSize:13,color:expCount?INK:WG,fontWeight:600,marginBottom:16}}>{expCount} invoice{expCount!==1?"s":""} in this range.</div>
+      <div style={{display:"flex",justifyContent:"flex-end",gap:10}}>
+        <Btn sm ghost onClick={()=>setExportOpen(false)}>Cancel</Btn>
+        <Btn sm onClick={()=>{exportCsv();setExportOpen(false);}} disabled={!expCount}>Export {expCount||""} invoice{expCount!==1?"s":""}</Btn>
+      </div>
+    </Modal>}
     {invoices.length>0&&<div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:12,marginBottom:18}}>
       {[["Total invoiced",fmt(grossInvoiced),INK],["Outstanding",fmt(totalOut),totalOut>0?WARN:OK],["Collected",fmt(totalPaid),OK]].map(([l,v,col])=>(
         <div key={l} style={{background:WHITE,border:`1px solid ${BD}`,borderRadius:4,padding:"14px 16px"}}>
