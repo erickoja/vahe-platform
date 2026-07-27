@@ -43,7 +43,7 @@ const SHADOW_HV="0 6px 18px rgba(20,20,22,0.10),0 16px 36px rgba(20,20,22,0.12)"
 const _NEU={bg:WHITE,ring:"#F0F0F2",fg:INK};
 // Muted jewel tones — soft coloured icon wash + number in the same hue, on a clean white card.
 const TINTS={
-  blue:{bg:WHITE,ring:"#E9F0F5",fg:"#3B6E8F"},
+  blue:{bg:WHITE,ring:"#E9F0F5",fg:"#4E8B6A"},
   lilac:{bg:WHITE,ring:"#EEEAF5",fg:"#6E5B96"},
   mint:{bg:WHITE,ring:"#E7F1EC",fg:OK},
   gold:{bg:WHITE,ring:GOLD_L,fg:GOLD_D},
@@ -61,7 +61,7 @@ const JOB_STAGES=["Enquiry","Consultation","Quoted","Approved","On the bench","D
 // Finished/awaiting-pickup jobs — never treated as urgent (sorted last, not flagged overdue).
 const DONE_STAGES=["Ready for collection","Collected"];
 const jobIsDone=j=>DONE_STAGES.includes(j?.stage);
-const SC={"Enquiry":"#A0845C","Consultation":"#7A6C5D","Quoted":"#5B7FA6","Approved":"#3B6E8F","On the bench":"#3E8E8E","Design / CAD":"#7B5EA7","Manufacturing":"#B05C3A","Stone setting":"#C47A2E","Polishing / Finish":"#8B9E3A","QC check":"#4A8E6A","Ready for collection":"#2D7A4F","Collected":"#1A5C3A"};
+const SC={"Enquiry":"#A0845C","Consultation":"#7A6C5D","Quoted":"#5E9078","Approved":"#4E8B6A","On the bench":"#3E8E8E","Design / CAD":"#96627C","Manufacturing":"#B05C3A","Stone setting":"#C47A2E","Polishing / Finish":"#8B9E3A","QC check":"#4A8E6A","Ready for collection":"#2D7A4F","Collected":"#1A5C3A"};
 // Advance a job to "On the bench" only if it isn't already at/past that point (never pull it back).
 const advanceToBench=stage=>{const i=JOB_STAGES.indexOf(stage),b=JOB_STAGES.indexOf(REPAIR_WIP_STAGE);return i<0||i<b?REPAIR_WIP_STAGE:stage;};
 const PAY_TYPES=["Diamond deposit","Diamond balance","Setting deposit","Deposit","CAD / Design stage","Production deposit","Progress payment","Final balance","Trade-in credit","Lay-by payment","Other"];
@@ -982,7 +982,7 @@ const fmtDayShort=s=>parseISO(s).toLocaleDateString("en-AU",{weekday:"short",day
 const monthLabel=s=>parseISO(s).toLocaleDateString("en-AU",{month:"long",year:"numeric"});
 const addMin=(t,min)=>{if(!t||!min)return"";const[h,m]=String(t).split(":").map(Number);if(isNaN(h))return"";const tot=h*60+m+Number(min);const hh=Math.floor((tot%1440)/60),mm=tot%60;return`${pad2(hh)}:${pad2(mm)}`;};
 const APPT_TYPES=["Consultation","Engagement Ring","Wedding Ring","Custom Design","Jewellery Repair","Laser Engraving","Other"];
-const APPT_COLORS={"Consultation":"#5B7FA6","Engagement Ring":"#9B4F96","Wedding Ring":"#2D7A4F","Custom Design":"#7B5EA7","Jewellery Repair":"#C47A2E","Laser Engraving":"#5E6B7A","Other":"#7A6C5D"};
+const APPT_COLORS={"Consultation":"#5E9078","Engagement Ring":"#A85D78","Wedding Ring":"#2D7A4F","Custom Design":"#96627C","Jewellery Repair":"#C47A2E","Laser Engraving":"#5E6B7A","Other":"#7A6C5D"};
 const APPT_STATUSES=["Scheduled","Completed","No-show","Cancelled"];
 const APPT_STATUS_COLORS={"Scheduled":WG,"Completed":OK,"No-show":DANGER,"Cancelled":WARN};
 const DURATION_OPTS=[{value:"",label:"— No set length —"},{value:15,label:"15 min"},{value:30,label:"30 min"},{value:45,label:"45 min"},{value:60,label:"1 hour"},{value:90,label:"1.5 hours"},{value:120,label:"2 hours"}];
@@ -1521,7 +1521,7 @@ function StoneMarkupSummary({calc}){
       {[
         ["Your cost",fmt(calc.totalCost),WG],
         ["Bracket",calc.bracket?`${fmt(calc.bracket.low)}–${fmt(calc.bracket.high)}`:"—",WG],
-        ["Markup",`${calc.mult}×${calc.overridden?" (override)":""}`,calc.overridden?GOLD:"#7B5EA7"],
+        ["Markup",`${calc.mult}×${calc.overridden?" (override)":""}`,calc.overridden?GOLD:"#96627C"],
         ["Marked up",fmt(calc.markedUp),INK],
         ["+ GST → Client",fmtR(calc.clientTotal),OK],
       ].map(([l,v,col])=>(
@@ -1618,7 +1618,7 @@ function MarkupSummary({baseLow,baseHigh,isRange,bracket,mult,autoMult,overridde
         ["Bracket",bracket?`${fmt(bracket.low)} – ${fmt(bracket.high)}`:"—",WG],
         ["Multiplier",(bracket||overridden)?`${mult}×${overridden?" (override)":""}`:"—",overridden?GOLD:GOLD_D],
         ["Markup total",baseLow>0?fmtR(mfLow):"—",hasFlat?INK:OK],
-        ...(hasFlat?[["+ Flat fees",fmt(flatTotal),"#7B5EA7"]]:
+        ...(hasFlat?[["+ Flat fees",fmt(flatTotal),"#96627C"]]:
           []),
       ].map(([l,v,col])=>(
         <div key={l} style={{padding:"14px 16px",borderRight:`1px solid ${BD}`}}>
@@ -1640,7 +1640,7 @@ function MarkupSummary({baseLow,baseHigh,isRange,bracket,mult,autoMult,overridde
     })()}
     {hasFlat&&<div style={{display:"grid",gridTemplateColumns:"1fr auto",alignItems:"center",padding:"12px 16px",background:WHITE,gap:12}}>
       <div style={{fontSize:11,color:WG}}>
-        Markup total <strong style={{color:INK}}>{fmtR(mfLow)}</strong> + flat fees <strong style={{color:"#7B5EA7"}}>{fmt(flatTotal)}</strong>
+        Markup total <strong style={{color:INK}}>{fmtR(mfLow)}</strong> + flat fees <strong style={{color:"#96627C"}}>{fmt(flatTotal)}</strong>
       </div>
       <div>
         <div style={{fontSize:10,fontWeight:700,color:WG,textTransform:"uppercase",letterSpacing:"0.06em",marginBottom:2}}>Setting total</div>
@@ -2404,7 +2404,7 @@ function ActivityLog({jobId,notes,setNotes}){
   const[open,setOpen]=useState(true);
   const[form,setForm]=useState({type:NOTE_TYPES[0],text:"",date:today()});
   const jn=notes.filter(n=>n.jobId===jobId).sort((a,b)=>b.createdAt.localeCompare(a.createdAt));
-  const NTC={"Client call":"#3B6E8F","Client email":"#5B7FA6","Client visit":"#7B5EA7","Approval received":"#2D7A4F","Internal update":"#888780","General note":"#6B6560"};
+  const NTC={"Client call":"#4E8B6A","Client email":"#5E9078","Client visit":"#96627C","Approval received":"#2D7A4F","Internal update":"#888780","General note":"#6B6560"};
   const add=()=>{if(!form.text.trim())return;const n={...form,id:uid(),jobId,createdAt:new Date().toISOString()};setNotes(p=>{const nw=[...p,n];persist(K.no,nw);return nw;});setForm(f=>({...f,text:""}));};
   const del=id=>{setNotes(p=>{const n=p.filter(x=>x.id!==id);persist(K.no,n);return n;});};
   return <Card>
@@ -2785,7 +2785,7 @@ function RepairIntakeCard({job,setJobs,biz,clients,markupTable,pricing=[],invoic
                   onMouseLeave={e=>{e.currentTarget.style.background="transparent";}}>
                   <span style={{fontSize:13,color:INK,fontWeight:500,paddingRight:12}}>{item.name}</span>
                   {item.poa
-                    ?<span style={{fontSize:10,fontWeight:700,color:"#7B5EA7",background:"rgba(123,94,167,0.12)",border:"1px solid rgba(123,94,167,0.3)",borderRadius:4,padding:"2px 7px",whiteSpace:"nowrap"}}>MANUAL QUOTE</span>
+                    ?<span style={{fontSize:10,fontWeight:700,color:"#96627C",background:"rgba(150,98,124,0.12)",border:"1px solid rgba(150,98,124,0.3)",borderRadius:4,padding:"2px 7px",whiteSpace:"nowrap"}}>MANUAL QUOTE</span>
                     :<span style={{fontSize:13,fontWeight:700,color:OK,whiteSpace:"nowrap"}}>{fmt(item.baseCost)}</span>}
                 </div>
               );
@@ -3159,7 +3159,7 @@ function AccentStoneModal({pricing,setPricing,naturalStoneMarkup,labStoneMarkup,
           <option value="lab">Lab-Grown Diamond/Gemstone Markup</option>
         </select>
         {/* Markup hint — when on the stone markup, show the resulting client price */}
-        {stoneMU&&<div style={{fontSize:12,marginTop:10,lineHeight:1.5,color:stonePreview?(stonePreview.bracket?"#7B5EA7":WARN):WG}}>
+        {stoneMU&&<div style={{fontSize:12,marginTop:10,lineHeight:1.5,color:stonePreview?(stonePreview.bracket?"#96627C":WARN):WG}}>
           {stonePreview
             ?(stonePreview.bracket?<>→ <strong>{fmtR(stonePreview.clientTotal)}</strong> to client (×{stonePreview.mult} + GST)</>:"Cost is outside your stone markup table — check the rates in Pricing DB.")
             :"Priced on the "+(qMarkup==="lab"?"lab-grown":"natural")+" stone markup (cost × tier + GST). Enter a cost to preview."}
@@ -3215,7 +3215,7 @@ function CentreStoneModal({stoneType,activeStoneMarkup,stoneOverride,onAdd,onClo
   const detail=[certNo?`Cert ${certNo}`:"",perCtMode&&cn>0?`${caratN}ct × ${fmt(perCtN)}/ct`:"",source.trim()].filter(Boolean).join(" · ");
   // Live client price on the section's stone markup (same maths as the quote's stone section)
   const preview=cn>0?calcStoneQuote([{cost:cn}],activeStoneMarkup,stoneOverride):null;
-  const accent=stoneType==="lab"?"#7B5EA7":"#3B6E8F";
+  const accent=stoneType==="lab"?"#96627C":"#4E8B6A";
   const addStone=()=>{
     if(cn<=0)return alert(perCtMode?"Enter the carat weight and price per carat.":"Enter the cost.");
     onAdd({description:desc||`${stoneType==="lab"?"Lab-grown":"Natural"} centre stone`,detail,cost:cn.toFixed(2)});
@@ -3641,7 +3641,7 @@ function QuoteBuilder({jobId:jobIdProp,editQuoteId,stockId,stock,setStock,jobs,c
       {(items.length>0||mfgAccents.length>0)&&<>{!isMobile&&<div style={{display:"grid",gridTemplateColumns:"minmax(240px,1.6fr) 1fr 120px 104px",gap:8,marginBottom:6,padding:"0 2px"}}>
         {["Item","Detail / calculation","Cost",""].map(h=><div key={h} style={{fontSize:10,fontWeight:700,color:WG,textTransform:"uppercase",letterSpacing:"0.04em"}}>{h}</div>)}
       </div>}
-      <div style={{fontSize:11,color:WG,marginBottom:10,lineHeight:1.5}}>Toggle <strong style={{color:"#7B5EA7"}}>No markup</strong> on any item to add it at exact cost after markup is applied.</div></>}
+      <div style={{fontSize:11,color:WG,marginBottom:10,lineHeight:1.5}}>Toggle <strong style={{color:"#96627C"}}>No markup</strong> on any item to add it at exact cost after markup is applied.</div></>}
       {items.length===0&&mfgAccents.length===0&&!(stoneMode==="sourcing"&&stoneType&&stoneItems.length>0)&&
         <div style={{border:`1px dashed ${BD}`,borderRadius:5,padding:"16px 18px",marginBottom:12,fontSize:12.5,color:WG,lineHeight:1.6,textAlign:"center"}}>
           No line items yet. Add from your <strong style={{color:GOLD_D}}>⊕ Pricing DB</strong>, or hit <strong style={{color:GOLD_D}}>+ Add item</strong> to type your own — both mark up and total the same way.
@@ -3666,7 +3666,7 @@ function QuoteBuilder({jobId:jobIdProp,editQuoteId,stockId,stock,setStock,jobs,c
             <button
               onClick={()=>setItem(li.id,"noMarkup",!li.noMarkup)}
               title={li.noMarkup?"No markup applied — click to include in markup":"Click to exclude this item from markup"}
-              style={{background:li.noMarkup?"#7B5EA7":"transparent",border:`1px solid ${li.noMarkup?"#7B5EA7":BD}`,borderRadius:2,padding:"1px 5px",fontSize:9,fontWeight:700,color:li.noMarkup?WHITE:WG,cursor:"pointer",letterSpacing:"0.04em",lineHeight:"16px",whiteSpace:"nowrap"}}>
+              style={{background:li.noMarkup?"#96627C":"transparent",border:`1px solid ${li.noMarkup?"#96627C":BD}`,borderRadius:2,padding:"1px 5px",fontSize:9,fontWeight:700,color:li.noMarkup?WHITE:WG,cursor:"pointer",letterSpacing:"0.04em",lineHeight:"16px",whiteSpace:"nowrap"}}>
               {li.noMarkup?"NO MU":"MU"}
             </button>
             <button onClick={()=>duplicateItem(li.id)} title="Duplicate this line" style={{background:"none",border:"none",cursor:"pointer",color:WG,fontSize:13,padding:"0 2px"}}>⧉</button>
@@ -3680,13 +3680,13 @@ function QuoteBuilder({jobId:jobIdProp,editQuoteId,stockId,stock,setStock,jobs,c
         const totalStr=cost>0?fmt(cost):"—";
         return <div key={li.id} style={{display:"grid",gridTemplateColumns:"minmax(240px,1.6fr) 1fr 120px 104px",gap:8,marginBottom:8,alignItems:"center"}}>
           <div style={{display:"flex",alignItems:"center",gap:6,minWidth:0}}>
-            <span style={{background:"#EEF4FB",color:"#3B6E8F",fontSize:8,fontWeight:800,padding:"3px 5px",borderRadius:3,letterSpacing:"0.04em",flexShrink:0}} title="Accent, feature or fancy stone">ACCENT</span>
+            <span style={{background:"#EDF5EF",color:"#4E8B6A",fontSize:8,fontWeight:800,padding:"3px 5px",borderRadius:3,letterSpacing:"0.04em",flexShrink:0}} title="Accent, feature or fancy stone">ACCENT</span>
             <input value={li.description} onChange={e=>setAccentItem(li.id,"description",e.target.value)} placeholder="e.g. pear sapphire" style={{...SS.inp,marginTop:0,fontSize:13,padding:"7px 10px",flex:1,minWidth:0}}/>
           </div>
           <input value={li.detail||""} onChange={e=>setAccentItem(li.id,"detail",e.target.value)} placeholder="notes (optional)" style={{...SS.inp,marginTop:0,fontSize:13,padding:"7px 10px",color:WG}}/>
           <div style={{position:"relative"}}>
             <span style={{position:"absolute",left:10,top:"50%",transform:"translateY(-50%)",fontSize:12,color:WG,pointerEvents:"none"}}>$</span>
-            <input type="number" value={li.costLow} onChange={e=>setAccentItem(li.id,"costLow",e.target.value)} placeholder="0.00" min="0" step="0.01" style={{...SS.inp,marginTop:0,fontSize:13,padding:"7px 8px 7px 22px",textAlign:"right",borderColor:cost>0?"#8EB5D4":BD,fontWeight:cost>0?700:400}}/>
+            <input type="number" value={li.costLow} onChange={e=>setAccentItem(li.id,"costLow",e.target.value)} placeholder="0.00" min="0" step="0.01" style={{...SS.inp,marginTop:0,fontSize:13,padding:"7px 8px 7px 22px",textAlign:"right",borderColor:cost>0?"#A6CBB4":BD,fontWeight:cost>0?700:400}}/>
           </div>
           <div style={{fontSize:13,fontWeight:700,color:INK,textAlign:"right",whiteSpace:"nowrap"}}>{totalStr}</div>
           <div style={{display:"flex",gap:4,alignItems:"center"}}>
@@ -3701,16 +3701,16 @@ function QuoteBuilder({jobId:jobIdProp,editQuoteId,stockId,stock,setStock,jobs,c
       {/* Sourced centre / feature stone — folded into the jewellery costs list (priced on the stone markup) */}
       {stoneMode==="sourcing"&&stoneType&&stoneItems.map(li=>{
         const stoneCost=Number(li.cost)||Number(li.costLow)||0;
-        const accent=stoneType==="lab"?"#7B5EA7":"#3B6E8F";
+        const accent=stoneType==="lab"?"#96627C":"#4E8B6A";
         return <div key={li.id} style={{display:"grid",gridTemplateColumns:"minmax(240px,1.6fr) 1fr 120px 104px",gap:8,marginBottom:8,alignItems:"center"}}>
-          <input value={li.description} onChange={e=>setStonItem(li.id,"description",e.target.value)} placeholder="e.g. 1.52ct oval sapphire" style={{...SS.inp,marginTop:0,fontSize:13,padding:"7px 10px",borderColor:stoneType==="lab"?"#C4A8F0":"#8EB5D4"}}/>
+          <input value={li.description} onChange={e=>setStonItem(li.id,"description",e.target.value)} placeholder="e.g. 1.52ct oval sapphire" style={{...SS.inp,marginTop:0,fontSize:13,padding:"7px 10px",borderColor:stoneType==="lab"?"#CDB2C1":"#A6CBB4"}}/>
           <div style={{display:"flex",alignItems:"center",gap:6,minWidth:0}}>
             <span style={{background:accent+"18",color:accent,fontSize:8,fontWeight:800,padding:"3px 5px",borderRadius:3,letterSpacing:"0.04em",flexShrink:0,whiteSpace:"nowrap"}} title="Centre / feature stone — priced on the stone markup">CENTRE · {stoneType==="lab"?"LAB":"NAT"}</span>
             <input value={li.detail} onChange={e=>setStonItem(li.id,"detail",e.target.value)} placeholder="cert / source / notes" style={{...SS.inp,marginTop:0,fontSize:13,padding:"7px 10px",color:WG,flex:1,minWidth:0}}/>
           </div>
           <div style={{position:"relative"}}>
             <span style={{position:"absolute",left:10,top:"50%",transform:"translateY(-50%)",fontSize:12,color:WG,pointerEvents:"none"}}>$</span>
-            <input type="number" value={li.cost||""} onChange={e=>setStonItem(li.id,"cost",e.target.value)} placeholder="0.00" min="0" step="0.01" style={{...SS.inp,marginTop:0,fontSize:13,padding:"7px 8px 7px 22px",textAlign:"right",borderColor:stoneCost>0?(stoneType==="lab"?"#C4A8F0":"#8EB5D4"):BD,fontWeight:stoneCost>0?700:400}}/>
+            <input type="number" value={li.cost||""} onChange={e=>setStonItem(li.id,"cost",e.target.value)} placeholder="0.00" min="0" step="0.01" style={{...SS.inp,marginTop:0,fontSize:13,padding:"7px 8px 7px 22px",textAlign:"right",borderColor:stoneCost>0?(stoneType==="lab"?"#CDB2C1":"#A6CBB4"):BD,fontWeight:stoneCost>0?700:400}}/>
           </div>
           <div style={{display:"flex",gap:3,alignItems:"center",justifyContent:"flex-end"}}>
             <button onClick={()=>removeStoneItem(li.id)} style={{background:"none",border:"none",cursor:"pointer",color:DANGER,fontSize:17,padding:0,lineHeight:1}}>×</button>
@@ -3719,10 +3719,10 @@ function QuoteBuilder({jobId:jobIdProp,editQuoteId,stockId,stock,setStock,jobs,c
       <div style={{display:"flex",gap:10,marginTop:8,flexWrap:"wrap"}}>
         <button onClick={()=>setItems(p=>[...p,blankItem()])} style={{background:"none",border:`1px dashed ${GOLD}`,borderRadius:4,padding:"6px 14px",color:GOLD,fontSize:12,fontWeight:700,cursor:"pointer",fontFamily:"inherit"}}>+ Add item</button>
         <button onClick={openPricing} style={{background:GOLD_L,border:`1px solid ${GOLD}`,borderRadius:4,padding:"6px 14px",color:GOLD_D,fontSize:12,fontWeight:700,cursor:"pointer",fontFamily:"inherit"}}>⊕ Pricing DB</button>
-        <button onClick={()=>setAccentModal(true)} style={{background:"#EEF4FB",border:"1px solid #8EB5D4",borderRadius:4,padding:"6px 14px",color:"#3B6E8F",fontSize:12,fontWeight:700,cursor:"pointer",fontFamily:"inherit"}}>+ Accent, feature or fancy stone</button>
-        {stoneMode==="sourcing"&&stoneType&&<button onClick={()=>setCentreModal(true)} style={{background:(stoneType==="lab"?"#7B5EA7":"#3B6E8F")+"18",border:`1px solid ${stoneType==="lab"?"#7B5EA7":"#3B6E8F"}`,borderRadius:4,padding:"6px 14px",color:stoneType==="lab"?"#7B5EA7":"#3B6E8F",fontSize:12,fontWeight:700,cursor:"pointer",fontFamily:"inherit"}}>+ Centre stone</button>}
+        <button onClick={()=>setAccentModal(true)} style={{background:"#EDF5EF",border:"1px solid #A6CBB4",borderRadius:4,padding:"6px 14px",color:"#4E8B6A",fontSize:12,fontWeight:700,cursor:"pointer",fontFamily:"inherit"}}>+ Accent, feature or fancy stone</button>
+        {stoneMode==="sourcing"&&stoneType&&<button onClick={()=>setCentreModal(true)} style={{background:(stoneType==="lab"?"#96627C":"#4E8B6A")+"18",border:`1px solid ${stoneType==="lab"?"#96627C":"#4E8B6A"}`,borderRadius:4,padding:"6px 14px",color:stoneType==="lab"?"#96627C":"#4E8B6A",fontSize:12,fontWeight:700,cursor:"pointer",fontFamily:"inherit"}}>+ Centre stone</button>}
       </div>
-      <div style={{fontSize:11,color:WG,margin:"8px 0 20px",lineHeight:1.5}}>Custom coloured or fancy-cut stones aren't in the pricing DB — add them with <strong style={{color:"#3B6E8F"}}>+ Accent, feature or fancy stone</strong>. They default to manufacturing markup and join the costs above; switch a pricey one to <strong>Natural</strong>/<strong>Lab</strong> stone markup to price it separately below.</div>
+      <div style={{fontSize:11,color:WG,margin:"8px 0 20px",lineHeight:1.5}}>Custom coloured or fancy-cut stones aren't in the pricing DB — add them with <strong style={{color:"#4E8B6A"}}>+ Accent, feature or fancy stone</strong>. They default to manufacturing markup and join the costs above; switch a pricey one to <strong>Natural</strong>/<strong>Lab</strong> stone markup to price it separately below.</div>
       {validItems.length>0&&<div style={{marginBottom:28}}>
         <div style={{fontSize:11,fontWeight:700,color:WG,textTransform:"uppercase",letterSpacing:"0.06em",marginBottom:10}}>Markup preview</div>
         <MarkupSummary {...calc} large/>
@@ -3743,7 +3743,7 @@ function QuoteBuilder({jobId:jobIdProp,editQuoteId,stockId,stock,setStock,jobs,c
 
       {/* ── Accent stones priced on the stone markup (natural / lab) ── */}
       {stoneAccents.length>0&&<div style={{borderTop:`1px solid ${BD}`,margin:"8px 0 20px",paddingTop:20}}>
-        <div style={{fontSize:11,fontWeight:700,color:"#7B5EA7",textTransform:"uppercase",letterSpacing:"0.08em"}}>Accent stones on stone markup</div>
+        <div style={{fontSize:11,fontWeight:700,color:"#96627C",textTransform:"uppercase",letterSpacing:"0.08em"}}>Accent stones on stone markup</div>
         <div style={{fontSize:11,color:WG,margin:"3px 0 12px",lineHeight:1.55}}>These are priced like the centre stone — your cost × the natural/lab stone tier + GST — not the jewellery markup. Switch one back to <strong>Mfg markup</strong> to fold it into the jewellery costs above.</div>
         <div style={{display:"grid",gridTemplateColumns:"1.3fr 1fr 150px 110px 36px",gap:8,marginBottom:6,padding:"0 2px"}}>
           {["Stone","Notes / detail","Markup","Your cost",""].map(h=><div key={h} style={{fontSize:10,fontWeight:700,color:WG,textTransform:"uppercase",letterSpacing:"0.04em"}}>{h}</div>)}
@@ -3754,7 +3754,7 @@ function QuoteBuilder({jobId:jobIdProp,editQuoteId,stockId,stock,setStock,jobs,c
           const sc=cost>0?calcStoneQuote([{cost:li.costLow}],mode==="lab"?labStoneMarkup:naturalStoneMarkup):null;
           return <div key={li.id} style={{display:"grid",gridTemplateColumns:"1.3fr 1fr 150px 110px 36px",gap:8,marginBottom:8,alignItems:"center"}}>
             <div style={{fontSize:13,fontWeight:600,color:INK,padding:"7px 0"}}>{li.description||<span style={{color:WG,fontStyle:"italic"}}>—</span>}
-              <div style={{fontSize:10,color:sc?(sc.bracket?"#7B5EA7":WARN):WG,marginTop:1}}>{sc?(sc.bracket?`→ ${fmtR(sc.clientTotal)} to client (×${sc.mult} + GST)`:"cost outside stone table"):""}</div>
+              <div style={{fontSize:10,color:sc?(sc.bracket?"#96627C":WARN):WG,marginTop:1}}>{sc?(sc.bracket?`→ ${fmtR(sc.clientTotal)} to client (×${sc.mult} + GST)`:"cost outside stone table"):""}</div>
             </div>
             <div style={{fontSize:12,color:WG,padding:"7px 0"}}>{li.detail||"—"}</div>
             <select value={mode} onChange={e=>setAccentItem(li.id,"markupMode",e.target.value)} style={{...SS.inp,marginTop:0,fontSize:12,padding:"7px 8px"}}>
@@ -3765,7 +3765,7 @@ function QuoteBuilder({jobId:jobIdProp,editQuoteId,stockId,stock,setStock,jobs,c
             <div style={{position:"relative"}}>
               <span style={{position:"absolute",left:10,top:"50%",transform:"translateY(-50%)",fontSize:12,color:WG,pointerEvents:"none"}}>$</span>
               <input type="number" value={li.costLow} onChange={e=>setAccentItem(li.id,"costLow",e.target.value)} placeholder="0.00" min="0" step="0.01"
-                style={{...SS.inp,marginTop:0,fontSize:13,padding:"7px 8px 7px 22px",textAlign:"right",borderColor:cost>0?"#C4A8F0":BD,fontWeight:cost>0?700:400}}/>
+                style={{...SS.inp,marginTop:0,fontSize:13,padding:"7px 8px 7px 22px",textAlign:"right",borderColor:cost>0?"#CDB2C1":BD,fontWeight:cost>0?700:400}}/>
             </div>
             <button onClick={()=>removeAccentItem(li.id)} style={{background:"none",border:"none",cursor:"pointer",color:DANGER,fontSize:17,padding:0,lineHeight:1,textAlign:"center"}}>×</button>
           </div>;
@@ -3783,16 +3783,16 @@ function QuoteBuilder({jobId:jobIdProp,editQuoteId,stockId,stock,setStock,jobs,c
         {[["none","No stone"],["client","Client supplying their own"],["sourcing","We are sourcing the stone"]].map(([val,label])=>(
           <button key={val} onClick={()=>{setStoneMode(val);if(val!=="sourcing")setStoneItems([]);if(val!=="sourcing")setStoneType("");}} style={{
             padding:"8px 20px",borderRadius:3,fontSize:12,fontWeight:700,cursor:"pointer",fontFamily:"inherit",
-            border:`1.5px solid ${stoneMode===val?(val==="sourcing"?"#7B5EA7":val==="client"?"#3B6E8F":INK):BD}`,
-            background:stoneMode===val?(val==="sourcing"?"#7B5EA722":val==="client"?"#3B6E8F22":"#1A1A1A11"):"transparent",
-            color:stoneMode===val?(val==="sourcing"?"#7B5EA7":val==="client"?"#3B6E8F":INK):WG,
+            border:`1.5px solid ${stoneMode===val?(val==="sourcing"?"#96627C":val==="client"?"#4E8B6A":INK):BD}`,
+            background:stoneMode===val?(val==="sourcing"?"#96627C22":val==="client"?"#4E8B6A22":"#1A1A1A11"):"transparent",
+            color:stoneMode===val?(val==="sourcing"?"#96627C":val==="client"?"#4E8B6A":INK):WG,
             transition:"all 0.12s"
           }}>{label}</button>
         ))}
       </div>
 
       {/* Client's own stone */}
-      {stoneMode==="client"&&<div style={{background:"#EEF4FB",border:"1px solid #B8D4EC",borderRadius:4,padding:"14px 16px",marginBottom:4}}>
+      {stoneMode==="client"&&<div style={{background:"#EDF5EF",border:"1px solid #C4DECB",borderRadius:4,padding:"14px 16px",marginBottom:4}}>
         <div style={{fontSize:12,color:"#2C5282",marginBottom:10,lineHeight:1.6}}>No stone cost will be added to this quote. Record the stone details below for your files.</div>
         <Input label="Stone description (for records)" value={stoneNotes} onChange={setStoneNotes} as="textarea" rows={2} placeholder="e.g. Client's own 1.52ct oval sapphire, untreated, GIA cert #12345. Supplied at client's risk."/>
       </div>}
@@ -3803,7 +3803,7 @@ function QuoteBuilder({jobId:jobIdProp,editQuoteId,stockId,stock,setStock,jobs,c
         <div style={{marginBottom:18}}>
           <div style={{fontSize:11,fontWeight:700,color:WG,textTransform:"uppercase",letterSpacing:"0.08em",marginBottom:10}}>Stone type</div>
           <div style={{display:"flex",gap:10}}>
-            {[["natural","🌍  Natural Diamond / Gemstone","3.00× – 1.20×","#3B6E8F"],["lab","⚗️  Lab-Grown Diamond / Gemstone","4.25× – 1.20×","#7B5EA7"]].map(([val,label,range,col])=>(
+            {[["natural","🌍  Natural Diamond / Gemstone","3.00× – 1.20×","#4E8B6A"],["lab","⚗️  Lab-Grown Diamond / Gemstone","4.25× – 1.20×","#96627C"]].map(([val,label,range,col])=>(
               <button key={val} onClick={()=>setStoneType(val)} style={{
                 flex:1,padding:"12px 16px",borderRadius:4,cursor:"pointer",fontFamily:"inherit",textAlign:"left",
                 border:`2px solid ${stoneType===val?col:BD}`,
@@ -3819,9 +3819,9 @@ function QuoteBuilder({jobId:jobIdProp,editQuoteId,stockId,stock,setStock,jobs,c
         {/* Stone line entries live up in the unified Jewellery costs list (tagged CENTRE).
             Here we keep the type selector above, plus the pricing summary + notes below. */}
         {stoneType&&<>
-          <div style={{fontSize:12,color:WG,marginBottom:12,lineHeight:1.5}}>Add the centre stone with <strong style={{color:stoneType==="lab"?"#7B5EA7":"#3B6E8F"}}>+ Centre stone</strong> in the jewellery costs list above — it's tagged <strong>CENTRE</strong> and priced on the {stoneType==="lab"?"lab-grown":"natural"} stone markup below.</div>
+          <div style={{fontSize:12,color:WG,marginBottom:12,lineHeight:1.5}}>Add the centre stone with <strong style={{color:stoneType==="lab"?"#96627C":"#4E8B6A"}}>+ Centre stone</strong> in the jewellery costs list above — it's tagged <strong>CENTRE</strong> and priced on the {stoneType==="lab"?"lab-grown":"natural"} stone markup below.</div>
           {stoneCalc&&<div style={{marginBottom:4}}>
-            <div style={{fontSize:11,fontWeight:700,color:stoneType==="lab"?"#7B5EA7":"#3B6E8F",textTransform:"uppercase",letterSpacing:"0.06em",marginBottom:10}}>
+            <div style={{fontSize:11,fontWeight:700,color:stoneType==="lab"?"#96627C":"#4E8B6A",textTransform:"uppercase",letterSpacing:"0.06em",marginBottom:10}}>
               {stoneType==="lab"?"Lab-Grown stone":"Natural stone"} — markup + GST
             </div>
             <StoneMarkupSummary calc={stoneCalc}/>
@@ -3853,9 +3853,9 @@ function QuoteBuilder({jobId:jobIdProp,editQuoteId,stockId,stock,setStock,jobs,c
               {[
                 ...(validItems.length>0?[
                   ["Jewellery piece",(calc.bracket||calc.overridden)?fmtR(calc.finalLow):"—",GOLD,""],
-                  ...(accentStoneTotal>0?[["Accent stones",fmtR(accentStoneTotal),"#7B5EA7","+ "]]:[]),
+                  ...(accentStoneTotal>0?[["Accent stones",fmtR(accentStoneTotal),"#96627C","+ "]]:[]),
                 ]:[]),
-                ...(stoneMode==="sourcing"&&stoneCalc?[["Stone",fmtR(stoneCalc.clientTotal),stoneType==="lab"?"#7B5EA7":"#3B6E8F","+ "]]:
+                ...(stoneMode==="sourcing"&&stoneCalc?[["Stone",fmtR(stoneCalc.clientTotal),stoneType==="lab"?"#96627C":"#4E8B6A","+ "]]:
                    stoneMode==="client"?[["Stone","Client supplying",WG,"+ "]]:
                    []),
                 ...(tradeInN>0?[["Gold trade-in credit",fmtR(tradeInN),DANGER,"− "]]:[]),
@@ -5119,8 +5119,8 @@ function QuoteDetail({quoteId,quotes,setQuotes,jobs,clients,biz,markupTable,natu
       {q.lineItems.map(li=>{
         const cost=lineCost(li);
         const stoneMU=li.markupMode==="natural"||li.markupMode==="lab";
-        const muBadge=stoneMU?<span style={{background:"#C4A8F0",color:"#3A2A6A",fontSize:9,fontWeight:700,padding:"2px 6px",borderRadius:2,letterSpacing:"0.04em",whiteSpace:"nowrap"}}>STONE MU</span>:li.noMarkup?<span style={{background:"#7B5EA7",color:WHITE,fontSize:9,fontWeight:700,padding:"2px 6px",borderRadius:2,letterSpacing:"0.04em",whiteSpace:"nowrap"}}>NO MU</span>:null;
-        const costCol=stoneMU?"#7B5EA7":li.noMarkup?"#7B5EA7":INK;
+        const muBadge=stoneMU?<span style={{background:"#CDB2C1",color:"#3A2A6A",fontSize:9,fontWeight:700,padding:"2px 6px",borderRadius:2,letterSpacing:"0.04em",whiteSpace:"nowrap"}}>STONE MU</span>:li.noMarkup?<span style={{background:"#96627C",color:WHITE,fontSize:9,fontWeight:700,padding:"2px 6px",borderRadius:2,letterSpacing:"0.04em",whiteSpace:"nowrap"}}>NO MU</span>:null;
+        const costCol=stoneMU?"#96627C":li.noMarkup?"#96627C":INK;
         if(isMobile)return <div key={li.id} style={{padding:"10px 0",borderBottom:`1px solid ${BD}`,fontSize:13}}>
           <div style={{display:"flex",justifyContent:"space-between",gap:10,alignItems:"baseline"}}>
             <span style={{fontWeight:600,color:INK,minWidth:0}}>{li.description}</span>
@@ -5143,7 +5143,7 @@ function QuoteDetail({quoteId,quotes,setQuotes,jobs,clients,biz,markupTable,natu
       </div>}
 
       {/* Client supplying stone note */}
-      {q.stoneMode==="client"&&<div style={{background:"#EEF4FB",border:"1px solid #B8D4EC",borderRadius:4,padding:"12px 16px",marginBottom:16}}>
+      {q.stoneMode==="client"&&<div style={{background:"#EDF5EF",border:"1px solid #C4DECB",borderRadius:4,padding:"12px 16px",marginBottom:16}}>
         <div style={{fontSize:11,fontWeight:700,color:"#2C5282",textTransform:"uppercase",letterSpacing:"0.08em",marginBottom:4}}>Centre / Feature Stone</div>
         <div style={{fontSize:13,color:"#2C5282"}}>Client supplying their own stone — no stone cost on this quote.</div>
         {q.stoneNotes&&<div style={{fontSize:12,color:"#4A7FA5",marginTop:6,fontStyle:"italic"}}>{q.stoneNotes}</div>}
@@ -5152,7 +5152,7 @@ function QuoteDetail({quoteId,quotes,setQuotes,jobs,clients,biz,markupTable,natu
       {/* Studio sourcing stone */}
       {q.stoneMode==="sourcing"&&q.stoneItems?.length>0&&<div style={{borderTop:`2px dashed ${BD}`,paddingTop:20,marginBottom:16}}>
         <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:14}}>
-          <div style={{background:q.stoneType==="lab"?"#7B5EA7":"#3B6E8F",color:WHITE,borderRadius:2,padding:"2px 10px",fontSize:9,fontWeight:700,letterSpacing:"0.1em",textTransform:"uppercase"}}>{q.stoneType==="lab"?"Lab-Grown Diamond / Gemstone":"Natural Diamond / Gemstone"}</div>
+          <div style={{background:q.stoneType==="lab"?"#96627C":"#4E8B6A",color:WHITE,borderRadius:2,padding:"2px 10px",fontSize:9,fontWeight:700,letterSpacing:"0.1em",textTransform:"uppercase"}}>{q.stoneType==="lab"?"Lab-Grown Diamond / Gemstone":"Natural Diamond / Gemstone"}</div>
           <div style={{fontSize:13,fontWeight:700,color:INK}}>Centre / Feature Stone</div>
         </div>
         <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 130px",gap:6,marginBottom:6}}>
@@ -5167,7 +5167,7 @@ function QuoteDetail({quoteId,quotes,setQuotes,jobs,clients,biz,markupTable,natu
           </div>;
         })}
         <div style={{marginTop:16}}>
-          <div style={{fontSize:11,fontWeight:700,color:q.stoneType==="lab"?"#7B5EA7":"#3B6E8F",textTransform:"uppercase",letterSpacing:"0.06em",marginBottom:10}}>Stone pricing — markup + GST</div>
+          <div style={{fontSize:11,fontWeight:700,color:q.stoneType==="lab"?"#96627C":"#4E8B6A",textTransform:"uppercase",letterSpacing:"0.06em",marginBottom:10}}>Stone pricing — markup + GST</div>
           <StoneMarkupSummary calc={stoneCalc}/>
         </div>
         {q.stoneNotes&&<div style={{marginTop:10,fontSize:12,color:WG,fontStyle:"italic"}}>{q.stoneNotes}</div>}
@@ -5177,8 +5177,8 @@ function QuoteDetail({quoteId,quotes,setQuotes,jobs,clients,biz,markupTable,natu
       {(stoneCalc||accentStoneTotal>0||manual||qTradeIn>0)&&(()=>{
         const cells=[
           ...(manual&&!q.lineItems.length?[]:[["Jewellery piece",(manual&&calc.base>0&&!calc.bracket&&!calc.overridden)?"—":fmtR(calc.finalLow),GOLD]]),
-          ...(accentStoneTotal>0?[["Accent stones",fmtR(accentStoneTotal),"#C4A8F0"]]:[]),
-          ...(stoneCalc?[["Stone",fmtR(stoneCalc.clientTotal),q.stoneType==="lab"?"#C4A8F0":"#8EB5D4"]]:[]),
+          ...(accentStoneTotal>0?[["Accent stones",fmtR(accentStoneTotal),"#CDB2C1"]]:[]),
+          ...(stoneCalc?[["Stone",fmtR(stoneCalc.clientTotal),q.stoneType==="lab"?"#CDB2C1":"#A6CBB4"]]:[]),
           ...(qTradeIn>0?[["Gold trade-in credit","−"+fmtR(qTradeIn),"#E79A9A"]]:[]),
           [qTradeIn>0?"Amount payable":(manual?"Quoted price — manual":"Combined total"),qTradeIn>0?fmtR(qPayable):grandStr,OK],
         ];
@@ -5330,8 +5330,8 @@ function QuotesList({quotes,jobs,clients,markupTable,biz,setView}){
                     <div style={{display:"flex",gap:10,fontSize:12,color:WG,marginTop:3,flexWrap:"wrap"}}>
                       <span>{fmtDate(q.createdAt)}</span>
                       {manual?<span style={{color:GOLD_D,fontWeight:700}}>Manual quoted price</span>:<span>Setting: {calc.mult||"—"}× markup</span>}
-                      {q.stoneMode==="sourcing"&&<span style={{color:"#7B5EA7"}}>+ {q.stoneType==="lab"?"Lab-Grown":"Natural"} stone</span>}
-                      {q.stoneMode==="client"&&<span style={{color:"#7B5EA7"}}>+ Client supplying stone</span>}
+                      {q.stoneMode==="sourcing"&&<span style={{color:"#96627C"}}>+ {q.stoneType==="lab"?"Lab-Grown":"Natural"} stone</span>}
+                      {q.stoneMode==="client"&&<span style={{color:"#96627C"}}>+ Client supplying stone</span>}
                     </div>
                     {/* Follow-up + expiry flags */}
                     {(followUp||expired)&&<div style={{display:"flex",gap:8,marginTop:6,flexWrap:"wrap"}}>
@@ -6291,7 +6291,7 @@ function PricingDB({pricing,setPricing,spotPrices,setSpotPrices,markupTable,cent
   };
 
 
-  const DCOLORS={"Lab Grown Diamonds | D-E":"#7B5EA7","Natural diamonds G-H SI1":"#3B6E8F","Natural diamonds D-E VS":"#2D7A4F"};
+  const DCOLORS={"Lab Grown Diamonds | D-E":"#96627C","Natural diamonds G-H SI1":"#4E8B6A","Natural diamonds D-E VS":"#2D7A4F"};
   return <div>
     <SectionHeader title="Pricing database" action={<div style={{display:"flex",gap:10,alignItems:"center",flexWrap:"wrap"}}>
       <Btn ghost onClick={()=>setSpotModal(true)}>⟳ Update spot prices</Btn>
@@ -6458,7 +6458,7 @@ function PricingDB({pricing,setPricing,spotPrices,setSpotPrices,markupTable,cent
                 <div style={{fontSize:12,color:WG}}>/{item.unit}</div>
                 <div>
                   {item.poa
-                    ?<span style={{fontSize:11,fontWeight:700,color:"#7B5EA7",background:"rgba(123,94,167,0.12)",border:"1px solid rgba(123,94,167,0.3)",borderRadius:4,padding:"3px 8px",letterSpacing:"0.04em"}}>MANUAL QUOTE</span>
+                    ?<span style={{fontSize:11,fontWeight:700,color:"#96627C",background:"rgba(150,98,124,0.12)",border:"1px solid rgba(150,98,124,0.3)",borderRadius:4,padding:"3px 8px",letterSpacing:"0.04em"}}>MANUAL QUOTE</span>
                     :regularEditing
                       ?<input type="number" value={regularEditPrices[item.id]||""} min="0" step="0.01" autoFocus={i===0}
                           onChange={e=>setRegularEditPrices(p=>({...p,[item.id]:e.target.value}))}
@@ -6566,7 +6566,7 @@ function PricingItemForm({initial={},spotPrices={},onSave,onCancel}){
         {f.metalKey&&<Input label="Purity / carat" value={f.purity!=null?String(f.purity):""} onChange={v=>set("purity")(v===""?null:v)} as="select" options={[{value:"",label:"— Select —"},...(PURITY_PRESETS[f.metalKey]||[]).map(([val,lbl])=>({value:val,label:lbl}))]}/>}
         {f.metalKey==="gold"&&<Input label="Gold colour" value={goldColour||"yellow"} onChange={set("colour")} as="select" options={[{value:"yellow",label:"Yellow"},{value:"white",label:"White — palladium premium"},{value:"rose",label:"Rose"}]}/>}
       </div>
-      <div style={{background:"#EEF4FB",border:"1px solid #C8DFF0",borderRadius:4,padding:"10px 14px",fontSize:12,color:"#3B6E8F",marginBottom:14,lineHeight:1.5}}>
+      <div style={{background:"#EDF5EF",border:"1px solid #C8DFF0",borderRadius:4,padding:"10px 14px",fontSize:12,color:"#4E8B6A",marginBottom:14,lineHeight:1.5}}>
         {linked
           ?<>Cost updates automatically whenever you update spot prices{autoCost>0?<> — <strong>cast {fmt(autoCost)}/g</strong> · <strong>fabricated {fmt(fabCost)}/g</strong>{goldColour==="white"?" (white-gold casting premium applied)":""}</>:" (set your spot prices to calculate)"}.</>
           :<>Link this to a metal + purity so it recalculates automatically with spot prices. Leave unlinked to keep a fixed manual cost.</>}
@@ -6575,7 +6575,7 @@ function PricingItemForm({initial={},spotPrices={},onSave,onCancel}){
     {isAccent
       ?<>
         <Input label="Notes / detail (optional)" value={f.detail||""} onChange={set("detail")} placeholder="e.g. heat treated, round, supplier XYZ"/>
-        <div style={{background:"#EEF4FB",border:"1px solid #C8DFF0",borderRadius:4,padding:"10px 14px",fontSize:12,color:"#3B6E8F",marginBottom:14}}>
+        <div style={{background:"#EDF5EF",border:"1px solid #C8DFF0",borderRadius:4,padding:"10px 14px",fontSize:12,color:"#4E8B6A",marginBottom:14}}>
           Cost is entered per quote — accent stone prices vary job to job.
         </div>
       </>
@@ -6938,7 +6938,7 @@ function Settings({biz,setBiz,markupTable,setMarkupTable,naturalStoneMarkup,setN
     </div>
     <Card>
       <div style={{display:"flex",alignItems:"center",gap:10,flexWrap:"wrap",rowGap:6,marginBottom:6}}>
-        <div style={{background:"#3B6E8F",color:WHITE,borderRadius:3,padding:"4px 12px",fontSize:10.5,fontWeight:700,letterSpacing:"0.08em",textTransform:"uppercase",whiteSpace:"nowrap"}}>Natural Diamond &amp; Gemstone</div>
+        <div style={{background:"#4E8B6A",color:WHITE,borderRadius:3,padding:"4px 12px",fontSize:10.5,fontWeight:700,letterSpacing:"0.08em",textTransform:"uppercase",whiteSpace:"nowrap"}}>Natural Diamond &amp; Gemstone</div>
         <div style={{fontSize:11,color:WG,fontWeight:600}}>3.00× down to 1.20×</div>
       </div>
       <div style={{fontSize:12,color:WG,marginBottom:14,lineHeight:1.5}}>"Natural" is selected in the quote builder stone section. <strong style={{color:INK}}>GST added at invoice time.</strong></div>
@@ -6958,19 +6958,19 @@ function Settings({biz,setBiz,markupTable,setMarkupTable,naturalStoneMarkup,setN
             </div>
             <div style={{display:"flex",alignItems:"center",gap:8}}>
               <input type="number" value={b.multiplier} onChange={e=>setSmNRow(b.id,"multiplier",Number(e.target.value))} step="0.01" min="1"
-                style={{...SS.inp,marginTop:0,fontSize:14,fontWeight:700,padding:"5px 8px",width:isMobile?52:80,color:"#3B6E8F"}}/>            </div>
+                style={{...SS.inp,marginTop:0,fontSize:14,fontWeight:700,padding:"5px 8px",width:isMobile?52:80,color:"#4E8B6A"}}/>            </div>
             <button onClick={()=>delSmNRow(b.id)} style={{background:"none",border:"none",cursor:"pointer",color:DANGER,fontSize:16,padding:0,justifySelf:"center"}}>×</button>
           </div>
         ))}
       </div>
       <div style={{display:"flex",gap:10,rowGap:12,justifyContent:"space-between",alignItems:"center",flexWrap:"wrap"}}>
-        <button onClick={addSmNRow} style={{background:"none",border:"1px dashed #3B6E8F",borderRadius:4,padding:"6px 14px",color:"#3B6E8F",fontSize:12,fontWeight:700,cursor:"pointer",fontFamily:"inherit"}}>+ Add tier</button>
+        <button onClick={addSmNRow} style={{background:"none",border:"1px dashed #4E8B6A",borderRadius:4,padding:"6px 14px",color:"#4E8B6A",fontSize:12,fontWeight:700,cursor:"pointer",fontFamily:"inherit"}}>+ Add tier</button>
         <Btn onClick={saveSmNTable}>Save natural stone markup</Btn>
       </div>
     </Card>
     <Card>
       <div style={{display:"flex",alignItems:"center",gap:10,flexWrap:"wrap",rowGap:6,marginBottom:6}}>
-        <div style={{background:"#7B5EA7",color:WHITE,borderRadius:3,padding:"4px 12px",fontSize:10.5,fontWeight:700,letterSpacing:"0.08em",textTransform:"uppercase",whiteSpace:"nowrap"}}>Lab-Grown Diamond &amp; Gemstone</div>
+        <div style={{background:"#96627C",color:WHITE,borderRadius:3,padding:"4px 12px",fontSize:10.5,fontWeight:700,letterSpacing:"0.08em",textTransform:"uppercase",whiteSpace:"nowrap"}}>Lab-Grown Diamond &amp; Gemstone</div>
         <div style={{fontSize:11,color:WG,fontWeight:600}}>4.25× down to 1.20×</div>
       </div>
       <div style={{fontSize:12,color:WG,marginBottom:14,lineHeight:1.5}}>"Lab-Grown" is selected in the quote builder stone section. <strong style={{color:INK}}>GST added at invoice time.</strong></div>
@@ -6990,13 +6990,13 @@ function Settings({biz,setBiz,markupTable,setMarkupTable,naturalStoneMarkup,setN
             </div>
             <div style={{display:"flex",alignItems:"center",gap:8}}>
               <input type="number" value={b.multiplier} onChange={e=>setSmLRow(b.id,"multiplier",Number(e.target.value))} step="0.01" min="1"
-                style={{...SS.inp,marginTop:0,fontSize:14,fontWeight:700,padding:"5px 8px",width:isMobile?52:80,color:"#7B5EA7"}}/>            </div>
+                style={{...SS.inp,marginTop:0,fontSize:14,fontWeight:700,padding:"5px 8px",width:isMobile?52:80,color:"#96627C"}}/>            </div>
             <button onClick={()=>delSmLRow(b.id)} style={{background:"none",border:"none",cursor:"pointer",color:DANGER,fontSize:16,padding:0,justifySelf:"center"}}>×</button>
           </div>
         ))}
       </div>
       <div style={{display:"flex",gap:10,rowGap:12,justifyContent:"space-between",alignItems:"center",flexWrap:"wrap"}}>
-        <button onClick={addSmLRow} style={{background:"none",border:"1px dashed #7B5EA7",borderRadius:4,padding:"6px 14px",color:"#7B5EA7",fontSize:12,fontWeight:700,cursor:"pointer",fontFamily:"inherit"}}>+ Add tier</button>
+        <button onClick={addSmLRow} style={{background:"none",border:"1px dashed #96627C",borderRadius:4,padding:"6px 14px",color:"#96627C",fontSize:12,fontWeight:700,cursor:"pointer",fontFamily:"inherit"}}>+ Add tier</button>
         <Btn onClick={saveSmLTable}>Save lab-grown stone markup</Btn>
       </div>
     </Card>
@@ -7695,7 +7695,7 @@ const STOCK_CATEGORIES=[
 ];
 const STOCK_STATUS=[
   {name:"Available",color:OK},{name:"Reserved",color:WARN},{name:"On display",color:GOLD_D},
-  {name:"Consignment",color:"#7B5EA7"},{name:"Sold",color:WG},
+  {name:"Consignment",color:"#96627C"},{name:"Sold",color:WG},
 ];
 const STOCK_MAKE=["Overseas made","Cast & assembly made","Handmade","Custom made"];
 const stockStatusColor=s=>(STOCK_STATUS.find(x=>x.name===s)||{}).color||WG;
