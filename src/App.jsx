@@ -11,7 +11,7 @@ try{
       d.textContent=m;
       Object.assign(d.style,{position:'fixed',top:'20px',left:'50%',transform:'translateX(-50%)',
         background:'#A33028',color:'#fff',padding:'12px 24px',borderRadius:'4px',fontSize:'13px',
-        fontWeight:'700',zIndex:'99999',fontFamily:"'DM Sans',sans-serif",maxWidth:'480px',textAlign:'center',
+        fontWeight:'700',zIndex:'99999',fontFamily:"'Poppins',sans-serif",maxWidth:'480px',textAlign:'center',
         boxShadow:'0 4px 20px rgba(0,0,0,0.3)'});
       document.body.appendChild(d);
       setTimeout(()=>d.remove(),3500);
@@ -22,7 +22,7 @@ try{
       d.textContent='⚠ '+m;
       Object.assign(d.style,{position:'fixed',top:'20px',left:'50%',transform:'translateX(-50%)',
         background:'#B06A10',color:'#fff',padding:'12px 24px',borderRadius:'4px',fontSize:'13px',
-        fontWeight:'700',zIndex:'99999',fontFamily:"'DM Sans',sans-serif",maxWidth:'480px',textAlign:'center',
+        fontWeight:'700',zIndex:'99999',fontFamily:"'Poppins',sans-serif",maxWidth:'480px',textAlign:'center',
         boxShadow:'0 4px 20px rgba(0,0,0,0.3)'});
       document.body.appendChild(d);
       setTimeout(()=>d.remove(),2000);
@@ -32,12 +32,12 @@ try{
 }catch(e){}
 
 // ── Tokens ────────────────────────────────────────────────────────────────
-const GOLD="#B8922A",GOLD_L="#F5EDD8",GOLD_D="#7A5F0F",INK="#141414",PARCH="#F7F7F8",WG="#8A8A8E",BD="#E6E6E8",WHITE="#FFFFFF",OK="#2D7A4F",OK_BG="#EAF5EF",DANGER="#C0392B",WARN="#B06A10";
+const GOLD="#BA7067",GOLD_L="#F4E6E3",GOLD_D="#A65A50",INK="#17130F",PARCH="#F4EEE8",WG="#8B837C",BD="#ECE4DB",WHITE="#FFFFFF",OK="#2D7A4F",OK_BG="#EAF5EF",DANGER="#C0392B",WARN="#B06A10";
 // Monochrome (black & white) system
-const CREAM="#F5F5F6";          // app background (light neutral grey)
+const CREAM="#FBF9F8";          // app background (warm cream — matches prongstudio.app)
 const BD_SOFT="#ECECEE";        // softer hairline border
-const RADIUS=5;                 // card corner radius (sharp editorial)
-const SHADOW="0 1px 2px rgba(20,20,22,0.04),0 4px 14px rgba(20,20,22,0.06)";
+const RADIUS=12;                // card corner radius (soft — matches prongstudio.app)
+const SHADOW="0 2px 6px rgba(72,60,84,0.05),0 18px 40px -22px rgba(72,60,84,0.20)";
 const SHADOW_HV="0 6px 18px rgba(20,20,22,0.10),0 16px 36px rgba(20,20,22,0.12)";
 // Stat-tile treatments — neutral by default; a couple carry a functional status hint
 const _NEU={bg:WHITE,ring:"#F0F0F2",fg:INK};
@@ -1509,7 +1509,7 @@ const jobImageMap=async(job)=>{
 };
 
 // ── Shared UI ─────────────────────────────────────────────────────────────
-const SS={inp:{width:"100%",padding:"10px 13px",borderRadius:4,border:`1px solid ${BD}`,fontSize:13,fontFamily:"inherit",color:INK,background:WHITE,outline:"none",boxSizing:"border-box",marginTop:4},lbl:{fontSize:10,fontWeight:700,color:INK,letterSpacing:"0.1em",textTransform:"uppercase",display:"block"}};
+const SS={inp:{width:"100%",padding:"11px 14px",borderRadius:10,border:`1px solid ${BD}`,fontSize:13,fontFamily:"inherit",color:INK,background:WHITE,outline:"none",boxSizing:"border-box",marginTop:4},lbl:{fontSize:10,fontWeight:700,color:INK,letterSpacing:"0.1em",textTransform:"uppercase",display:"block"}};
 
 
 function StoneMarkupSummary({calc}){
@@ -1548,14 +1548,14 @@ function Badge({label,color=WG,size="sm"}){
 }
 function Btn({onClick,children,sm,xs,danger,ghost,disabled}){
   const[h,setH]=useState(false);
-  // Fine-editorial style: flat, near-square, hairline borders, uppercase letter-spaced labels.
+  // Soft-modern style: rounded, sentence-case, terracotta primary (matches prongstudio.app).
   let bg,fg,bc;
-  if(disabled){bg="#D6D6D8";fg=WHITE;bc="#D6D6D8";}
+  if(disabled){bg="#E3DAD0";fg=WHITE;bc="#E3DAD0";}
   else if(danger){bg=h?"#9A2D22":DANGER;fg=WHITE;bc=bg;}
-  else if(ghost){bg=h?"#F1EFE8":"transparent";fg=INK;bc=h?"#A99F8C":"#C9BFAE";}
-  else{bg=h?"#000000":INK;fg=WHITE;bc=bg;}
+  else if(ghost){bg=h?PARCH:WHITE;fg=INK;bc=h?GOLD:BD;}
+  else{bg=h?GOLD_D:GOLD;fg=WHITE;bc=bg;}
   return <button onClick={disabled?undefined:onClick} onMouseEnter={()=>setH(true)} onMouseLeave={()=>setH(false)} disabled={disabled}
-    style={{background:bg,color:fg,border:`1px solid ${bc}`,borderRadius:2,padding:xs?"5px 10px":sm?"7px 15px":"10px 23px",fontSize:xs?10:sm?11:12.5,fontWeight:700,letterSpacing:xs?"0.06em":"0.12em",textTransform:"uppercase",cursor:disabled?"default":"pointer",fontFamily:"inherit",transition:"all 0.15s",opacity:disabled?0.6:1,whiteSpace:"nowrap"}}>{children}</button>;
+    style={{background:bg,color:fg,border:`1px solid ${bc}`,borderRadius:10,padding:xs?"6px 13px":sm?"8px 17px":"11px 22px",fontSize:xs?11:sm?12.5:14,fontWeight:600,letterSpacing:"0.01em",cursor:disabled?"default":"pointer",fontFamily:"inherit",transition:"all 0.15s",opacity:disabled?0.6:1,whiteSpace:"nowrap"}}>{children}</button>;
 }
 function Input({label,value,onChange,type="text",placeholder,as,options,rows,min,step,disabled}){
   return <div style={{marginBottom:14}}>
@@ -1650,7 +1650,7 @@ function MarkupSummary({baseLow,baseHigh,isRange,bracket,mult,autoMult,overridde
 }
 
 // ── Print CSS ─────────────────────────────────────────────────────────────
-const PCSS=`@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;800&display=swap');*{box-sizing:border-box;margin:0;padding:0}body{font-family:'DM Sans',sans-serif;color:#1A1714;background:#fff;padding:48px 56px;max-width:820px;margin:0 auto}.hdr{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:36px;padding-bottom:20px;border-bottom:2.5px solid #C9A84C}.bname{font-size:22px;font-weight:700}.bsub{font-size:12px;color:#6B6560;margin-top:3px}.qlbl{font-size:10px;font-weight:700;color:#C9A84C;letter-spacing:.12em;text-transform:uppercase;text-align:right}.qnum{font-size:26px;font-weight:800;text-align:right}.to{margin-bottom:28px}.tolbl{font-size:10px;font-weight:700;color:#6B6560;letter-spacing:.08em;text-transform:uppercase;margin-bottom:4px}.toname{font-size:17px;font-weight:700}.todet{font-size:12px;color:#6B6560;margin-top:2px}.desc-box{font-size:13px;line-height:1.7;margin-bottom:26px;padding:13px 17px;background:#FAF7F2;border-left:3px solid #C9A84C;border-radius:0 8px 8px 0}table{width:100%;border-collapse:collapse;margin-bottom:20px}th{font-size:10px;font-weight:700;color:#6B6560;text-transform:uppercase;letter-spacing:.05em;padding:7px 0;border-bottom:2px solid #E8E2D9;text-align:left}td{padding:8px 0;font-size:12px;border-bottom:1px solid #E8E2D9}.right{text-align:right}.muted{color:#6B6560}.cost-summary{background:#FAF7F2;border:1px solid #E8E2D9;border-radius:10px;padding:16px 20px;margin-bottom:20px;display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:12px}.cs-item{}.cs-lbl{font-size:9px;font-weight:700;color:#6B6560;text-transform:uppercase;letter-spacing:.08em;margin-bottom:4px}.cs-val{font-size:15px;font-weight:800;color:#1A1714}.cs-val.gold{color:#8B6914}.cs-val.green{color:#2D7A4F}.notes{font-size:12px;color:#6B6560;font-style:italic;padding:13px 17px;background:#FAF7F2;border-radius:8px;margin-bottom:20px;line-height:1.6}.valid{font-size:11px;color:#6B6560;margin-bottom:32px}.approval{border:1px solid #E8E2D9;border-radius:10px;padding:18px 22px;margin-top:32px}.aplbl{font-size:10px;font-weight:700;color:#6B6560;text-transform:uppercase;letter-spacing:.08em;margin-bottom:12px}.apbody{font-size:12px;color:#6B6560;margin-bottom:16px;line-height:1.6}.sigrow{display:grid;grid-template-columns:1fr 1fr;gap:28px;margin-top:12px}.sigline{border-bottom:1px solid #1A1714;margin-top:26px;margin-bottom:4px}.siglbl{font-size:10px;color:#6B6560}.footer{margin-top:40px;padding-top:13px;border-top:1px solid #E8E2D9;font-size:10px;color:#6B6560;text-align:center}@media print{body{padding:28px 36px}}`;
+const PCSS=`@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;800&display=swap');*{box-sizing:border-box;margin:0;padding:0}body{font-family:'Poppins',sans-serif;color:#1A1714;background:#fff;padding:48px 56px;max-width:820px;margin:0 auto}.hdr{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:36px;padding-bottom:20px;border-bottom:2.5px solid #C9A84C}.bname{font-size:22px;font-weight:700}.bsub{font-size:12px;color:#6B6560;margin-top:3px}.qlbl{font-size:10px;font-weight:700;color:#C9A84C;letter-spacing:.12em;text-transform:uppercase;text-align:right}.qnum{font-size:26px;font-weight:800;text-align:right}.to{margin-bottom:28px}.tolbl{font-size:10px;font-weight:700;color:#6B6560;letter-spacing:.08em;text-transform:uppercase;margin-bottom:4px}.toname{font-size:17px;font-weight:700}.todet{font-size:12px;color:#6B6560;margin-top:2px}.desc-box{font-size:13px;line-height:1.7;margin-bottom:26px;padding:13px 17px;background:#FAF7F2;border-left:3px solid #C9A84C;border-radius:0 8px 8px 0}table{width:100%;border-collapse:collapse;margin-bottom:20px}th{font-size:10px;font-weight:700;color:#6B6560;text-transform:uppercase;letter-spacing:.05em;padding:7px 0;border-bottom:2px solid #E8E2D9;text-align:left}td{padding:8px 0;font-size:12px;border-bottom:1px solid #E8E2D9}.right{text-align:right}.muted{color:#6B6560}.cost-summary{background:#FAF7F2;border:1px solid #E8E2D9;border-radius:10px;padding:16px 20px;margin-bottom:20px;display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:12px}.cs-item{}.cs-lbl{font-size:9px;font-weight:700;color:#6B6560;text-transform:uppercase;letter-spacing:.08em;margin-bottom:4px}.cs-val{font-size:15px;font-weight:800;color:#1A1714}.cs-val.gold{color:#8B6914}.cs-val.green{color:#2D7A4F}.notes{font-size:12px;color:#6B6560;font-style:italic;padding:13px 17px;background:#FAF7F2;border-radius:8px;margin-bottom:20px;line-height:1.6}.valid{font-size:11px;color:#6B6560;margin-bottom:32px}.approval{border:1px solid #E8E2D9;border-radius:10px;padding:18px 22px;margin-top:32px}.aplbl{font-size:10px;font-weight:700;color:#6B6560;text-transform:uppercase;letter-spacing:.08em;margin-bottom:12px}.apbody{font-size:12px;color:#6B6560;margin-bottom:16px;line-height:1.6}.sigrow{display:grid;grid-template-columns:1fr 1fr;gap:28px;margin-top:12px}.sigline{border-bottom:1px solid #1A1714;margin-top:26px;margin-bottom:4px}.siglbl{font-size:10px;color:#6B6560}.footer{margin-top:40px;padding-top:13px;border-top:1px solid #E8E2D9;font-size:10px;color:#6B6560;text-align:center}@media print{body{padding:28px 36px}}`;
 
 function printProposalDoc(biz,c,job,q,calc){console.log('Print proposal (disabled in preview)');return;
   const win=window.open("","_blank");
@@ -2002,7 +2002,7 @@ function Dashboard({clients,jobs,quotes,payments,invoices,appointments=[],propos
     })}
     <div style={{marginBottom:28}}>
       <div style={{fontSize:11,fontWeight:700,color:WG,letterSpacing:"0.14em",textTransform:"uppercase",marginBottom:5}}>Workshop overview</div>
-      <h1 style={{margin:0,fontSize:32,fontWeight:500,color:INK,letterSpacing:"-0.01em",fontFamily:"'DM Sans',sans-serif"}}>{(()=>{const h=new Date().getHours();return h<12?"Good morning":h<17?"Good afternoon":"Good evening";})()}</h1>
+      <h1 style={{margin:0,fontSize:32,fontWeight:500,color:INK,letterSpacing:"-0.01em",fontFamily:"'Poppins',sans-serif"}}>{(()=>{const h=new Date().getHours();return h<12?"Good morning":h<17?"Good afternoon":"Good evening";})()}</h1>
       <div style={{color:INK,fontSize:15,marginTop:6,lineHeight:1.5}}>Here's everything happening in your workshop today.</div>
       <div style={{color:WG,fontSize:12.5,marginTop:3}}>{fmtDate(today())}</div>
     </div>
@@ -4601,7 +4601,7 @@ function PublicProposalPage({token}){
     setAcceptedOption(decision);setAcceptedName(nm);setState("accepted");
   };
 
-  const wrap=(inner)=><div style={{minHeight:"100vh",background:CREAM,fontFamily:"'DM Sans',system-ui,'Segoe UI',Roboto,sans-serif",padding:"24px 16px",boxSizing:"border-box"}}>{inner}</div>;
+  const wrap=(inner)=><div style={{minHeight:"100vh",background:CREAM,fontFamily:"'Poppins',system-ui,'Segoe UI',Roboto,sans-serif",padding:"24px 16px",boxSizing:"border-box"}}>{inner}</div>;
   if(state==="loading")return wrap(<div style={{textAlign:"center",color:WG,fontSize:14,marginTop:80}}>Loading your proposal…</div>);
   if(state==="error")return wrap(<div style={{maxWidth:440,margin:"80px auto 0",textAlign:"center",background:WHITE,border:`1px solid ${BD}`,borderRadius:RADIUS,padding:"32px 28px",boxShadow:SHADOW}}><div style={{fontSize:30,marginBottom:10}}>⚠️</div><div style={{fontSize:16,fontWeight:800,color:INK,marginBottom:6}}>Couldn't load this proposal</div><div style={{fontSize:13,color:WG,lineHeight:1.6}}>Please check the link, or get in touch with the studio.</div></div>);
   if(state==="notfound")return wrap(<div style={{maxWidth:440,margin:"80px auto 0",textAlign:"center",background:WHITE,border:`1px solid ${BD}`,borderRadius:RADIUS,padding:"32px 28px",boxShadow:SHADOW}}><div style={{fontSize:30,marginBottom:10}}>🔍</div><div style={{fontSize:16,fontWeight:800,color:INK,marginBottom:6}}>Proposal not found</div><div style={{fontSize:13,color:WG,lineHeight:1.6}}>This link may have expired or been withdrawn. Please contact the studio for an up-to-date quote.</div></div>);
@@ -4850,26 +4850,26 @@ function ProposalPreview({quote,job,clients=[],biz,calc,payments=[],reconcilePay
 
     {/* ── Scroll area ── */}
     <div id="proposal-scroll" style={{flex:1,overflowY:"auto",overflowX:"hidden",padding:"40px 20px 60px",background:"#111"}}>
-      <div id="proposal-document" style={{width:"100%",maxWidth:740,margin:"0 auto",background:WHITE,borderRadius:4,boxShadow:"0 20px 80px rgba(0,0,0,0.6)",fontFamily:"'DM Sans',sans-serif",color:INK}}>
+      <div id="proposal-document" style={{width:"100%",maxWidth:740,margin:"0 auto",background:WHITE,borderRadius:4,boxShadow:"0 20px 80px rgba(0,0,0,0.6)",fontFamily:"'Poppins',sans-serif",color:INK}}>
 
         {/* ── HEADER ── */}
         <div style={{background:INK,padding:"40px 52px 36px",display:"flex",justifyContent:"space-between",alignItems:"flex-start"}}>
           <div>
-            <div style={{fontSize:10,fontWeight:700,color:"rgba(255,255,255,0.55)",letterSpacing:"0.2em",textTransform:"uppercase",marginBottom:10,fontFamily:"'DM Sans',sans-serif"}}>Quote</div>
+            <div style={{fontSize:10,fontWeight:700,color:"rgba(255,255,255,0.55)",letterSpacing:"0.2em",textTransform:"uppercase",marginBottom:10,fontFamily:"'Poppins',sans-serif"}}>Quote</div>
             {biz.logo
               ?<div style={{background:WHITE,borderRadius:4,padding:"8px 14px",display:"inline-block"}}><img src={biz.logo} alt={biz.name||"Logo"} style={{maxWidth:220,maxHeight:60,objectFit:"contain",display:"block"}}/></div>
-              :<div style={{fontSize:26,fontWeight:800,color:WHITE,letterSpacing:"-0.01em",fontFamily:"'DM Sans',sans-serif",lineHeight:1.1}}>{biz.name||"Your Studio"}</div>}
+              :<div style={{fontSize:26,fontWeight:800,color:WHITE,letterSpacing:"-0.01em",fontFamily:"'Poppins',sans-serif",lineHeight:1.1}}>{biz.name||"Your Studio"}</div>}
             <div style={{marginTop:12,display:"flex",flexDirection:"column",gap:3}}>
-              {biz.address&&<div style={{fontSize:11,color:"rgba(255,255,255,0.45)",fontFamily:"'DM Sans',sans-serif"}}>{biz.address}</div>}
-              {(biz.phone||biz.email)&&<div style={{fontSize:11,color:"rgba(255,255,255,0.45)",fontFamily:"'DM Sans',sans-serif"}}>{[biz.phone,biz.email].filter(Boolean).join("  ·  ")}</div>}
-              {biz.abn&&<div style={{fontSize:10,color:"rgba(255,255,255,0.28)",fontFamily:"'DM Sans',sans-serif",marginTop:2}}>ABN {biz.abn}</div>}
+              {biz.address&&<div style={{fontSize:11,color:"rgba(255,255,255,0.45)",fontFamily:"'Poppins',sans-serif"}}>{biz.address}</div>}
+              {(biz.phone||biz.email)&&<div style={{fontSize:11,color:"rgba(255,255,255,0.45)",fontFamily:"'Poppins',sans-serif"}}>{[biz.phone,biz.email].filter(Boolean).join("  ·  ")}</div>}
+              {biz.abn&&<div style={{fontSize:10,color:"rgba(255,255,255,0.28)",fontFamily:"'Poppins',sans-serif",marginTop:2}}>ABN {biz.abn}</div>}
             </div>
           </div>
           <div style={{textAlign:"right",flexShrink:0}}>
-            <div style={{fontSize:20,fontWeight:800,color:WHITE,letterSpacing:"0.06em",fontFamily:"'DM Sans',sans-serif"}}>{quoteNum}</div>
+            <div style={{fontSize:20,fontWeight:800,color:WHITE,letterSpacing:"0.06em",fontFamily:"'Poppins',sans-serif"}}>{quoteNum}</div>
             <div style={{marginTop:10,display:"flex",flexDirection:"column",gap:4,alignItems:"flex-end"}}>
-              <div style={{fontSize:11,color:"rgba(255,255,255,0.45)",fontFamily:"'DM Sans',sans-serif"}}>Issued: <span style={{color:"rgba(255,255,255,0.7)"}}>{issuedDate}</span></div>
-              <div style={{fontSize:11,color:"rgba(255,255,255,0.45)",fontFamily:"'DM Sans',sans-serif"}}>Valid until: <span style={{color:"rgba(255,255,255,0.85)"}}>{validUntil}</span></div>
+              <div style={{fontSize:11,color:"rgba(255,255,255,0.45)",fontFamily:"'Poppins',sans-serif"}}>Issued: <span style={{color:"rgba(255,255,255,0.7)"}}>{issuedDate}</span></div>
+              <div style={{fontSize:11,color:"rgba(255,255,255,0.45)",fontFamily:"'Poppins',sans-serif"}}>Valid until: <span style={{color:"rgba(255,255,255,0.85)"}}>{validUntil}</span></div>
             </div>
           </div>
         </div>
@@ -4880,33 +4880,33 @@ function ProposalPreview({quote,job,clients=[],biz,calc,payments=[],reconcilePay
         {/* ── PREPARED FOR + JOB DESCRIPTION ── */}
         <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:0,borderBottom:`1px solid ${BD}`}}>
           <div style={{padding:"28px 32px 28px 52px",borderRight:`1px solid ${BD}`}}>
-            <div style={{fontSize:9,fontWeight:700,color:WG,letterSpacing:"0.16em",textTransform:"uppercase",marginBottom:12,fontFamily:"'DM Sans',sans-serif"}}>Prepared for</div>
-            <div style={{fontSize:20,fontWeight:700,color:INK,fontFamily:"'DM Sans',sans-serif",marginBottom:6}}>{clientName||"—"}</div>
-            {client?.email&&<div style={{fontSize:12,color:WG,fontFamily:"'DM Sans',sans-serif",marginTop:3}}>{client.email}</div>}
-            {client?.phone&&<div style={{fontSize:12,color:WG,fontFamily:"'DM Sans',sans-serif",marginTop:2}}>{client.phone}</div>}
+            <div style={{fontSize:9,fontWeight:700,color:WG,letterSpacing:"0.16em",textTransform:"uppercase",marginBottom:12,fontFamily:"'Poppins',sans-serif"}}>Prepared for</div>
+            <div style={{fontSize:20,fontWeight:700,color:INK,fontFamily:"'Poppins',sans-serif",marginBottom:6}}>{clientName||"—"}</div>
+            {client?.email&&<div style={{fontSize:12,color:WG,fontFamily:"'Poppins',sans-serif",marginTop:3}}>{client.email}</div>}
+            {client?.phone&&<div style={{fontSize:12,color:WG,fontFamily:"'Poppins',sans-serif",marginTop:2}}>{client.phone}</div>}
           </div>
           <div style={{padding:"28px 52px 28px 32px"}}>
-            <div style={{fontSize:9,fontWeight:700,color:WG,letterSpacing:"0.16em",textTransform:"uppercase",marginBottom:12,fontFamily:"'DM Sans',sans-serif"}}>Piece</div>
-            <div style={{fontSize:15,fontWeight:700,color:INK,fontFamily:"'DM Sans',sans-serif",marginBottom:8}}>{(quote.pieceTitle||"").trim()||job?.type||"Custom Jewellery"}</div>
+            <div style={{fontSize:9,fontWeight:700,color:WG,letterSpacing:"0.16em",textTransform:"uppercase",marginBottom:12,fontFamily:"'Poppins',sans-serif"}}>Piece</div>
+            <div style={{fontSize:15,fontWeight:700,color:INK,fontFamily:"'Poppins',sans-serif",marginBottom:8}}>{(quote.pieceTitle||"").trim()||job?.type||"Custom Jewellery"}</div>
             {description
-              ?<div style={{fontSize:13,color:"#444",lineHeight:1.75,fontFamily:"'DM Sans',sans-serif"}}>{description}</div>
-              :<div style={{fontSize:12,color:WG,fontStyle:"italic",fontFamily:"'DM Sans',sans-serif"}}>No description added — edit quote to add one.</div>
+              ?<div style={{fontSize:13,color:"#444",lineHeight:1.75,fontFamily:"'Poppins',sans-serif"}}>{description}</div>
+              :<div style={{fontSize:12,color:WG,fontStyle:"italic",fontFamily:"'Poppins',sans-serif"}}>No description added — edit quote to add one.</div>
             }
             {(job?.dateIn||job?.dateOut)&&<div style={{marginTop:16,display:"flex",gap:28}}>
-              <div><div style={{fontSize:9,fontWeight:700,color:WG,letterSpacing:"0.16em",textTransform:"uppercase",marginBottom:4,fontFamily:"'DM Sans',sans-serif"}}>Taken in</div><div style={{fontSize:13,fontWeight:600,color:INK,fontFamily:"'DM Sans',sans-serif"}}>{job?.dateIn?fmtDate(job.dateIn):"—"}</div></div>
-              <div><div style={{fontSize:9,fontWeight:700,color:WG,letterSpacing:"0.16em",textTransform:"uppercase",marginBottom:4,fontFamily:"'DM Sans',sans-serif"}}>Pickup / collection</div><div style={{fontSize:13,fontWeight:600,color:INK,fontFamily:"'DM Sans',sans-serif"}}>{job?.dateOut?fmtDate(job.dateOut):"—"}</div></div>
+              <div><div style={{fontSize:9,fontWeight:700,color:WG,letterSpacing:"0.16em",textTransform:"uppercase",marginBottom:4,fontFamily:"'Poppins',sans-serif"}}>Taken in</div><div style={{fontSize:13,fontWeight:600,color:INK,fontFamily:"'Poppins',sans-serif"}}>{job?.dateIn?fmtDate(job.dateIn):"—"}</div></div>
+              <div><div style={{fontSize:9,fontWeight:700,color:WG,letterSpacing:"0.16em",textTransform:"uppercase",marginBottom:4,fontFamily:"'Poppins',sans-serif"}}>Pickup / collection</div><div style={{fontSize:13,fontWeight:600,color:INK,fontFamily:"'Poppins',sans-serif"}}>{job?.dateOut?fmtDate(job.dateOut):"—"}</div></div>
             </div>}
           </div>
         </div>
 
         {/* ── RENDER / IMAGE ── (only shown when the job has photos) */}
         {imgUrls.length>0&&<div style={{padding:"28px 52px",borderBottom:`1px solid ${BD}`}}>
-          <div style={{fontSize:9,fontWeight:700,color:WG,letterSpacing:"0.16em",textTransform:"uppercase",marginBottom:14,fontFamily:"'DM Sans',sans-serif"}}>Design &amp; reference</div>
+          <div style={{fontSize:9,fontWeight:700,color:WG,letterSpacing:"0.16em",textTransform:"uppercase",marginBottom:14,fontFamily:"'Poppins',sans-serif"}}>Design &amp; reference</div>
           <div style={{display:"grid",gridTemplateColumns:imgUrls.length===1?"1fr":"1fr 1fr",gap:12}}>
             {imgUrls.map((im,i)=>(
               <div key={i} style={{gridColumn:imgUrls.length===3&&i===0?"1 / -1":"auto"}}>
                 <img src={im.url} alt={im.caption||"Reference"} style={{width:"100%",height:imgUrls.length===1?320:220,objectFit:"cover",borderRadius:6,border:`1px solid ${BD}`,display:"block"}}/>
-                {im.caption&&<div style={{fontSize:11,color:WG,marginTop:6,fontStyle:"italic",fontFamily:"'DM Sans',sans-serif"}}>{im.caption}</div>}
+                {im.caption&&<div style={{fontSize:11,color:WG,marginTop:6,fontStyle:"italic",fontFamily:"'Poppins',sans-serif"}}>{im.caption}</div>}
               </div>
             ))}
           </div>
@@ -4915,17 +4915,17 @@ function ProposalPreview({quote,job,clients=[],biz,calc,payments=[],reconcilePay
         {/* ── PRICE BREAKDOWN ── */}
         <div style={{padding:"28px 52px",borderBottom:`1px solid ${BD}`}}>
           <div style={{display:"flex",justifyContent:"space-between",alignItems:"baseline",marginBottom:16}}>
-            <div style={{fontSize:9,fontWeight:700,color:WG,letterSpacing:"0.16em",textTransform:"uppercase",fontFamily:"'DM Sans',sans-serif"}}>Price breakdown</div>
-            <div style={{fontSize:10,color:WG,fontFamily:"'DM Sans',sans-serif"}}>All prices inclusive of GST</div>
+            <div style={{fontSize:9,fontWeight:700,color:WG,letterSpacing:"0.16em",textTransform:"uppercase",fontFamily:"'Poppins',sans-serif"}}>Price breakdown</div>
+            <div style={{fontSize:10,color:WG,fontFamily:"'Poppins',sans-serif"}}>All prices inclusive of GST</div>
           </div>
 
           {/* Jewellery row */}
           <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:24,padding:"13px 0",borderTop:`1px solid ${BD}`}}>
             <div style={{flex:1,minWidth:0}}>
-              <div style={{fontSize:13,fontWeight:600,color:INK,fontFamily:"'DM Sans',sans-serif"}}>{(quote.pieceTitle||"").trim()||job?.type||"Jewellery piece"}</div>
-              <div style={{fontSize:11,color:WG,marginTop:3,lineHeight:1.6,fontFamily:"'DM Sans',sans-serif"}}>{description||"Design, materials & craftsmanship"}</div>
+              <div style={{fontSize:13,fontWeight:600,color:INK,fontFamily:"'Poppins',sans-serif"}}>{(quote.pieceTitle||"").trim()||job?.type||"Jewellery piece"}</div>
+              <div style={{fontSize:11,color:WG,marginTop:3,lineHeight:1.6,fontFamily:"'Poppins',sans-serif"}}>{description||"Design, materials & craftsmanship"}</div>
             </div>
-            <div style={{fontSize:16,fontWeight:700,color:INK,fontFamily:"'DM Sans',sans-serif",whiteSpace:"nowrap"}}>{manual?<span style={{fontSize:12,fontWeight:400,fontStyle:"italic",color:WG}}>Included</span>:calc.bracket?fmtR(settingTotal):"—"}</div>
+            <div style={{fontSize:16,fontWeight:700,color:INK,fontFamily:"'Poppins',sans-serif",whiteSpace:"nowrap"}}>{manual?<span style={{fontSize:12,fontWeight:400,fontStyle:"italic",color:WG}}>Included</span>:calc.bracket?fmtR(settingTotal):"—"}</div>
           </div>
 
           {/* Stone row — studio sourcing. Use the actual stone description(s) entered on the quote,
@@ -4938,25 +4938,25 @@ function ProposalPreview({quote,job,clients=[],biz,calc,payments=[],reconcilePay
             subParts.push("inc. GST");
             return <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"13px 0",borderTop:`1px solid ${BD}`}}>
               <div>
-                <div style={{fontSize:13,fontWeight:600,color:INK,fontFamily:"'DM Sans',sans-serif"}}>{title}</div>
-                <div style={{fontSize:11,color:WG,marginTop:2,fontFamily:"'DM Sans',sans-serif"}}>{subParts.join(" · ")}</div>
+                <div style={{fontSize:13,fontWeight:600,color:INK,fontFamily:"'Poppins',sans-serif"}}>{title}</div>
+                <div style={{fontSize:11,color:WG,marginTop:2,fontFamily:"'Poppins',sans-serif"}}>{subParts.join(" · ")}</div>
               </div>
-              <div style={{fontSize:16,fontWeight:700,color:INK,fontFamily:"'DM Sans',sans-serif"}}>{manual?<span style={{fontSize:12,fontWeight:400,fontStyle:"italic",color:WG}}>Included</span>:fmtR(stoneTotal)}</div>
+              <div style={{fontSize:16,fontWeight:700,color:INK,fontFamily:"'Poppins',sans-serif"}}>{manual?<span style={{fontSize:12,fontWeight:400,fontStyle:"italic",color:WG}}>Included</span>:fmtR(stoneTotal)}</div>
             </div>;
           })()}
 
           {/* Client stone row */}
           {quote.stoneMode==="client"&&<div style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"13px 0",borderTop:`1px solid ${BD}`}}>
             <div>
-              <div style={{fontSize:13,fontWeight:600,color:INK,fontFamily:"'DM Sans',sans-serif"}}>Centre / feature stone</div>
-              <div style={{fontSize:11,color:WG,marginTop:2,fontFamily:"'DM Sans',sans-serif"}}>Supplied by client — not included in this quote</div>
+              <div style={{fontSize:13,fontWeight:600,color:INK,fontFamily:"'Poppins',sans-serif"}}>Centre / feature stone</div>
+              <div style={{fontSize:11,color:WG,marginTop:2,fontFamily:"'Poppins',sans-serif"}}>Supplied by client — not included in this quote</div>
             </div>
-            <div style={{fontSize:12,color:WG,fontStyle:"italic",fontFamily:"'DM Sans',sans-serif"}}>Client supplied</div>
+            <div style={{fontSize:12,color:WG,fontStyle:"italic",fontFamily:"'Poppins',sans-serif"}}>Client supplied</div>
           </div>}
 
           {/* Total row — when payments are recorded, show total, payments received and balance due */}
           {!markupUndef&&(hasPaid||qTrade>0)
-            ?<div style={{marginTop:12,background:INK,borderRadius:4,padding:"18px 22px",fontFamily:"'DM Sans',sans-serif"}}>
+            ?<div style={{marginTop:12,background:INK,borderRadius:4,padding:"18px 22px",fontFamily:"'Poppins',sans-serif"}}>
               <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",fontSize:13,color:"rgba(255,255,255,0.65)",padding:"3px 0"}}>
                 <span>Total price (inc. GST)</span><span style={{color:WHITE,fontWeight:600}}>{priceDisplay}</span>
               </div>
@@ -4976,12 +4976,12 @@ function ProposalPreview({quote,job,clients=[],biz,calc,payments=[],reconcilePay
             </div>
             :<div style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"16px 20px",marginTop:12,background:INK,borderRadius:4}}>
               <div>
-                <div style={{fontSize:11,fontWeight:700,color:"rgba(255,255,255,0.5)",letterSpacing:"0.1em",textTransform:"uppercase",fontFamily:"'DM Sans',sans-serif",marginBottom:2}}>Total quoted price</div>
-                <div style={{fontSize:10,color:"rgba(255,255,255,0.3)",fontFamily:"'DM Sans',sans-serif"}}>Inc. GST · Quoted in AUD</div>
+                <div style={{fontSize:11,fontWeight:700,color:"rgba(255,255,255,0.5)",letterSpacing:"0.1em",textTransform:"uppercase",fontFamily:"'Poppins',sans-serif",marginBottom:2}}>Total quoted price</div>
+                <div style={{fontSize:10,color:"rgba(255,255,255,0.3)",fontFamily:"'Poppins',sans-serif"}}>Inc. GST · Quoted in AUD</div>
               </div>
               <div style={{textAlign:"right"}}>
-                <div style={{fontSize:30,fontWeight:800,color:WHITE,letterSpacing:"-0.02em",fontFamily:"'DM Sans',sans-serif"}}>{priceDisplay}</div>
-                {depositAmt&&<div style={{fontSize:11,color:"rgba(255,255,255,0.5)",marginTop:4,fontFamily:"'DM Sans',sans-serif"}}>
+                <div style={{fontSize:30,fontWeight:800,color:WHITE,letterSpacing:"-0.02em",fontFamily:"'Poppins',sans-serif"}}>{priceDisplay}</div>
+                {depositAmt&&<div style={{fontSize:11,color:"rgba(255,255,255,0.5)",marginTop:4,fontFamily:"'Poppins',sans-serif"}}>
                   {deposit}% deposit to commence: <span style={{color:WHITE,fontWeight:700}}>{depositAmt}</span>
                 </div>}
               </div>
@@ -4990,21 +4990,21 @@ function ProposalPreview({quote,job,clients=[],biz,calc,payments=[],reconcilePay
 
         {/* ── TERMS ── */}
         <div style={{padding:"28px 52px",borderBottom:`1px solid ${BD}`}}>
-          <div style={{fontSize:9,fontWeight:700,color:WG,letterSpacing:"0.16em",textTransform:"uppercase",marginBottom:14,fontFamily:"'DM Sans',sans-serif"}}>Terms &amp; conditions</div>
-          <div style={{fontSize:11,color:"#555",lineHeight:1.85,fontFamily:"'DM Sans',sans-serif"}}>{terms}</div>
+          <div style={{fontSize:9,fontWeight:700,color:WG,letterSpacing:"0.16em",textTransform:"uppercase",marginBottom:14,fontFamily:"'Poppins',sans-serif"}}>Terms &amp; conditions</div>
+          <div style={{fontSize:11,color:"#555",lineHeight:1.85,fontFamily:"'Poppins',sans-serif"}}>{terms}</div>
         </div>
 
         {/* ── CLIENT ACCEPTANCE ── */}
         <div style={{padding:"28px 52px 44px"}}>
-          <div style={{fontSize:9,fontWeight:700,color:WG,letterSpacing:"0.16em",textTransform:"uppercase",marginBottom:14,fontFamily:"'DM Sans',sans-serif"}}>Client acceptance</div>
-          <div style={{fontSize:12,color:"#555",marginBottom:28,fontFamily:"'DM Sans',sans-serif",lineHeight:1.75}}>
+          <div style={{fontSize:9,fontWeight:700,color:WG,letterSpacing:"0.16em",textTransform:"uppercase",marginBottom:14,fontFamily:"'Poppins',sans-serif"}}>Client acceptance</div>
+          <div style={{fontSize:12,color:"#555",marginBottom:28,fontFamily:"'Poppins',sans-serif",lineHeight:1.75}}>
             I, the undersigned, accept the above quote and authorise work to commence upon payment of the required deposit.
           </div>
           <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"24px 40px"}}>
             {[["Signature",""],["Print name",""],["Date",""],["Deposit paid","$"]].map(([label,prefix])=>(
               <div key={label}>
-                <div style={{borderBottom:`1px solid #CCC`,paddingBottom:6,minHeight:36,display:"flex",alignItems:"flex-end",fontSize:13,color:WG,fontFamily:"'DM Sans',sans-serif"}}>{prefix}</div>
-                <div style={{fontSize:10,color:WG,marginTop:6,fontFamily:"'DM Sans',sans-serif",letterSpacing:"0.05em"}}>{label}</div>
+                <div style={{borderBottom:`1px solid #CCC`,paddingBottom:6,minHeight:36,display:"flex",alignItems:"flex-end",fontSize:13,color:WG,fontFamily:"'Poppins',sans-serif"}}>{prefix}</div>
+                <div style={{fontSize:10,color:WG,marginTop:6,fontFamily:"'Poppins',sans-serif",letterSpacing:"0.05em"}}>{label}</div>
               </div>
             ))}
           </div>
@@ -5012,8 +5012,8 @@ function ProposalPreview({quote,job,clients=[],biz,calc,payments=[],reconcilePay
 
         {/* ── FOOTER ── */}
         <div style={{borderTop:`1px solid ${BD}`,padding:"14px 52px",display:"flex",justifyContent:"space-between",alignItems:"center",background:PARCH}}>
-          <div style={{fontSize:10,color:WG,fontFamily:"'DM Sans',sans-serif"}}>{biz.name||""}{biz.name?" · ":""}{quoteNum}</div>
-          <div style={{fontSize:10,color:WG,fontFamily:"'DM Sans',sans-serif"}}>Valid until {validUntil}</div>
+          <div style={{fontSize:10,color:WG,fontFamily:"'Poppins',sans-serif"}}>{biz.name||""}{biz.name?" · ":""}{quoteNum}</div>
+          <div style={{fontSize:10,color:WG,fontFamily:"'Poppins',sans-serif"}}>Valid until {validUntil}</div>
         </div>
 
       </div>
@@ -5414,7 +5414,7 @@ function InvoicePrintView({inv,job,client,biz,payments,onClose}){
     </div>
     {/* page */}
     <div id="invoice-scroll" style={{flex:1,overflow:"auto",padding:"32px 24px",display:"flex",justifyContent:"center",alignItems:"flex-start"}}>
-      <div id="invoice-document" style={{width:"100%",maxWidth:700,minHeight:990,background:WHITE,fontFamily:"'DM Sans',sans-serif",boxShadow:"0 8px 48px rgba(0,0,0,0.5)",display:"flex",flexDirection:"column"}}>
+      <div id="invoice-document" style={{width:"100%",maxWidth:700,minHeight:990,background:WHITE,fontFamily:"'Poppins',sans-serif",boxShadow:"0 8px 48px rgba(0,0,0,0.5)",display:"flex",flexDirection:"column"}}>
         {/* header */}
         <div style={{padding:"52px 56px 40px",display:"flex",justifyContent:"space-between",alignItems:"flex-start"}}>
           <div>
@@ -7297,7 +7297,7 @@ function Login(){
   };
   const switchMode=to=>{setMode(to);setErr("");setSentTo("");};
   const darkInp={...SS.inp,marginTop:4,marginBottom:14,background:"#161616",border:"1px solid rgba(255,255,255,0.12)",color:WHITE};
-  return <div style={{minHeight:"100vh",display:"flex",alignItems:"center",justifyContent:"center",background:"#000000",fontFamily:"'DM Sans',sans-serif",padding:20}}>
+  return <div style={{minHeight:"100vh",display:"flex",alignItems:"center",justifyContent:"center",background:"#000000",fontFamily:"'Poppins',sans-serif",padding:20}}>
     <form onSubmit={submit} style={{width:"100%",maxWidth:360,background:"#0E0E0E",border:"1px solid rgba(255,255,255,0.08)",borderRadius:16,padding:"36px 32px"}}>
       <div style={{textAlign:"center",marginBottom:28}}>
         <div style={{fontSize:22,fontWeight:700,color:WHITE,letterSpacing:"0.16em",textTransform:"uppercase",lineHeight:1}}>Workshop Pilot</div>
@@ -7349,7 +7349,7 @@ function StudioOnboarding({defaultName,onCreated}){
     if(error)return setErr(error.message||"Couldn't create your studio. Please try again.");
     onCreated(data);   // RPC returns the new studio id
   };
-  return <div style={{display:"flex",alignItems:"center",justifyContent:"center",minHeight:"100vh",background:CREAM,fontFamily:"'DM Sans',sans-serif",padding:20}}>
+  return <div style={{display:"flex",alignItems:"center",justifyContent:"center",minHeight:"100vh",background:CREAM,fontFamily:"'Poppins',sans-serif",padding:20}}>
     <form onSubmit={create} style={{width:"100%",maxWidth:420,background:WHITE,border:`1px solid ${BD}`,borderRadius:RADIUS,padding:"32px 30px",boxShadow:SHADOW}}>
       <div style={{fontSize:30,marginBottom:12,textAlign:"center"}}>✨</div>
       <div style={{fontSize:18,fontWeight:800,color:INK,marginBottom:6,textAlign:"center"}}>Set up your studio</div>
@@ -8542,14 +8542,14 @@ export default function App(){
 
   // Auth gate — only when Supabase is configured (cloud mode)
   if(supabaseEnabled){
-    if(!authReady)return <div style={{display:"flex",alignItems:"center",justifyContent:"center",minHeight:"100vh",background:CREAM,fontFamily:"'DM Sans',sans-serif",color:WG,fontSize:14}}>Loading…</div>;
+    if(!authReady)return <div style={{display:"flex",alignItems:"center",justifyContent:"center",minHeight:"100vh",background:CREAM,fontFamily:"'Poppins',sans-serif",color:WG,fontSize:14}}>Loading…</div>;
     if(!session)return <Login/>;
     // Resolving which studio this user belongs to — hold before showing any data
-    if(studioId===null)return <div style={{display:"flex",alignItems:"center",justifyContent:"center",minHeight:"100vh",background:CREAM,fontFamily:"'DM Sans',sans-serif",color:WG,fontSize:14}}>Loading…</div>;
+    if(studioId===null)return <div style={{display:"flex",alignItems:"center",justifyContent:"center",minHeight:"100vh",background:CREAM,fontFamily:"'Poppins',sans-serif",color:WG,fontSize:14}}>Loading…</div>;
     // Signed in but not linked to any studio (onboarding comes in phase 2)
     if(studioId==="none")return <StudioOnboarding defaultName={session?.user?.user_metadata?.studio_name||""} onCreated={id=>{setStudioIdModule(id);setStudioId(id);}}/>;
     // Cloud load failed — block the app so stale/seed data can't be saved over good cloud data
-    if(loadError)return <div style={{display:"flex",alignItems:"center",justifyContent:"center",minHeight:"100vh",background:CREAM,fontFamily:"'DM Sans',sans-serif",padding:20}}>
+    if(loadError)return <div style={{display:"flex",alignItems:"center",justifyContent:"center",minHeight:"100vh",background:CREAM,fontFamily:"'Poppins',sans-serif",padding:20}}>
       <div style={{maxWidth:420,textAlign:"center",background:WHITE,border:`1px solid ${BD}`,borderRadius:RADIUS,padding:"32px 30px",boxShadow:SHADOW}}>
         <div style={{fontSize:32,marginBottom:12}}>⚠️</div>
         <div style={{fontSize:17,fontWeight:800,color:INK,marginBottom:8}}>Couldn't load your data</div>
@@ -8559,10 +8559,10 @@ export default function App(){
     </div>;
     // Data still loading — hold on a spinner rather than flash seed/placeholder figures
     // (e.g. wrong "balance owing by job" for a moment before real data arrives).
-    if(!storageReady)return <div style={{display:"flex",alignItems:"center",justifyContent:"center",minHeight:"100vh",background:CREAM,fontFamily:"'DM Sans',sans-serif",color:WG,fontSize:14}}>Loading…</div>;
+    if(!storageReady)return <div style={{display:"flex",alignItems:"center",justifyContent:"center",minHeight:"100vh",background:CREAM,fontFamily:"'Poppins',sans-serif",color:WG,fontSize:14}}>Loading…</div>;
   }
 
-  return <div style={{display:"flex",minHeight:"100vh",background:CREAM,fontFamily:"'DM Sans',sans-serif"}}>
+  return <div style={{display:"flex",minHeight:"100vh",background:CREAM,fontFamily:"'Poppins',sans-serif"}}>
     {/* Mobile Phase 2: collapse the common multi-column inline grids to a single column below
         768px. The [style*=…] selector matches React's serialized inline style, and !important
         beats the (non-important) inline value — so no per-element edits are needed. Grids that
