@@ -1,0 +1,588 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Prong Studio — software for custom jewellers</title>
+<meta name="description" content="The workshop platform for custom jewellers — precise quoting, online proposals clients accept, production tracking and professional invoicing, all in one place.">
+<meta property="og:title" content="Prong Studio — software for custom jewellers">
+<meta property="og:description" content="Quote bespoke work in minutes, present it beautifully, and get paid — the workshop platform for custom jewellers.">
+<meta property="og:type" content="website">
+<meta name="theme-color" content="#FBF9F8">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>%F0%9F%92%8E</text></svg>">
+<style>html,body{margin:0;padding:0;background:#FBF9F8}</style>
+</head>
+<body>
+<style>
+  /* ---- Prong Studio — re-skinned to the "Cuvia" direction ----
+     Warm cream ground · periwinkle + terracotta accents · geometric sans · soft rounded cards · faint grid. */
+  :root{
+    --bg:#FBF9F8; --surface:#FFFFFF; --surface-2:#F4EEE8; --line:#ECE4DB;
+    --strong:#110F0E; --text:#5D5A57; --muted:#8B837C;
+    --accent:#BA7067; --accent-ink:#A65A50; --peri:#9F98C4; --peri-ink:#6E67A0; --sun:#E1A94F; --ok:#4E9471;
+    --shadow:0 2px 6px rgba(17,15,14,.03), 0 22px 48px -26px rgba(72,60,84,.28);
+    --shadow-sm:0 1px 2px rgba(17,15,14,.04), 0 10px 24px -16px rgba(72,60,84,.24);
+    --sans:"Avenir Next","Avenir","Century Gothic",system-ui,-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    --edge:1120px; --rc:18px;
+  }
+  @media (prefers-color-scheme:dark){
+    :root{
+      --bg:#161219; --surface:#201B26; --surface-2:#1D1822; --line:#332B3B;
+      --strong:#F3EFEA; --text:#C3BCC4; --muted:#948C9C;
+      --accent:#CB8880; --accent-ink:#D9968D; --peri:#A9A2CF; --peri-ink:#B7AFDD; --sun:#E1A94F; --ok:#79C29B;
+      --shadow:0 2px 6px rgba(0,0,0,.3), 0 24px 52px -26px rgba(0,0,0,.7);
+      --shadow-sm:0 1px 2px rgba(0,0,0,.3), 0 12px 26px -16px rgba(0,0,0,.6);
+    }
+  }
+  :root[data-theme="light"]{
+    --bg:#FBF9F8; --surface:#FFFFFF; --surface-2:#F4EEE8; --line:#ECE4DB;
+    --strong:#110F0E; --text:#5D5A57; --muted:#8B837C;
+    --accent:#BA7067; --accent-ink:#A65A50; --peri:#9F98C4; --peri-ink:#6E67A0; --sun:#E1A94F; --ok:#4E9471;
+    --shadow:0 2px 6px rgba(17,15,14,.03), 0 22px 48px -26px rgba(72,60,84,.28);
+    --shadow-sm:0 1px 2px rgba(17,15,14,.04), 0 10px 24px -16px rgba(72,60,84,.24);
+  }
+  :root[data-theme="dark"]{
+    --bg:#161219; --surface:#201B26; --surface-2:#1D1822; --line:#332B3B;
+    --strong:#F3EFEA; --text:#C3BCC4; --muted:#948C9C;
+    --accent:#CB8880; --accent-ink:#D9968D; --peri:#A9A2CF; --peri-ink:#B7AFDD; --sun:#E1A94F; --ok:#79C29B;
+    --shadow:0 2px 6px rgba(0,0,0,.3), 0 24px 52px -26px rgba(0,0,0,.7);
+    --shadow-sm:0 1px 2px rgba(0,0,0,.3), 0 12px 26px -16px rgba(0,0,0,.6);
+  }
+
+  *{box-sizing:border-box}
+  .page{background:var(--bg);color:var(--text);font-family:var(--sans);font-size:16px;line-height:1.65;-webkit-font-smoothing:antialiased;overflow-x:hidden}
+  .wrap{max-width:var(--edge);margin:0 auto;padding:0 28px}
+  a{color:inherit}
+  h1,h2,h3{color:var(--strong);text-wrap:balance;margin:0;letter-spacing:-.02em;font-weight:700}
+  .mark{color:var(--accent);display:block}
+  .mark-sm{width:30px;height:30px}
+  .eyebrow{font-size:.72rem;font-weight:700;letter-spacing:.16em;text-transform:uppercase;color:var(--accent);margin:0}
+  .tnum{font-variant-numeric:tabular-nums}
+
+  /* top bar */
+  .topbar{position:sticky;top:0;z-index:30;background:color-mix(in srgb,var(--bg) 82%,transparent);backdrop-filter:blur(10px);border-bottom:1px solid var(--line)}
+  .topbar .wrap{display:flex;align-items:center;justify-content:space-between;height:68px}
+  .brand{display:flex;align-items:center;gap:11px;text-decoration:none}
+  .brand .name{font-size:1.12rem;font-weight:700;letter-spacing:-.01em;color:var(--strong)}
+  .top-nav{display:flex;align-items:center;gap:24px}
+  .top-nav a.lnk{font-size:.9rem;font-weight:500;color:var(--text);text-decoration:none}
+  .top-nav a.lnk:hover{color:var(--accent)}
+  @media (max-width:680px){.top-nav a.lnk{display:none}}
+
+  /* buttons — soft-rounded rects, terracotta primary */
+  .btn{display:inline-flex;align-items:center;gap:9px;font-family:var(--sans);font-size:.95rem;font-weight:600;text-decoration:none;padding:13px 24px;border-radius:11px;border:1.5px solid transparent;cursor:pointer;transition:transform .16s ease,background .16s ease,color .16s ease,box-shadow .16s ease}
+  .btn-sm{padding:9px 17px;font-size:.88rem;border-radius:9px}
+  .btn-primary{background:var(--accent);color:#fff;box-shadow:0 8px 20px -10px color-mix(in srgb,var(--accent) 75%,transparent)}
+  .btn-primary:hover{background:var(--accent-ink);transform:translateY(-1px)}
+  .btn-ghost{background:var(--surface);color:var(--strong);border-color:var(--line);box-shadow:var(--shadow-sm)}
+  .btn-ghost:hover{border-color:var(--accent);color:var(--accent)}
+
+  /* hero */
+  .hero{position:relative;overflow:hidden;padding:76px 0 66px}
+  .hero::before{content:"";position:absolute;inset:0;z-index:0;
+    background:
+      radial-gradient(120% 130% at 12% 6%, color-mix(in srgb,var(--peri) 34%,transparent) 0%, transparent 42%),
+      radial-gradient(110% 120% at 94% 88%, color-mix(in srgb,var(--accent) 22%,transparent) 0%, transparent 46%);}
+  .hero::after{content:"";position:absolute;inset:0;z-index:0;pointer-events:none;
+    background-image:linear-gradient(var(--line) 1px,transparent 1px),linear-gradient(90deg,var(--line) 1px,transparent 1px);
+    background-size:46px 46px;opacity:.5;
+    -webkit-mask-image:radial-gradient(120% 90% at 50% 20%,#000 0%,transparent 72%);mask-image:radial-gradient(120% 90% at 50% 20%,#000 0%,transparent 72%);}
+  .hero .wrap{position:relative;z-index:1;display:grid;grid-template-columns:1.05fr .95fr;gap:52px;align-items:center}
+  .badges{display:flex;flex-wrap:wrap;gap:9px;align-items:center;margin-bottom:20px}
+  .pill{font-size:.7rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase;padding:6px 12px;border-radius:999px;border:1px solid var(--line);background:var(--surface);color:var(--muted)}
+  .pill.hot{color:#fff;border-color:transparent;background:var(--accent)}
+  .hero h1{font-size:clamp(2.4rem,5.4vw,3.7rem);line-height:1.04;margin:4px 0 0}
+  .hero h1 em{font-style:normal;color:var(--accent)}
+  .lede{font-size:1.14rem;line-height:1.6;color:var(--text);max-width:40ch;margin:22px 0 0}
+  .cta-row{display:flex;flex-wrap:wrap;gap:13px;margin:30px 0 0}
+  .trust-line{font-size:.84rem;color:var(--muted);margin:20px 0 0;display:flex;gap:9px;flex-wrap:wrap;align-items:center}
+  .trust-line .dot{width:4px;height:4px;border-radius:50%;background:var(--peri);display:inline-block}
+
+  .hero-demo{position:relative}
+  .sq{position:absolute;border-radius:13px;box-shadow:var(--shadow-sm);z-index:2;display:grid;place-items:center;color:#fff}
+  .sq svg{width:20px;height:20px}
+  .sq.a{width:44px;height:44px;background:var(--peri);top:-18px;left:-14px;transform:rotate(-8deg)}
+  .sq.b{width:40px;height:40px;background:var(--sun);bottom:-14px;right:34px;transform:rotate(9deg)}
+
+  /* quote card */
+  .quote{position:relative;z-index:1;background:var(--surface);border:1px solid var(--line);border-radius:var(--rc);box-shadow:var(--shadow);overflow:hidden;font-variant-numeric:tabular-nums}
+  .quote-head{display:flex;align-items:center;justify-content:space-between;padding:16px 20px;border-bottom:1px solid var(--line)}
+  .quote-head .t{font-size:.7rem;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--muted)}
+  .quote-head .n{font-size:.78rem;font-weight:700;color:var(--accent)}
+  .quote-body{padding:6px 20px 10px}
+  .qline{display:flex;align-items:baseline;justify-content:space-between;gap:16px;padding:11px 0;border-bottom:1px solid var(--line)}
+  .qline:last-child{border-bottom:none}
+  .qline .d{font-size:.94rem;color:var(--text)}
+  .qline .d small{display:block;font-size:.74rem;color:var(--muted);margin-top:2px}
+  .qline .v{font-size:.96rem;font-weight:700;color:var(--strong);white-space:nowrap}
+  .live{display:inline-flex;align-items:center;gap:5px;font-size:.64rem;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--accent);border:1px solid color-mix(in srgb,var(--accent) 40%,transparent);border-radius:999px;padding:2px 7px;margin-left:8px;vertical-align:middle}
+  .live .pip{width:5px;height:5px;border-radius:50%;background:var(--accent);animation:pip 2.4s ease-out infinite}
+  @keyframes pip{0%{box-shadow:0 0 0 0 color-mix(in srgb,var(--accent) 55%,transparent)}70%{box-shadow:0 0 0 7px transparent}100%{box-shadow:0 0 0 0 transparent}}
+  .quote-total{display:flex;align-items:baseline;justify-content:space-between;padding:17px 20px;background:color-mix(in srgb,var(--peri) 16%,var(--surface));border-top:1px solid var(--line)}
+  .quote-total .l{font-size:.72rem;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--peri-ink)}
+  .quote-total .v{font-size:1.62rem;font-weight:700;color:var(--strong)}
+  .fig-note{font-size:.74rem;color:var(--muted);text-align:center;margin:12px 0 0}
+
+  /* trust strip */
+  .strip{border-top:1px solid var(--line);border-bottom:1px solid var(--line);background:var(--surface-2)}
+  .strip .wrap{display:flex;flex-wrap:wrap;gap:14px 34px;justify-content:center;padding:22px 28px}
+  .strip .item{display:flex;align-items:center;gap:9px;font-size:.88rem;font-weight:600;color:var(--text)}
+  .strip .item svg{color:var(--accent);width:18px;height:18px;flex-shrink:0}
+
+  /* sections */
+  .section{padding:82px 0}
+  .sec-head{max-width:56ch;margin:0 auto;text-align:center}
+  .sec-head h2{font-size:clamp(1.85rem,4vw,2.6rem);line-height:1.08;margin:12px 0 0}
+  .sec-head p{color:var(--muted);font-size:1.06rem;margin:14px 0 0}
+
+  /* story (built by a jeweller) — soft periwinkle panel */
+  .story{position:relative;overflow:hidden;background:
+      radial-gradient(90% 120% at 10% 10%,color-mix(in srgb,var(--peri) 26%,transparent),transparent 55%),
+      radial-gradient(90% 120% at 95% 90%,color-mix(in srgb,var(--accent) 16%,transparent),transparent 55%),
+      var(--surface-2);border-top:1px solid var(--line);border-bottom:1px solid var(--line)}
+  .story .wrap{padding:70px 28px;position:relative;z-index:2;max-width:840px}
+  .story .mark-wm{color:var(--peri);position:absolute;right:-30px;top:50%;transform:translateY(-50%);width:280px;height:280px;opacity:.16;z-index:1}
+  .story h2{font-size:clamp(1.7rem,3.6vw,2.4rem);line-height:1.14;margin:14px 0 0;max-width:24ch}
+  .story h2 em{font-style:normal;color:var(--accent)}
+  .story p{color:var(--text);font-size:1.06rem;line-height:1.66;margin:18px 0 0;max-width:60ch}
+  .story .sig{font-size:.9rem;color:var(--strong);margin:22px 0 0;font-weight:600}
+  .story .sig b{color:var(--accent)}
+
+  /* feature rows */
+  .frow{display:grid;grid-template-columns:1fr 1fr;gap:54px;align-items:center;max-width:var(--edge);margin:0 auto;padding:58px 28px}
+  .frow + .frow{border-top:1px solid var(--line)}
+  .frow.rev .ftxt{order:2}
+  .ftxt h3{font-size:clamp(1.5rem,3.1vw,2rem);line-height:1.12;margin:12px 0 0}
+  .ftxt p{color:var(--muted);font-size:1.05rem;margin:14px 0 0;max-width:46ch}
+  .checks{list-style:none;padding:0;margin:22px 0 0;display:flex;flex-direction:column;gap:12px}
+  .checks li{display:flex;gap:12px;align-items:flex-start;font-size:.97rem;color:var(--text)}
+  .checks li .ck{width:22px;height:22px;flex-shrink:0;border-radius:7px;background:color-mix(in srgb,var(--accent) 15%,transparent);display:grid;place-items:center;margin-top:1px}
+  .checks li .ck svg{width:13px;height:13px;color:var(--accent)}
+
+  .panel{background:var(--surface);border:1px solid var(--line);border-radius:var(--rc);box-shadow:var(--shadow);padding:20px}
+  .panel-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px}
+  .panel-head .t{font-size:.72rem;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--muted)}
+  .panel-head .b{font-size:.74rem;font-weight:700;color:var(--accent)}
+
+  .opts{display:flex;flex-direction:column;gap:10px}
+  .opt{display:flex;align-items:center;justify-content:space-between;gap:14px;border:1.5px solid var(--line);border-radius:12px;padding:13px 15px;background:var(--surface);font-variant-numeric:tabular-nums}
+  .opt.sel{border-color:var(--accent);background:color-mix(in srgb,var(--accent) 8%,transparent)}
+  .opt .lbl{font-size:.82rem;font-weight:700;color:var(--strong)}
+  .opt .met{font-size:.78rem;color:var(--muted);margin-top:1px}
+  .opt .pr{font-size:1.02rem;font-weight:700;color:var(--strong)}
+  .opt .acc{font-size:.64rem;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--ok);display:flex;align-items:center;gap:4px;margin-top:3px}
+  .opt-btn{margin-top:12px;width:100%;text-align:center;background:var(--accent);color:#fff;border:none;border-radius:11px;padding:12px;font-family:var(--sans);font-size:.9rem;font-weight:700;cursor:default}
+
+  .board{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}
+  .col .ch{display:flex;align-items:center;justify-content:space-between;font-size:.62rem;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);margin-bottom:8px}
+  .col .ch b{background:color-mix(in srgb,var(--peri) 18%,transparent);border-radius:999px;padding:1px 7px;color:var(--peri-ink)}
+  .jcard{background:var(--surface-2);border:1px solid var(--line);border-radius:9px;padding:9px 10px;margin-bottom:8px}
+  .jcard .jn{font-size:.76rem;font-weight:700;color:var(--strong)}
+  .jcard .jc{font-size:.68rem;color:var(--muted);margin-top:2px}
+  .jcard .jd{font-size:.62rem;color:var(--accent);font-weight:700;margin-top:5px}
+
+  .stats{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+  .stat{border:1px solid var(--line);border-radius:12px;padding:14px 15px;background:var(--surface-2)}
+  .stat .k{font-size:.62rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+  .stat .v{font-size:1.5rem;font-weight:700;color:var(--strong);margin-top:5px;font-variant-numeric:tabular-nums}
+  .stat .s{font-size:.72rem;color:var(--ok);font-weight:700;margin-top:2px}
+  .stat .s.mut{color:var(--muted)}
+
+  /* why */
+  .why{background:var(--surface-2);border-top:1px solid var(--line);border-bottom:1px solid var(--line)}
+  .why .grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:20px;margin:46px 0 0}
+  .why .card{background:var(--surface);border:1px solid var(--line);border-radius:var(--rc);padding:26px 24px;box-shadow:var(--shadow-sm)}
+  .why .card .ic{width:44px;height:44px;border-radius:12px;display:grid;place-items:center;margin-bottom:16px}
+  .why .card .ic svg{width:22px;height:22px;color:#fff}
+  .why .card:nth-child(1) .ic{background:var(--accent)} .why .card:nth-child(2) .ic{background:var(--peri)} .why .card:nth-child(3) .ic{background:var(--sun)}
+  .why .card h3{font-size:1.12rem;margin:0}
+  .why .card p{color:var(--muted);font-size:.95rem;margin:9px 0 0}
+
+  /* pricing */
+  .price-wrap{max-width:450px;margin:46px auto 0}
+  .price{background:var(--surface);border:1px solid var(--line);border-radius:22px;box-shadow:var(--shadow);overflow:hidden}
+  .price-top{padding:30px;text-align:center;border-bottom:1px solid var(--line);background:
+      radial-gradient(80% 130% at 50% 0%,color-mix(in srgb,var(--peri) 16%,transparent),transparent 70%)}
+  .price-top .tag{font-size:.7rem;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--accent)}
+  .price-top .amt{font-size:3rem;font-weight:700;color:var(--strong);margin:10px 0 0;line-height:1}
+  .price-top .per{font-size:.9rem;color:var(--muted);margin-top:8px}
+  .price-list{list-style:none;margin:0;padding:24px 30px}
+  .price-list li{display:flex;gap:11px;align-items:flex-start;font-size:.95rem;color:var(--text);padding:6px 0}
+  .price-list li svg{color:var(--accent);width:18px;height:18px;flex-shrink:0;margin-top:3px}
+  .price-cta{padding:0 30px 30px;text-align:center}
+  .price-cta .btn{width:100%;justify-content:center}
+  .price-cta .fine{font-size:.78rem;color:var(--muted);margin:12px 0 0}
+
+  /* faq */
+  .faq{max-width:760px;margin:42px auto 0}
+  details{border:1px solid var(--line);border-radius:14px;background:var(--surface);margin-bottom:12px;box-shadow:var(--shadow-sm)}
+  details summary{cursor:pointer;list-style:none;padding:18px 46px 18px 20px;font-size:1.02rem;font-weight:600;color:var(--strong);position:relative}
+  details summary::-webkit-details-marker{display:none}
+  details summary::after{content:"+";position:absolute;right:20px;top:15px;font-size:1.4rem;font-weight:400;color:var(--accent);transition:transform .2s}
+  details[open] summary::after{transform:rotate(45deg)}
+  details summary:hover{color:var(--accent)}
+  details .a{padding:0 20px 20px;color:var(--muted);font-size:.97rem;line-height:1.62}
+
+  /* closing — soft gradient panel, light */
+  .closing{padding:20px 0 96px}
+  .closing .box{border-radius:26px;padding:66px 40px;text-align:center;position:relative;overflow:hidden;border:1px solid var(--line);background:
+      radial-gradient(90% 140% at 12% 8%,color-mix(in srgb,var(--peri) 34%,transparent),transparent 55%),
+      radial-gradient(90% 140% at 92% 92%,color-mix(in srgb,var(--accent) 26%,transparent),transparent 55%),
+      var(--surface)}
+  .closing .mark-wm{color:var(--accent);opacity:.14;position:absolute;width:230px;height:230px;left:50%;top:-76px;transform:translateX(-50%)}
+  .closing .eyebrow{position:relative;z-index:2}
+  .closing h2{font-size:clamp(2rem,4.5vw,3rem);line-height:1.06;margin:14px auto 0;max-width:20ch;position:relative;z-index:2}
+  .closing p{color:var(--text);max-width:48ch;margin:16px auto 0;position:relative;z-index:2}
+  .closing .btn{margin-top:30px;position:relative;z-index:2}
+  .closing .mailnote{font-size:.8rem;color:var(--muted);margin-top:16px;position:relative;z-index:2}
+
+  footer{border-top:1px solid var(--line);padding:32px 0 50px}
+  footer .wrap{display:flex;flex-wrap:wrap;gap:16px;align-items:center;justify-content:space-between}
+  footer .brand .name{font-size:1rem}
+  footer .meta{font-size:.84rem;color:var(--muted);display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+  footer .meta a{color:var(--accent);text-decoration:none;font-weight:600}
+  footer .meta .dot{width:3px;height:3px;border-radius:50%;background:var(--muted);display:inline-block}
+
+  .reveal{opacity:0;transform:translateY(18px);transition:opacity .7s ease,transform .7s ease}
+  .reveal.in{opacity:1;transform:none}
+  a:focus-visible,.btn:focus-visible,summary:focus-visible{outline:2px solid var(--accent);outline-offset:3px;border-radius:6px}
+
+  @media (max-width:860px){
+    .hero .wrap,.frow{grid-template-columns:1fr;gap:40px}
+    .hero{padding:52px 0}
+    .frow.rev .ftxt{order:0}
+    .why .grid3{grid-template-columns:1fr}
+    .story .mark-wm{opacity:.1;right:-90px}
+    .sq{display:none}
+  }
+  @media (prefers-reduced-motion:reduce){
+    .reveal{opacity:1;transform:none;transition:none}
+    .btn,.card,details summary::after{transition:none}
+    .live .pip{animation:none}
+  }
+</style>
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false">
+  <symbol id="prong" viewBox="0 0 120 120">
+    <g fill="none" stroke="currentColor" stroke-width="1.4">
+      <circle cx="60" cy="60" r="30"/>
+      <polygon points="73,60 69.2,69.2 60,73 50.8,69.2 47,60 50.8,50.8 60,47 69.2,50.8" stroke-width="1"/>
+      <g stroke-width=".8" stroke-opacity=".5">
+        <line x1="73" y1="60" x2="89" y2="60"/><line x1="69.2" y1="69.2" x2="80.5" y2="80.5"/>
+        <line x1="60" y1="73" x2="60" y2="89"/><line x1="50.8" y1="69.2" x2="39.5" y2="80.5"/>
+        <line x1="47" y1="60" x2="31" y2="60"/><line x1="50.8" y1="50.8" x2="39.5" y2="39.5"/>
+        <line x1="60" y1="47" x2="60" y2="31"/><line x1="69.2" y1="50.8" x2="80.5" y2="39.5"/>
+      </g>
+    </g>
+    <g fill="currentColor">
+      <circle cx="87.7" cy="76" r="4.2"/><circle cx="60" cy="92" r="4.2"/><circle cx="32.3" cy="76" r="4.2"/>
+      <circle cx="32.3" cy="44" r="4.2"/><circle cx="60" cy="28" r="4.2"/><circle cx="87.7" cy="44" r="4.2"/>
+    </g>
+  </symbol>
+</svg>
+
+<div class="page">
+  <header class="topbar">
+    <div class="wrap">
+      <a class="brand" href="#top" aria-label="Prong Studio home">
+        <svg class="mark mark-sm" aria-hidden="true"><use href="#prong"/></svg>
+        <span class="name">Prong Studio</span>
+      </a>
+      <nav class="top-nav">
+        <a class="lnk" href="#features">Features</a>
+        <a class="lnk" href="#pricing">Pricing</a>
+        <a class="lnk" href="#faq">FAQ</a>
+        <a class="btn btn-primary btn-sm" href="mailto:eric@prongstudio.app?subject=Prong%20Studio%20early%20access">Request early access</a>
+      </nav>
+    </div>
+  </header>
+
+  <main id="top">
+    <!-- HERO -->
+    <section class="hero">
+      <div class="wrap">
+        <div class="hero-copy reveal">
+          <div class="badges">
+            <span class="pill">By a jeweller, for the bench</span>
+            <span class="pill hot">In daily use</span>
+          </div>
+          <h1>Quote bespoke work in <em>minutes</em> — and know your margin before you send it.</h1>
+          <p class="lede">Prong Studio is the workshop platform for custom jewellers: precise quoting, proposals clients accept on their phone, production tracking, and professional invoices — all in one place.</p>
+          <div class="cta-row">
+            <a class="btn btn-primary" href="mailto:eric@prongstudio.app?subject=Prong%20Studio%20early%20access&body=Hi%20%E2%80%94%20I%27d%20like%20early%20access%20to%20Prong%20Studio.%20My%20studio%20is%3A%20">Request early access</a>
+            <a class="btn btn-ghost" href="#features">See how it works</a>
+          </div>
+          <p class="trust-line">Built by a working jeweller <span class="dot"></span> No lock-in <span class="dot"></span> Export your data anytime</p>
+        </div>
+
+        <div class="hero-demo reveal">
+          <div class="sq a" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3l7 3v6c0 4-3 7-7 9-4-2-7-5-7-9V6z"/></svg></div>
+          <div class="sq b" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m5 12 5 5L20 6"/></svg></div>
+          <div class="quote" role="img" aria-label="Example quote for an engagement ring, totalling $12,320 including GST">
+            <div class="quote-head"><span class="t">Quote · Engagement ring</span><span class="n">Q-1042</span></div>
+            <div class="quote-body">
+              <div class="qline"><span class="d">Design &amp; CAD</span><span class="v">$580</span></div>
+              <div class="qline"><span class="d">18ct yellow gold · 9.4g<small>at $148.20/g<span class="live"><span class="pip"></span>live</span></small></span><span class="v">$1,393</span></div>
+              <div class="qline"><span class="d">Round brilliant · 1.10ct</span><span class="v">$8,750</span></div>
+              <div class="qline"><span class="d">Setting · six-claw</span><span class="v">$240</span></div>
+            </div>
+            <div class="quote-total"><span class="l">Client price · inc GST</span><span class="v">$12,320</span></div>
+          </div>
+          <p class="fig-note">An illustrative quote. Your metals, stones, settings and markups — your numbers.</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- TRUST STRIP -->
+    <div class="strip reveal">
+      <div class="wrap">
+        <div class="item"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 20V10l8-6 8 6v10"/><path d="M9 20v-6h6v6"/></svg> Built at the bench, not the boardroom</div>
+        <div class="item"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="m8 12 3 3 5-6"/></svg> In real, daily use in a working studio</div>
+        <div class="item"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3v18M5 8l7-5 7 5"/></svg> Independent &amp; Australian-made</div>
+      </div>
+    </div>
+
+    <!-- STORY -->
+    <section class="story">
+      <svg class="mark mark-wm" aria-hidden="true"><use href="#prong"/></svg>
+      <div class="wrap reveal">
+        <p class="eyebrow">Built by a jeweller</p>
+        <h2>From the bench up — <em>not</em> a generic CRM bent to fit.</h2>
+        <p>Prong Studio is built and run every day inside a real custom-jewellery studio — by a jeweller who got tired of quoting bespoke work on spreadsheets and sticky notes. Every screen, workflow and calculation solves an actual problem at the bench: how you price by hand, sell by relationship, and make one-off pieces to order.</p>
+        <p class="sig"><b>It works the way you already work</b> — just faster, clearer, and in one place.</p>
+      </div>
+    </section>
+
+    <!-- FEATURES -->
+    <section class="section" id="features" style="padding-bottom:20px">
+      <div class="wrap">
+        <div class="sec-head reveal">
+          <p class="eyebrow">Everything a custom workshop needs</p>
+          <h2>One workflow, from first enquiry to final collection.</h2>
+        </div>
+      </div>
+
+      <div class="frow reveal">
+        <div class="ftxt">
+          <p class="eyebrow">Quote faster</p>
+          <h3>Know your margin before you send anything.</h3>
+          <p>Structured quoting built around how bespoke work is actually priced — metal, stones and labour broken out, with your markups doing the maths.</p>
+          <ul class="checks">
+            <li><span class="ck"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="m5 12 5 5L20 6"/></svg></span> Live metal prices, updated automatically</li>
+            <li><span class="ck"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="m5 12 5 5L20 6"/></svg></span> Cast vs hand-fabricated, white-gold premium built in</li>
+            <li><span class="ck"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="m5 12 5 5L20 6"/></svg></span> Stone &amp; setting pricing by size, style and care</li>
+            <li><span class="ck"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="m5 12 5 5L20 6"/></svg></span> Trade-in credits handled cleanly</li>
+          </ul>
+        </div>
+        <div class="visual">
+          <div class="quote">
+            <div class="quote-head"><span class="t">Quote · Engagement ring</span><span class="n">Q-1042</span></div>
+            <div class="quote-body">
+              <div class="qline"><span class="d">Design &amp; CAD</span><span class="v">$580</span></div>
+              <div class="qline"><span class="d">18ct white gold · 9.4g<small>white-gold premium applied</small></span><span class="v">$1,486</span></div>
+              <div class="qline"><span class="d">Round brilliant · 1.10ct</span><span class="v">$8,750</span></div>
+              <div class="qline"><span class="d">Setting · six-claw</span><span class="v">$240</span></div>
+            </div>
+            <div class="quote-total"><span class="l">Client price · inc GST</span><span class="v">$12,470</span></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="frow rev reveal">
+        <div class="ftxt">
+          <p class="eyebrow">Win more jobs</p>
+          <h3>Send proposals clients actually accept.</h3>
+          <p>Branded online proposals your clients open and accept on their phone — with real options they can choose between, and no PDFs going back and forth.</p>
+          <ul class="checks">
+            <li><span class="ck"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="m5 12 5 5L20 6"/></svg></span> One, or several options — good / better / premium</li>
+            <li><span class="ck"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="m5 12 5 5L20 6"/></svg></span> One-tap acceptance, right from the link</li>
+            <li><span class="ck"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="m5 12 5 5L20 6"/></svg></span> An email the moment they say yes</li>
+            <li><span class="ck"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="m5 12 5 5L20 6"/></svg></span> A polished, premium client presentation</li>
+          </ul>
+        </div>
+        <div class="visual">
+          <div class="panel">
+            <div class="panel-head"><span class="t">Proposal · sent to client</span><span class="b">3 options</span></div>
+            <div class="opts">
+              <div class="opt"><div><div class="lbl">Option A</div><div class="met">9ct yellow gold</div></div><div class="pr">$3,950</div></div>
+              <div class="opt sel"><div><div class="lbl">Option B</div><div class="met">18ct yellow gold</div><div class="acc"><svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="3"><path d="m5 12 5 5L20 6"/></svg> Accepted</div></div><div class="pr">$5,090</div></div>
+              <div class="opt"><div><div class="lbl">Option C</div><div class="met">Platinum</div></div><div class="pr">$6,480</div></div>
+            </div>
+            <div class="opt-btn">Accept this option</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="frow reveal">
+        <div class="ftxt">
+          <p class="eyebrow">Stay organised</p>
+          <h3>Know exactly where every job is.</h3>
+          <p>Accepted proposals become tracked jobs automatically — visible across every stage of the bench, so nothing slips between the tweezers.</p>
+          <ul class="checks">
+            <li><span class="ck"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="m5 12 5 5L20 6"/></svg></span> A drag-and-drop board across your own stages</li>
+            <li><span class="ck"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="m5 12 5 5L20 6"/></svg></span> Due dates, list &amp; board views</li>
+            <li><span class="ck"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="m5 12 5 5L20 6"/></svg></span> Repairs &amp; safekeeping tracked alongside</li>
+            <li><span class="ck"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="m5 12 5 5L20 6"/></svg></span> No more "where's my ring?" guesswork</li>
+          </ul>
+        </div>
+        <div class="visual">
+          <div class="panel">
+            <div class="panel-head"><span class="t">Production board</span><span class="b">8 active</span></div>
+            <div class="board">
+              <div class="col"><div class="ch">CAD <b>2</b></div><div class="jcard"><div class="jn">Halo ring</div><div class="jc">M. Ellis</div><div class="jd">Due Fri</div></div></div>
+              <div class="col"><div class="ch">Bench <b>3</b></div><div class="jcard"><div class="jn">Signet</div><div class="jc">R. Okafor</div><div class="jd">Due Mon</div></div></div>
+              <div class="col"><div class="ch">Setting <b>2</b></div><div class="jcard"><div class="jn">Solitaire</div><div class="jc">T. Nguyen</div><div class="jd">Due Wed</div></div></div>
+              <div class="col"><div class="ch">QC <b>1</b></div><div class="jcard"><div class="jn">Eternity</div><div class="jc">A. Rossi</div><div class="jd">Ready</div></div></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="frow rev reveal">
+        <div class="ftxt">
+          <p class="eyebrow">Get paid</p>
+          <h3>Invoices &amp; payment — on your terms.</h3>
+          <p>Professional invoices emailed straight to the client under your studio's name. Take card with your own payment link, and export to your accountant whenever you like — no forced integration, no lock-in.</p>
+          <ul class="checks">
+            <li><span class="ck"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="m5 12 5 5L20 6"/></svg></span> Emailed as your studio, GST-ready</li>
+            <li><span class="ck"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="m5 12 5 5L20 6"/></svg></span> Bring your own pay link — Stripe, PayPal, bank</li>
+            <li><span class="ck"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="m5 12 5 5L20 6"/></svg></span> One-click CSV export for MYOB, Xero or your bookkeeper</li>
+            <li><span class="ck"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="m5 12 5 5L20 6"/></svg></span> Deposit &amp; balance, tracked automatically</li>
+          </ul>
+        </div>
+        <div class="visual">
+          <div class="panel">
+            <div class="panel-head"><span class="t">This month</span><span class="b">Reporting</span></div>
+            <div class="stats">
+              <div class="stat"><div class="k">Revenue</div><div class="v">$48,210</div><div class="s">+18% vs last</div></div>
+              <div class="stat"><div class="k">Gross profit</div><div class="v">47.5%</div><div class="s mut">$22,894</div></div>
+              <div class="stat"><div class="k">Jobs accepted</div><div class="v">14</div><div class="s mut">6 in production</div></div>
+              <div class="stat"><div class="k">Avg job value</div><div class="v">$3,443</div><div class="s mut">across all types</div></div>
+            </div>
+            <p class="fig-note" style="margin-top:12px">Illustrative figures.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- WHY -->
+    <section class="section why">
+      <div class="wrap">
+        <div class="sec-head reveal">
+          <p class="eyebrow">Why Prong Studio</p>
+          <h2>Your studio. Your data. Your brand.</h2>
+        </div>
+        <div class="grid3">
+          <div class="card reveal">
+            <div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 3l7 3v6c0 4-3 7-7 9-4-2-7-5-7-9V6z"/><path d="m9 12 2 2 4-4"/></svg></div>
+            <h3>No lock-in</h3>
+            <p>Export your invoices to CSV any time. Your records are yours to take — no hostage data, no exit fee.</p>
+          </div>
+          <div class="card reveal">
+            <div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="6" width="18" height="12" rx="2"/><path d="M3 10h18"/></svg></div>
+            <h3>Your own payment link</h3>
+            <p>Use whatever you already have — Stripe, PayPal, your bank. No new merchant account, no per-transaction cut to us.</p>
+          </div>
+          <div class="card reveal">
+            <div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 20V10l8-6 8 6v10"/><path d="M9 20v-6h6v6"/></svg></div>
+            <h3>Your brand, not ours</h3>
+            <p>Proposals and invoices go out under your studio's name and reply to you. Clients never see the software behind it.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- PRICING -->
+    <section class="section" id="pricing">
+      <div class="wrap">
+        <div class="sec-head reveal">
+          <p class="eyebrow">Pricing</p>
+          <h2>One plan. Everything included.</h2>
+          <p>No per-user fees, no add-ons. Free while we're in early access — a simple flat monthly rate at launch.</p>
+        </div>
+        <div class="price-wrap reveal">
+          <div class="price">
+            <div class="price-top">
+              <div class="tag">Prong Studio · Early access</div>
+              <div class="amt">Free</div>
+              <div class="per">while in early access · flat monthly pricing at launch</div>
+            </div>
+            <ul class="price-list">
+              <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="m5 12 5 5L20 6"/></svg> Quote custom jewellery in minutes</li>
+              <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="m5 12 5 5L20 6"/></svg> Interactive proposals clients accept online</li>
+              <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="m5 12 5 5L20 6"/></svg> Production board, repairs, stock &amp; CRM</li>
+              <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="m5 12 5 5L20 6"/></svg> Invoices, your pay link &amp; CSV export</li>
+              <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="m5 12 5 5L20 6"/></svg> Live metal prices &amp; margin on every job</li>
+              <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="m5 12 5 5L20 6"/></svg> Unlimited team members</li>
+            </ul>
+            <div class="price-cta">
+              <a class="btn btn-primary" href="mailto:eric@prongstudio.app?subject=Prong%20Studio%20early%20access&body=Hi%20%E2%80%94%20I%27d%20like%20early%20access%20to%20Prong%20Studio.%20My%20studio%20is%3A%20">Request early access</a>
+              <p class="fine">No credit card · No lock-in · Your data stays yours</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- FAQ -->
+    <section class="section" id="faq" style="padding-top:20px">
+      <div class="wrap">
+        <div class="sec-head reveal"><p class="eyebrow">FAQ</p><h2>Questions, answered.</h2></div>
+        <div class="faq reveal">
+          <details><summary>What is Prong Studio?</summary><div class="a">A workshop platform for custom and bespoke jewellers — it handles quoting, online proposals, production tracking, clients, repairs, stock and invoicing, in one place designed around how custom work actually runs.</div></details>
+          <details><summary>Who built it?</summary><div class="a">A working custom jeweller, built for their own studio and used there every day. It's shaped by real bench work, not software-company guesswork.</div></details>
+          <details><summary>How does early access work?</summary><div class="a">It's live and in daily use now. Request access, tell me about your studio, and I'll get you set up. It's free while we're in early access.</div></details>
+          <details><summary>Can my clients pay by card?</summary><div class="a">Yes — add your own Stripe, PayPal or bank payment link and a "Pay online" button appears on the invoices you send. You use whatever provider you already have; nothing new to sign up for.</div></details>
+          <details><summary>Does it work with my accounting software?</summary><div class="a">You can export your invoices to a CSV any time and import them into MYOB, Xero, or hand them to your bookkeeper. Direct accounting sync is on the roadmap.</div></details>
+          <details><summary>Do quotes use live metal prices?</summary><div class="a">Yes — metal prices update automatically, with cast vs fabricated rates and a white-gold premium built in, so your quote reflects today's cost, not last month's.</div></details>
+          <details><summary>Is my data mine?</summary><div class="a">Always. Export your invoices whenever you want — no lock-in, no exit fee. Each studio's data is isolated and private.</div></details>
+          <details><summary>Who is it for?</summary><div class="a">Independent custom and bespoke jewellers and small studios who quote one-off pieces, send proposals, and want to run the whole job from enquiry to collection in one place.</div></details>
+        </div>
+      </div>
+    </section>
+
+    <!-- CLOSING -->
+    <section class="closing">
+      <div class="wrap">
+        <div class="box reveal">
+          <svg class="mark mark-wm" aria-hidden="true"><use href="#prong"/></svg>
+          <p class="eyebrow">Early access</p>
+          <h2>Spend less time quoting. More time making jewellery.</h2>
+          <p>Prong Studio is live and in daily use. Tell me about your studio and I'll get you in.</p>
+          <a class="btn btn-primary" href="mailto:eric@prongstudio.app?subject=Prong%20Studio%20early%20access&body=Hi%20%E2%80%94%20I%27d%20like%20early%20access%20to%20Prong%20Studio.%20My%20studio%20is%3A%20">Request early access</a>
+          <p class="mailnote">or email eric@prongstudio.app</p>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer>
+    <div class="wrap">
+      <a class="brand" href="#top">
+        <svg class="mark mark-sm" aria-hidden="true"><use href="#prong"/></svg>
+        <span class="name">Prong Studio</span>
+      </a>
+      <div class="meta">
+        <span>prongstudio.app</span><span class="dot"></span>
+        <a href="mailto:eric@prongstudio.app?subject=Prong%20Studio%20early%20access">Request early access</a><span class="dot"></span>
+        <span>Independent · Australian-made</span>
+      </div>
+    </div>
+  </footer>
+</div>
+
+<script>
+  (function(){
+    var els=[].slice.call(document.querySelectorAll('.reveal'));
+    if(!('IntersectionObserver'in window)||window.matchMedia('(prefers-reduced-motion:reduce)').matches){
+      els.forEach(function(e){e.classList.add('in');});return;
+    }
+    var io=new IntersectionObserver(function(entries){
+      entries.forEach(function(en){if(en.isIntersecting){en.target.classList.add('in');io.unobserve(en.target);}});
+    },{rootMargin:'0px 0px -8% 0px',threshold:.1});
+    els.forEach(function(e){io.observe(e);});
+  })();
+</script>
+
+</body>
+</html>
