@@ -8569,10 +8569,18 @@ export default function App(){
         beats the (non-important) inline value — so no per-element edits are needed. Grids that
         start "1fr 1fr…" (2/3-col forms + most tile rows) and the 220px sidebar splits collapse;
         fixed-width data-table rows keep their columns (those get horizontal scroll in Phase 3). */}
-    <style>{`@media(max-width:767px){
-      [style*="grid-template-columns: 1fr 1fr"]{grid-template-columns:1fr!important}
-      [style*="grid-template-columns: 220px 1fr"]{grid-template-columns:1fr!important}
-    }`}</style>
+    <style>{`
+      .mainpad{padding:40px 56px}
+      @media(max-width:1080px){.mainpad{padding:30px 30px}}
+      @media(max-width:900px){
+        [style*="grid-template-columns: 1fr 1fr 1fr"]{grid-template-columns:1fr 1fr!important}
+      }
+      @media(max-width:767px){
+        .mainpad{padding:68px 14px 24px}
+        [style*="grid-template-columns: 1fr 1fr"]{grid-template-columns:1fr!important}
+        [style*="grid-template-columns: 220px 1fr"]{grid-template-columns:1fr!important}
+      }
+    `}</style>
     {/* Mobile top bar — hamburger opens the nav drawer (desktop keeps the fixed sidebar) */}
     {isMobile&&<div style={{position:"fixed",top:0,left:0,right:0,height:52,background:"#000000",display:"flex",alignItems:"center",gap:12,padding:"0 14px",zIndex:1000}}>
       <button onClick={()=>setDrawerOpen(true)} aria-label="Open menu" style={{background:"none",border:"none",cursor:"pointer",padding:6,display:"flex",flexDirection:"column",gap:4}}>
@@ -8617,7 +8625,7 @@ export default function App(){
         </div>
       </div>
     </div>
-    <div style={{flex:1,padding:isMobile?"16px 14px":"40px 56px",paddingTop:isMobile?68:40,width:"100%",minWidth:0,overflowX:isMobile?"auto":undefined}}>
+    <div className="mainpad" style={{flex:1,width:"100%",minWidth:0,overflowX:"auto"}}>
       {!storageReady
         ?<div style={{display:"flex",alignItems:"center",justifyContent:"center",height:300,flexDirection:"column",gap:12}}>
             <div style={{fontSize:13,color:WG}}>Loading your data…</div>
