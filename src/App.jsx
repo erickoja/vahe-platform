@@ -1258,7 +1258,8 @@ const buildInvoiceSnapshot=({inv,job,client,biz,payments})=>{
   return{
     kind:"invoice",
     biz:{name:biz?.name||"",logo:biz?.logo||"",phone:biz?.phone||"",email:biz?.email||"",abn:biz?.abn||"",address:biz?.address||"",
-      bankName:biz?.bankName||"",bankAccountName:biz?.bankAccountName||biz?.name||"",bankBSB:biz?.bankBSB||"",bankAccount:biz?.bankAccount||""},
+      bankName:biz?.bankName||"",bankAccountName:biz?.bankAccountName||biz?.name||"",bankBSB:biz?.bankBSB||"",bankAccount:biz?.bankAccount||"",
+      paymentLink:biz?.paymentLink||""},
     clientName:clientDisplayName(client),
     number:inv.number,
     date:inv.date,
@@ -1891,6 +1892,7 @@ ${job?.description?`<div class="desc-box"><strong>${job.type}</strong><br>${job.
   </div>
 </div>
 ${inv.notes?`<div class="notes">${inv.notes}</div>`:""}
+${biz.paymentLink?`<div style="text-align:center;margin:20px 0 6px"><a href="${biz.paymentLink}" style="display:inline-block;background:#1A1714;color:#fff;text-decoration:none;padding:11px 28px;border-radius:5px;font-size:13px;font-weight:700">Pay online</a><div style="font-size:11px;color:#6B6560;margin-top:6px">${biz.paymentLink}</div></div>`:""}
 <div class="valid">Payment due within 7 days. Thank you for your business.</div>
 <div class="footer">${biz.name||"Your Jewellery Studio"}${biz.abn?" · ABN "+biz.abn:""}</div>
 </body></html>`);
@@ -4438,6 +4440,9 @@ function PublicRepairBody({snap,responded,decision,responderName,onRespond}){
 function PublicInvoiceBody({snap}){
   const b=snap.biz||{};
   const bank=[["Bank",b.bankName],["Account name",b.bankAccountName],["BSB",b.bankBSB],["Account",b.bankAccount],["Reference",snap.number]].filter(([,v])=>v);
+  // Amount the client still owes on this invoice (staged → the requested slice, else the balance).
+  const owed=snap.staged?(Number(snap.dueNow)||0):((snap.paidTotal>0||snap.tradeIn>0)?(Number(snap.balance)||0):(Number(snap.totalIncGST)||0));
+  const payUrl=(b.paymentLink||"").trim();
   return <div style={{maxWidth:680,margin:"0 auto"}}>
     {/* Header */}
     <div style={{background:INK,borderRadius:`${RADIUS}px ${RADIUS}px 0 0`,padding:"32px 32px 26px",color:WHITE,display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:16,flexWrap:"wrap"}}>
@@ -4504,6 +4509,10 @@ function PublicInvoiceBody({snap}){
           {bank.map(([k,v])=><div key={k} style={{display:"flex",gap:16,padding:"3px 0"}}><div style={{color:WG,width:110,flexShrink:0}}>{k}</div><div style={{fontWeight:k==="Reference"?800:600,color:INK}}>{v}</div></div>)}
         </div>
         <div style={{fontSize:12,color:WG,marginTop:12,lineHeight:1.5}}>Please use <strong style={{color:INK}}>{snap.number}</strong> as the payment reference so we can match your payment.</div>
+      </div>}
+      {payUrl&&owed>0.005&&<div style={{marginTop:18,textAlign:"center"}}>
+        <a href={payUrl} target="_blank" rel="noopener noreferrer" style={{display:"inline-block",background:INK,color:WHITE,textDecoration:"none",padding:"14px 34px",borderRadius:6,fontSize:15,fontWeight:700}}>Pay online</a>
+        <div style={{fontSize:12,color:WG,marginTop:10}}>Amount due: <strong style={{color:INK}}>{fmt(owed)}</strong> · use reference <strong style={{color:INK}}>{snap.number}</strong></div>
       </div>}
       <div style={{textAlign:"center",fontSize:10,color:WG,marginTop:24}}>All amounts in AUD · GST inclusive</div>
     </div>
@@ -5753,8 +5762,34 @@ function InvoicesList({invoices,jobs,clients,quotes,payments,setInvoices,markupT
       });
     });
   }
+  // Export all invoices to a CSV your accountant / MYOB / Xero can import (ex-GST, GST, total,
+  // paid, balance). Payments are job-level, so distribute each job's cash across its invoices
+  // oldest-first — same rule as the summary tiles — for accurate per-invoice paid/balance.
+  const exportCsv=()=>{
+    const csvCell=v=>{const s=String(v==null?"":v);return /[",\r\n]/.test(s)?'"'+s.replace(/"/g,'""')+'"':s;};
+    const paidMap={},balMap={};
+    const byJob={};invoices.forEach(i=>{(byJob[i.jobId]=byJob[i.jobId]||[]).push(i);});
+    Object.keys(byJob).forEach(jid=>{
+      let cash=payments.filter(p=>p.jobId===jid&&p.status==="Received").reduce((s,p)=>s+Number(p.amount),0);
+      byJob[jid].slice().sort((a,b)=>String(a.date).localeCompare(String(b.date))).forEach(inv=>{
+        const gross=Number(inv.totalIncGST)||0;const afterTradeIn=Math.max(0,gross-(Number(inv.tradeInCredit)||0));
+        const cashApplied=Math.min(cash,afterTradeIn);cash-=cashApplied;
+        balMap[inv.id]=Math.max(0,afterTradeIn-cashApplied);paidMap[inv.id]=gross-balMap[inv.id];
+      });
+    });
+    const rows=[["Invoice","Date","Customer","Description","Subtotal (ex GST)","GST","Total (inc GST)","Trade-in credit","Amount received","Balance","Status"]];
+    invoices.slice().sort((a,b)=>String(a.date).localeCompare(String(b.date))).forEach(inv=>{
+      const job=jobs.find(j=>j.id===inv.jobId);const cl=job?clients.find(x=>x.id===job.clientId):null;
+      const total=Number(inv.totalIncGST)||0,gst=Number(inv.gst)||0;
+      const desc=(inv.descriptionOverride||job?.type||"").replace(/\s+/g," ").trim();
+      rows.push([inv.number,inv.date,cl?clientDisplayName(cl):"",desc,(total-gst).toFixed(2),gst.toFixed(2),total.toFixed(2),(Number(inv.tradeInCredit)||0).toFixed(2),(paidMap[inv.id]||0).toFixed(2),(balMap[inv.id]||0).toFixed(2),invoiceEffectiveStatus(inv,payments,invoices)]);
+    });
+    const csv="﻿"+rows.map(r=>r.map(csvCell).join(",")).join("\r\n");
+    const url=URL.createObjectURL(new Blob([csv],{type:"text/csv;charset=utf-8;"}));
+    const a=document.createElement("a");a.href=url;a.download=`invoices-${today()}.csv`;document.body.appendChild(a);a.click();a.remove();URL.revokeObjectURL(url);
+  };
   return <div>
-    <SectionHeader title="Invoices" action={<Btn onClick={openModal}>+ New Invoice</Btn>}/>
+    <SectionHeader title="Invoices" action={<div style={{display:"flex",gap:8,alignItems:"center",flexWrap:"wrap"}}>{invoices.length>0&&<Btn ghost sm onClick={exportCsv}>⬇ Export CSV</Btn>}<Btn onClick={openModal}>+ New Invoice</Btn></div>}/>
     {invoices.length>0&&<div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:12,marginBottom:18}}>
       {[["Total invoiced",fmt(grossInvoiced),INK],["Outstanding",fmt(totalOut),totalOut>0?WARN:OK],["Collected",fmt(totalPaid),OK]].map(([l,v,col])=>(
         <div key={l} style={{background:WHITE,border:`1px solid ${BD}`,borderRadius:4,padding:"14px 16px"}}>
@@ -6777,6 +6812,10 @@ function Settings({biz,setBiz,markupTable,setMarkupTable,naturalStoneMarkup,setN
           <Input label="Account name" value={bForm.bankAccountName||""} onChange={setBF("bankAccountName")} placeholder="VAHÉ Jewellery"/>
           <Input label="BSB" value={bForm.bankBSB||""} onChange={setBF("bankBSB")} placeholder="063 626"/>
           <Input label="Account number" value={bForm.bankAccount||""} onChange={setBF("bankAccount")} placeholder="1051 9975"/>
+        </div>
+        <div style={{marginTop:14}}>
+          <Input label="Online payment link (optional)" value={bForm.paymentLink||""} onChange={setBF("paymentLink")} placeholder="https://buy.stripe.com/…  or  https://paypal.me/…"/>
+          <div style={{fontSize:11,color:WG,marginTop:2,lineHeight:1.5}}>Paste your own Stripe, PayPal or bank "pay" link. A <strong style={{color:INK}}>Pay online</strong> button appears on the invoice you send clients, taking them straight to it — no integration needed. Create a "customer chooses amount" link so it works for any invoice. Leave blank to only show bank-transfer details.</div>
         </div>
       </div>
       <div style={{display:"flex",justifyContent:"flex-end"}}><Btn onClick={saveBiz}>Save business details</Btn></div>
