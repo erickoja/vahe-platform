@@ -2002,7 +2002,7 @@ function Dashboard({clients,jobs,quotes,payments,invoices,appointments=[],propos
     })}
     <div style={{marginBottom:28}}>
       <div style={{fontSize:11,fontWeight:700,color:WG,letterSpacing:"0.14em",textTransform:"uppercase",marginBottom:5}}>Workshop overview</div>
-      <h1 style={{margin:0,fontSize:32,fontWeight:500,color:INK,letterSpacing:"-0.01em",fontFamily:"'Poppins',sans-serif"}}>{(()=>{const h=new Date().getHours();return h<12?"Good morning":h<17?"Good afternoon":"Good evening";})()}</h1>
+      <h1 style={{margin:0,fontSize:32,fontWeight:700,color:INK,letterSpacing:"-0.02em",fontFamily:"'Poppins',sans-serif"}}>{(()=>{const h=new Date().getHours();return h<12?"Good morning":h<17?"Good afternoon":"Good evening";})()}</h1>
       <div style={{color:INK,fontSize:15,marginTop:6,lineHeight:1.5}}>Here's everything happening in your workshop today.</div>
       <div style={{color:WG,fontSize:12.5,marginTop:3}}>{fmtDate(today())}</div>
     </div>
