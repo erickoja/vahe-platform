@@ -201,6 +201,19 @@
   .why .card h3{font-size:1.12rem;margin:0}
   .why .card p{color:var(--muted);font-size:.95rem;margin:9px 0 0}
 
+  /* extras grid — supporting features */
+  .extras{padding-top:20px}
+  .grid4{display:grid;grid-template-columns:repeat(4,1fr);gap:20px;margin:46px 0 0}
+  .xcard{background:var(--surface);border:1px solid var(--line);border-radius:var(--rc);padding:26px 22px;box-shadow:var(--shadow-sm)}
+  .xcard .ic{width:44px;height:44px;border-radius:12px;display:grid;place-items:center;margin-bottom:16px}
+  .xcard .ic svg{width:22px;height:22px;color:#fff}
+  .xcard:nth-child(1) .ic{background:var(--accent)} .xcard:nth-child(2) .ic{background:var(--peri)}
+  .xcard:nth-child(3) .ic{background:var(--sun)} .xcard:nth-child(4) .ic{background:var(--ok)}
+  .xcard h3{font-size:1.1rem;margin:0}
+  .xcard p{color:var(--muted);font-size:.94rem;margin:9px 0 0}
+  @media (max-width:860px){.grid4{grid-template-columns:1fr 1fr}}
+  @media (max-width:520px){.grid4{grid-template-columns:1fr}}
+
   /* pricing */
   .price-wrap{max-width:450px;margin:46px auto 0}
   .price{background:var(--surface);border:1px solid var(--line);border-radius:22px;box-shadow:var(--shadow);overflow:hidden}
@@ -465,6 +478,39 @@
               <div class="stat"><div class="k">Avg job value</div><div class="v">$3,443</div><div class="s mut">across all types</div></div>
             </div>
             <p class="fig-note" style="margin-top:12px">Illustrative figures.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- EXTRAS -->
+    <section class="section extras">
+      <div class="wrap">
+        <div class="sec-head reveal">
+          <p class="eyebrow">More in every plan</p>
+          <h2>Everything else your studio runs on.</h2>
+          <p>Beyond quoting and jobs — the day-to-day tools a working bench needs, in the same place.</p>
+        </div>
+        <div class="grid4">
+          <div class="xcard reveal">
+            <div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 11V5a2 2 0 0 1 2-2h6l9 9-8 8-9-9z"/><circle cx="7.6" cy="7.6" r="1.4" fill="currentColor" stroke="none"/></svg></div>
+            <h3>Stock &amp; display pieces</h3>
+            <p>Keep your ready-to-sell and display stock with photos, SKUs and pricing — separate from custom jobs, always to hand.</p>
+          </div>
+          <div class="xcard reveal">
+            <div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="4.5" y="10.5" width="15" height="10" rx="2"/><path d="M8 10.5V7a4 4 0 0 1 8 0v3.5"/></svg></div>
+            <h3>Client safekeeping</h3>
+            <p>Log any client-owned stone or piece you're holding and print a receipt as proof — nothing goes missing, nothing gets confused.</p>
+          </div>
+          <div class="xcard reveal">
+            <div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3.5" y="4.5" width="17" height="16" rx="2"/><path d="M3.5 9.5h17M8 3v3.5M16 3v3.5"/></svg></div>
+            <h3>Appointments &amp; calendar</h3>
+            <p>Book consultations, fittings, repairs and pickups — then subscribe to a live feed so every appointment shows in Google, Apple or Outlook.</p>
+          </div>
+          <div class="xcard reveal">
+            <div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M14.5 6.5a3.6 3.6 0 0 0-4.9 4.9l-6 6L6 20l6-6a3.6 3.6 0 0 0 4.9-4.9l-2.3 2.3-2.1-.5-.5-2.1z"/></svg></div>
+            <h3>Repairs &amp; jobbing</h3>
+            <p>Track repairs and small jobbing work right alongside custom pieces, so the quick jobs never slip through the cracks.</p>
           </div>
         </div>
       </div>
