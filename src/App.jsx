@@ -3371,7 +3371,9 @@ function SettingPicker({onAdd,settingRates=DEFAULT_SETTING_RATES,pricing=[]}){
 }
 
 function QuoteBuilder({jobId:jobIdProp,editQuoteId,stockId,stock,setStock,jobs,clients,quotes,setQuotes,pricing,setPricing,markupTable,naturalStoneMarkup,labStoneMarkup,centreRates=DEFAULT_SETTING_RATES,setCentreRates,invoices=[],setInvoices,setView}){
-  const isMobile=useIsMobile();
+  // Wider "stack" breakpoint (1024) than the app default (768): the line-item editor is a wide
+  // multi-column table, so it stacks into cards on tablets too, not just phones.
+  const isMobile=useIsMobile(1024);
   const existingQuote=editQuoteId?quotes.find(q=>q.id===editQuoteId):null;
   // Stock-pricing mode: same builder, but the total becomes a stock piece's price (no quote/proposal chrome).
   const stockMode=!!stockId;
@@ -3678,7 +3680,7 @@ function QuoteBuilder({jobId:jobIdProp,editQuoteId,stockId,stock,setStock,jobs,c
       {mfgAccents.map(li=>{
         const cost=Number(li.costLow)||0;
         const totalStr=cost>0?fmt(cost):"—";
-        return <div key={li.id} style={{display:"grid",gridTemplateColumns:"minmax(240px,1.6fr) 1fr 120px 104px",gap:8,marginBottom:8,alignItems:"center"}}>
+        return <div key={li.id} style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"minmax(240px,1.6fr) 1fr 120px 104px",gap:8,marginBottom:isMobile?14:8,alignItems:isMobile?"stretch":"center",...(isMobile?{padding:"10px",border:`1px solid ${BD}`,borderRadius:6,background:PARCH}:{})}}>
           <div style={{display:"flex",alignItems:"center",gap:6,minWidth:0}}>
             <span style={{background:"#EDF5EF",color:"#4E8B6A",fontSize:8,fontWeight:800,padding:"3px 5px",borderRadius:3,letterSpacing:"0.04em",flexShrink:0}} title="Accent, feature or fancy stone">ACCENT</span>
             <input value={li.description} onChange={e=>setAccentItem(li.id,"description",e.target.value)} placeholder="e.g. pear sapphire" style={{...SS.inp,marginTop:0,fontSize:13,padding:"7px 10px",flex:1,minWidth:0}}/>
@@ -3702,7 +3704,7 @@ function QuoteBuilder({jobId:jobIdProp,editQuoteId,stockId,stock,setStock,jobs,c
       {stoneMode==="sourcing"&&stoneType&&stoneItems.map(li=>{
         const stoneCost=Number(li.cost)||Number(li.costLow)||0;
         const accent=stoneType==="lab"?"#96627C":"#4E8B6A";
-        return <div key={li.id} style={{display:"grid",gridTemplateColumns:"minmax(240px,1.6fr) 1fr 120px 104px",gap:8,marginBottom:8,alignItems:"center"}}>
+        return <div key={li.id} style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"minmax(240px,1.6fr) 1fr 120px 104px",gap:8,marginBottom:isMobile?14:8,alignItems:isMobile?"stretch":"center",...(isMobile?{padding:"10px",border:`1px solid ${BD}`,borderRadius:6,background:PARCH}:{})}}>
           <input value={li.description} onChange={e=>setStonItem(li.id,"description",e.target.value)} placeholder="e.g. 1.52ct oval sapphire" style={{...SS.inp,marginTop:0,fontSize:13,padding:"7px 10px",borderColor:stoneType==="lab"?"#CDB2C1":"#A6CBB4"}}/>
           <div style={{display:"flex",alignItems:"center",gap:6,minWidth:0}}>
             <span style={{background:accent+"18",color:accent,fontSize:8,fontWeight:800,padding:"3px 5px",borderRadius:3,letterSpacing:"0.04em",flexShrink:0,whiteSpace:"nowrap"}} title="Centre / feature stone — priced on the stone markup">CENTRE · {stoneType==="lab"?"LAB":"NAT"}</span>
