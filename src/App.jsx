@@ -7197,8 +7197,8 @@ function Appointments({appointments,setAppointments,clients,setClients,jobs=[],s
                 {a.notes&&<div style={{fontSize:13,color:WG,marginTop:4,lineHeight:1.5}}>{a.notes}</div>}
                 <div style={{display:"flex",gap:6,marginTop:8,flexWrap:"wrap"}}>
                   {isLiveAppt(a)&&<>
-                    <MiniBtn label="📅 Google Cal" color={GOLD_D} onClick={()=>window.open(googleCalUrl(a,clients),"_blank","noopener")}/>
-                    <MiniBtn label="⤓ .ics (Apple/Outlook)" color={WG} onClick={()=>downloadIcs(`appointment-${(a.id||"").slice(0,8)}.ics`,apptIcs(a,clients))}/>
+                    <MiniBtn label="📅 Add to Google Calendar" color={GOLD_D} onClick={()=>window.open(googleCalUrl(a,clients),"_blank","noopener")}/>
+                    <MiniBtn label="⤓ Add to Apple / Outlook Calendar" color={WG} onClick={()=>downloadIcs(`appointment-${(a.id||"").slice(0,8)}.ics`,apptIcs(a,clients))}/>
                     <MiniBtn label="✓ Done" color={OK} onClick={()=>setStatus(a.id,"Completed")}/>
                     <MiniBtn label="No-show" color={DANGER} onClick={()=>setStatus(a.id,"No-show")}/>
                     <MiniBtn label="Cancel" color={WARN} onClick={()=>setStatus(a.id,"Cancelled")}/>
