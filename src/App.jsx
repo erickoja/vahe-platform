@@ -901,6 +901,9 @@ const fmt=n=>`$${Number(n||0).toLocaleString("en-AU",{minimumFractionDigits:2,ma
 // Supabase gives functions an auto-generated URL slug separate from the display name;
 // this one's display name is "send-email" but its slug (used in the URL) is "smart-worker".
 const SEND_EMAIL_FN="smart-worker";
+// The calendar-feed edge function's URL slug (update to the real slug once deployed, like above).
+const CAL_FEED_FN="calendar-feed";
+const calFeedUrl=(token)=>token?`${(import.meta.env.VITE_SUPABASE_URL||"").replace(/\/$/,"")}/functions/v1/${CAL_FEED_FN}?token=${token}`:"";
 const _emlEsc=(s)=>String(s==null?"":s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
 // Branded, email-safe HTML: studio wordmark, greeting, message, a CTA button + raw link, footer.
 // Deliberately no <img>/data-URI logo — many mail clients block data URIs and show a broken image.
@@ -6799,7 +6802,7 @@ function Settings({biz,setBiz,markupTable,setMarkupTable,naturalStoneMarkup,setN
   const showToast=msg=>{setToast(msg);setTimeout(()=>setToast(null),2400);};
   // Preserve markup-table-owned settings (buffer / rounding) so saving business details can't wipe them.
   const saveBiz=()=>{
-    const nb={...bForm,markupBuffer:biz.markupBuffer||0,quoteRounding:biz.quoteRounding||0};
+    const nb={...bForm,calendarToken:biz.calendarToken,markupBuffer:biz.markupBuffer||0,quoteRounding:biz.quoteRounding||0};
     setBiz(nb);persist(K.biz,nb);
     // Sync this studio's name + acceptance-notification email to the studios table, so the
     // server-side email function can reach the right studio. RLS lets an owner update its studio.
@@ -6811,6 +6814,9 @@ function Settings({biz,setBiz,markupTable,setMarkupTable,naturalStoneMarkup,setN
     showToast("Business details saved");
   };
   const saveMt=()=>{setMarkupTable(mt);persist(K.mt,mt);const nb={...biz,markupBuffer:Number(buffer)||0,quoteRounding:Number(rounding)||0};setBiz(nb);persist(K.biz,nb);setMarkupBuffer(Number(buffer)||0);setQuoteRounding(Number(rounding)||0);showToast("Markup table saved");};
+  // Calendar subscription feed — a private token stored in biz settings; the calendar-feed edge fn serves the .ics.
+  const genFeedToken=()=>{const t=(uid()+uid()+uid()+Date.now().toString(36)).replace(/[^a-z0-9]/gi,"").slice(0,32);const nb={...biz,calendarToken:t};setBiz(nb);persist(K.biz,nb);showToast("Calendar link created");};
+  const feedUrl=calFeedUrl(biz.calendarToken);
   const saveSmNTable=()=>{setNaturalStoneMarkup(smn);persist(K.smn,smn);showToast("Natural stone markup saved");};
   const saveSmLTable=()=>{setLabStoneMarkup(sml);persist(K.sml,sml);showToast("Lab-grown stone markup saved");};
 
@@ -6872,6 +6878,21 @@ function Settings({biz,setBiz,markupTable,setMarkupTable,naturalStoneMarkup,setN
         </div>
       </div>
       <div style={{display:"flex",justifyContent:"flex-end"}}><Btn onClick={saveBiz}>Save business details</Btn></div>
+    </Card>
+
+    {/* Calendar subscription feed */}
+    <Card>
+      <div style={{fontWeight:700,fontSize:15,color:INK,marginBottom:4}}>Subscribe to your appointments calendar</div>
+      <div style={{fontSize:13,color:WG,marginBottom:14,lineHeight:1.6}}>Add this one private link to Google Calendar, Apple Calendar or Outlook and your appointments appear automatically and keep updating — no logins. <span style={{color:INK}}>Google refreshes subscribed calendars slowly (often several hours);</span> Apple and Outlook are quicker. For an instant add, use the <strong style={{color:INK}}>Add to calendar</strong> buttons on each appointment instead.</div>
+      {feedUrl
+        ?<div>
+          <div style={{display:"flex",gap:8,alignItems:"center",flexWrap:"wrap",background:PARCH,border:`1px solid ${BD}`,borderRadius:8,padding:"10px 12px"}}>
+            <span style={{flex:1,minWidth:180,fontSize:12,color:WG,wordBreak:"break-all",fontFamily:"monospace"}}>{feedUrl}</span>
+            <Btn sm onClick={()=>{navigator.clipboard?.writeText(feedUrl).catch(()=>{});showToast("Feed link copied");}}>Copy link</Btn>
+          </div>
+          <div style={{fontSize:11.5,color:WG,marginTop:10,lineHeight:1.6}}>In <strong style={{color:INK}}>Google Calendar</strong>: Other calendars → <strong>+</strong> → <strong>From URL</strong> → paste. In <strong style={{color:INK}}>Apple Calendar</strong>: File → New Calendar Subscription. Keep this link private — anyone with it can see your appointments. <button onClick={genFeedToken} style={{background:"none",border:"none",padding:0,color:GOLD_D,fontWeight:700,cursor:"pointer",fontFamily:"inherit",fontSize:11.5,textDecoration:"underline"}}>Reset link</button></div>
+        </div>
+        :<Btn sm onClick={genFeedToken}>Generate my calendar link</Btn>}
     </Card>
 
     {/* Markup table editor */}
@@ -7025,6 +7046,23 @@ const googleCalUrl=(a,clients)=>{
   const tz=(()=>{try{return Intl.DateTimeFormat().resolvedOptions().timeZone||"";}catch(e){return "";}})();
   return `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${enc(_apptCalTitle(a,clients))}&dates=${dates}${a.notes?`&details=${enc(a.notes)}`:""}${tz?`&ctz=${enc(tz)}`:""}`;
 };
+// Build one VEVENT for an appointment (used by the single-appointment .ics download AND the feed).
+const _icsEsc=s=>String(s==null?"":s).replace(/\\/g,"\\\\").replace(/;/g,"\\;").replace(/,/g,"\\,").replace(/\r?\n/g,"\\n");
+const _p2=n=>String(n).padStart(2,"0");
+const apptVEvent=(a,clients)=>{
+  let dtStart,dtEnd;
+  if(a.time){
+    const s=new Date(`${a.date}T${a.time}:00`),e=new Date(s.getTime()+3600000);
+    const f=d=>`${d.getFullYear()}${_p2(d.getMonth()+1)}${_p2(d.getDate())}T${_p2(d.getHours())}${_p2(d.getMinutes())}00`;
+    dtStart=`DTSTART:${f(s)}`;dtEnd=`DTEND:${f(e)}`;
+  }else{
+    const d0=(a.date||"").replace(/-/g,"");const nd=new Date(`${a.date}T00:00:00`);nd.setDate(nd.getDate()+1);
+    dtStart=`DTSTART;VALUE=DATE:${d0}`;dtEnd=`DTEND;VALUE=DATE:${nd.getFullYear()}${_p2(nd.getMonth()+1)}${_p2(nd.getDate())}`;
+  }
+  return ["BEGIN:VEVENT",`UID:${a.id||uid()}@prongstudio.app`,`DTSTAMP:${new Date().toISOString().replace(/[-:]/g,"").replace(/\.\d+/,"")}`,dtStart,dtEnd,`SUMMARY:${_icsEsc(_apptCalTitle(a,clients))}`,...(a.notes?[`DESCRIPTION:${_icsEsc(a.notes)}`]:[]),"END:VEVENT"].join("\r\n");
+};
+const apptIcs=(a,clients)=>["BEGIN:VCALENDAR","VERSION:2.0","PRODID:-//Prong Studio//Appointments//EN","CALSCALE:GREGORIAN",apptVEvent(a,clients),"END:VCALENDAR"].join("\r\n");
+const downloadIcs=(filename,ics)=>{const url=URL.createObjectURL(new Blob([ics],{type:"text/calendar;charset=utf-8"}));const el=document.createElement("a");el.href=url;el.download=filename;document.body.appendChild(el);el.click();el.remove();URL.revokeObjectURL(url);};
 function MiniBtn({label,color,onClick}){
   return <button onClick={e=>{e.stopPropagation();onClick();}} style={{background:color+"14",border:`1px solid ${color}44`,borderRadius:3,padding:"3px 10px",fontSize:11,fontWeight:700,color,cursor:"pointer",fontFamily:"inherit"}}>{label}</button>;
 }
@@ -7159,7 +7197,8 @@ function Appointments({appointments,setAppointments,clients,setClients,jobs=[],s
                 {a.notes&&<div style={{fontSize:13,color:WG,marginTop:4,lineHeight:1.5}}>{a.notes}</div>}
                 <div style={{display:"flex",gap:6,marginTop:8,flexWrap:"wrap"}}>
                   {isLiveAppt(a)&&<>
-                    <MiniBtn label="📅 Add to calendar" color={GOLD_D} onClick={()=>window.open(googleCalUrl(a,clients),"_blank","noopener")}/>
+                    <MiniBtn label="📅 Google Cal" color={GOLD_D} onClick={()=>window.open(googleCalUrl(a,clients),"_blank","noopener")}/>
+                    <MiniBtn label="⤓ .ics (Apple/Outlook)" color={WG} onClick={()=>downloadIcs(`appointment-${(a.id||"").slice(0,8)}.ics`,apptIcs(a,clients))}/>
                     <MiniBtn label="✓ Done" color={OK} onClick={()=>setStatus(a.id,"Completed")}/>
                     <MiniBtn label="No-show" color={DANGER} onClick={()=>setStatus(a.id,"No-show")}/>
                     <MiniBtn label="Cancel" color={WARN} onClick={()=>setStatus(a.id,"Cancelled")}/>
