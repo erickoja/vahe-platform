@@ -918,12 +918,17 @@ function buildClientEmailHtml({biz,clientName,message,ctaLabel,linkUrl}){
   const greeting=clientName?`Hi ${_emlEsc(clientName)},`:"Hello,";
   const body=_emlEsc(message).replace(/\n/g,"<br>");
   const url=_emlEsc(linkUrl);
+  // The CTA + "open in browser" block only render when there's a link (e.g. proposal/invoice).
+  // Link-free notifications (a "ready for collection" alert) skip them and read as a plain message.
+  const cta=linkUrl
+    ?`<a href="${url}" style="display:inline-block;background:#1a1a1a;color:#ffffff;text-decoration:none;padding:12px 26px;border-radius:6px;font-size:15px;font-weight:700">${_emlEsc(ctaLabel)}</a>`
+      +`<p style="font-size:13px;color:#888888;line-height:1.6;margin:26px 0 0">Or open this link in your browser:<br><a href="${url}" style="color:#666666">${url}</a></p>`
+    :"";
   return `<div style="font-family:Arial,Helvetica,sans-serif;max-width:520px;margin:0 auto;color:#1a1a1a;padding:8px">`
     +`<div style="border-bottom:2px solid #eeeeee;padding-bottom:14px;margin-bottom:20px"><div style="font-size:20px;font-weight:700;letter-spacing:0.02em">${name}</div></div>`
     +`<p style="font-size:15px;margin:0 0 14px">${greeting}</p>`
     +`<p style="font-size:15px;line-height:1.6;margin:0 0 22px">${body}</p>`
-    +`<a href="${url}" style="display:inline-block;background:#1a1a1a;color:#ffffff;text-decoration:none;padding:12px 26px;border-radius:6px;font-size:15px;font-weight:700">${_emlEsc(ctaLabel)}</a>`
-    +`<p style="font-size:13px;color:#888888;line-height:1.6;margin:26px 0 0">Or open this link in your browser:<br><a href="${url}" style="color:#666666">${url}</a></p>`
+    +cta
     +`<div style="border-top:1px solid #eeeeee;margin-top:26px;padding-top:14px;font-size:12px;color:#999999">${name}${contact?` &middot; ${contact}`:""}</div>`
     +`</div>`;
 }
@@ -973,6 +978,68 @@ function EmailClientButton({to,clientName,biz,linkUrl,docType,defaultSubject,def
         </div>}
     </Modal>}
   </>;
+}
+// "Ready for collection" banner + email notification. Shown on a job once its stage reaches
+// "Ready for collection"; emails the client (trade account or retail) a link-free "your piece is
+// ready" message via the same send-email edge function, and records readyNotifiedAt on the job.
+function ReadyForCollectionCard({job,client,biz,setJobs}){
+  const[open,setOpen]=useState(false);
+  const[email,setEmail]=useState("");
+  const[subject,setSubject]=useState("");
+  const[message,setMessage]=useState("");
+  const[busy,setBusy]=useState(false);
+  const[sent,setSent]=useState(false);
+  const[err,setErr]=useState("");
+  const trade=client?.accountType==="trade";
+  const ref=jobRef(job);
+  const who=trade?(client?.contactName||client?.name):clientDisplayName(client);
+  const defSubject=`Ready for collection — ${job.type}${trade?` (#${ref})`:""}`;
+  const defMessage=trade
+    ?`Job #${ref}${job.po?` (PO ${job.po})`:""} — ${job.type} — is finished and ready for collection.\n\nPlease collect at your convenience during our opening hours.`
+    :`Good news — your ${job.type} is ready to collect.\n\nPlease pop in during our opening hours to pick it up, or reply to this email if you'd like to arrange a time.`;
+  const openIt=()=>{setEmail(client?.email||"");setSubject(defSubject);setMessage(defMessage);setErr("");setSent(false);setOpen(true);};
+  const send=async()=>{
+    if(!email.trim()){setErr("Enter an email address.");return;}
+    setBusy(true);setErr("");
+    try{
+      const html=buildClientEmailHtml({biz,clientName:who,message});
+      await sendClientEmail({to:email.trim(),replyTo:biz?.email||"",fromName:biz?.name||"Your jeweller",subject:subject.trim()||defSubject,html});
+      setJobs(p=>{const n=p.map(j=>j.id===job.id?{...j,readyNotifiedAt:today(),readyNotifiedTo:email.trim()}:j);persist(K.jo,n);return n;});
+      setSent(true);setTimeout(()=>setOpen(false),1400);
+    }catch(e){setErr(e?.message||"Couldn't send the email.");}
+    setBusy(false);
+  };
+  const notified=job.readyNotifiedAt;
+  return <Card style={{border:`1px solid ${OK}66`,background:OK+"0C"}}>
+    <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:12}}>
+      <div style={{minWidth:0}}>
+        <div style={{fontWeight:800,fontSize:15,color:INK}}>📦 Ready for collection</div>
+        <div style={{fontSize:13,color:WG,marginTop:3,lineHeight:1.5}}>
+          {notified
+            ?<>✓ {trade?"Account":"Client"} notified on <strong style={{color:INK}}>{fmtDate(job.readyNotifiedAt)}</strong>{job.readyNotifiedTo?<> · {job.readyNotifiedTo}</>:null}</>
+            :client?.email
+              ?<>Let {trade?"the account":clientDisplayName(client)} know their {trade?"job is":"piece is"} ready to pick up.</>
+              :<>Add an email address to this client to notify them.</>}
+        </div>
+      </div>
+      <Btn sm ghost onClick={openIt} disabled={!client?.email}>{notified?"Notify again":"✉️ Notify ready"}</Btn>
+    </div>
+    {open&&<Modal title="Notify — ready for collection" onClose={()=>setOpen(false)}>
+      {sent
+        ?<div style={{padding:"14px 2px",fontSize:14,color:OK,fontWeight:700}}>✓ Sent to {email}</div>
+        :<div>
+          <Input label="To" value={email} onChange={setEmail} placeholder="client@example.com"/>
+          <Input label="Subject" value={subject} onChange={setSubject}/>
+          <Input label="Message" value={message} onChange={setMessage} as="textarea" rows={5}/>
+          <div style={{fontSize:12,color:WG,margin:"4px 0 14px",lineHeight:1.5}}>A plain notification — no attachment or link. Sent from <strong style={{color:INK}}>{biz?.name||"your studio"}</strong>{biz?.email?`; replies go to ${biz.email}`:""}.</div>
+          {err&&<div style={{fontSize:13,color:DANGER,marginBottom:12,lineHeight:1.5}}>{err}</div>}
+          <div style={{display:"flex",justifyContent:"flex-end",gap:10}}>
+            <Btn sm ghost onClick={()=>setOpen(false)}>Cancel</Btn>
+            <Btn sm onClick={send} disabled={busy}>{busy?"Sending…":"Send notification"}</Btn>
+          </div>
+        </div>}
+    </Modal>}
+  </Card>;
 }
 const fmtR=n=>`$${Math.round(Number(n||0)).toLocaleString("en-AU")}`;
 const today=()=>new Date().toISOString().slice(0,10);
@@ -3228,6 +3295,7 @@ function JobDetail({jobId,jobs,setJobs,clients,quotes,setQuotes,payments,setPaym
         <Btn sm={!isMobile} xs={isMobile} danger onClick={delJob}>Delete job</Btn>
       </div>
     </div>
+    {job.stage==="Ready for collection"&&<ReadyForCollectionCard job={job} client={c} biz={biz} setJobs={setJobs}/>}
     {editStage&&<Card style={{background:PARCH}}>
       <div style={{...SS.lbl,marginBottom:10}}>Move to stage</div>
       <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
