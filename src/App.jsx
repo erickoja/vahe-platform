@@ -7535,7 +7535,7 @@ function TodoBoard({todos,setTodos,jobs=[],clients=[],setView,setSelJob}){
   const addItem=pid=>{const t=(draft[pid]||"").trim();if(!t)return;save({people,items:[...items,{id:uid(),personId:pid,text:t,notes:"",due:"",done:false,status:"open",priority:"med",createdAt:new Date().toISOString()}]});setDraftFor(pid,"");};
   // Two independent controls: the square box marks done; the round dot flags in progress.
   const isDoing=i=>!i.done&&i.status==="doing";
-  const toggleDone=id=>save({people,items:items.map(i=>i.id===id?{...i,done:!i.done,status:i.done?"open":"done"}:i)});
+  const toggleDone=id=>{const it=items.find(i=>i.id===id);if(it&&!it.done&&!confirm("Mark this task as complete?"))return;save({people,items:items.map(i=>i.id===id?{...i,done:!i.done,status:i.done?"open":"done"}:i)});};
   const toggleDoing=id=>save({people,items:items.map(i=>i.id!==id||i.done?i:{...i,status:i.status==="doing"?"open":"doing"})});
   const removeItem=id=>save({people,items:items.filter(i=>i.id!==id)});
   const clearDone=pid=>save({people,items:items.filter(i=>!(i.personId===pid&&i.done))});
