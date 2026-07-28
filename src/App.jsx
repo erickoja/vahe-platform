@@ -1943,6 +1943,7 @@ function DashRow({onClick,last,children,col}){
 }
 function Dashboard({clients,jobs,quotes,payments,invoices,appointments=[],proposals=[],markProposalSeen,markRepairSeen,markupTable,setView,setSelClient}){
   const isMobile=useIsMobile();
+  const stackCols=useIsMobile(1000);   // stack the two-column bottom section on tablets too, not just phones
   // Proposals a client accepted that haven't been acknowledged yet → dashboard alert
   const acceptedUnseen=proposals.filter(p=>p.status==="accepted"&&p.seen===false);
   // Repair links a client accepted/declined that haven't been acknowledged yet
@@ -2016,7 +2017,7 @@ function Dashboard({clients,jobs,quotes,payments,invoices,appointments=[],propos
       <Stat label="Ready to collect" value={ready.length} tint="slate" icon="✓" onClick={()=>setView("jobs")}/>
       <Stat label="Overdue" value={overdue.length} tint={overdue.length>0?"rose":"mint"} icon="!" onClick={()=>setView("jobs")}/>
     </div>
-    <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"minmax(0,1.6fr) minmax(0,1fr)",gap:16,alignItems:"start"}}>
+    <div style={{display:"grid",gridTemplateColumns:stackCols?"1fr":"minmax(0,1.6fr) minmax(0,1fr)",gap:16,alignItems:"start"}}>
       <Card style={{marginBottom:0}}>
         <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:14}}>
           <span style={{fontWeight:700,fontSize:15,color:INK}}>Active jobs</span>
