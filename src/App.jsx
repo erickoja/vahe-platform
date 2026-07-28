@@ -1326,6 +1326,148 @@ const downloadInvoiceCsv=(rows,filename)=>{
   const a=document.createElement("a");a.href=url;a.download=filename;document.body.appendChild(a);a.click();a.remove();URL.revokeObjectURL(url);
 };
 
+// ── Trade statement billing (Phase 2) ─────────────────────────────────────
+// Trade accounts want ONE consolidated statement per account, not an invoice per job. Everything
+// below is derived on the fly from existing invoices + payments (no new persisted entity), and
+// per-invoice outstanding always comes from invoicePaidBalanceMap so a statement can never
+// disagree with the Invoices page. See [[project-invoice-model]] / [[project-future-features]].
+
+// Account terms → whole days until an invoice falls due. Blank/EOM/unknown → null (handled below).
+const termDays=(terms)=>{
+  const t=String(terms||"").toLowerCase();
+  if(t.startsWith("cod"))return 0;
+  const m=t.match(/net\s*(\d+)/);
+  return m?Number(m[1]):null;
+};
+// Due date (ISO) for one invoice given the account's terms. EOM = last day of the month FOLLOWING
+// the invoice month (the standard trade "end-of-month account"); blank/unknown terms → due on issue.
+const invoiceDueDate=(inv,client)=>{
+  const base=String(inv?.date||"").slice(0,10);
+  if(!base)return "";
+  const terms=client?.terms||"";
+  if(/eom/i.test(terms)){const d=parseISO(base);return toISO(new Date(d.getFullYear(),d.getMonth()+2,0));}
+  const days=termDays(terms);
+  return days==null?base:addDays(base,days);
+};
+// Aged-receivables buckets, oldest last. Keys are stable; labels are for display.
+const AGE_BUCKETS=[["current","Current"],["d1_30","1–30 days"],["d31_60","31–60 days"],["d61_90","61–90 days"],["d90","90+ days"]];
+const agingKey=(dueISO,asOf)=>{
+  if(!dueISO)return "current";
+  const days=Math.round((parseISO(asOf).getTime()-parseISO(dueISO).getTime())/86400000);
+  if(days<=0)return "current";
+  if(days<=30)return "d1_30";
+  if(days<=60)return "d31_60";
+  if(days<=90)return "d61_90";
+  return "d90";
+};
+// The invoices + received payments that belong to one client's jobs (trade account activity).
+const accountActivity=(client,jobs,invoices,payments)=>{
+  const clientOf={};(jobs||[]).forEach(j=>{clientOf[j.id]=j.clientId;});
+  const mine=jid=>clientOf[jid]===client?.id;
+  return {
+    jobOf:id=>(jobs||[]).find(j=>j.id===id),
+    invoices:(invoices||[]).filter(i=>mine(i.jobId)),
+    payments:(payments||[]).filter(p=>p.status==="Received"&&mine(p.jobId)),
+  };
+};
+// Chronological account ledger: each invoice is a charge, its trade-in a same-day credit, each
+// received payment a credit; running balance accumulates. Charges sort before credits on a day so
+// a same-day payment reads as applied to that day's invoice.
+const accountLedger=(client,jobs,invoices,payments)=>{
+  const {invoices:accInv,payments:accPay,jobOf}=accountActivity(client,jobs,invoices,payments);
+  const entries=[];
+  accInv.forEach(inv=>{
+    const job=jobOf(inv.jobId),d=String(inv.date||"").slice(0,10);
+    entries.push({date:d,kind:"invoice",id:inv.id,ref:inv.number||"",desc:(inv.descriptionOverride||job?.type||"Invoice").replace(/\s+/g," ").trim(),po:job?.po||"",charge:Number(inv.totalIncGST)||0,credit:0,due:invoiceDueDate(inv,client)});
+    const ti=Number(inv.tradeInCredit)||0;
+    if(ti>0)entries.push({date:d,kind:"tradein",id:inv.id+"_ti",ref:inv.number||"",desc:"Trade-in credit"+(inv.tradeInNote?" · "+inv.tradeInNote:""),po:"",charge:0,credit:ti});
+  });
+  accPay.forEach(p=>entries.push({date:String(p.date||"").slice(0,10),kind:"payment",id:p.id,ref:"",desc:"Payment received"+(p.method?" · "+p.method:""),po:p.notes||"",charge:0,credit:Number(p.amount)||0}));
+  const order={invoice:0,tradein:1,payment:2};
+  entries.sort((a,b)=>String(a.date).localeCompare(String(b.date))||(order[a.kind]-order[b.kind]));
+  let run=0;entries.forEach(e=>{run+=e.charge-e.credit;e.balance=run;});
+  return {entries,balance:run,invoices:accInv,payments:accPay};
+};
+// Statement for a period: opening balance (all entries before `from`), the period's entries, and
+// the closing balance. from/to are ISO (either may be blank for an open-ended statement).
+const accountStatement=(client,jobs,invoices,payments,{from,to})=>{
+  const {entries,balance}=accountLedger(client,jobs,invoices,payments);
+  const opening=entries.filter(e=>from&&e.date<from).reduce((s,e)=>s+e.charge-e.credit,0);
+  const period=entries.filter(e=>(!from||e.date>=from)&&(!to||e.date<=to));
+  const closing=opening+period.reduce((s,e)=>s+e.charge-e.credit,0);
+  return {opening,period,closing,balance};
+};
+// Aged analysis of the account's CURRENT outstanding, per-invoice balance from the shared
+// distribution map so buckets sum to exactly the account balance shown on the Invoices page.
+const accountAging=(client,jobs,invoices,payments,asOf)=>{
+  const {invoices:accInv}=accountActivity(client,jobs,invoices,payments);
+  const {balMap}=invoicePaidBalanceMap(invoices,payments);
+  const buckets={current:0,d1_30:0,d31_60:0,d61_90:0,d90:0};
+  accInv.forEach(inv=>{const b=Number(balMap[inv.id])||0;if(b>0)buckets[agingKey(invoiceDueDate(inv,client),asOf)]+=b;});
+  return {buckets,total:Object.values(buckets).reduce((s,v)=>s+v,0)};
+};
+// Export a statement's ledger rows to CSV (same BOM/Excel handling as the invoice export).
+const STATEMENT_CSV_HEADER=["Date","Type","Reference","Description","PO / ref","Charge","Credit","Balance"];
+const downloadStatementCsv=(client,opening,period,closing,filename)=>{
+  const rows=[["", "", "", "Opening balance","","","",opening.toFixed(2)]];
+  period.forEach(e=>rows.push([e.date,e.kind==="invoice"?"Invoice":e.kind==="tradein"?"Trade-in":"Payment",e.ref||"",e.desc,e.po||"",e.charge?e.charge.toFixed(2):"",e.credit?e.credit.toFixed(2):"",e.balance.toFixed(2)]));
+  rows.push(["","","","Closing balance owing","","","",closing.toFixed(2)]);
+  const csv="﻿"+[STATEMENT_CSV_HEADER,...rows].map(r=>r.map(_csvCell).join(",")).join("\r\n");
+  const url=URL.createObjectURL(new Blob([csv],{type:"text/csv;charset=utf-8;"}));
+  const a=document.createElement("a");a.href=url;a.download=filename;document.body.appendChild(a);a.click();a.remove();URL.revokeObjectURL(url);
+};
+// Printable / Save-as-PDF statement of account, styled to match the app's other printouts (PCSS).
+function printStatement(biz,client,{opening,period,closing,aging,from,to}){
+  const win=window.open("","_blank");
+  if(!win){alert("Please allow pop-ups so the statement can open in a new tab.");return;}
+  const esc=s=>String(s==null?"":s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
+  const bizName=esc(biz?.name||"Our Studio");
+  const clientName=esc(clientDisplayName(client)||client?.name||"—");
+  const contact=[client?.contactName,client?.email,client?.phone].filter(Boolean).map(esc).join(" · ");
+  const periodLbl=from||to?`${from?fmtDate(from):"Start"} – ${to?fmtDate(to):"Today"}`:"All account activity";
+  const dash=`<span style="color:#bbb">—</span>`;
+  const money=n=>n?fmt(n):dash;
+  const rows=period.length
+    ?period.map(e=>`<tr>
+<td class="muted" style="white-space:nowrap">${fmtDate(e.date)}</td>
+<td>${esc(e.desc)}${e.ref?`<span class="muted"> · ${esc(e.ref)}</span>`:""}${e.po?`<div class="muted" style="font-size:10px">PO ${esc(e.po)}</div>`:""}${e.kind==="invoice"&&e.due?`<div class="muted" style="font-size:10px">Due ${fmtDate(e.due)}</div>`:""}</td>
+<td class="right">${e.charge?fmt(e.charge):""}</td>
+<td class="right" style="color:#2D7A4F">${e.credit?fmt(e.credit):""}</td>
+<td class="right" style="font-weight:700">${fmt(e.balance)}</td>
+</tr>`).join("")
+    :`<tr><td colspan="5" style="color:#bbb;font-style:italic">No transactions in this period</td></tr>`;
+  const agingCells=AGE_BUCKETS.map(([k,l])=>`<div class="cs-item"><div class="cs-lbl">${l}</div><div class="cs-val${k==="d90"&&aging.buckets[k]>0?" gold":""}">${fmt(aging.buckets[k])}</div></div>`).join("");
+  win.document.write(`<!DOCTYPE html><html><head><title>Statement — ${clientName}</title><style>${PCSS}
+.stbl th.right,.stbl td.right{text-align:right;white-space:nowrap}
+.balrow{display:flex;justify-content:space-between;align-items:center;padding:11px 17px;background:#FAF7F2;border:1px solid #E8E2D9;border-radius:8px;margin-bottom:8px}
+.balrow.big{background:#1A1714;border-color:#1A1714;margin:14px 0 24px}
+.balrow .bl-l{font-size:11px;font-weight:700;color:#6B6560;text-transform:uppercase;letter-spacing:.08em}
+.balrow.big .bl-l{color:#C9A84C}
+.balrow .bl-v{font-size:16px;font-weight:800;color:#1A1714}
+.balrow.big .bl-v{font-size:22px;color:#fff}
+.aging{grid-template-columns:repeat(5,1fr)}
+.terms-line{font-size:11px;color:#6B6560;margin-bottom:24px}
+</style></head><body>
+<div class="hdr">
+  <div>${biz?.logo?`<img src="${esc(biz.logo)}" alt="${bizName}" style="max-width:180px;max-height:64px;object-fit:contain;display:block;margin-bottom:6px"/>`:`<div class="bname">${bizName}</div>`}<div class="bsub">${[biz?.email,biz?.phone,biz?.abn?"ABN "+biz.abn:""].filter(Boolean).map(esc).join(" · ")}</div></div>
+  <div><div class="qlbl">Statement of Account</div><div style="font-size:13px;color:#6B6560;text-align:right;margin-top:6px">${fmtDate(today())}</div></div>
+</div>
+<div class="to"><div class="tolbl">Account</div><div class="toname">${clientName}</div>${contact?`<div class="todet">${contact}</div>`:""}${client?.abn?`<div class="todet">ABN ${esc(client.abn)}</div>`:""}${client?.terms?`<div class="todet">Terms: ${esc(client.terms)}</div>`:""}</div>
+<div class="terms-line">Statement period: <strong>${periodLbl}</strong></div>
+<div class="balrow"><span class="bl-l">Opening balance</span><span class="bl-v">${fmt(opening)}</span></div>
+<table class="stbl">
+  <thead><tr><th>Date</th><th>Description</th><th class="right">Charges</th><th class="right">Payments / credits</th><th class="right">Balance</th></tr></thead>
+  <tbody>${rows}</tbody>
+</table>
+<div class="balrow big"><span class="bl-l">Closing balance owing</span><span class="bl-v">${fmt(closing)}</span></div>
+<div class="cs-lbl" style="margin-bottom:8px">Aged receivables (as at ${fmtDate(today())})</div>
+<div class="cost-summary aging">${agingCells}</div>
+${biz?.paymentLink?`<div class="terms-line" style="margin-top:22px">Pay online: <strong>${esc(biz.paymentLink)}</strong></div>`:""}
+<div class="footer">${bizName}${biz?.abn?" · ABN "+esc(biz.abn):""} — this statement supersedes any individual invoices for the period shown.</div>
+</body></html>`);
+  win.document.close();setTimeout(()=>win.print(),400);
+}
+
 // Snapshot of a repair intake/receipt for the public client link (kind:"repair").
 // items must already carry their customer-facing clientPrice (never the trade cost).
 const buildRepairSnapshot=({job,client,biz,items,instructions,photos})=>({
@@ -2248,7 +2390,8 @@ function ClientDetail({clientId,clients,setClients,jobs,setJobs,quotes,payments,
       </Card>
       <Card style={{margin:0}}>
         <div style={SS.lbl}>{c.accountType==="trade"?"Trade account":"Preferences"}</div>
-        {c.accountType==="trade"?[
+        {c.accountType==="trade"?<>
+          {[
           ["Contact person",c.contactName],
           ["ABN",c.abn],
           ["Terms",c.terms],
@@ -2256,7 +2399,10 @@ function ClientDetail({clientId,clients,setClients,jobs,setJobs,quotes,payments,
           ["PO required",c.poRequired?"Yes":"No"],
         ].map(([k,v])=>(
           <div key={k} style={{display:"flex",justifyContent:"space-between",fontSize:13,padding:"7px 0",borderBottom:`1px solid ${BD}`}}><span style={{color:WG}}>{k}</span><span style={{color:INK,fontWeight:600}}>{v||"—"}</span></div>
-        )):<div style={{fontSize:13,color:WG,padding:"7px 0"}}>—</div>}
+        ))}
+          {(()=>{const bal=accountAging(c,jobs,invoices,payments,today()).total;return <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",fontSize:13,padding:"9px 0 2px"}}><span style={{color:WG}}>Balance owing</span><span style={{fontWeight:800,color:bal>0?INK:OK}}>{fmt(bal)}</span></div>;})()}
+          <div style={{marginTop:12}}><Btn sm ghost onClick={()=>setView("statementDetail_"+c.id)}>View statement →</Btn></div>
+        </>:<div style={{fontSize:13,color:WG,padding:"7px 0"}}>—</div>}
       </Card>
     </div>
     {c.notes&&<Card><div style={{...SS.lbl,marginBottom:8}}>Notes</div><div style={{fontSize:14,color:INK,lineHeight:1.7}}>{c.notes}</div></Card>}
@@ -6012,6 +6158,171 @@ function InvoicesList({invoices,jobs,clients,quotes,payments,setInvoices,markupT
   </div>;
 }
 
+// ── Trade statements ──────────────────────────────────────────────────────
+// Aged-receivables overview across every trade account + a link into each account's statement.
+// Trade-only: retail clients bill per invoice; trade accounts settle by consolidated statement.
+function StatementsList({clients,jobs,invoices,payments,biz,setView}){
+  const isMobile=useIsMobile();
+  const asOf=today();
+  const trade=(clients||[]).filter(c=>c.accountType==="trade");
+  // Each trade account with its aged analysis, heaviest debtors first.
+  const rows=trade.map(c=>({c,aging:accountAging(c,jobs,invoices,payments,asOf)}))
+    .sort((a,b)=>b.aging.total-a.aging.total);
+  const totals=rows.reduce((acc,{aging})=>{AGE_BUCKETS.forEach(([k])=>acc[k]+=aging.buckets[k]);acc.total+=aging.total;return acc;},{current:0,d1_30:0,d31_60:0,d61_90:0,d90:0,total:0});
+  const bucketColor=k=>k==="d90"?DANGER:k==="d61_90"?WARN:k==="d31_60"?WARN:INK;
+  return <div>
+    <SectionHeader eyebrow="Billing" title="Trade statements" subtitle="One consolidated statement per trade account — with a live account ledger and aged receivables (30/60/90)."/>
+    {trade.length===0
+      ? <Card><div style={{color:WG,fontSize:14,textAlign:"center",padding:"24px 0"}}>
+          <div style={{fontSize:32,marginBottom:10}}>🧾</div>
+          <div style={{fontWeight:600,color:INK,marginBottom:6}}>No trade accounts yet</div>
+          <div style={{marginBottom:16,lineHeight:1.6,maxWidth:420,margin:"0 auto 16px"}}>Set a client's account type to <strong>Trade</strong> (with terms like Net 30 / EOM) and their completed jobs roll up into a single monthly statement here.</div>
+          <Btn onClick={()=>setView("clients")}>Go to Clients</Btn>
+        </div></Card>
+      : <>
+        <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr 1fr":"repeat(6,1fr)",gap:10,marginBottom:18}}>
+          {[["Total owing",totals.total,totals.total>0?WARN:OK],...AGE_BUCKETS.map(([k,l])=>[l,totals[k],bucketColor(k)])].map(([l,v,col],i)=>(
+            <div key={l} style={{background:WHITE,border:`1px solid ${BD}`,borderRadius:8,padding:"13px 14px"}}>
+              <div style={{fontSize:9.5,color:WG,fontWeight:700,textTransform:"uppercase",letterSpacing:"0.06em"}}>{l}</div>
+              <div style={{fontSize:i===0?19:16,fontWeight:800,color:col,marginTop:4}}>{fmtR(v)}</div>
+            </div>
+          ))}
+        </div>
+        {rows.map(({c,aging})=>{
+          const over=Number(c.creditLimit)>0&&aging.total>Number(c.creditLimit);
+          return <Card key={c.id} onClick={()=>setView("statementDetail_"+c.id)}>
+            <div style={{display:"flex",flexDirection:isMobile?"column":"row",justifyContent:"space-between",alignItems:isMobile?"stretch":"center",gap:isMobile?10:0}}>
+              <div style={{minWidth:0}}>
+                <div style={{fontWeight:700,fontSize:15,color:INK,display:"flex",alignItems:"center",gap:8,flexWrap:"wrap"}}>{clientDisplayName(c)}
+                  {c.terms&&<span style={{fontSize:9,fontWeight:800,letterSpacing:"0.08em",color:GOLD_D,background:GOLD_L,border:`1px solid ${GOLD}55`,borderRadius:999,padding:"2px 7px",textTransform:"uppercase"}}>{c.terms}</span>}
+                  {over&&<span style={{fontSize:9,fontWeight:800,letterSpacing:"0.06em",color:"#fff",background:DANGER,borderRadius:999,padding:"2px 7px",textTransform:"uppercase"}}>Over limit</span>}
+                </div>
+                <div style={{fontSize:12,color:WG,marginTop:3}}>{c.contactName||c.email||"—"}{aging.buckets.d90>0?<span style={{color:DANGER,fontWeight:600}}> · {fmtR(aging.buckets.d90)} over 90 days</span>:aging.total>aging.buckets.current?<span style={{color:WARN,fontWeight:600}}> · {fmtR(aging.total-aging.buckets.current)} overdue</span>:null}</div>
+              </div>
+              <div style={{display:"flex",gap:14,alignItems:"center",justifyContent:isMobile?"space-between":"flex-start",flexShrink:0}}>
+                <div style={{textAlign:"right"}}>
+                  <div style={{fontWeight:800,fontSize:17,color:aging.total>0?INK:OK}}>{fmt(aging.total)}</div>
+                  <div style={{fontSize:11,color:WG}}>{aging.total>0?"owing":"settled"}</div>
+                </div>
+                <span style={{color:GOLD_D,fontWeight:700,fontSize:13}}>Statement →</span>
+              </div>
+            </div>
+          </Card>;
+        })}
+      </>}
+  </div>;
+}
+
+// Per-account statement of account: header, period picker, running-balance ledger, aged
+// receivables, and Print / CSV export. All figures derive from invoices+payments (no new entity).
+function StatementDetail({clientId,clients,jobs,invoices,payments,biz,setView}){
+  const isMobile=useIsMobile();
+  const c=(clients||[]).find(x=>x.id===clientId);
+  const[preset,setPreset]=useState("all");
+  const[from,setFrom]=useState("");
+  const[to,setTo]=useState("");
+  const setRange=(p)=>{
+    const now=new Date(),y=now.getFullYear(),m=now.getMonth(),iso=d=>toISO(d);
+    if(p==="month"){setFrom(iso(new Date(y,m,1)));setTo(iso(new Date(y,m+1,0)));}
+    else if(p==="lastmonth"){setFrom(iso(new Date(y,m-1,1)));setTo(iso(new Date(y,m,0)));}
+    else if(p==="quarter"){const qs=Math.floor(m/3)*3;setFrom(iso(new Date(y,qs,1)));setTo(iso(new Date(y,qs+3,0)));}
+    else if(p==="fy"){const s=m>=6?y:y-1;setFrom(iso(new Date(s,6,1)));setTo(iso(new Date(s+1,5,30)));}
+    else{setFrom("");setTo("");}
+    setPreset(p);
+  };
+  if(!c)return <div><Btn ghost sm onClick={()=>setView("statements")}>← Statements</Btn><Card><div style={{color:WG,padding:20}}>Account not found.</div></Card></div>;
+  const asOf=today();
+  const st=accountStatement(c,jobs,invoices,payments,{from,to});
+  const aging=accountAging(c,jobs,invoices,payments,asOf);
+  const over=Number(c.creditLimit)>0&&aging.total>Number(c.creditLimit);
+  const bucketColor=k=>k==="d90"?DANGER:k==="d61_90"||k==="d31_60"?WARN:INK;
+  const doPrint=()=>printStatement(biz,c,{...st,aging,from,to});
+  const doCsv=()=>{const span=from||to?`${from||"start"}_to_${to||"today"}`:"all";downloadStatementCsv(c,st.opening,st.period,st.closing,`statement-${(clientDisplayName(c)||"account").replace(/[^\w-]+/g,"-")}-${span}.csv`);};
+  const presets=[["This month","month"],["Last month","lastmonth"],["This quarter","quarter"],["Financial year","fy"],["All","all"]];
+  const info=[["Contact",c.contactName],["Email",c.email],["Phone",c.phone],["ABN",c.abn],["Terms",c.terms],["Credit limit",c.creditLimit?fmt(Number(c.creditLimit)):""]].filter(([,v])=>v);
+  return <div>
+    <Btn ghost sm onClick={()=>setView("statements")}>← Statements</Btn>
+    <div style={{height:12}}/>
+    <Card>
+      <div style={{display:"flex",flexDirection:isMobile?"column":"row",justifyContent:"space-between",alignItems:isMobile?"stretch":"flex-start",gap:14}}>
+        <div style={{minWidth:0}}>
+          <h1 style={{margin:0,fontSize:isMobile?19:23,fontWeight:800,color:INK,letterSpacing:"-0.02em",display:"flex",alignItems:"center",gap:10,flexWrap:"wrap"}}>{clientDisplayName(c)}
+            <span style={{fontSize:10,fontWeight:800,letterSpacing:"0.08em",color:GOLD_D,background:GOLD_L,border:`1px solid ${GOLD}55`,borderRadius:999,padding:"3px 9px",textTransform:"uppercase"}}>Trade account</span>
+          </h1>
+          <div style={{marginTop:8,display:"flex",flexWrap:"wrap",gap:"2px 16px"}}>
+            {info.map(([k,v])=><span key={k} style={{fontSize:12.5,color:WG}}>{k}: <span style={{color:INK,fontWeight:600}}>{v}</span></span>)}
+          </div>
+        </div>
+        <div style={{textAlign:isMobile?"left":"right",flexShrink:0}}>
+          <div style={{fontSize:10,color:WG,fontWeight:700,textTransform:"uppercase",letterSpacing:"0.08em"}}>Balance owing</div>
+          <div style={{fontSize:26,fontWeight:800,color:aging.total>0?INK:OK}}>{fmt(aging.total)}</div>
+        </div>
+      </div>
+      {over&&<div style={{marginTop:14,background:DANGER+"12",border:`1px solid ${DANGER}55`,borderRadius:8,padding:"10px 14px",fontSize:13,color:DANGER,fontWeight:600}}>⚠ Over credit limit — owing {fmt(aging.total)} against a {fmt(Number(c.creditLimit))} limit.</div>}
+    </Card>
+
+    <Card>
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:10,marginBottom:12}}>
+        <div style={SS.lbl}>Statement period</div>
+        <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
+          <Btn sm ghost onClick={doCsv}>⬇ Export CSV</Btn>
+          <Btn sm onClick={doPrint}>🖨 Print / Save PDF</Btn>
+        </div>
+      </div>
+      <div style={{display:"flex",gap:8,flexWrap:"wrap",marginBottom:12}}>
+        {presets.map(([lbl,p])=>(
+          <button key={p} onClick={()=>setRange(p)} style={{padding:"7px 13px",borderRadius:8,border:`1.5px solid ${preset===p?GOLD:BD}`,background:preset===p?GOLD_L:WHITE,color:preset===p?GOLD_D:INK,fontSize:12,fontWeight:700,cursor:"pointer",fontFamily:"inherit"}}>{lbl}</button>
+        ))}
+      </div>
+      <div style={{display:"flex",gap:16,flexWrap:"wrap",marginBottom:4}}>
+        <div><label style={SS.lbl}>From</label><input type="date" value={from} onChange={e=>{setFrom(e.target.value);setPreset("custom");}} style={{...SS.inp,marginTop:6,width:170}}/></div>
+        <div><label style={SS.lbl}>To</label><input type="date" value={to} onChange={e=>{setTo(e.target.value);setPreset("custom");}} style={{...SS.inp,marginTop:6,width:170}}/></div>
+      </div>
+    </Card>
+
+    <Card>
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"6px 2px 12px",borderBottom:`2px solid ${INK}`,marginBottom:4}}>
+        <span style={{fontSize:12,fontWeight:700,color:WG,textTransform:"uppercase",letterSpacing:"0.06em"}}>Opening balance</span>
+        <span style={{fontSize:15,fontWeight:800,color:INK}}>{fmt(st.opening)}</span>
+      </div>
+      {!isMobile&&<div style={{display:"grid",gridTemplateColumns:"90px 1fr 110px 130px 120px",gap:8,padding:"8px 2px",fontSize:10,fontWeight:700,color:WG,textTransform:"uppercase",letterSpacing:"0.05em",borderBottom:`1px solid ${BD}`}}>
+        <div>Date</div><div>Description</div><div style={{textAlign:"right"}}>Charges</div><div style={{textAlign:"right"}}>Payments</div><div style={{textAlign:"right"}}>Balance</div>
+      </div>}
+      {st.period.length===0&&<div style={{color:WG,fontSize:13,padding:"18px 2px",fontStyle:"italic"}}>No transactions in this period.</div>}
+      {st.period.map(e=>(
+        <div key={e.id} style={isMobile
+          ?{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:10,padding:"11px 2px",borderBottom:`1px solid ${BD}`}
+          :{display:"grid",gridTemplateColumns:"90px 1fr 110px 130px 120px",gap:8,padding:"11px 2px",borderBottom:`1px solid ${BD}`,alignItems:"center"}}>
+          <div style={{fontSize:12,color:WG,whiteSpace:"nowrap"}}>{fmtDate(e.date)}</div>
+          <div style={{minWidth:0,order:isMobile?3:0,flexBasis:isMobile?"100%":"auto"}}>
+            <div style={{fontSize:13,color:INK,fontWeight:600}}>{e.desc}{e.ref&&<span style={{color:WG,fontWeight:400}}> · {e.ref}</span>}</div>
+            {(e.po||(e.kind==="invoice"&&e.due))&&<div style={{fontSize:11,color:WG,marginTop:1}}>{e.po?`PO ${e.po}`:""}{e.po&&e.kind==="invoice"&&e.due?" · ":""}{e.kind==="invoice"&&e.due?`Due ${fmtDate(e.due)}`:""}</div>}
+          </div>
+          <div style={{fontSize:13,textAlign:"right",color:INK,fontWeight:e.charge?700:400}}>{e.charge?fmt(e.charge):(isMobile?"":"—")}</div>
+          <div style={{fontSize:13,textAlign:"right",color:e.credit?OK:WG,fontWeight:e.credit?700:400}}>{e.credit?fmt(e.credit):(isMobile?"":"—")}</div>
+          <div style={{fontSize:13,textAlign:"right",fontWeight:700,color:INK}}>{fmt(e.balance)}</div>
+        </div>
+      ))}
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"14px 2px 4px",marginTop:4,borderTop:`2px solid ${INK}`}}>
+        <span style={{fontSize:12,fontWeight:800,color:INK,textTransform:"uppercase",letterSpacing:"0.06em"}}>Closing balance owing</span>
+        <span style={{fontSize:20,fontWeight:800,color:st.closing>0?INK:OK}}>{fmt(st.closing)}</span>
+      </div>
+    </Card>
+
+    <Card>
+      <div style={{...SS.lbl,marginBottom:12}}>Aged receivables <span style={{fontWeight:400,textTransform:"none",letterSpacing:0}}>(as at {fmtDate(asOf)})</span></div>
+      <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr 1fr":"repeat(5,1fr)",gap:10}}>
+        {AGE_BUCKETS.map(([k,l])=>(
+          <div key={k} style={{background:PARCH,border:`1px solid ${BD}`,borderRadius:8,padding:"12px 13px"}}>
+            <div style={{fontSize:9.5,color:WG,fontWeight:700,textTransform:"uppercase",letterSpacing:"0.06em"}}>{l}</div>
+            <div style={{fontSize:16,fontWeight:800,color:aging.buckets[k]>0?bucketColor(k):WG,marginTop:4}}>{fmt(aging.buckets[k])}</div>
+          </div>
+        ))}
+      </div>
+    </Card>
+  </div>;
+}
+
 // ── Pricing DB ────────────────────────────────────────────────────────────
 const DIAMOND_CAT_LABELS={
   "Lab Grown Diamonds | D-E":"Lab-grown accent diamonds · D-E · VS · Round brilliant · per stone (AUD)",
@@ -7416,6 +7727,7 @@ const NAV=[
   {id:"jobs",label:"Jobs"},
   {id:"quotes",label:"Quotes"},
   {id:"invoices",label:"Invoices"},
+  {id:"statements",label:"Statements"},
   {id:"gemcustody",label:"Safekeeping"},
   {id:"stock",label:"Stock"},
   {id:"pricing",label:"Pricing DB"},
@@ -7425,7 +7737,7 @@ const NAV=[
 const NAV_MAP=Object.fromEntries(NAV.map(n=>[n.id,n]));
 const NAV_GROUPS=[
   {label:null,ids:["dashboard","todo"]},
-  {label:"Workflow",ids:["appointments","clients","jobs","quotes","invoices","gemcustody"]},
+  {label:"Workflow",ids:["appointments","clients","jobs","quotes","invoices","statements","gemcustody"]},
   {label:"Studio",ids:["stock","pricing","reports","settings"]},
 ];
 // Cohesive line-icon set for the sidebar (single 24-grid, 1.6 stroke, inherits color).
@@ -7439,6 +7751,7 @@ function NavIcon({name,size=17}){
     case "jobs": return <svg {...p}><path d="M6 4H18L21 9L12 20L3 9Z"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="9" y1="9" x2="12" y2="20"/><line x1="15" y1="9" x2="12" y2="20"/><line x1="9" y1="9" x2="6" y2="4"/><line x1="15" y1="9" x2="18" y2="4"/></svg>;
     case "quotes": return <svg {...p}><rect x="5" y="3" width="14" height="18" rx="2"/><line x1="8.5" y1="8" x2="15.5" y2="8"/><line x1="8.5" y1="12" x2="15.5" y2="12"/><line x1="8.5" y1="16" x2="13" y2="16"/></svg>;
     case "invoices": return <svg {...p}><path d="M6 2.5H18V21.5L15 19.7L12 21.5L9 19.7L6 21.5Z"/><line x1="9" y1="8" x2="15" y2="8"/><line x1="9" y1="12" x2="15" y2="12"/></svg>;
+    case "statements": return <svg {...p}><rect x="3.5" y="4" width="17" height="16" rx="2"/><line x1="3.5" y1="8.5" x2="20.5" y2="8.5"/><line x1="7" y1="12.5" x2="14" y2="12.5"/><line x1="7" y1="16" x2="11" y2="16"/><line x1="17" y1="12.5" x2="17" y2="16"/></svg>;
     case "gemcustody": return <svg {...p}><path d="M6 3h12l3 5-9 13L3 8Z"/><path d="M3 8h18"/><path d="M9 3 7.5 8 12 21"/><path d="M15 3l1.5 5L12 21"/></svg>;
     case "pricing": return <svg {...p}><path d="M20.6 11.4 12.6 3.4a2 2 0 0 0-1.4-.6H4.5a1 1 0 0 0-1 1v6.7a2 2 0 0 0 .6 1.4l8 8a1.9 1.9 0 0 0 2.7 0l5.8-5.8a1.9 1.9 0 0 0 0-2.7Z"/><circle cx="7.8" cy="7.8" r="1.4"/></svg>;
     case "reports": return <svg {...p}><line x1="3.5" y1="20.5" x2="20.5" y2="20.5"/><rect x="5" y="12" width="3.4" height="7" rx="0.6"/><rect x="10.3" y="8" width="3.4" height="11" rx="0.6"/><rect x="15.6" y="4.5" width="3.4" height="14.5" rx="0.6"/></svg>;
@@ -8722,6 +9035,8 @@ export default function App(){
     if(view.startsWith("editQuote_"))return <QuoteBuilder editQuoteId={view.split("_")[1]} jobs={jobs} clients={clients} quotes={quotes} setQuotes={setQuotes} pricing={pricing} setPricing={setPricing} markupTable={markupTable} naturalStoneMarkup={naturalStoneMarkup} labStoneMarkup={labStoneMarkup} tradeMarkupTable={tradeMarkupTable} tradeNatStoneMarkup={tradeNatStoneMarkup} tradeLabStoneMarkup={tradeLabStoneMarkup} centreRates={centreRates} setCentreRates={setCentreRates} invoices={invoices} setInvoices={setInvoices} setView={setView}/>;
     if(view==="invoices")return <InvoicesList invoices={invoices} jobs={jobs} clients={clients} quotes={quotes} payments={payments} setInvoices={setInvoices} markupTable={markupTable} setView={setView}/>;
     if(view.startsWith("invoiceDetail_"))return <InvoiceDetail invoiceId={view.split("_")[1]} invoices={invoices} setInvoices={setInvoices} jobs={jobs} clients={clients} payments={payments} biz={biz} setView={setView} quotes={quotes} markupTable={markupTable}/>;
+    if(view==="statements")return <StatementsList clients={clients} jobs={jobs} invoices={invoices} payments={payments} biz={biz} setView={setView}/>;
+    if(view.startsWith("statementDetail_"))return <StatementDetail clientId={view.split("_")[1]} clients={clients} jobs={jobs} invoices={invoices} payments={payments} biz={biz} setView={setView}/>;
     if(view==="stock")return <StockBoard stock={stock} setStock={setStock} setView={setView}/>;
     if(view==="gemcustody")return <GemCustody custody={gemCustody} setCustody={setGemCustody} clients={clients} biz={biz}/>;
     if(view.startsWith("stockPrice_"))return <QuoteBuilder stockId={view.split("_")[1]} stock={stock} setStock={setStock} jobs={jobs} clients={clients} quotes={quotes} setQuotes={setQuotes} pricing={pricing} setPricing={setPricing} markupTable={markupTable} naturalStoneMarkup={naturalStoneMarkup} labStoneMarkup={labStoneMarkup} tradeMarkupTable={tradeMarkupTable} tradeNatStoneMarkup={tradeNatStoneMarkup} tradeLabStoneMarkup={tradeLabStoneMarkup} centreRates={centreRates} setCentreRates={setCentreRates} setView={setView}/>;
