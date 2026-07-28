@@ -7199,9 +7199,9 @@ function Appointments({appointments,setAppointments,clients,setClients,jobs=[],s
                   {isLiveAppt(a)&&<>
                     <MiniBtn label="📅 Add to Google Calendar" color={GOLD_D} onClick={()=>window.open(googleCalUrl(a,clients),"_blank","noopener")}/>
                     <MiniBtn label="⤓ Add to Apple / Outlook Calendar" color={WG} onClick={()=>downloadIcs(`appointment-${(a.id||"").slice(0,8)}.ics`,apptIcs(a,clients))}/>
-                    <MiniBtn label="✓ Done" color={OK} onClick={()=>setStatus(a.id,"Completed")}/>
-                    <MiniBtn label="No-show" color={DANGER} onClick={()=>setStatus(a.id,"No-show")}/>
-                    <MiniBtn label="Cancel" color={WARN} onClick={()=>setStatus(a.id,"Cancelled")}/>
+                    <MiniBtn label="✓ Done" color={OK} onClick={()=>{if(confirm("Mark this appointment as done?"))setStatus(a.id,"Completed");}}/>
+                    <MiniBtn label="No-show" color={DANGER} onClick={()=>{if(confirm("Mark this appointment as a no-show?"))setStatus(a.id,"No-show");}}/>
+                    <MiniBtn label="Cancel" color={WARN} onClick={()=>{if(confirm("Cancel this appointment?"))setStatus(a.id,"Cancelled");}}/>
                   </>}
                   {!isLiveAppt(a)&&<MiniBtn label="↺ Reschedule" color={WG} onClick={()=>setStatus(a.id,"Scheduled")}/>}
                   {!a.clientId&&a.clientName&&<MiniBtn label="+ Create client" color={GOLD} onClick={()=>convertToClient(a)}/>}
