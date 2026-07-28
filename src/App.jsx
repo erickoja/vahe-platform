@@ -7601,7 +7601,7 @@ function TodoBoard({todos,setTodos,jobs=[],clients=[],setView,setSelJob}){
       <div>
         <div style={{fontSize:11,fontWeight:700,color:WG,letterSpacing:"0.14em",textTransform:"uppercase",marginBottom:5}}>Team tasks</div>
         <h1 style={{margin:0,fontSize:32,fontWeight:700,color:INK,letterSpacing:"-0.02em",fontFamily:"'Poppins',sans-serif"}}>To-do</h1>
-        <div style={{color:WG,fontSize:14,marginTop:4}}>A running task list for each person — link a task to a job to see its live stage at a glance.</div>
+        <div style={{color:INK,fontSize:15,marginTop:6,lineHeight:1.5}}>A running task list for each person — link a task to a job to see its live stage at a glance.</div>
       </div>
       <div style={{display:"flex",gap:8,alignItems:"center",background:WHITE,border:`1px solid ${BD_SOFT}`,borderRadius:RADIUS,padding:"8px 10px",boxShadow:SHADOW}}>
         <input value={newPerson} onChange={e=>setNewPerson(e.target.value)} onKeyDown={e=>{if(e.key==="Enter")addPerson();}} placeholder="New person's name…" style={{...SS.inp,marginTop:0,width:isMobile?"auto":200,flex:isMobile?1:undefined,minWidth:0}}/>
