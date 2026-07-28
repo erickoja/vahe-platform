@@ -1024,7 +1024,11 @@ const lineCostLow=li=>Number(li.costLow)||Number(li.cost)||0;
 const lineCostHigh=li=>Number(li.costHigh)||0;
 const lineIsRange=li=>lineCostHigh(li)>lineCostLow(li);
 
-const calcQuote=(items,table,overrideMult)=>{
+// gstOnMarkup: trade/wholesale quotes add 10% GST across the whole taxable supply — on the
+// manufacturing markup AND on at-cost (noMarkup) pass-through items — because trade multipliers are
+// lean cost-plus figures that do NOT bake in GST the way retail multipliers do. Retail passes false
+// and is unchanged. Stones are already GST-inclusive in both modes (calcStoneQuote).
+const calcQuote=(items,table,overrideMult,gstOnMarkup)=>{
   // Accent stones set to follow the stone (centre-stone) markup are priced separately, not as jewellery.
   items=(items||[]).filter(i=>i.markupMode!=="natural"&&i.markupMode!=="lab");
   const mItems=items.filter(i=>!i.noMarkup);
@@ -1036,15 +1040,17 @@ const calcQuote=(items,table,overrideMult)=>{
   const ov=Number(overrideMult)||0;
   const overridden=ov>0;
   const mult=overridden?ov:autoMult;
-  const markupFinal=base*mult;
-  const flatTotal=fItems.reduce((s,li)=>s+lineCost(li),0);
+  const gstMult=gstOnMarkup?1+GST_RATE:1;                 // trade: +10% GST on the whole taxable supply
+  const markupFinal=base*mult*gstMult;
+  const flatCost=fItems.reduce((s,li)=>s+lineCost(li),0); // at-cost pass-through items (your cost)
+  const flatTotal=flatCost*gstMult;                       // billed amount — trade adds GST on top of cost
   const hasFlatItems=fItems.length>0;
   // Round the customer-facing price (global rounding setting) — internals stay exact
   const finalLow=roundQ(markupFinal+flatTotal);
   const finalHigh=finalLow;
   const baseLow=base;const baseHigh=base;const isRange=false;
   const markupFinalLow=markupFinal;const markupFinalHigh=markupFinal;const flatHigh=flatTotal;
-  return {base,baseLow,baseHigh,isRange,bracket,mult,autoMult,overridden,markupFinal,markupFinalLow,markupFinalHigh,flatTotal,flatHigh,hasFlatItems,finalLow,finalHigh};
+  return {base,baseLow,baseHigh,isRange,bracket,mult,autoMult,overridden,gstOnMarkup:!!gstOnMarkup,markupFinal,markupFinalLow,markupFinalHigh,flatCost,flatTotal,flatHigh,hasFlatItems,finalLow,finalHigh};
 };
 
 // Manual quoted price (verbal phone / in-person quotes): when q.manualTotal is set (>0)
@@ -1060,7 +1066,7 @@ const effMarkupOverride=q=>{const mo=Number(q?.markupOverride)||0;if(mo>0)return
 // Grand total for a quote, inc GST — manual price wins; else jewellery + centre stone + stone-markup accents.
 const quoteGrandTotal=(q,markupTable)=>{
   if(quoteIsManual(q))return Number(q.manualTotal);
-  const c=calcQuote(q.lineItems,markupTable,effMarkupOverride(q));
+  const c=calcQuote(q.lineItems,markupTable,effMarkupOverride(q),q.pricingMode==="trade");
   return (c.isRange?c.finalHigh:c.finalLow)+(q.stoneClientTotal||0)+(q.accentStoneTotal||0);
 };
 // Total agreed charge for a job, used by every financial view.
@@ -1149,7 +1155,7 @@ function videoEmbed(url){
 // Build an invoice's content (line items, totals, trade-in) from a single quote. Shared by
 // invoice creation and the "Update from quote" re-sync so the two always produce the same result.
 const invoiceContentFromQuote=(q,job,markupTable)=>{
-  const calc=calcQuote(q.lineItems,markupTable,effMarkupOverride(q));
+  const calc=calcQuote(q.lineItems,markupTable,effMarkupOverride(q),q.pricingMode==="trade");
   const totalIncGST=quoteGrandTotal(q,markupTable);
   const gst=totalIncGST-totalIncGST/(1+GST_RATE);
   const exGST=totalIncGST-gst;
@@ -1220,7 +1226,7 @@ const buildProposalSnapshot=({proposal,job,client,biz,quotes,markupTable,payment
   const options=(proposal.optionIds||[]).map(qid=>{
     const q=quotes.find(x=>x.id===qid);
     if(!q)return null;
-    const calc=calcQuote(q.lineItems,markupTable,effMarkupOverride(q));
+    const calc=calcQuote(q.lineItems,markupTable,effMarkupOverride(q),q.pricingMode==="trade");
     const priceKnown=quoteIsManual(q)||!(calc.base>0&&!calc.bracket&&!calc.overridden);
     // Chosen photo path(s) resolved to inline data URLs via photoMap at build time.
     // Back-compat: older proposals stored a single path string instead of an array.
@@ -1762,7 +1768,7 @@ function Stat({label,value,accent,sub,onClick,tint,icon}){
 }
 
 // ── Markup summary box (reused in builder + detail) ───────────────────────
-function MarkupSummary({baseLow,baseHigh,isRange,bracket,mult,autoMult,overridden,markupFinalLow,markupFinalHigh,flatTotal,flatHigh,hasFlatItems,finalLow,finalHigh,large}){
+function MarkupSummary({baseLow,baseHigh,isRange,bracket,mult,autoMult,overridden,gstOnMarkup,markupFinalLow,markupFinalHigh,flatTotal,flatHigh,hasFlatItems,finalLow,finalHigh,large}){
   // Backwards compat: if markupFinalLow not passed, use finalLow (old call sites)
   const mfLow=markupFinalLow!==undefined?markupFinalLow:finalLow;
   const mfHigh=markupFinalHigh!==undefined?markupFinalHigh:finalHigh;
@@ -1775,9 +1781,9 @@ function MarkupSummary({baseLow,baseHigh,isRange,bracket,mult,autoMult,overridde
       {[
         ["Base cost",baseLow>0?fmt(baseLow):"—",WG],
         ["Bracket",bracket?`${fmt(bracket.low)} – ${fmt(bracket.high)}`:"—",WG],
-        ["Multiplier",(bracket||overridden)?`${mult}×${overridden?" (override)":""}`:"—",overridden?GOLD:GOLD_D],
-        ["Markup total",baseLow>0?fmtR(mfLow):"—",hasFlat?INK:OK],
-        ...(hasFlat?[["+ Flat fees",fmt(flatTotal),"#96627C"]]:
+        ["Multiplier",(bracket||overridden)?`${mult}×${overridden?" (override)":""}${gstOnMarkup?" +GST":""}`:"—",overridden?GOLD:GOLD_D],
+        ["Markup total",baseLow>0?`${fmtR(mfLow)}${gstOnMarkup?"*":""}`:"—",hasFlat?INK:OK],
+        ...(hasFlat?[["+ Flat fees",`${fmt(flatTotal)}${gstOnMarkup?"*":""}`,"#96627C"]]:
           []),
       ].map(([l,v,col])=>(
         <div key={l} style={{padding:"14px 16px",borderRight:`1px solid ${BD}`}}>
@@ -1786,8 +1792,10 @@ function MarkupSummary({baseLow,baseHigh,isRange,bracket,mult,autoMult,overridde
         </div>
       ))}
     </div>
-    {/* Profit / margin on the marked-up jewellery — internal only. The multiplier bakes in GST,
-        so we back it out for a true profit; no-markup (flat) items are pass-through and excluded. */}
+    {gstOnMarkup&&((baseLow>0&&(bracket||overridden))||hasFlat)&&<div style={{padding:"9px 16px",fontSize:11,color:WG,borderTop:`1px solid ${BD}`,background:WHITE}}>* Trade pricing — 10% GST added across the supply.{baseLow>0&&(bracket||overridden)?<> Markup: {fmt(baseLow)} × {mult} × 1.10 = <strong style={{color:INK}}>{fmtR(mfLow)}</strong>.</>:null}{hasFlat?<> At-cost items include GST on top of cost.</>:null}</div>}
+    {/* Profit / margin on the marked-up jewellery — internal only. GST (baked into the retail
+        multiplier, or added explicitly for trade) is backed out for a true profit; no-markup
+        (flat) items are pass-through and excluded. */}
     {baseLow>0&&(bracket||overridden)&&(()=>{
       const exGstSell=mfLow/(1+GST_RATE);              // ex-GST value of the marked-up portion
       const profit=exGstSell-baseLow;
@@ -3165,7 +3173,7 @@ function JobDetail({jobId,jobs,setJobs,clients,quotes,setQuotes,payments,setPaym
       {jq.length===0&&<div style={{color:WG,fontSize:14}}>No quotes yet.</div>}
       {jq.length>1&&<div style={{fontSize:11,color:WG,marginBottom:6}}>Order shown here is the order options appear on new proposals.</div>}
       {jq.map((q,qi)=>{
-        const calc=calcQuote(q.lineItems,markupTable,effMarkupOverride(q));
+        const calc=calcQuote(q.lineItems,markupTable,effMarkupOverride(q),q.pricingMode==="trade");
         const hasInv=quoteHasInvoice(invoices,q.id);
         const manual=quoteIsManual(q);
         const stoneTotal=(q.stoneClientTotal||0)+(q.accentStoneTotal||0);
@@ -3738,7 +3746,7 @@ function QuoteBuilder({jobId:jobIdProp,editQuoteId,stockId,stock,setStock,jobs,c
   const mkTable=tradePricing?tradeMarkupTable:markupTable;
   const natTable=tradePricing?tradeNatStoneMarkup:naturalStoneMarkup;
   const labTable=tradePricing?tradeLabStoneMarkup:labStoneMarkup;
-  const calc=calcQuote(validItems.length?validItems:items,mkTable,markupOverride);
+  const calc=calcQuote(validItems.length?validItems:items,mkTable,markupOverride,tradePricing);
   const validStoneItems=stoneItems.filter(i=>(Number(i.cost)||Number(i.costLow))>0);
   const activeStoneMarkup=stoneType==="lab"?labTable:natTable;
   const stoneCalc=stoneMode==="sourcing"&&stoneType&&validStoneItems.length>0?calcStoneQuote(validStoneItems,activeStoneMarkup,stoneOverride):null;
@@ -3769,8 +3777,8 @@ function QuoteBuilder({jobId:jobIdProp,editQuoteId,stockId,stock,setStock,jobs,c
         stoneMode,stoneType:stoneMode==="sourcing"?stoneType:"",stoneItems:stoneMode==="sourcing"?validStoneItems:[],stoneMarkupOverride:Number(stoneOverride)||0,
         stoneNotes,stoneClientTotal:stoneCalc?.clientTotal||0,accentStoneTotal};
       const sourcedStoneCost=stoneMode==="sourcing"?validStoneItems.reduce((s,i)=>s+(Number(i.cost)||Number(i.costLow)||0),0):0;
-      // Your true cost = marked-up items' cost (base) + at-cost items (flatTotal) + any sourced stones.
-      const costTotal=calc.base+calc.flatTotal+sourcedStoneCost;
+      // Your true cost = marked-up items' cost (base) + at-cost items (flatCost, ex any GST) + any sourced stones.
+      const costTotal=calc.base+calc.flatCost+sourcedStoneCost;
       const retail=manualOn?Number(manualTotal):grandTotal;
       setStock(p=>{const n=p.map(s=>s.id===stockId?{...s,pricing:payload,cost:Math.round(costTotal),price:Math.round(retail),pricedAt:today()}:s);persist(K.st,n);return n;});
       setView("stock");
@@ -4328,7 +4336,7 @@ function JobProposals({job,client,quotes,proposals,setProposals,setQuotes,biz,ma
 
   // Only quotes with a resolvable price can be sent as options
   const optionable=(quotes||[]).filter(q=>{
-    const calc=calcQuote(q.lineItems,markupTable,effMarkupOverride(q));
+    const calc=calcQuote(q.lineItems,markupTable,effMarkupOverride(q),q.pricingMode==="trade");
     return quoteIsManual(q)||!(calc.base>0&&!calc.bracket&&!calc.overridden);
   });
   const linkFor=p=>`${window.location.origin}/?p=${p.token}`;
@@ -5276,7 +5284,7 @@ function QuoteDetail({quoteId,quotes,setQuotes,jobs,clients,biz,markupTable,natu
   const job=jobs.find(j=>j.id===q.jobId);
   const c=job?clients.find(x=>x.id===job.clientId):null;
   const tradeQ=q.pricingMode==="trade";
-  const calc=calcQuote(q.lineItems,markupTable,effMarkupOverride(q));
+  const calc=calcQuote(q.lineItems,markupTable,effMarkupOverride(q),q.pricingMode==="trade");
   // Trade quotes recompute the centre stone on the trade stone profile (metal/labour already
   // routes through effMarkupOverride above).
   const activeStoneMarkup=q.stoneType==="lab"?((tradeQ?tradeLabStoneMarkup:labStoneMarkup)||[]):((tradeQ?tradeNatStoneMarkup:naturalStoneMarkup)||[]);
@@ -5450,7 +5458,7 @@ function QuotesList({quotes,jobs,clients,markupTable,biz,setView}){
     const job=jobs.find(j=>j.id===q.jobId);
     const cl=job?clients.find(x=>x.id===job.clientId):null;
     const price=quoteGrandTotal(q,markupTable);
-    const calc=calcQuote(q.lineItems,markupTable,effMarkupOverride(q));
+    const calc=calcQuote(q.lineItems,markupTable,effMarkupOverride(q),q.pricingMode==="trade");
     const priceKnown=quoteIsManual(q)||!(calc.base>0&&!calc.bracket&&!calc.overridden);
     // Expiry: explicit validUntil if set, else createdAt + business validity window
     const expiryISO=q.validUntil||(q.createdAt?addDays(String(q.createdAt).slice(0,10),validityDays):"");
@@ -5552,7 +5560,7 @@ function QuotesList({quotes,jobs,clients,markupTable,biz,setView}){
           <div style={{display:"flex",flexDirection:"column",gap:8,paddingLeft:12}}>
             {g.rows.map(({q,price,priceKnown,expired,daysSent,followUp,expiryISO})=>{
               const manual=quoteIsManual(q);
-              const calc=calcQuote(q.lineItems,markupTable,effMarkupOverride(q));
+              const calc=calcQuote(q.lineItems,markupTable,effMarkupOverride(q),q.pricingMode==="trade");
               const priceStr=priceKnown?fmtR(price):"—";
               return <Card key={q.id} onClick={()=>setView("quoteDetail_"+q.id)}>
                 <div style={{display:"flex",flexDirection:isMobile?"column":"row",justifyContent:"space-between",alignItems:isMobile?"stretch":"center",gap:isMobile?10:0}}>
@@ -7110,8 +7118,8 @@ function Reports({jobs,clients,quotes,payments,invoices,markupTable}){
   const totalQ=quotes.length;
   const appQ=quotes.filter(q=>q.status==="Approved").length;
   const conv=totalQ>0?Math.round(appQ/totalQ*100):0;
-  const avgBase=totalQ>0?quotes.reduce((s,q)=>s+calcQuote(q.lineItems,markupTable,effMarkupOverride(q)).baseLow,0)/totalQ:0;
-  const avgFinal=totalQ>0?quotes.reduce((s,q)=>{if(quoteIsManual(q))return s+Number(q.manualTotal);const c=calcQuote(q.lineItems,markupTable,effMarkupOverride(q));return s+(c.bracket?(c.isRange?c.finalHigh:c.finalLow):0);},0)/totalQ:0;
+  const avgBase=totalQ>0?quotes.reduce((s,q)=>s+calcQuote(q.lineItems,markupTable,effMarkupOverride(q),q.pricingMode==="trade").baseLow,0)/totalQ:0;
+  const avgFinal=totalQ>0?quotes.reduce((s,q)=>{if(quoteIsManual(q))return s+Number(q.manualTotal);const c=calcQuote(q.lineItems,markupTable,effMarkupOverride(q),q.pricingMode==="trade");return s+(c.bracket?(c.isRange?c.finalHigh:c.finalLow):0);},0)/totalQ:0;
   const cashPaid=payments.filter(p=>p.status==="Received").reduce((s,p)=>s+Number(p.amount),0);
   const totalTradeIn=jobs.reduce((s,j)=>s+jobTradeInCredit(j,quotes),0);   // gold trade-in credits = value received
   const totalPaid=cashPaid+totalTradeIn;                                    // total value received (cash + trade-in)
