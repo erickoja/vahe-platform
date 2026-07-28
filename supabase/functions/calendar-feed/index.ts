@@ -24,16 +24,39 @@ async function sget(query: string) {
   return r.ok ? await r.json() : null;
 }
 
-function vevent(a: any, nameOf: (a: any) => string): string {
+// Minutes that `tz` is ahead of UTC at the given UTC instant (DST-aware, via Intl).
+function tzOffsetMin(utcMillis: number, tz: string): number {
+  const dtf = new Intl.DateTimeFormat("en-US", { timeZone: tz, hour12: false, year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", second: "2-digit" });
+  const map: Record<string, string> = {};
+  for (const part of dtf.formatToParts(new Date(utcMillis))) map[part.type] = part.value;
+  const h = map.hour === "24" ? 0 : +map.hour; // some engines emit "24" for midnight
+  const asIfUTC = Date.UTC(+map.year, +map.month - 1, +map.day, h, +map.minute, +map.second);
+  return Math.round((asIfUTC - utcMillis) / 60000);
+}
+
+// Turn a studio wall-clock date+time (in tz) into a real UTC Date.
+function zonedToUtc(dateStr: string, timeStr: string, tz: string): Date {
+  const [Y, M, D] = String(dateStr).split("-").map(Number);
+  const [h, m] = String(timeStr).split(":").map(Number);
+  const guess = Date.UTC(Y, (M || 1) - 1, D || 1, h || 0, m || 0, 0);
+  let utc = guess - tzOffsetMin(guess, tz) * 60000;
+  // Re-resolve once so a DST-boundary guess lands on the correct offset.
+  const refined = guess - tzOffsetMin(utc, tz) * 60000;
+  if (refined !== utc) utc = refined;
+  return new Date(utc);
+}
+
+const utcStamp = (d: Date) => `${d.getUTCFullYear()}${p2(d.getUTCMonth() + 1)}${p2(d.getUTCDate())}T${p2(d.getUTCHours())}${p2(d.getUTCMinutes())}${p2(d.getUTCSeconds())}Z`;
+
+function vevent(a: any, nameOf: (a: any) => string, tz: string): string {
   const title = `${a.type || "Appointment"}${nameOf(a) ? " — " + nameOf(a) : ""}`;
   let dtStart: string, dtEnd: string;
   if (a.time) {
-    const d = String(a.date).replace(/-/g, "");
-    const [hh, mm] = String(a.time).split(":");
-    let eh = parseInt(hh, 10) + 1, ed = d;
-    if (eh >= 24) { eh -= 24; const nd = new Date(`${a.date}T00:00:00Z`); nd.setUTCDate(nd.getUTCDate() + 1); ed = `${nd.getUTCFullYear()}${p2(nd.getUTCMonth() + 1)}${p2(nd.getUTCDate())}`; }
-    dtStart = `DTSTART:${d}T${hh}${mm}00`;
-    dtEnd = `DTEND:${ed}T${p2(eh)}${mm}00`;
+    const start = zonedToUtc(a.date, a.time, tz);
+    const durMin = Number(a.durationMin) > 0 ? Number(a.durationMin) : 60;
+    const end = new Date(start.getTime() + durMin * 60000);
+    dtStart = `DTSTART:${utcStamp(start)}`;
+    dtEnd = `DTEND:${utcStamp(end)}`;
   } else {
     const d0 = String(a.date).replace(/-/g, "");
     const nd = new Date(`${a.date}T00:00:00Z`); nd.setUTCDate(nd.getUTCDate() + 1);
@@ -48,9 +71,12 @@ Deno.serve(async (req) => {
   const token = new URL(req.url).searchParams.get("token");
   if (!token) return new Response("missing token", { status: 400 });
   try {
-    const bizRows = await sget(`studio_state?key=eq.${BIZ_KEY}&value->>calendarToken=eq.${encodeURIComponent(token)}&select=studio_id`);
-    const studioId = Array.isArray(bizRows) && bizRows.length ? bizRows[0].studio_id : null;
+    const bizRows = await sget(`studio_state?key=eq.${BIZ_KEY}&value->>calendarToken=eq.${encodeURIComponent(token)}&select=studio_id,value`);
+    const bizRow = Array.isArray(bizRows) && bizRows.length ? bizRows[0] : null;
+    const studioId = bizRow ? bizRow.studio_id : null;
     if (!studioId) return new Response("not found", { status: 404 });
+    let tz = (bizRow?.value?.calendarTz || "Australia/Sydney") as string;
+    try { new Intl.DateTimeFormat("en-US", { timeZone: tz }); } catch { tz = "Australia/Sydney"; }
 
     const [apRows, clRows] = await Promise.all([
       sget(`studio_state?studio_id=eq.${studioId}&key=eq.${APPT_KEY}&select=value`),
@@ -64,9 +90,9 @@ Deno.serve(async (req) => {
 
     const events = appts
       .filter((a: any) => a && a.date && a.status !== "Cancelled")
-      .map((a: any) => vevent(a, nameOf));
+      .map((a: any) => vevent(a, nameOf, tz));
 
-    const ics = ["BEGIN:VCALENDAR", "VERSION:2.0", "PRODID:-//Prong Studio//Appointments//EN", "CALSCALE:GREGORIAN", "METHOD:PUBLISH", "X-WR-CALNAME:Prong Studio — Appointments", ...events, "END:VCALENDAR"].join("\r\n");
+    const ics = ["BEGIN:VCALENDAR", "VERSION:2.0", "PRODID:-//Prong Studio//Appointments//EN", "CALSCALE:GREGORIAN", "METHOD:PUBLISH", "X-WR-CALNAME:Prong Studio — Appointments", `X-WR-TIMEZONE:${tz}`, ...events, "END:VCALENDAR"].join("\r\n");
 
     return new Response(ics, { headers: { "Content-Type": "text/calendar; charset=utf-8", "Cache-Control": "public, max-age=3600" } });
   } catch (e) {
