@@ -2086,21 +2086,50 @@ function Dashboard({clients,jobs,quotes,payments,invoices,appointments=[],propos
 
 // ── Clients ───────────────────────────────────────────────────────────────
 function ClientForm({initial={},onSave,onCancel}){
-  const[f,setF]=useState({name:"",email:"",phone:"",partnerName:"",partnerEmail:"",partnerPhone:"",street:"",city:"",state:"",postcode:"",notes:"",...initial});
+  const[f,setF]=useState({name:"",email:"",phone:"",partnerName:"",partnerEmail:"",partnerPhone:"",street:"",city:"",state:"",postcode:"",notes:"",accountType:"retail",contactName:"",abn:"",terms:"",tradeDiscount:"",creditLimit:"",poRequired:false,...initial});
   const set=k=>v=>setF(p=>({...p,[k]:v}));
+  const trade=f.accountType==="trade";
   return <div>
+    {/* Account type — retail (public) vs trade (wholesale / other jewellers) */}
+    <div style={{marginBottom:16}}>
+      <label style={SS.lbl}>Account type</label>
+      <div style={{display:"flex",gap:8,marginTop:6}}>
+        {[["retail","Retail — individual","A member of the public"],["trade","Trade — business","Wholesale · other jewellers"]].map(([v,t,sub])=>(
+          <button key={v} type="button" onClick={()=>set("accountType")(v)} style={{flex:1,textAlign:"left",cursor:"pointer",fontFamily:"inherit",border:`1.5px solid ${f.accountType===v?GOLD:BD}`,background:f.accountType===v?GOLD_L:WHITE,borderRadius:8,padding:"10px 14px",transition:"all .15s"}}>
+            <div style={{fontSize:13,fontWeight:700,color:f.accountType===v?GOLD_D:INK}}>{t}</div>
+            <div style={{fontSize:11,color:WG,marginTop:2}}>{sub}</div>
+          </button>
+        ))}
+      </div>
+    </div>
     <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"0 16px"}}>
-      <Input label="Full name" value={f.name} onChange={set("name")} placeholder="Sarah Mitchell"/>
+      <Input label={trade?"Business / trading name":"Full name"} value={f.name} onChange={set("name")} placeholder={trade?"Precious Metals Co":"Sarah Mitchell"}/>
       <Input label="Phone" value={f.phone} onChange={set("phone")} placeholder="0412 345 678"/>
-      <Input label="Email" value={f.email} onChange={set("email")} placeholder="sarah@example.com"/>
+      <Input label="Email" value={f.email} onChange={set("email")} placeholder={trade?"accounts@business.com.au":"sarah@example.com"}/>
+      {trade&&<Input label="Main contact person" value={f.contactName||""} onChange={set("contactName")} placeholder="e.g. workshop manager"/>}
     </div>
-    <div style={{borderTop:`1px solid ${BD}`,margin:"6px 0 14px"}}/>
-    <div style={{fontSize:10,fontWeight:700,color:WG,letterSpacing:"0.08em",textTransform:"uppercase",marginBottom:10}}>Partner <span style={{fontWeight:400,textTransform:"none",letterSpacing:0}}>(optional — for couples, e.g. engagement / wedding)</span></div>
-    <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"0 16px"}}>
-      <Input label="Partner name" value={f.partnerName||""} onChange={set("partnerName")} placeholder="Richard Lee"/>
-      <Input label="Partner phone" value={f.partnerPhone||""} onChange={set("partnerPhone")} placeholder="0413 222 111"/>
-      <Input label="Partner email" value={f.partnerEmail||""} onChange={set("partnerEmail")} placeholder="richard@example.com"/>
-    </div>
+    {trade?<>
+      <div style={{borderTop:`1px solid ${BD}`,margin:"6px 0 14px"}}/>
+      <div style={{fontSize:10,fontWeight:700,color:WG,letterSpacing:"0.08em",textTransform:"uppercase",marginBottom:10}}>Trade account</div>
+      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"0 16px"}}>
+        <Input label="ABN" value={f.abn||""} onChange={set("abn")} placeholder="12 345 678 901"/>
+        <Input label="Account terms" value={f.terms||""} onChange={set("terms")} as="select" options={[{value:"",label:"— Select —"},"COD","Net 7","Net 14","Net 30","EOM (end of month)"]}/>
+        <Input label="Trade discount (%)" value={f.tradeDiscount||""} onChange={set("tradeDiscount")} type="number" min="0" step="0.5" placeholder="e.g. 10"/>
+        <Input label="Credit limit ($) — optional" value={f.creditLimit||""} onChange={set("creditLimit")} type="number" min="0" step="1" placeholder="e.g. 5000"/>
+      </div>
+      <label style={{display:"flex",alignItems:"center",gap:9,fontSize:13,color:INK,cursor:"pointer",margin:"2px 0 16px"}}>
+        <input type="checkbox" checked={!!f.poRequired} onChange={e=>set("poRequired")(e.target.checked)} style={{width:16,height:16,accentColor:GOLD,cursor:"pointer"}}/>
+        Require a PO / reference number on this account's jobs
+      </label>
+    </>:<>
+      <div style={{borderTop:`1px solid ${BD}`,margin:"6px 0 14px"}}/>
+      <div style={{fontSize:10,fontWeight:700,color:WG,letterSpacing:"0.08em",textTransform:"uppercase",marginBottom:10}}>Partner <span style={{fontWeight:400,textTransform:"none",letterSpacing:0}}>(optional — for couples, e.g. engagement / wedding)</span></div>
+      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"0 16px"}}>
+        <Input label="Partner name" value={f.partnerName||""} onChange={set("partnerName")} placeholder="Richard Lee"/>
+        <Input label="Partner phone" value={f.partnerPhone||""} onChange={set("partnerPhone")} placeholder="0413 222 111"/>
+        <Input label="Partner email" value={f.partnerEmail||""} onChange={set("partnerEmail")} placeholder="richard@example.com"/>
+      </div>
+    </>}
     <div style={{borderTop:`1px solid ${BD}`,margin:"6px 0 16px"}}/>
     <Input label="Street address" value={f.street||""} onChange={set("street")} placeholder="123 Main St"/>
     <div style={{display:"grid",gridTemplateColumns:"2fr 1fr 1fr",gap:"0 16px"}}>
@@ -2112,7 +2141,7 @@ function ClientForm({initial={},onSave,onCancel}){
     <Input label="Instructions, notes & additional information" value={f.notes} onChange={set("notes")} as="textarea" rows={3}/>
     <div style={{display:"flex",gap:10,justifyContent:"flex-end"}}>
       <Btn ghost onClick={onCancel}>Cancel</Btn>
-      <Btn onClick={()=>{if(!f.name.trim())return alert("Name required");onSave(f);}}>Save client</Btn>
+      <Btn onClick={()=>{if(!f.name.trim())return alert(trade?"Business name required":"Name required");onSave(f);}}>Save client</Btn>
     </div>
   </div>;
 }
@@ -2121,7 +2150,7 @@ function Clients({clients,setClients,jobs,payments,setView,setSelClient,quotes=[
   const isMobile=useIsMobile();
   const[modal,setModal]=useState(null);
   const[search,setSearch]=useState("");
-  const filtered=clients.filter(c=>{const s=search.toLowerCase();return [c.name,c.partnerName,c.email,c.partnerEmail].filter(Boolean).some(v=>v.toLowerCase().includes(s));})
+  const filtered=clients.filter(c=>{const s=search.toLowerCase();return [c.name,c.partnerName,c.email,c.partnerEmail,c.contactName,c.abn].filter(Boolean).some(v=>v.toLowerCase().includes(s));})
     .sort((a,b)=>(a.name||"").localeCompare(b.name||"",undefined,{sensitivity:"base"}));
   const save_=(f,id)=>{setClients(p=>{const n=id?p.map(c=>c.id===id?{...c,...f}:c):[...p,{...f,id:uid(),createdAt:today()}];persist(K.cl,n);return n;});setModal(null);};
   const del=id=>{
@@ -2144,7 +2173,7 @@ function Clients({clients,setClients,jobs,payments,setView,setSelClient,quotes=[
         <div style={{display:"flex",flexDirection:isMobile?"column":"row",justifyContent:"space-between",alignItems:isMobile?"stretch":"flex-start",gap:isMobile?12:0}}>
           <div style={{display:"flex",gap:14,alignItems:"flex-start",flex:1,minWidth:0}}>
             <div style={{width:38,height:38,borderRadius:"50%",background:GOLD_L,display:"flex",alignItems:"center",justifyContent:"center",fontSize:16,fontWeight:800,color:GOLD_D,flexShrink:0}}>{c.name.charAt(0)}</div>
-            <div style={{minWidth:0}}><div style={{fontWeight:700,fontSize:15,color:INK}}>{clientDisplayName(c)}</div>
+            <div style={{minWidth:0}}><div style={{fontWeight:700,fontSize:15,color:INK,display:"flex",alignItems:"center",gap:8,flexWrap:"wrap"}}>{clientDisplayName(c)}{c.accountType==="trade"&&<span style={{fontSize:9,fontWeight:800,letterSpacing:"0.08em",color:GOLD_D,background:GOLD_L,border:`1px solid ${GOLD}55`,borderRadius:999,padding:"2px 7px",textTransform:"uppercase"}}>Trade</span>}</div>
             <div style={{fontSize:12,color:WG,marginTop:2,overflowWrap:"anywhere"}}>{c.email} · {c.phone}</div>
             <div style={{display:"flex",gap:12,fontSize:12,color:WG,marginTop:4,flexWrap:"wrap"}}>
               {received>0&&<span>Received: <b style={{color:OK}}>{fmt(received)}</b></span>}
@@ -2183,7 +2212,7 @@ function ClientDetail({clientId,clients,setClients,jobs,setJobs,quotes,payments,
     <button onClick={()=>setView("clients")} style={{background:"none",border:"none",cursor:"pointer",color:GOLD,fontSize:13,fontWeight:700,fontFamily:"inherit",marginBottom:18,padding:0}}>← Back to clients</button>
     <div style={{display:"flex",alignItems:"center",gap:14,marginBottom:20}}>
       <div style={{width:isMobile?42:50,height:isMobile?42:50,borderRadius:"50%",background:GOLD_L,display:"flex",alignItems:"center",justifyContent:"center",fontSize:isMobile?17:20,fontWeight:800,color:GOLD_D,flexShrink:0}}>{c.name.charAt(0)}</div>
-      <div style={{flex:1,minWidth:0}}><h1 style={{margin:0,fontSize:isMobile?19:24,fontWeight:800,color:INK,letterSpacing:"-0.02em",wordBreak:"break-word"}}>{clientDisplayName(c)}</h1>
+      <div style={{flex:1,minWidth:0}}><h1 style={{margin:0,fontSize:isMobile?19:24,fontWeight:800,color:INK,letterSpacing:"-0.02em",wordBreak:"break-word",display:"flex",alignItems:"center",gap:10,flexWrap:"wrap"}}>{clientDisplayName(c)}{c.accountType==="trade"&&<span style={{fontSize:10,fontWeight:800,letterSpacing:"0.08em",color:GOLD_D,background:GOLD_L,border:`1px solid ${GOLD}55`,borderRadius:999,padding:"3px 9px",textTransform:"uppercase"}}>Trade account</span>}</h1>
       <div style={{fontSize:13,color:WG}}>Since {fmtDate(c.createdAt)} · {fmt(spent+tradeIn)} received to date</div></div>
       <Btn sm={!isMobile} xs={isMobile} ghost onClick={()=>setEditModal(true)} >✎ Edit</Btn>
     </div>
@@ -2209,8 +2238,17 @@ function ClientDetail({clientId,clients,setClients,jobs,setJobs,quotes,payments,
         ))}
       </Card>
       <Card style={{margin:0}}>
-        <div style={SS.lbl}>Preferences</div>
-        <div style={{fontSize:13,color:WG,padding:"7px 0"}}>—</div>
+        <div style={SS.lbl}>{c.accountType==="trade"?"Trade account":"Preferences"}</div>
+        {c.accountType==="trade"?[
+          ["Contact person",c.contactName],
+          ["ABN",c.abn],
+          ["Terms",c.terms],
+          ["Trade discount",c.tradeDiscount?`${c.tradeDiscount}%`:""],
+          ["Credit limit",c.creditLimit?fmt(Number(c.creditLimit)):""],
+          ["PO required",c.poRequired?"Yes":"No"],
+        ].map(([k,v])=>(
+          <div key={k} style={{display:"flex",justifyContent:"space-between",fontSize:13,padding:"7px 0",borderBottom:`1px solid ${BD}`}}><span style={{color:WG}}>{k}</span><span style={{color:INK,fontWeight:600}}>{v||"—"}</span></div>
+        )):<div style={{fontSize:13,color:WG,padding:"7px 0"}}>—</div>}
       </Card>
     </div>
     {c.notes&&<Card><div style={{...SS.lbl,marginBottom:8}}>Notes</div><div style={{fontSize:14,color:INK,lineHeight:1.7}}>{c.notes}</div></Card>}
@@ -2239,10 +2277,13 @@ function ClientDetail({clientId,clients,setClients,jobs,setJobs,quotes,payments,
 
 // ── Jobs ──────────────────────────────────────────────────────────────────
 function JobForm({clients,initial={},onSave,onCancel}){
-  const[f,setF]=useState({clientId:"",type:JOB_TYPES[0],stage:JOB_STAGES[0],description:"",deadline:"",dateIn:"",dateOut:"",notes:"",supplier:"",supplierRef:"",totalOverride:"",...initial});
+  const[f,setF]=useState({clientId:"",type:JOB_TYPES[0],stage:JOB_STAGES[0],description:"",deadline:"",dateIn:"",dateOut:"",notes:"",supplier:"",supplierRef:"",totalOverride:"",po:"",...initial});
   const set=k=>v=>setF(p=>({...p,[k]:v}));
+  const selClient=clients.find(c=>c.id===f.clientId);
+  const isTradeJob=selClient?.accountType==="trade";
   return <div>
-    <Input label="Client" value={f.clientId} onChange={set("clientId")} as="select" options={[{value:"",label:"— Select a client —"},...clients.map(c=>({value:c.id,label:c.name}))]}/>
+    <Input label="Client" value={f.clientId} onChange={set("clientId")} as="select" options={[{value:"",label:"— Select a client —"},...clients.map(c=>({value:c.id,label:c.accountType==="trade"?`${c.name} · Trade`:c.name}))]}/>
+    {isTradeJob&&<Input label={`PO / reference${selClient?.poRequired?" (required)":""}`} value={f.po||""} onChange={set("po")} placeholder="Client's PO or job reference"/>}
     <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:"0 16px"}}>
       <Input label="Job type" value={f.type} onChange={set("type")} as="select" options={JOB_TYPES}/>
       <Input label="Stage" value={f.stage} onChange={set("stage")} as="select" options={JOB_STAGES}/>
@@ -2264,7 +2305,7 @@ function JobForm({clients,initial={},onSave,onCancel}){
     </div>
     <div style={{display:"flex",gap:10,justifyContent:"flex-end"}}>
       <Btn ghost onClick={onCancel}>Cancel</Btn>
-      <Btn onClick={()=>{if(!f.clientId)return alert("Select a client");onSave(f);}}>Save job</Btn>
+      <Btn onClick={()=>{if(!f.clientId)return alert("Select a client");if(isTradeJob&&selClient?.poRequired&&!(f.po||"").trim())return alert("This trade account requires a PO / reference number.");onSave(f);}}>Save job</Btn>
     </div>
   </div>;
 }
