@@ -7008,6 +7008,23 @@ function Settings({biz,setBiz,markupTable,setMarkupTable,naturalStoneMarkup,setN
 
 // ── Appointments ───────────────────────────────────────────────────────────
 const apptName=(a,clients)=>{const c=a.clientId&&clients.find(x=>x.id===a.clientId);return c?c.name:(a.clientName||"—");};
+// Build a Google Calendar "add event" link from an appointment — no API/login needed.
+const _apptCalTitle=(a,clients)=>{const n=apptName(a,clients);return `${a.type||"Appointment"}${n&&n!=="—"?" — "+n:""}`;};
+const googleCalUrl=(a,clients)=>{
+  const enc=encodeURIComponent;
+  const pad=n=>String(n).padStart(2,"0");
+  let dates;
+  if(a.time){
+    const s=new Date(`${a.date}T${a.time}:00`);const e=new Date(s.getTime()+3600000);
+    const f=d=>`${d.getFullYear()}${pad(d.getMonth()+1)}${pad(d.getDate())}T${pad(d.getHours())}${pad(d.getMinutes())}00`;
+    dates=`${f(s)}/${f(e)}`;
+  }else{
+    const d0=(a.date||"").replace(/-/g,"");const nd=new Date(`${a.date}T00:00:00`);nd.setDate(nd.getDate()+1);
+    dates=`${d0}/${nd.getFullYear()}${pad(nd.getMonth()+1)}${pad(nd.getDate())}`;
+  }
+  const tz=(()=>{try{return Intl.DateTimeFormat().resolvedOptions().timeZone||"";}catch(e){return "";}})();
+  return `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${enc(_apptCalTitle(a,clients))}&dates=${dates}${a.notes?`&details=${enc(a.notes)}`:""}${tz?`&ctz=${enc(tz)}`:""}`;
+};
 function MiniBtn({label,color,onClick}){
   return <button onClick={e=>{e.stopPropagation();onClick();}} style={{background:color+"14",border:`1px solid ${color}44`,borderRadius:3,padding:"3px 10px",fontSize:11,fontWeight:700,color,cursor:"pointer",fontFamily:"inherit"}}>{label}</button>;
 }
@@ -7142,6 +7159,7 @@ function Appointments({appointments,setAppointments,clients,setClients,jobs=[],s
                 {a.notes&&<div style={{fontSize:13,color:WG,marginTop:4,lineHeight:1.5}}>{a.notes}</div>}
                 <div style={{display:"flex",gap:6,marginTop:8,flexWrap:"wrap"}}>
                   {isLiveAppt(a)&&<>
+                    <MiniBtn label="📅 Add to calendar" color={GOLD_D} onClick={()=>window.open(googleCalUrl(a,clients),"_blank","noopener")}/>
                     <MiniBtn label="✓ Done" color={OK} onClick={()=>setStatus(a.id,"Completed")}/>
                     <MiniBtn label="No-show" color={DANGER} onClick={()=>setStatus(a.id,"No-show")}/>
                     <MiniBtn label="Cancel" color={WARN} onClick={()=>setStatus(a.id,"Cancelled")}/>
