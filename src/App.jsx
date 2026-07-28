@@ -1586,9 +1586,14 @@ function Modal({title,onClose,children,wide}){
     </div>
   </div>;
 }
-function SectionHeader({title,action}){
-  return <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:12,flexWrap:"wrap",marginBottom:20}}>
-    <h2 style={{margin:0,fontSize:22,fontWeight:800,color:INK,letterSpacing:"-0.02em"}}>{title}</h2>
+function SectionHeader({eyebrow,title,subtitle,action}){
+  // Matches the dashboard header: uppercase eyebrow · big bold title · description line.
+  return <div style={{display:"flex",alignItems:"flex-end",justifyContent:"space-between",gap:16,flexWrap:"wrap",marginBottom:24}}>
+    <div style={{minWidth:0}}>
+      {eyebrow&&<div style={{fontSize:11,fontWeight:700,color:WG,letterSpacing:"0.14em",textTransform:"uppercase",marginBottom:5}}>{eyebrow}</div>}
+      <h1 style={{margin:0,fontSize:32,fontWeight:700,color:INK,letterSpacing:"-0.02em",fontFamily:"'Poppins',sans-serif"}}>{title}</h1>
+      {subtitle&&<div style={{color:INK,fontSize:15,marginTop:6,lineHeight:1.5}}>{subtitle}</div>}
+    </div>
     {action}
   </div>;
 }
@@ -2128,7 +2133,7 @@ function Clients({clients,setClients,jobs,payments,setView,setSelClient,quotes=[
     setClients(p=>{const n=p.filter(c=>c.id!==id);persist(K.cl,n);return n;});
   };
   return <div>
-    <SectionHeader title="Clients" action={<Btn onClick={()=>setModal("add")}>+ Add client</Btn>}/>
+    <SectionHeader eyebrow="Client book" title="Clients" subtitle="Everyone you work with — contacts, jobs and history in one place." action={<Btn onClick={()=>setModal("add")}>+ Add client</Btn>}/>
     <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Search by name, partner or email…" style={{...SS.inp,marginBottom:16,marginTop:0}}/>
     {filtered.length===0&&<Card><div style={{color:WG,fontSize:14,textAlign:"center",padding:"14px 0"}}>No clients found.</div></Card>}
     {filtered.map(c=>{
@@ -2311,7 +2316,7 @@ function Jobs({clients,jobs,setJobs,quotes,setQuotes,payments,setPayments,notes,
     setInvoices(p=>{const n=p.filter(x=>x.jobId!==id);persist(K.inv,n);return n;});
   };
   return <div>
-    <SectionHeader title="Jobs" action={clients.length>0?<Btn onClick={()=>setModal("add")}>+ Add job</Btn>:<span style={{fontSize:13,color:WG}}>Add a client first</span>}/>
+    <SectionHeader eyebrow="Workshop" title="Jobs" subtitle="Every custom piece in progress, by type and stage." action={clients.length>0?<Btn onClick={()=>setModal("add")}>+ Add job</Btn>:<span style={{fontSize:13,color:WG}}>Add a client first</span>}/>
     <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Search jobs by client, type or description…" style={{...SS.inp,marginBottom:14,marginTop:0}}/>
     {typesByCount.length>0&&<div style={{marginBottom:16}}>
       <div style={{...SS.lbl,marginBottom:10}}>Job types</div>
@@ -5266,7 +5271,7 @@ function QuotesList({quotes,jobs,clients,markupTable,biz,setView}){
   );
 
   return <div>
-    <SectionHeader title="Quotes" action={<Btn onClick={()=>{setSelClient("");setSelJob("");setModal(true);}}>+ New Quote</Btn>}/>
+    <SectionHeader eyebrow="Pricing" title="Quotes" subtitle="Build and track every quote, from first estimate to approval." action={<Btn onClick={()=>{setSelClient("");setSelJob("");setModal(true);}}>+ New Quote</Btn>}/>
     {quotes.length===0&&<Card>
       <div style={{color:WG,fontSize:14,textAlign:"center",padding:"24px 0"}}>
         <div style={{fontSize:32,marginBottom:10}}>✏️</div>
@@ -5828,7 +5833,7 @@ function InvoicesList({invoices,jobs,clients,quotes,payments,setInvoices,markupT
     downloadInvoiceCsv(rows,`invoices-${span}.csv`);
   };
   return <div>
-    <SectionHeader title="Invoices" action={<div style={{display:"flex",gap:8,alignItems:"center",flexWrap:"wrap"}}>{invoices.length>0&&<Btn ghost sm onClick={()=>setExportOpen(true)}>⬇ Export CSV</Btn>}<Btn onClick={openModal}>+ New Invoice</Btn></div>}/>
+    <SectionHeader eyebrow="Billing" title="Invoices" subtitle="Send, track and reconcile every invoice — paid, outstanding and overdue." action={<div style={{display:"flex",gap:8,alignItems:"center",flexWrap:"wrap"}}>{invoices.length>0&&<Btn ghost sm onClick={()=>setExportOpen(true)}>⬇ Export CSV</Btn>}<Btn onClick={openModal}>+ New Invoice</Btn></div>}/>
     {exportOpen&&<Modal title="Export invoices to CSV" onClose={()=>setExportOpen(false)}>
       <div style={{fontSize:13,color:WG,marginBottom:14,lineHeight:1.6}}>Pick a date range (by invoice date) for your bookkeeping, or leave both blank to export everything.</div>
       <div style={{display:"flex",gap:8,flexWrap:"wrap",marginBottom:16}}>
@@ -6299,7 +6304,7 @@ function PricingDB({pricing,setPricing,spotPrices,setSpotPrices,markupTable,cent
 
   const DCOLORS={"Lab Grown Diamonds | D-E":"#96627C","Natural diamonds G-H SI1":"#4E8B6A","Natural diamonds D-E VS":"#2D7A4F"};
   return <div>
-    <SectionHeader title="Pricing database" action={<div style={{display:"flex",gap:10,alignItems:"center",flexWrap:"wrap"}}>
+    <SectionHeader eyebrow="Cost prices" title="Pricing database" subtitle="Your metals, stones, setting and labour rates — the numbers behind every quote." action={<div style={{display:"flex",gap:10,alignItems:"center",flexWrap:"wrap"}}>
       <Btn ghost onClick={()=>setSpotModal(true)}>⟳ Update spot prices</Btn>
       <Btn onClick={()=>setModal("add")}>+ Add item</Btn>
     </div>}/>
@@ -6732,7 +6737,7 @@ function Reports({jobs,clients,quotes,payments,invoices,markupTable}){
     return s+(bal>1?bal:0);
   },0);
   return <div>
-    <SectionHeader title="Reports"/>
+    <SectionHeader eyebrow="Business" title="Reports" subtitle="How the studio's tracking — sales, margins and conversion at a glance."/>
     <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(140px,1fr))",gap:12,marginBottom:22}}>
       <Stat label="Total clients" value={clients.length}/>
       <Stat label="Total jobs" value={jobs.length}/>
@@ -6822,7 +6827,7 @@ function Settings({biz,setBiz,markupTable,setMarkupTable,naturalStoneMarkup,setN
 
   return <div>
     {toast&&<div style={{position:"fixed",top:18,right:24,background:OK,color:WHITE,fontSize:13,fontWeight:700,padding:"10px 20px",borderRadius:4,boxShadow:"0 4px 18px rgba(0,0,0,0.18)",zIndex:9999,letterSpacing:"0.04em"}}>✓ {toast}</div>}
-    <SectionHeader title="Settings"/>
+    <SectionHeader eyebrow="Your studio" title="Settings" subtitle="Business details, branding, pricing rules and your calendar feed."/>
     <Card>
       <div style={{fontWeight:700,fontSize:15,color:INK,marginBottom:4}}>Business details</div>
       <div style={{fontSize:13,color:WG,marginBottom:16}}>These appear on printed proposals and invoices.</div>
@@ -7273,7 +7278,7 @@ function Appointments({appointments,setAppointments,clients,setClients,jobs=[],s
   };
 
   return <div>
-    <SectionHeader title="Appointments" action={<Btn onClick={()=>setModal("add")}>+ New appointment</Btn>}/>
+    <SectionHeader eyebrow="Calendar" title="Appointments" subtitle="Your bookings — consultations, fittings, repairs and pickups." action={<Btn onClick={()=>setModal("add")}>+ New appointment</Btn>}/>
     <div style={{display:"flex",gap:6,marginBottom:18}}>{pill("list","List")}{pill("week","Week")}{pill("month","Month")}</div>
     {mode==="list"?renderList():mode==="week"?renderWeek():renderMonth()}
     {modal&&<Modal title={isEdit?"Edit appointment":"New appointment"} onClose={()=>setModal(null)}>
@@ -7877,8 +7882,8 @@ function GemCustody({custody,setCustody,clients,biz}){
     <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-end",flexWrap:"wrap",gap:16,marginBottom:24}}>
       <div>
         <div style={{fontSize:11,fontWeight:700,color:WG,letterSpacing:"0.14em",textTransform:"uppercase",marginBottom:5}}>Client-owned items</div>
-        <h1 style={{margin:0,fontSize:32,fontWeight:500,color:INK,letterSpacing:"-0.01em"}}>Safekeeping</h1>
-        <div style={{color:WG,fontSize:14,marginTop:4}}>Log any client-owned stone or piece of jewellery you're holding, and print a receipt as proof for the customer.</div>
+        <h1 style={{margin:0,fontSize:32,fontWeight:700,color:INK,letterSpacing:"-0.02em",fontFamily:"'Poppins',sans-serif"}}>Safekeeping</h1>
+        <div style={{color:INK,fontSize:15,marginTop:6,lineHeight:1.5}}>Log any client-owned stone or piece of jewellery you're holding, and print a receipt as proof for the customer.</div>
       </div>
       <Btn onClick={openNew}>+ New receipt</Btn>
     </div>
@@ -8145,8 +8150,8 @@ function StockBoard({stock,setStock,setView}){
     <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-end",flexWrap:"wrap",gap:16,marginBottom:24}}>
       <div>
         <div style={{fontSize:11,fontWeight:700,color:WG,letterSpacing:"0.14em",textTransform:"uppercase",marginBottom:5}}>Inventory</div>
-        <h1 style={{margin:0,fontSize:32,fontWeight:500,color:INK,letterSpacing:"-0.01em"}}>Stock</h1>
-        <div style={{color:WG,fontSize:14,marginTop:4}}>Your ready-to-sell and display pieces, with photos, SKUs and pricing.</div>
+        <h1 style={{margin:0,fontSize:32,fontWeight:700,color:INK,letterSpacing:"-0.02em",fontFamily:"'Poppins',sans-serif"}}>Stock</h1>
+        <div style={{color:INK,fontSize:15,marginTop:6,lineHeight:1.5}}>Your ready-to-sell and display pieces, with photos, SKUs and pricing.</div>
       </div>
       <Btn onClick={openNew}>+ Add piece</Btn>
     </div>
