@@ -1114,7 +1114,7 @@ const calcStoneQuote=(items,table,overrideMult)=>{
   return{totalCost,bracket,mult,autoMult,overridden:ov>0,markedUp,gst,clientTotal};
 };
 
-const K={cl:"jlr4_clients",jo:"jlr4_jobs",qu:"jlr4_quotes",pa:"jlr4_payments",pr:"jlr4_pricing_v9",biz:"jlr4_biz",no:"jlr4_notes",inv:"jlr4_invoices",spot:"jlr4_spot",mt:"jlr4_markup",smn:"jlr4_stone_nat",sml:"jlr4_stone_lab",csr:"jlr4_centre_rates",ap:"jlr4_appointments",pp:"jlr4_proposals",td:"jlr4_todos",st:"jlr4_stock",gc:"jlr4_gem_custody",delpr:"jlr4_deleted_pricing"};
+const K={cl:"jlr4_clients",jo:"jlr4_jobs",qu:"jlr4_quotes",pa:"jlr4_payments",pr:"jlr4_pricing_v9",biz:"jlr4_biz",no:"jlr4_notes",inv:"jlr4_invoices",spot:"jlr4_spot",mt:"jlr4_markup",smn:"jlr4_stone_nat",sml:"jlr4_stone_lab",csr:"jlr4_centre_rates",ap:"jlr4_appointments",pp:"jlr4_proposals",td:"jlr4_todos",st:"jlr4_stock",gc:"jlr4_gem_custody",delpr:"jlr4_deleted_pricing",trs:"jlr4_trade_services"};
 
 // Name of the public, anon-readable table holding immutable proposal snapshots for client links.
 const PUBLIC_PROPOSALS_TABLE="public_proposals";
@@ -2195,7 +2195,7 @@ function Clients({clients,setClients,jobs,payments,setView,setSelClient,quotes=[
   </div>;
 }
 
-function ClientDetail({clientId,clients,setClients,jobs,setJobs,quotes,payments,invoices,markupTable,setView,setSelJob}){
+function ClientDetail({clientId,clients,setClients,jobs,setJobs,quotes,payments,invoices,markupTable,setView,setSelJob,tradeServices=[]}){
   const isMobile=useIsMobile();
   const c=clients.find(x=>x.id===clientId);
   const[jobModal,setJobModal]=useState(false);
@@ -2267,7 +2267,7 @@ function ClientDetail({clientId,clients,setClients,jobs,setJobs,quotes,payments,
       ))}
     </Card>
     {jobModal&&<Modal title={`New job for ${c.name}`} onClose={()=>setJobModal(false)}>
-      <JobForm clients={clients} initial={{clientId}} onSave={addJob} onCancel={()=>setJobModal(false)}/>
+      <JobForm clients={clients} tradeServices={tradeServices} initial={{clientId}} onSave={addJob} onCancel={()=>setJobModal(false)}/>
     </Modal>}
     {editModal&&<Modal title="Edit client" onClose={()=>setEditModal(false)}>
       <ClientForm initial={c} onSave={saveClient} onCancel={()=>setEditModal(false)}/>
@@ -2276,11 +2276,17 @@ function ClientDetail({clientId,clients,setClients,jobs,setJobs,quotes,payments,
 }
 
 // ── Jobs ──────────────────────────────────────────────────────────────────
-function JobForm({clients,initial={},onSave,onCancel}){
+function JobForm({clients,tradeServices=[],initial={},onSave,onCancel}){
   const[f,setF]=useState({clientId:"",type:JOB_TYPES[0],stage:JOB_STAGES[0],description:"",deadline:"",dateIn:"",dateOut:"",notes:"",supplier:"",supplierRef:"",totalOverride:"",po:"",...initial});
+  const[pickId,setPickId]=useState("");
   const set=k=>v=>setF(p=>({...p,[k]:v}));
   const selClient=clients.find(c=>c.id===f.clientId);
   const isTradeJob=selClient?.accountType==="trade";
+  const tradeDisc=Number(selClient?.tradeDiscount)||0;
+  const calcServicesTotal=arr=>Math.round((arr||[]).reduce((s,e)=>s+(Number(e.price)||0)*(e.qty||1),0)*(1-tradeDisc/100));
+  const servicesTotal=calcServicesTotal(f.services);
+  const addService=()=>{const s=tradeServices.find(x=>x.id===pickId);if(!s)return;setF(p=>{const cur=p.services||[];const idx=cur.findIndex(e=>e.id===s.id);const services=idx>=0?cur.map((e,i)=>i===idx?{...e,qty:(e.qty||1)+1}:e):[...cur,{id:s.id,name:s.name,price:Number(s.price)||0,qty:1}];return{...p,services,totalOverride:String(calcServicesTotal(services))};});setPickId("");};
+  const removeService=i=>setF(p=>{const services=(p.services||[]).filter((_,j)=>j!==i);return{...p,services,totalOverride:services.length?String(calcServicesTotal(services)):p.totalOverride};});
   return <div>
     <Input label="Client" value={f.clientId} onChange={set("clientId")} as="select" options={[{value:"",label:"— Select a client —"},...clients.map(c=>({value:c.id,label:c.accountType==="trade"?`${c.name} · Trade`:c.name}))]}/>
     {isTradeJob&&<Input label={`PO / reference${selClient?.poRequired?" (required)":""}`} value={f.po||""} onChange={set("po")} placeholder="Client's PO or job reference"/>}
@@ -2293,6 +2299,25 @@ function JobForm({clients,initial={},onSave,onCancel}){
       <Input label="Date taken in" value={f.dateIn} onChange={set("dateIn")} type="date"/>
       <Input label="Date of pickup / collection" value={f.dateOut} onChange={set("dateOut")} type="date"/>
     </div>
+    {isTradeJob&&tradeServices.length>0&&<>
+      <div style={{borderTop:`1px solid ${BD}`,margin:"6px 0 14px"}}/>
+      <div style={{...SS.lbl,marginBottom:8}}>Rate card</div>
+      <div style={{display:"flex",gap:8,alignItems:"flex-start"}}>
+        <div style={{flex:1}}><Input label="Add a service" value={pickId} onChange={setPickId} as="select" options={[{value:"",label:"— Choose a service —"},...tradeServices.map(s=>({value:s.id,label:`${s.name} — ${fmt(Number(s.price)||0)}`}))]}/></div>
+        <div style={{marginTop:24}}><Btn sm ghost onClick={addService}>Add</Btn></div>
+      </div>
+      {(f.services||[]).length>0&&<div style={{background:PARCH,border:`1px solid ${BD}`,borderRadius:6,padding:"10px 14px",marginBottom:16,marginTop:-2}}>
+        {(f.services||[]).map((s,i)=>(
+          <div key={i} style={{display:"flex",justifyContent:"space-between",alignItems:"center",fontSize:13,padding:"5px 0",borderBottom:`1px solid ${BD}`}}>
+            <span style={{color:INK}}>{s.name}{s.qty>1?` ×${s.qty}`:""}</span>
+            <span style={{display:"flex",gap:12,alignItems:"center"}}><b style={{color:INK}}>{fmt((Number(s.price)||0)*(s.qty||1))}</b><button onClick={()=>removeService(i)} style={{background:"none",border:"none",color:DANGER,cursor:"pointer",fontSize:15,fontFamily:"inherit",lineHeight:1}}>×</button></span>
+          </div>
+        ))}
+        <div style={{display:"flex",justifyContent:"space-between",fontSize:13,paddingTop:8,fontWeight:700,color:INK}}>
+          <span>{tradeDisc>0?`Total · less ${tradeDisc}% trade`:"Total"}</span><span>{fmt(servicesTotal)}</span>
+        </div>
+      </div>}
+    </>}
     <div style={{borderTop:`1px solid ${BD}`,margin:"6px 0 16px"}}/>
     <div style={{background:GOLD_L,border:`1px solid ${GOLD}55`,borderRadius:4,padding:"12px 16px",marginBottom:16}}>
       <Input label="Total charge override ($) — optional" value={f.totalOverride||""} onChange={set("totalOverride")} type="number" min="0" step="0.01" placeholder="e.g. 4500"/>
@@ -2310,7 +2335,7 @@ function JobForm({clients,initial={},onSave,onCancel}){
   </div>;
 }
 
-function Jobs({clients,jobs,setJobs,quotes,setQuotes,payments,setPayments,notes,setNotes,invoices,setInvoices,markupTable,setView,setSelJob}){
+function Jobs({clients,jobs,setJobs,quotes,setQuotes,payments,setPayments,notes,setNotes,invoices,setInvoices,markupTable,setView,setSelJob,tradeServices=[]}){
   const[modal,setModal]=useState(null);
   const[sf,setSf]=useState("All");
   const[tf,setTf]=useState("All");
@@ -2445,7 +2470,7 @@ function Jobs({clients,jobs,setJobs,quotes,setQuotes,payments,setPayments,notes,
         </div>}
       </Card>;
     })}
-    {modal&&<Modal title="New job" onClose={()=>setModal(null)}><JobForm clients={clients} onSave={add} onCancel={()=>setModal(null)}/></Modal>}
+    {modal&&<Modal title="New job" onClose={()=>setModal(null)}><JobForm clients={clients} tradeServices={tradeServices} onSave={add} onCancel={()=>setModal(null)}/></Modal>}
   </div>;
 }
 
@@ -2849,7 +2874,7 @@ function RepairIntakeCard({job,setJobs,biz,clients,markupTable,pricing=[],invoic
   </Card>;
 }
 
-function JobDetail({jobId,jobs,setJobs,clients,quotes,setQuotes,payments,setPayments,notes,setNotes,invoices,setInvoices,proposals,setProposals,biz,markupTable,pricing=[],setView}){
+function JobDetail({jobId,jobs,setJobs,clients,quotes,setQuotes,payments,setPayments,notes,setNotes,invoices,setInvoices,proposals,setProposals,biz,markupTable,pricing=[],setView,tradeServices=[]}){
   const isMobile=useIsMobile();
   const job=jobs.find(j=>j.id===jobId);
   if(!job)return null;
@@ -3063,7 +3088,7 @@ function JobDetail({jobId,jobs,setJobs,clients,quotes,setQuotes,payments,setPaym
       </div>
     </Modal>}
     {editJobModal&&<Modal title="Edit job" onClose={()=>setEditJobModal(false)}>
-      <JobForm clients={clients} initial={job} onSave={f=>{
+      <JobForm clients={clients} tradeServices={tradeServices} initial={job} onSave={f=>{
         setJobs(p=>{const n=p.map(j=>j.id===jobId?{...j,...f}:j);persist(K.jo,n);return n;});
         setEditJobModal(false);
       }} onCancel={()=>setEditJobModal(false)}/>
@@ -6828,7 +6853,7 @@ function Reports({jobs,clients,quotes,payments,invoices,markupTable}){
 }
 
 // ── Settings ──────────────────────────────────────────────────────────────
-function Settings({biz,setBiz,markupTable,setMarkupTable,naturalStoneMarkup,setNaturalStoneMarkup,labStoneMarkup,setLabStoneMarkup}){
+function Settings({biz,setBiz,markupTable,setMarkupTable,naturalStoneMarkup,setNaturalStoneMarkup,labStoneMarkup,setLabStoneMarkup,tradeServices=[],setTradeServices}){
   const isMobile=useIsMobile();
   const[bForm,setBForm]=useState({name:"",email:"",phone:"",abn:"",address:"",depositPercent:50,quoteValidityDays:30,quoteTerms:"",bankName:"Commonwealth Bank of Australia",bankAccountName:"",bankBSB:"",bankAccount:"",...biz});
   const setBF=k=>v=>setBForm(p=>({...p,[k]:v}));
@@ -6866,12 +6891,31 @@ function Settings({biz,setBiz,markupTable,setMarkupTable,naturalStoneMarkup,setN
   // Backfill the timezone for a token created before we stored it, so the feed renders times correctly without a new URL.
   useEffect(()=>{if(biz.calendarToken&&!biz.calendarTz&&browserTz){const nb={...biz,calendarTz:browserTz};setBiz(nb);persist(K.biz,nb);}},[biz.calendarToken,biz.calendarTz,browserTz]);
   const feedUrl=calFeedUrl(biz.calendarToken);
+  // Trade rate card — a simple {id,name,price} list, edited as a local draft and saved to K.trs.
+  const[rc,setRc]=useState(tradeServices);
+  const saveRc=()=>{const clean=rc.filter(r=>(r.name||"").trim()).map(r=>({id:r.id||uid(),name:r.name.trim(),price:Number(r.price)||0}));setTradeServices(clean);persist(K.trs,clean);setRc(clean);showToast("Trade rate card saved");};
   const saveSmNTable=()=>{setNaturalStoneMarkup(smn);persist(K.smn,smn);showToast("Natural stone markup saved");};
   const saveSmLTable=()=>{setLabStoneMarkup(sml);persist(K.sml,sml);showToast("Lab-grown stone markup saved");};
 
   return <div>
     {toast&&<div style={{position:"fixed",top:18,right:24,background:OK,color:WHITE,fontSize:13,fontWeight:700,padding:"10px 20px",borderRadius:4,boxShadow:"0 4px 18px rgba(0,0,0,0.18)",zIndex:9999,letterSpacing:"0.04em"}}>✓ {toast}</div>}
     <SectionHeader eyebrow="Your studio" title="Settings" subtitle="Business details, branding, pricing rules and your calendar feed."/>
+    <Card>
+      <div style={{fontWeight:700,fontSize:15,color:INK,marginBottom:4}}>Trade rate card</div>
+      <div style={{fontSize:13,color:WG,marginBottom:16}}>Set prices for the standard services you offer trade accounts — sizing, re-tipping, rhodium, setting and so on. Pick them straight onto a trade job instead of costing each one from scratch.</div>
+      {rc.length===0&&<div style={{fontSize:13,color:WG,padding:"2px 0 12px"}}>No services yet — add your first below.</div>}
+      {rc.map((r,i)=>(
+        <div key={i} style={{display:"flex",gap:8,alignItems:"center",marginBottom:8}}>
+          <input value={r.name} onChange={e=>setRc(p=>p.map((x,j)=>j===i?{...x,name:e.target.value}:x))} placeholder="e.g. Ring sizing (up to 2 sizes)" style={{...SS.inp,marginTop:0,flex:1}}/>
+          <div style={{position:"relative"}}><span style={{position:"absolute",left:10,top:"50%",transform:"translateY(-50%)",color:WG,fontSize:13}}>$</span><input type="number" min="0" step="0.5" value={r.price} onChange={e=>setRc(p=>p.map((x,j)=>j===i?{...x,price:e.target.value}:x))} placeholder="0" style={{...SS.inp,marginTop:0,width:120,paddingLeft:22}}/></div>
+          <button onClick={()=>setRc(p=>p.filter((_,j)=>j!==i))} style={{background:"none",border:"none",color:DANGER,cursor:"pointer",fontSize:18,fontFamily:"inherit",lineHeight:1}} title="Remove">×</button>
+        </div>
+      ))}
+      <div style={{display:"flex",gap:10,marginTop:12}}>
+        <Btn sm ghost onClick={()=>setRc(p=>[...p,{id:uid(),name:"",price:""}])}>+ Add service</Btn>
+        <Btn sm onClick={saveRc}>Save rate card</Btn>
+      </div>
+    </Card>
     <Card>
       <div style={{fontWeight:700,fontSize:15,color:INK,marginBottom:4}}>Business details</div>
       <div style={{fontSize:13,color:WG,marginBottom:16}}>These appear on printed proposals and invoices.</div>
@@ -8350,6 +8394,7 @@ export default function App(){
   const[todos,setTodos]=useState({people:[],items:[]});
   const[stock,setStock]=useState([]);
   const[gemCustody,setGemCustody]=useState([]);
+  const[tradeServices,setTradeServices]=useState([]);   // trade rate card: [{id,name,price}]
   const[view,setViewRaw]=useState("dashboard");
   const[selClient,setSelClient]=useState(null);
   const[selJob,setSelJob]=useState(null);
@@ -8426,7 +8471,7 @@ export default function App(){
       [K.pr]:setPricing,[K.biz]:setBiz,[K.no]:setNotes,[K.inv]:setInvoices,
       [K.mt]:setMarkupTable,[K.smn]:setNaturalStoneMarkup,[K.sml]:setLabStoneMarkup,[K.csr]:setCentreRates,
       [K.ap]:setAppointments,[K.pp]:setProposals,[K.td]:setTodos,[K.st]:setStock,
-      [K.gc]:setGemCustody,[K.spot]:setSpotPrices,
+      [K.gc]:setGemCustody,[K.spot]:setSpotPrices,[K.trs]:setTradeServices,
     };
     // When a studio has no saved row for a key (a brand-new/empty studio, or one that just
     // switched in), reset that slice to a CLEAN default rather than leaving the previously
@@ -8434,7 +8479,7 @@ export default function App(){
     // so a new studio is immediately usable. Keys must match keyToSetter exactly.
     const studioDefaults={
       [K.cl]:[],[K.jo]:[],[K.qu]:[],[K.pa]:[],[K.no]:[],[K.inv]:[],[K.pp]:[],[K.ap]:[],
-      [K.td]:{people:[],items:[]},[K.st]:[],[K.gc]:[],[K.biz]:{},
+      [K.td]:{people:[],items:[]},[K.st]:[],[K.gc]:[],[K.trs]:[],[K.biz]:{},
       [K.pr]:SEED_PRICING,[K.mt]:DEFAULT_MARKUP_TABLE,[K.smn]:DEFAULT_NATURAL_STONE_MARKUP,
       [K.sml]:DEFAULT_LAB_STONE_MARKUP,[K.csr]:DEFAULT_SETTING_RATES,[K.spot]:SEED_SPOT,
     };
@@ -8632,9 +8677,9 @@ export default function App(){
     if(view==="todo")return <TodoBoard todos={todos} setTodos={setTodos} jobs={jobs} clients={clients} setView={setView} setSelJob={setSelJob}/>;
     if(view==="appointments")return <Appointments appointments={appointments} setAppointments={setAppointments} clients={clients} setClients={setClients} jobs={jobs} setJobs={setJobs} setView={setView} setSelClient={setSelClient} setSelJob={setSelJob}/>;
     if(view==="clients")return <Clients clients={clients} setClients={setClients} jobs={jobs} payments={payments} setView={setView} setSelClient={setSelClient} quotes={quotes}/>;
-    if(view==="clientDetail")return <ClientDetail clientId={selClient} clients={clients} setClients={setClients} jobs={jobs} setJobs={setJobs} quotes={quotes} payments={payments} invoices={invoices} markupTable={markupTable} setView={setView} setSelJob={setSelJob}/>;
-    if(view==="jobs")return <Jobs clients={clients} jobs={jobs} setJobs={setJobs} quotes={quotes} setQuotes={setQuotes} payments={payments} setPayments={setPayments} notes={notes} setNotes={setNotes} invoices={invoices} setInvoices={setInvoices} markupTable={markupTable} setView={setView} setSelJob={setSelJob}/>;
-    if(view==="jobDetail")return <JobDetail jobId={selJob} jobs={jobs} setJobs={setJobs} clients={clients} quotes={quotes} setQuotes={setQuotes} payments={payments} setPayments={setPayments} notes={notes} setNotes={setNotes} invoices={invoices} setInvoices={setInvoices} proposals={proposals} setProposals={setProposals} biz={biz} markupTable={markupTable} pricing={pricing} setView={setView}/>;
+    if(view==="clientDetail")return <ClientDetail clientId={selClient} clients={clients} setClients={setClients} jobs={jobs} setJobs={setJobs} quotes={quotes} payments={payments} invoices={invoices} markupTable={markupTable} setView={setView} setSelJob={setSelJob} tradeServices={tradeServices}/>;
+    if(view==="jobs")return <Jobs clients={clients} jobs={jobs} setJobs={setJobs} quotes={quotes} setQuotes={setQuotes} payments={payments} setPayments={setPayments} notes={notes} setNotes={setNotes} invoices={invoices} setInvoices={setInvoices} markupTable={markupTable} setView={setView} setSelJob={setSelJob} tradeServices={tradeServices}/>;
+    if(view==="jobDetail")return <JobDetail jobId={selJob} jobs={jobs} setJobs={setJobs} clients={clients} quotes={quotes} setQuotes={setQuotes} payments={payments} setPayments={setPayments} notes={notes} setNotes={setNotes} invoices={invoices} setInvoices={setInvoices} proposals={proposals} setProposals={setProposals} biz={biz} markupTable={markupTable} pricing={pricing} setView={setView} tradeServices={tradeServices}/>;
     if(view==="quotes")return <QuotesList quotes={quotes} jobs={jobs} clients={clients} markupTable={markupTable} biz={biz} setView={setView}/>;
     if(view.startsWith("quoteDetail_"))return <QuoteDetail quoteId={view.split("_")[1]} quotes={quotes} setQuotes={setQuotes} jobs={jobs} clients={clients} biz={biz} markupTable={markupTable} naturalStoneMarkup={naturalStoneMarkup} labStoneMarkup={labStoneMarkup} payments={payments} invoices={invoices} setView={setView}/>;
     if(view.startsWith("newQuote_"))return <QuoteBuilder jobId={view.split("_")[1]} jobs={jobs} clients={clients} quotes={quotes} setQuotes={setQuotes} pricing={pricing} setPricing={setPricing} markupTable={markupTable} naturalStoneMarkup={naturalStoneMarkup} labStoneMarkup={labStoneMarkup} centreRates={centreRates} setCentreRates={setCentreRates} setView={setView}/>;
@@ -8646,7 +8691,7 @@ export default function App(){
     if(view.startsWith("stockPrice_"))return <QuoteBuilder stockId={view.split("_")[1]} stock={stock} setStock={setStock} jobs={jobs} clients={clients} quotes={quotes} setQuotes={setQuotes} pricing={pricing} setPricing={setPricing} markupTable={markupTable} naturalStoneMarkup={naturalStoneMarkup} labStoneMarkup={labStoneMarkup} centreRates={centreRates} setCentreRates={setCentreRates} setView={setView}/>;
     if(view==="pricing")return <PricingDB pricing={pricing} setPricing={setPricing} spotPrices={spotPrices} setSpotPrices={setSpotPrices} markupTable={markupTable} centreRates={centreRates} setCentreRates={setCentreRates}/>;
     if(view==="reports")return <Reports jobs={jobs} clients={clients} quotes={quotes} payments={payments} invoices={invoices} markupTable={markupTable}/>;
-    if(view==="settings")return <Settings biz={biz} setBiz={setBiz} markupTable={markupTable} setMarkupTable={setMarkupTable} naturalStoneMarkup={naturalStoneMarkup} setNaturalStoneMarkup={setNaturalStoneMarkup} labStoneMarkup={labStoneMarkup} setLabStoneMarkup={setLabStoneMarkup}/>;
+    if(view==="settings")return <Settings biz={biz} setBiz={setBiz} markupTable={markupTable} setMarkupTable={setMarkupTable} naturalStoneMarkup={naturalStoneMarkup} setNaturalStoneMarkup={setNaturalStoneMarkup} labStoneMarkup={labStoneMarkup} setLabStoneMarkup={setLabStoneMarkup} tradeServices={tradeServices} setTradeServices={setTradeServices}/>;
     return null;
   };
 
