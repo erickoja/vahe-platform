@@ -1864,6 +1864,127 @@ function intakeItems(intake){
   if(intake.itemType||intake.damage||intake.condition)return[{itemType:intake.itemType||"",damage:intake.damage||"",condition:intake.condition||""}];
   return[];
 }
+// ── Job dockets & labels (Phase 3) ────────────────────────────────────────
+// Self-contained Code 128 (subset B) barcode generator — no external libs. Table validated by the
+// module-count invariant (every symbol = 11 modules, stop = 13) + round-trip decode. Encodes the
+// short job ref so the printed docket/tag can be scanned back to the job later.
+const C128=["212222","222122","222221","121223","121322","131222","122213","122312","132212","221213","221312","231212","112232","122132","122231","113222","123122","123221","223211","221132","221231","213212","223112","312131","311222","321122","321221","312212","322112","322211","212123","212321","232121","111323","131123","131321","112313","132113","132311","211313","231113","231311","112133","112331","132131","113123","113321","133121","313121","211331","231131","213113","213311","213131","311123","311321","331121","312113","312311","332111","314111","221411","431111","111224","111422","121124","121421","141122","141221","112214","112412","122114","122411","142112","142211","241211","221114","413111","241112","134111","111242","121142","121241","114212","124112","124211","411212","421112","421211","212141","214121","412121","111143","111341","131141","114113","114311","411113","411311","113141","114131","311141","411131","211412","211214","211232","2331112"];
+const code128b=text=>{
+  const bytes=[...String(text||"")].map(c=>c.charCodeAt(0)).filter(c=>c>=32&&c<=126);
+  if(!bytes.length)return "";
+  const codes=[104,...bytes.map(c=>c-32)];
+  let sum=104;codes.slice(1).forEach((v,i)=>{sum+=(i+1)*v;});
+  codes.push(sum%103,106);
+  return codes.map(c=>C128[c]).join("");
+};
+// SVG barcode as an HTML string (crisp, black-on-white). mw=module width (px), h=bar height.
+const barcodeSvg=(text,{h=46,mw=2,quiet=10}={})=>{
+  const widths=code128b(text);
+  if(!widths)return "";
+  const seq=[...widths].map(Number);
+  let x=quiet*mw,bar=true,rects="";
+  seq.forEach(d=>{if(bar)rects+=`<rect x="${x}" y="0" width="${d*mw}" height="${h}"/>`;x+=d*mw;bar=!bar;});
+  const w=x+quiet*mw;
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}" viewBox="0 0 ${w} ${h}" shape-rendering="crispEdges"><rect width="${w}" height="${h}" fill="#fff"/><g fill="#000">${rects}</g></svg>`;
+};
+// Short, human-readable job reference (also what the barcode encodes).
+const jobRef=job=>(job?.id||"").slice(-6).toUpperCase();
+
+// Internal workshop docket for the physical job envelope: barcode + docket #, client/PO, dates,
+// instructions and a stage checklist. Never shows pricing — this rides with the job, not the client.
+function printJobDocket(biz,c,job){
+  const win=window.open("","_blank");
+  if(!win){alert("Please allow pop-ups so the docket can open in a new tab.");return;}
+  const esc=s=>String(s==null?"":s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
+  const ml=s=>esc(s).replace(/\n/g,"<br>");
+  const ref=jobRef(job);
+  const trade=c?.accountType==="trade";
+  const clientName=esc(clientDisplayName(c)||"—");
+  const contact=[trade?c?.contactName:"",c?.phone,c?.email].filter(Boolean).map(esc).join(" · ");
+  const intake=job.type==="Repair"?(job.intake||{}):null;
+  const instructions=intake?[...intakeItems(intake).map(it=>[it.itemType,it.damage].filter(Boolean).join(" — ")),intake.instructions].filter(Boolean).join("\n"):(job.notes||"");
+  const idRow=(l,v)=>`<div class="idrow"><span class="idl">${l}</span><span class="idv">${v||"—"}</span></div>`;
+  const stageBoxes=JOB_STAGES.map(s=>`<span class="stg${s===job.stage?" on":""}">${s===job.stage?"☑":"☐"} ${esc(s)}</span>`).join("");
+  win.document.write(`<!DOCTYPE html><html><head><title>Job Docket — ${ref}</title><style>${PCSS}
+.dhead{display:flex;justify-content:space-between;align-items:flex-start;gap:20px;border-bottom:2.5px solid #C9A84C;padding-bottom:16px;margin-bottom:20px}
+.barc{margin-bottom:22px;text-align:center;border:1px solid #E8E2D9;border-radius:10px;padding:16px}
+.barc svg{max-width:100%;height:auto}
+.dref{font-size:30px;font-weight:800;letter-spacing:.05em;margin-top:8px}
+.block{border:1px solid #E8E2D9;border-radius:10px;padding:14px 18px;margin-bottom:16px}
+.idrow{display:flex;justify-content:space-between;gap:16px;padding:7px 0;border-bottom:1px solid #F0EBE3;font-size:13px}
+.idrow:last-child{border-bottom:none}
+.idl{color:#6B6560;font-weight:700;text-transform:uppercase;font-size:9.5px;letter-spacing:.08em;padding-top:2px}
+.idv{color:#1A1714;font-weight:700;text-align:right}
+.idv.po{color:#8B6914;font-size:15px}
+.grid4{display:grid;grid-template-columns:repeat(4,1fr);gap:1px;background:#E8E2D9;border:1px solid #E8E2D9;border-radius:10px;overflow:hidden;margin-bottom:16px}
+.grid4>div{background:#fff;padding:11px 14px}
+.g-l{font-size:8.5px;font-weight:700;color:#6B6560;text-transform:uppercase;letter-spacing:.08em;margin-bottom:4px}
+.g-v{font-size:13px;font-weight:700;color:#1A1714}
+.instr{font-size:12.5px;line-height:1.6;color:#1A1714;background:#FAF7F2;border-left:3px solid #C9A84C;border-radius:0 8px 8px 0;padding:12px 16px;margin-bottom:16px;white-space:pre-line}
+.stlbl{font-size:9px;font-weight:700;color:#6B6560;text-transform:uppercase;letter-spacing:.08em;margin-bottom:9px}
+.stgs{display:flex;flex-wrap:wrap;gap:7px 16px;margin-bottom:22px}
+.stg{font-size:11.5px;color:#6B6560}
+.stg.on{color:#1A1714;font-weight:800}
+.sig{display:grid;grid-template-columns:1fr 1fr;gap:36px;margin-top:10px}
+.sig .sigline{border-bottom:1px solid #1A1714;margin-top:26px;margin-bottom:5px}
+.sig .siglbl{font-size:9px;color:#6B6560}
+@media print{.block,.grid4,.barc{page-break-inside:avoid}}
+</style></head><body>
+<div class="dhead">
+  <div>${biz.logo?`<img src="${esc(biz.logo)}" alt="${esc(biz.name||"")}" style="max-width:170px;max-height:56px;object-fit:contain;display:block;margin-bottom:5px"/>`:`<div class="bname">${esc(biz.name||"Our Studio")}</div>`}<div class="bsub">Workshop job docket${trade?" · Trade":""}</div></div>
+  <div style="text-align:right"><div class="qlbl">Docket</div><div style="font-size:11px;color:#6B6560;margin-top:4px">Printed ${fmtDate(today())}</div></div>
+</div>
+<div class="barc">${barcodeSvg(ref,{h:60,mw:2.4})}<div class="dref">#${ref}</div></div>
+<div class="block">
+  ${idRow("Client",clientName)}
+  ${contact?idRow("Contact",esc(contact)):""}
+  ${trade||job.po?idRow("PO / reference",`<span class="idv po">${esc(job.po||"—")}</span>`):""}
+</div>
+<div class="grid4">
+  <div><div class="g-l">Job</div><div class="g-v">${esc(job.type||"—")}</div></div>
+  <div><div class="g-l">Taken in</div><div class="g-v">${job.dateIn?fmtDate(job.dateIn):"—"}</div></div>
+  <div><div class="g-l">Due</div><div class="g-v">${job.deadline?fmtDate(job.deadline):"—"}</div></div>
+  <div><div class="g-l">Pickup</div><div class="g-v">${job.dateOut?fmtDate(job.dateOut):"—"}</div></div>
+</div>
+${job.description?`<div class="instr"><strong>Job:</strong> ${ml(job.description)}</div>`:""}
+${instructions?`<div class="instr"><strong>Instructions:</strong>\n${ml(instructions)}</div>`:""}
+<div class="stlbl">Progress</div>
+<div class="stgs">${stageBoxes}</div>
+<div class="sig"><div><div class="sigline"></div><div class="siglbl">Completed / checked by</div></div><div><div class="sigline"></div><div class="siglbl">Collected by · date</div></div></div>
+</body></html>`);
+  win.document.close();setTimeout(()=>win.print(),350);
+}
+
+// Compact tag/label for the physical bag or item — barcode + docket #, client, job and due date.
+function printJobLabel(biz,c,job){
+  const win=window.open("","_blank");
+  if(!win){alert("Please allow pop-ups so the label can open in a new tab.");return;}
+  const esc=s=>String(s==null?"":s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
+  const ref=jobRef(job);
+  const who=esc(clientDisplayName(c)||"—");
+  win.document.write(`<!DOCTYPE html><html><head><title>Tag — ${ref}</title><style>
+@import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700;800&display=swap');
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Poppins',sans-serif;color:#111;background:#fff;padding:14px}
+.tag{width:62mm;border:1px solid #111;border-radius:6px;padding:9px 11px;text-align:center}
+.tag svg{max-width:100%;height:auto}
+.ref{font-size:16px;font-weight:800;letter-spacing:.06em;margin:2px 0 6px}
+.who{font-size:12px;font-weight:700;line-height:1.3}
+.meta{font-size:10px;color:#444;margin-top:3px;line-height:1.4}
+.biz{font-size:8.5px;color:#666;margin-top:6px;text-transform:uppercase;letter-spacing:.06em}
+@page{margin:6mm}
+</style></head><body>
+<div class="tag">
+  ${barcodeSvg(ref,{h:38,mw:1.7})}
+  <div class="ref">#${ref}</div>
+  <div class="who">${who}</div>
+  <div class="meta">${esc(job.type||"")}${job.po?` · PO ${esc(job.po)}`:""}${job.deadline?` · Due ${fmtDate(job.deadline)}`:""}</div>
+  <div class="biz">${esc(biz.name||"")}</div>
+</div>
+</body></html>`);
+  win.document.close();setTimeout(()=>win.print(),300);
+}
+
 async function printRepairIntake(biz,c,job){
   const win=window.open("","_blank");
   const photos=await jobImagesForPrint(job);
@@ -3101,6 +3222,8 @@ function JobDetail({jobId,jobs,setJobs,clients,quotes,setQuotes,payments,setPaym
       <div style={{display:"flex",gap:8,alignItems:"center",flexWrap:"wrap",flexShrink:0}}>
         <Badge label={job.stage} color={SC[job.stage]||WG} size="lg"/>
         <Btn sm={!isMobile} xs={isMobile} ghost onClick={()=>setEditStage(v=>!v)}>Move stage</Btn>
+        <Btn sm={!isMobile} xs={isMobile} ghost onClick={()=>printJobDocket(biz,c,job)}>🏷 Docket</Btn>
+        <Btn sm={!isMobile} xs={isMobile} ghost onClick={()=>printJobLabel(biz,c,job)}>Tag</Btn>
         <Btn sm={!isMobile} xs={isMobile} ghost onClick={()=>setEditJobModal(true)}>Edit job</Btn>
         <Btn sm={!isMobile} xs={isMobile} danger onClick={delJob}>Delete job</Btn>
       </div>
