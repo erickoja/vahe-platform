@@ -290,6 +290,11 @@ const DEFAULT_LAB_STONE_MARKUP=[
   {id:"sl18",low:15000, high:19999.99, multiplier:1.20},
   {id:"sl19",low:20000, high:1000000,  multiplier:1.20},
 ];
+// Trade markup profile — same bracket structure as retail, seeded as a copy so trade
+// pricing is safe out of the box; the jeweller lowers these to their wholesale rates.
+const DEFAULT_TRADE_MARKUP_TABLE=DEFAULT_MARKUP_TABLE.map(b=>({...b}));
+const DEFAULT_TRADE_NATURAL_STONE_MARKUP=DEFAULT_NATURAL_STONE_MARKUP.map(b=>({...b}));
+const DEFAULT_TRADE_LAB_STONE_MARKUP=DEFAULT_LAB_STONE_MARKUP.map(b=>({...b}));
 
 // ── Pricing seed ─────────────────────────────────────────────────────────
 const SEED_SPOT={gold:105,platinum:148,silver:1.45,updatedAt:"2025-05-01"};
@@ -1048,10 +1053,14 @@ const quoteIsManual=q=>Number(q?.manualTotal)>0;
 // A quote counts as invoiced if any invoice references it. Combined invoices list several ids in
 // quoteIds; older single-quote invoices store one quoteId.
 const quoteHasInvoice=(invoices,qid)=>(invoices||[]).some(i=>(i.quoteIds||(i.quoteId?[i.quoteId]:[])).includes(qid));
+// Effective markup multiplier for a quote: a manual per-quote override wins; otherwise a
+// trade-priced quote (pricingMode==="trade") uses its snapshot trade multiplier. Retail = 0
+// (calcQuote then uses the auto bracket), so existing retail quotes are unchanged.
+const effMarkupOverride=q=>{const mo=Number(q?.markupOverride)||0;if(mo>0)return mo;if(q?.pricingMode==="trade")return Number(q?.tradeMult)||0;return 0;};
 // Grand total for a quote, inc GST — manual price wins; else jewellery + centre stone + stone-markup accents.
 const quoteGrandTotal=(q,markupTable)=>{
   if(quoteIsManual(q))return Number(q.manualTotal);
-  const c=calcQuote(q.lineItems,markupTable,q.markupOverride);
+  const c=calcQuote(q.lineItems,markupTable,effMarkupOverride(q));
   return (c.isRange?c.finalHigh:c.finalLow)+(q.stoneClientTotal||0)+(q.accentStoneTotal||0);
 };
 // Total agreed charge for a job, used by every financial view.
@@ -1114,7 +1123,7 @@ const calcStoneQuote=(items,table,overrideMult)=>{
   return{totalCost,bracket,mult,autoMult,overridden:ov>0,markedUp,gst,clientTotal};
 };
 
-const K={cl:"jlr4_clients",jo:"jlr4_jobs",qu:"jlr4_quotes",pa:"jlr4_payments",pr:"jlr4_pricing_v9",biz:"jlr4_biz",no:"jlr4_notes",inv:"jlr4_invoices",spot:"jlr4_spot",mt:"jlr4_markup",smn:"jlr4_stone_nat",sml:"jlr4_stone_lab",csr:"jlr4_centre_rates",ap:"jlr4_appointments",pp:"jlr4_proposals",td:"jlr4_todos",st:"jlr4_stock",gc:"jlr4_gem_custody",delpr:"jlr4_deleted_pricing"};
+const K={cl:"jlr4_clients",jo:"jlr4_jobs",qu:"jlr4_quotes",pa:"jlr4_payments",pr:"jlr4_pricing_v9",biz:"jlr4_biz",no:"jlr4_notes",inv:"jlr4_invoices",spot:"jlr4_spot",mt:"jlr4_markup",smn:"jlr4_stone_nat",sml:"jlr4_stone_lab",csr:"jlr4_centre_rates",ap:"jlr4_appointments",pp:"jlr4_proposals",td:"jlr4_todos",st:"jlr4_stock",gc:"jlr4_gem_custody",delpr:"jlr4_deleted_pricing",tmt:"jlr4_trade_markup",tsmn:"jlr4_trade_stone_nat",tsml:"jlr4_trade_stone_lab"};
 
 // Name of the public, anon-readable table holding immutable proposal snapshots for client links.
 const PUBLIC_PROPOSALS_TABLE="public_proposals";
@@ -1140,7 +1149,7 @@ function videoEmbed(url){
 // Build an invoice's content (line items, totals, trade-in) from a single quote. Shared by
 // invoice creation and the "Update from quote" re-sync so the two always produce the same result.
 const invoiceContentFromQuote=(q,job,markupTable)=>{
-  const calc=calcQuote(q.lineItems,markupTable,q.markupOverride);
+  const calc=calcQuote(q.lineItems,markupTable,effMarkupOverride(q));
   const totalIncGST=quoteGrandTotal(q,markupTable);
   const gst=totalIncGST-totalIncGST/(1+GST_RATE);
   const exGST=totalIncGST-gst;
@@ -1211,7 +1220,7 @@ const buildProposalSnapshot=({proposal,job,client,biz,quotes,markupTable,payment
   const options=(proposal.optionIds||[]).map(qid=>{
     const q=quotes.find(x=>x.id===qid);
     if(!q)return null;
-    const calc=calcQuote(q.lineItems,markupTable,q.markupOverride);
+    const calc=calcQuote(q.lineItems,markupTable,effMarkupOverride(q));
     const priceKnown=quoteIsManual(q)||!(calc.base>0&&!calc.bracket&&!calc.overridden);
     // Chosen photo path(s) resolved to inline data URLs via photoMap at build time.
     // Back-compat: older proposals stored a single path string instead of an array.
@@ -2086,7 +2095,7 @@ function Dashboard({clients,jobs,quotes,payments,invoices,appointments=[],propos
 
 // ── Clients ───────────────────────────────────────────────────────────────
 function ClientForm({initial={},onSave,onCancel}){
-  const[f,setF]=useState({name:"",email:"",phone:"",partnerName:"",partnerEmail:"",partnerPhone:"",street:"",city:"",state:"",postcode:"",notes:"",accountType:"retail",contactName:"",abn:"",terms:"",tradeDiscount:"",creditLimit:"",poRequired:false,...initial});
+  const[f,setF]=useState({name:"",email:"",phone:"",partnerName:"",partnerEmail:"",partnerPhone:"",street:"",city:"",state:"",postcode:"",notes:"",accountType:"retail",contactName:"",abn:"",terms:"",creditLimit:"",poRequired:false,...initial});
   const set=k=>v=>setF(p=>({...p,[k]:v}));
   const trade=f.accountType==="trade";
   return <div>
@@ -2114,9 +2123,9 @@ function ClientForm({initial={},onSave,onCancel}){
       <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"0 16px"}}>
         <Input label="ABN" value={f.abn||""} onChange={set("abn")} placeholder="12 345 678 901"/>
         <Input label="Account terms" value={f.terms||""} onChange={set("terms")} as="select" options={[{value:"",label:"— Select —"},"COD","Net 7","Net 14","Net 30","EOM (end of month)"]}/>
-        <Input label="Trade discount (%)" value={f.tradeDiscount||""} onChange={set("tradeDiscount")} type="number" min="0" step="0.5" placeholder="e.g. 10"/>
         <Input label="Credit limit ($) — optional" value={f.creditLimit||""} onChange={set("creditLimit")} type="number" min="0" step="1" placeholder="e.g. 5000"/>
       </div>
+      <div style={{fontSize:11,color:WG,margin:"-4px 0 14px",lineHeight:1.5}}>Trade pricing comes from your <strong>Trade markups</strong> in Settings — quotes for this account use them automatically.</div>
       <label style={{display:"flex",alignItems:"center",gap:9,fontSize:13,color:INK,cursor:"pointer",margin:"2px 0 16px"}}>
         <input type="checkbox" checked={!!f.poRequired} onChange={e=>set("poRequired")(e.target.checked)} style={{width:16,height:16,accentColor:GOLD,cursor:"pointer"}}/>
         Require a PO / reference number on this account's jobs
@@ -2243,7 +2252,6 @@ function ClientDetail({clientId,clients,setClients,jobs,setJobs,quotes,payments,
           ["Contact person",c.contactName],
           ["ABN",c.abn],
           ["Terms",c.terms],
-          ["Trade discount",c.tradeDiscount?`${c.tradeDiscount}%`:""],
           ["Credit limit",c.creditLimit?fmt(Number(c.creditLimit)):""],
           ["PO required",c.poRequired?"Yes":"No"],
         ].map(([k,v])=>(
@@ -3011,7 +3019,7 @@ function JobDetail({jobId,jobs,setJobs,clients,quotes,setQuotes,payments,setPaym
       {jq.length===0&&<div style={{color:WG,fontSize:14}}>No quotes yet.</div>}
       {jq.length>1&&<div style={{fontSize:11,color:WG,marginBottom:6}}>Order shown here is the order options appear on new proposals.</div>}
       {jq.map((q,qi)=>{
-        const calc=calcQuote(q.lineItems,markupTable,q.markupOverride);
+        const calc=calcQuote(q.lineItems,markupTable,effMarkupOverride(q));
         const hasInv=quoteHasInvoice(invoices,q.id);
         const manual=quoteIsManual(q);
         const stoneTotal=(q.stoneClientTotal||0)+(q.accentStoneTotal||0);
@@ -3420,7 +3428,7 @@ function SettingPicker({onAdd,settingRates=DEFAULT_SETTING_RATES,pricing=[]}){
   </div>;
 }
 
-function QuoteBuilder({jobId:jobIdProp,editQuoteId,stockId,stock,setStock,jobs,clients,quotes,setQuotes,pricing,setPricing,markupTable,naturalStoneMarkup,labStoneMarkup,centreRates=DEFAULT_SETTING_RATES,setCentreRates,invoices=[],setInvoices,setView}){
+function QuoteBuilder({jobId:jobIdProp,editQuoteId,stockId,stock,setStock,jobs,clients,quotes,setQuotes,pricing,setPricing,markupTable,naturalStoneMarkup,labStoneMarkup,tradeMarkupTable=[],tradeNatStoneMarkup=[],tradeLabStoneMarkup=[],centreRates=DEFAULT_SETTING_RATES,setCentreRates,invoices=[],setInvoices,setView}){
   // Wider "stack" breakpoint (1024) than the app default (768): the line-item editor is a wide
   // multi-column table, so it stacks into cards on tablets too, not just phones.
   const isMobile=useIsMobile(1024);
@@ -3443,6 +3451,10 @@ function QuoteBuilder({jobId:jobIdProp,editQuoteId,stockId,stock,setStock,jobs,c
   const[title,setTitle]=useState(seed?.title??(job?.type||""));   // prefill new quotes with the job type
   const[pieceTitle,setPieceTitle]=useState(seed?.pieceTitle||"");  // custom piece name on documents; blank = use job type
   const[markupOverride,setMarkupOverride]=useState(seed?.markupOverride?String(seed.markupOverride):"");
+  // Trade pricing: same builder, the lower trade markup profile. Auto-on for trade-account clients
+  // (new quotes), restored from the saved quote when editing; never in stock-pricing mode.
+  const[pricingMode,setPricingMode]=useState(seed?.pricingMode||((!stockMode&&c?.accountType==="trade")?"trade":"retail"));
+  const tradePricing=pricingMode==="trade"&&!stockMode;
   const[stoneOverride,setStoneOverride]=useState(seed?.stoneMarkupOverride?String(seed.stoneMarkupOverride):"");
   const[tradeInCredit,setTradeInCredit]=useState(seed?.tradeInCredit?String(seed.tradeInCredit):"");
   const[tradeInNote,setTradeInNote]=useState(seed?.tradeInNote||"");
@@ -3576,14 +3588,21 @@ function QuoteBuilder({jobId:jobIdProp,editQuoteId,stockId,stock,setStock,jobs,c
   const mfgAccents=accentItems.filter(i=>(i.markupMode||"mfg")==="mfg");
   const stoneAccents=accentItems.filter(i=>i.markupMode==="natural"||i.markupMode==="lab");
   const validItems=[...items.filter(i=>i.description.trim()&&Number(i.costLow)>0),...validAccentItems];
-  const calc=calcQuote(validItems.length?validItems:items,markupTable,markupOverride);
+  // Trade quotes use the lower trade markup profile for metal/labour and for stones.
+  const mkTable=tradePricing?tradeMarkupTable:markupTable;
+  const natTable=tradePricing?tradeNatStoneMarkup:naturalStoneMarkup;
+  const labTable=tradePricing?tradeLabStoneMarkup:labStoneMarkup;
+  const calc=calcQuote(validItems.length?validItems:items,mkTable,markupOverride);
   const validStoneItems=stoneItems.filter(i=>(Number(i.cost)||Number(i.costLow))>0);
-  const activeStoneMarkup=stoneType==="lab"?labStoneMarkup:naturalStoneMarkup;
+  const activeStoneMarkup=stoneType==="lab"?labTable:natTable;
   const stoneCalc=stoneMode==="sourcing"&&stoneType&&validStoneItems.length>0?calcStoneQuote(validStoneItems,activeStoneMarkup,stoneOverride):null;
   const stoneClientTotal=stoneCalc?.clientTotal||0;
   // Accent/fancy stones set to follow the stone markup — each priced like the centre stone (cost × stone tier + 10% GST)
   const accentStoneItems=validAccentItems.filter(i=>i.markupMode==="natural"||i.markupMode==="lab");
-  const accentStoneTotal=accentStoneItems.reduce((s,i)=>{const sc=calcStoneQuote([{cost:i.costLow}],i.markupMode==="lab"?labStoneMarkup:naturalStoneMarkup);return s+(sc?.clientTotal||0);},0);
+  const accentStoneTotal=accentStoneItems.reduce((s,i)=>{const sc=calcStoneQuote([{cost:i.costLow}],i.markupMode==="lab"?labTable:natTable);return s+(sc?.clientTotal||0);},0);
+  // Snapshot trade multiplier stored on the quote so every downstream total (invoices, proposals,
+  // job/dashboard figures) reprices via effMarkupOverride without threading the trade table around.
+  const tradeMultVal=tradePricing?(getBracket(calc.base,tradeMarkupTable)?.multiplier||1):0;
   const grandTotal=calc.finalLow+stoneClientTotal+accentStoneTotal;
   const manualOn=Number(manualTotal)>0;
   const tradeInN=Number(tradeInCredit)||0;                                   // gold trade-in credit (deduction)
@@ -3613,7 +3632,7 @@ function QuoteBuilder({jobId:jobIdProp,editQuoteId,stockId,stock,setStock,jobs,c
     }
     if(isEditing){
       // Update existing quote — preserve id, jobId, createdAt
-      const updated={...existingQuote,status,title:title.trim(),pieceTitle:pieceTitle.trim(),markupOverride:Number(markupOverride)||0,manualTotal:Number(manualTotal)||0,validUntil,notes,lineItems:validItems,
+      const updated={...existingQuote,status,title:title.trim(),pieceTitle:pieceTitle.trim(),markupOverride:Number(markupOverride)||0,pricingMode:tradePricing?"trade":"retail",tradeMult:tradeMultVal,manualTotal:Number(manualTotal)||0,validUntil,notes,lineItems:validItems,
         stoneMode,stoneType:stoneMode==="sourcing"?stoneType:"",stoneItems:stoneMode==="sourcing"?validStoneItems:[],stoneMarkupOverride:Number(stoneOverride)||0,
         stoneNotes,stoneClientTotal:stoneCalc?.clientTotal||0,accentStoneTotal,tradeInCredit:Number(tradeInCredit)||0,tradeInNote:tradeInNote.trim(),clientDescription,updatedAt:today()};
       const nextQuotes=quotes.map(q=>q.id===editQuoteId?updated:q);
@@ -3630,7 +3649,7 @@ function QuoteBuilder({jobId:jobIdProp,editQuoteId,stockId,stock,setStock,jobs,c
         if(apply)setInvoices(p=>{const n=p.map(i=>i.id===linkedInvoice.id?synced:i);persist(K.inv,n);return n;});
       }
     }else{
-      const q={id:uid(),jobId,status,title:title.trim(),pieceTitle:pieceTitle.trim(),markupOverride:Number(markupOverride)||0,manualTotal:Number(manualTotal)||0,createdAt:today(),validUntil,notes,lineItems:validItems,
+      const q={id:uid(),jobId,status,title:title.trim(),pieceTitle:pieceTitle.trim(),markupOverride:Number(markupOverride)||0,pricingMode:tradePricing?"trade":"retail",tradeMult:tradeMultVal,manualTotal:Number(manualTotal)||0,createdAt:today(),validUntil,notes,lineItems:validItems,
         stoneMode,stoneType:stoneMode==="sourcing"?stoneType:"",stoneItems:stoneMode==="sourcing"?validStoneItems:[],stoneMarkupOverride:Number(stoneOverride)||0,
         stoneNotes,stoneClientTotal:stoneCalc?.clientTotal||0,accentStoneTotal,tradeInCredit:Number(tradeInCredit)||0,tradeInNote:tradeInNote.trim(),clientDescription};
       setQuotes(p=>{const n=[...p,q];persist(K.qu,n);return n;});
@@ -3775,8 +3794,19 @@ function QuoteBuilder({jobId:jobIdProp,editQuoteId,stockId,stock,setStock,jobs,c
         {stoneMode==="sourcing"&&stoneType&&<button onClick={()=>setCentreModal(true)} style={{background:(stoneType==="lab"?"#96627C":"#4E8B6A")+"18",border:`1px solid ${stoneType==="lab"?"#96627C":"#4E8B6A"}`,borderRadius:4,padding:"6px 14px",color:stoneType==="lab"?"#96627C":"#4E8B6A",fontSize:12,fontWeight:700,cursor:"pointer",fontFamily:"inherit"}}>+ Centre stone</button>}
       </div>
       <div style={{fontSize:11,color:WG,margin:"8px 0 20px",lineHeight:1.5}}>Custom coloured or fancy-cut stones aren't in the pricing DB — add them with <strong style={{color:"#4E8B6A"}}>+ Accent, feature or fancy stone</strong>. They default to manufacturing markup and join the costs above; switch a pricey one to <strong>Natural</strong>/<strong>Lab</strong> stone markup to price it separately below.</div>
+      {!stockMode&&<div style={{display:"flex",alignItems:"center",gap:12,flexWrap:"wrap",background:tradePricing?"#EDF5EF":PARCH,border:`1px solid ${tradePricing?"#A6CBB4":BD}`,borderRadius:8,padding:"10px 14px",marginBottom:20}}>
+        <span style={{fontSize:12,fontWeight:700,color:INK}}>Pricing</span>
+        <div style={{display:"flex",border:`1px solid ${BD}`,borderRadius:8,overflow:"hidden"}}>
+          {[["retail","Retail"],["trade","Trade"]].map(([v,t])=>(
+            <button key={v} type="button" onClick={()=>setPricingMode(v)} style={{border:"none",cursor:"pointer",fontFamily:"inherit",fontSize:12,fontWeight:700,padding:"7px 16px",background:pricingMode===v?(v==="trade"?"#4E8B6A":GOLD):WHITE,color:pricingMode===v?WHITE:WG}}>{t}</button>
+          ))}
+        </div>
+        {tradePricing
+          ?<span style={{fontSize:12,color:"#4E8B6A",fontWeight:700}}>Trade markups applied{c?.name?` · ${c.name}`:""}</span>
+          :<span style={{fontSize:12,color:WG}}>{c?.accountType==="trade"?"This is a trade account — switch to Trade for wholesale markups.":"Standard retail markups."}</span>}
+      </div>}
       {validItems.length>0&&<div style={{marginBottom:28}}>
-        <div style={{fontSize:11,fontWeight:700,color:WG,textTransform:"uppercase",letterSpacing:"0.06em",marginBottom:10}}>Markup preview</div>
+        <div style={{fontSize:11,fontWeight:700,color:WG,textTransform:"uppercase",letterSpacing:"0.06em",marginBottom:10}}>Markup preview{tradePricing?" · Trade":""}</div>
         <MarkupSummary {...calc} large/>
         {/* Manual markup override */}
         <div style={{display:"flex",alignItems:"center",gap:12,marginTop:12,flexWrap:"wrap"}}>
@@ -3803,7 +3833,7 @@ function QuoteBuilder({jobId:jobIdProp,editQuoteId,stockId,stock,setStock,jobs,c
         {stoneAccents.map(li=>{
           const cost=Number(li.costLow)||0;
           const mode=li.markupMode||"mfg";
-          const sc=cost>0?calcStoneQuote([{cost:li.costLow}],mode==="lab"?labStoneMarkup:naturalStoneMarkup):null;
+          const sc=cost>0?calcStoneQuote([{cost:li.costLow}],mode==="lab"?labTable:natTable):null;
           return <div key={li.id} style={{display:"grid",gridTemplateColumns:"1.3fr 1fr 150px 110px 36px",gap:8,marginBottom:8,alignItems:"center"}}>
             <div style={{fontSize:13,fontWeight:600,color:INK,padding:"7px 0"}}>{li.description||<span style={{color:WG,fontStyle:"italic"}}>—</span>}
               <div style={{fontSize:10,color:sc?(sc.bracket?"#96627C":WARN):WG,marginTop:1}}>{sc?(sc.bracket?`→ ${fmtR(sc.clientTotal)} to client (×${sc.mult} + GST)`:"cost outside stone table"):""}</div>
@@ -4110,7 +4140,7 @@ function QuoteBuilder({jobId:jobIdProp,editQuoteId,stockId,stock,setStock,jobs,c
     </div>}
 
     {accentModal&&<AccentStoneModal
-      pricing={pricing} setPricing={setPricing} naturalStoneMarkup={naturalStoneMarkup} labStoneMarkup={labStoneMarkup}
+      pricing={pricing} setPricing={setPricing} naturalStoneMarkup={natTable} labStoneMarkup={labTable}
       onAdd={item=>{setAccentItems(p=>[...p,{...item,id:uid(),accentStone:true,noMarkup:false,markupMode:item.markupMode||"mfg"}]);setAccentModal(false);}}
       onClose={()=>setAccentModal(false)}
     />}
@@ -4152,7 +4182,7 @@ function JobProposals({job,client,quotes,proposals,setProposals,setQuotes,biz,ma
 
   // Only quotes with a resolvable price can be sent as options
   const optionable=(quotes||[]).filter(q=>{
-    const calc=calcQuote(q.lineItems,markupTable,q.markupOverride);
+    const calc=calcQuote(q.lineItems,markupTable,effMarkupOverride(q));
     return quoteIsManual(q)||!(calc.base>0&&!calc.bracket&&!calc.overridden);
   });
   const linkFor=p=>`${window.location.origin}/?p=${p.token}`;
@@ -5093,14 +5123,17 @@ function ProposalPreview({quote,job,clients=[],biz,calc,payments=[],reconcilePay
 }
 
 // ── Quote detail ──────────────────────────────────────────────────────────
-function QuoteDetail({quoteId,quotes,setQuotes,jobs,clients,biz,markupTable,naturalStoneMarkup,labStoneMarkup,payments=[],invoices=[],setView}){
+function QuoteDetail({quoteId,quotes,setQuotes,jobs,clients,biz,markupTable,naturalStoneMarkup,labStoneMarkup,tradeNatStoneMarkup=[],tradeLabStoneMarkup=[],payments=[],invoices=[],setView}){
   const isMobile=useIsMobile();
   const q=quotes.find(x=>x.id===quoteId);
   if(!q)return null;
   const job=jobs.find(j=>j.id===q.jobId);
   const c=job?clients.find(x=>x.id===job.clientId):null;
-  const calc=calcQuote(q.lineItems,markupTable,q.markupOverride);
-  const activeStoneMarkup=q.stoneType==="lab"?(labStoneMarkup||[]):(naturalStoneMarkup||[]);
+  const tradeQ=q.pricingMode==="trade";
+  const calc=calcQuote(q.lineItems,markupTable,effMarkupOverride(q));
+  // Trade quotes recompute the centre stone on the trade stone profile (metal/labour already
+  // routes through effMarkupOverride above).
+  const activeStoneMarkup=q.stoneType==="lab"?((tradeQ?tradeLabStoneMarkup:labStoneMarkup)||[]):((tradeQ?tradeNatStoneMarkup:naturalStoneMarkup)||[]);
   const stoneCalc=q.stoneMode==="sourcing"&&q.stoneItems?.length?calcStoneQuote(q.stoneItems,activeStoneMarkup,q.stoneMarkupOverride):null;
   const stoneClientTotal=stoneCalc?.clientTotal||0;
   const accentStoneTotal=q.accentStoneTotal||0;
@@ -5149,7 +5182,7 @@ function QuoteDetail({quoteId,quotes,setQuotes,jobs,clients,biz,markupTable,natu
     {showProposal&&<ProposalPreview quote={q} job={job} clients={clients} biz={biz} calc={calc} payments={payments} reconcilePayments={soleBilled} onClose={()=>setShowProposal(false)}/>}
     <button onClick={()=>setView("jobDetail_"+q.jobId)} style={{background:"none",border:"none",cursor:"pointer",color:GOLD,fontSize:13,fontWeight:700,fontFamily:"inherit",marginBottom:18,padding:0}}>← Back to job</button>
     <div style={{display:"flex",flexDirection:isMobile?"column":"row",justifyContent:"space-between",alignItems:isMobile?"stretch":"flex-start",gap:isMobile?14:10,marginBottom:20}}>
-      <div style={{minWidth:0}}><h1 style={{margin:0,fontSize:isMobile?20:24,fontWeight:800,color:INK,letterSpacing:"-0.02em",wordBreak:"break-word"}}>{quoteLabel(q)}</h1>
+      <div style={{minWidth:0}}><h1 style={{margin:0,fontSize:isMobile?20:24,fontWeight:800,color:INK,letterSpacing:"-0.02em",wordBreak:"break-word",display:"flex",alignItems:"center",gap:10,flexWrap:"wrap"}}>{quoteLabel(q)}{tradeQ&&<span style={{fontSize:11,fontWeight:800,letterSpacing:"0.08em",color:"#4E8B6A",background:"#EDF5EF",border:"1px solid #A6CBB4",borderRadius:999,padding:"3px 9px",textTransform:"uppercase"}}>Trade priced</span>}</h1>
       <div style={{color:WG,fontSize:13,marginTop:3}}>Quote {quoteRef(q)} · {job?.type} · {clientDisplayName(c)} · {fmtDate(q.createdAt)}</div>
       {(job?.dateIn||job?.dateOut)&&<div style={{color:WG,fontSize:12,marginTop:2}}>Taken in: <b style={{color:INK}}>{job?.dateIn?fmtDate(job.dateIn):"—"}</b> · Pickup: <b style={{color:INK}}>{job?.dateOut?fmtDate(job.dateOut):"—"}</b></div>}</div>
       <div style={{display:"flex",gap:8,alignItems:"center",flexWrap:"wrap",flexShrink:0}}>
@@ -5271,7 +5304,7 @@ function QuotesList({quotes,jobs,clients,markupTable,biz,setView}){
     const job=jobs.find(j=>j.id===q.jobId);
     const cl=job?clients.find(x=>x.id===job.clientId):null;
     const price=quoteGrandTotal(q,markupTable);
-    const calc=calcQuote(q.lineItems,markupTable,q.markupOverride);
+    const calc=calcQuote(q.lineItems,markupTable,effMarkupOverride(q));
     const priceKnown=quoteIsManual(q)||!(calc.base>0&&!calc.bracket&&!calc.overridden);
     // Expiry: explicit validUntil if set, else createdAt + business validity window
     const expiryISO=q.validUntil||(q.createdAt?addDays(String(q.createdAt).slice(0,10),validityDays):"");
@@ -5373,7 +5406,7 @@ function QuotesList({quotes,jobs,clients,markupTable,biz,setView}){
           <div style={{display:"flex",flexDirection:"column",gap:8,paddingLeft:12}}>
             {g.rows.map(({q,price,priceKnown,expired,daysSent,followUp,expiryISO})=>{
               const manual=quoteIsManual(q);
-              const calc=calcQuote(q.lineItems,markupTable,q.markupOverride);
+              const calc=calcQuote(q.lineItems,markupTable,effMarkupOverride(q));
               const priceStr=priceKnown?fmtR(price):"—";
               return <Card key={q.id} onClick={()=>setView("quoteDetail_"+q.id)}>
                 <div style={{display:"flex",flexDirection:isMobile?"column":"row",justifyContent:"space-between",alignItems:isMobile?"stretch":"center",gap:isMobile?10:0}}>
@@ -6766,8 +6799,8 @@ function Reports({jobs,clients,quotes,payments,invoices,markupTable}){
   const totalQ=quotes.length;
   const appQ=quotes.filter(q=>q.status==="Approved").length;
   const conv=totalQ>0?Math.round(appQ/totalQ*100):0;
-  const avgBase=totalQ>0?quotes.reduce((s,q)=>s+calcQuote(q.lineItems,markupTable,q.markupOverride).baseLow,0)/totalQ:0;
-  const avgFinal=totalQ>0?quotes.reduce((s,q)=>{if(quoteIsManual(q))return s+Number(q.manualTotal);const c=calcQuote(q.lineItems,markupTable,q.markupOverride);return s+(c.bracket?(c.isRange?c.finalHigh:c.finalLow):0);},0)/totalQ:0;
+  const avgBase=totalQ>0?quotes.reduce((s,q)=>s+calcQuote(q.lineItems,markupTable,effMarkupOverride(q)).baseLow,0)/totalQ:0;
+  const avgFinal=totalQ>0?quotes.reduce((s,q)=>{if(quoteIsManual(q))return s+Number(q.manualTotal);const c=calcQuote(q.lineItems,markupTable,effMarkupOverride(q));return s+(c.bracket?(c.isRange?c.finalHigh:c.finalLow):0);},0)/totalQ:0;
   const cashPaid=payments.filter(p=>p.status==="Received").reduce((s,p)=>s+Number(p.amount),0);
   const totalTradeIn=jobs.reduce((s,j)=>s+jobTradeInCredit(j,quotes),0);   // gold trade-in credits = value received
   const totalPaid=cashPaid+totalTradeIn;                                    // total value received (cash + trade-in)
@@ -6827,8 +6860,29 @@ function Reports({jobs,clients,quotes,payments,invoices,markupTable}){
   </div>;
 }
 
+// Compact bracket-table editor (From $ / To $ / × multiplier) — reused for the trade markup profile.
+function BracketEditor({rows,setRows,accent=GOLD_D}){
+  const set=(id,k,v)=>setRows(p=>p.map(b=>b.id===id?{...b,[k]:Number(v)}:b));
+  const add=()=>setRows(p=>[...p,{id:uid(),low:p.length?Number(p[p.length-1].high)+0.01:0,high:0,multiplier:1.3}]);
+  const del=id=>setRows(p=>p.filter(b=>b.id!==id));
+  return <div>
+    <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 84px 30px",gap:8,marginBottom:5,padding:"0 2px"}}>
+      {["From $","To $","× mult",""].map(h=><div key={h} style={{fontSize:10,fontWeight:700,color:WG,textTransform:"uppercase",letterSpacing:"0.04em"}}>{h}</div>)}
+    </div>
+    {(rows||[]).map(b=>(
+      <div key={b.id} style={{display:"grid",gridTemplateColumns:"1fr 1fr 84px 30px",gap:8,marginBottom:6,alignItems:"center"}}>
+        <input type="number" value={b.low} onChange={e=>set(b.id,"low",e.target.value)} style={{...SS.inp,marginTop:0,fontSize:13,padding:"5px 8px",minWidth:0}}/>
+        <input type="number" value={b.high} onChange={e=>set(b.id,"high",e.target.value)} style={{...SS.inp,marginTop:0,fontSize:13,padding:"5px 8px",minWidth:0}}/>
+        <input type="number" value={b.multiplier} step="0.05" min="1" onChange={e=>set(b.id,"multiplier",e.target.value)} style={{...SS.inp,marginTop:0,fontSize:14,fontWeight:700,padding:"5px 8px",color:accent,minWidth:0}}/>
+        <button onClick={()=>del(b.id)} style={{background:"none",border:"none",color:DANGER,cursor:"pointer",fontSize:16,fontFamily:"inherit",lineHeight:1}} title="Remove tier">×</button>
+      </div>
+    ))}
+    <button onClick={add} style={{background:"none",border:`1px dashed ${accent}`,borderRadius:4,padding:"6px 14px",color:accent,fontSize:12,fontWeight:700,cursor:"pointer",fontFamily:"inherit",marginTop:4}}>+ Add tier</button>
+  </div>;
+}
+
 // ── Settings ──────────────────────────────────────────────────────────────
-function Settings({biz,setBiz,markupTable,setMarkupTable,naturalStoneMarkup,setNaturalStoneMarkup,labStoneMarkup,setLabStoneMarkup}){
+function Settings({biz,setBiz,markupTable,setMarkupTable,naturalStoneMarkup,setNaturalStoneMarkup,labStoneMarkup,setLabStoneMarkup,tradeMarkupTable=[],setTradeMarkupTable,tradeNatStoneMarkup=[],setTradeNatStoneMarkup,tradeLabStoneMarkup=[],setTradeLabStoneMarkup}){
   const isMobile=useIsMobile();
   const[bForm,setBForm]=useState({name:"",email:"",phone:"",abn:"",address:"",depositPercent:50,quoteValidityDays:30,quoteTerms:"",bankName:"Commonwealth Bank of Australia",bankAccountName:"",bankBSB:"",bankAccount:"",...biz});
   const setBF=k=>v=>setBForm(p=>({...p,[k]:v}));
@@ -6868,6 +6922,11 @@ function Settings({biz,setBiz,markupTable,setMarkupTable,naturalStoneMarkup,setN
   const feedUrl=calFeedUrl(biz.calendarToken);
   const saveSmNTable=()=>{setNaturalStoneMarkup(smn);persist(K.smn,smn);showToast("Natural stone markup saved");};
   const saveSmLTable=()=>{setLabStoneMarkup(sml);persist(K.sml,sml);showToast("Lab-grown stone markup saved");};
+  // Trade markup profile — lower wholesale markups, applied to trade-account quotes.
+  const[tmt,setTmt]=useState((tradeMarkupTable||[]).map(b=>({...b})));
+  const[tsn,setTsn]=useState((tradeNatStoneMarkup||[]).map(b=>({...b})));
+  const[tsl,setTsl]=useState((tradeLabStoneMarkup||[]).map(b=>({...b})));
+  const saveTrade=()=>{setTradeMarkupTable(tmt);persist(K.tmt,tmt);setTradeNatStoneMarkup(tsn);persist(K.tsmn,tsn);setTradeLabStoneMarkup(tsl);persist(K.tsml,tsl);showToast("Trade markups saved");};
 
   return <div>
     {toast&&<div style={{position:"fixed",top:18,right:24,background:OK,color:WHITE,fontSize:13,fontWeight:700,padding:"10px 20px",borderRadius:4,boxShadow:"0 4px 18px rgba(0,0,0,0.18)",zIndex:9999,letterSpacing:"0.04em"}}>✓ {toast}</div>}
@@ -7072,6 +7131,23 @@ function Settings({biz,setBiz,markupTable,setMarkupTable,naturalStoneMarkup,setN
         <button onClick={addSmLRow} style={{background:"none",border:"1px dashed #96627C",borderRadius:4,padding:"6px 14px",color:"#96627C",fontSize:12,fontWeight:700,cursor:"pointer",fontFamily:"inherit"}}>+ Add tier</button>
         <Btn onClick={saveSmLTable}>Save lab-grown stone markup</Btn>
       </div>
+    </Card>
+
+    {/* Trade markup profile — lower wholesale markups for trade-account clients */}
+    <div style={{marginBottom:10,paddingTop:4}}>
+      <div style={{fontSize:13,fontWeight:700,color:INK,marginBottom:4}}>Trade markups <span style={{fontSize:10,fontWeight:800,letterSpacing:"0.08em",color:GOLD_D,background:GOLD_L,border:`1px solid ${GOLD}55`,borderRadius:999,padding:"2px 8px",textTransform:"uppercase",marginLeft:6}}>Wholesale</span></div>
+      <div style={{fontSize:13,color:WG,lineHeight:1.6}}>Your lower markups for trade accounts. Quotes for a trade-account client price through these instead of your retail markups (the quote builder has a Retail/Trade toggle). Seeded as a copy of your retail markups — lower them to your wholesale rates. Same brackets, same method, different numbers.</div>
+    </div>
+    <Card>
+      <div style={{fontWeight:700,fontSize:14,color:INK,marginBottom:10}}>Metal &amp; labour — trade</div>
+      <BracketEditor rows={tmt} setRows={setTmt}/>
+      <div style={{borderTop:`1px solid ${BD}`,margin:"20px 0 14px"}}/>
+      <div style={{fontWeight:700,fontSize:14,color:INK,marginBottom:10}}>Natural stones — trade</div>
+      <BracketEditor rows={tsn} setRows={setTsn} accent="#4E8B6A"/>
+      <div style={{borderTop:`1px solid ${BD}`,margin:"20px 0 14px"}}/>
+      <div style={{fontWeight:700,fontSize:14,color:INK,marginBottom:10}}>Lab-grown stones — trade</div>
+      <BracketEditor rows={tsl} setRows={setTsl} accent="#96627C"/>
+      <div style={{display:"flex",justifyContent:"flex-end",marginTop:16}}><Btn onClick={saveTrade}>Save trade markups</Btn></div>
     </Card>
   </div>;
 }
@@ -8346,6 +8422,9 @@ export default function App(){
   const[markupTable,setMarkupTable]=useState(DEFAULT_MARKUP_TABLE);
   const[naturalStoneMarkup,setNaturalStoneMarkup]=useState(DEFAULT_NATURAL_STONE_MARKUP);
   const[labStoneMarkup,setLabStoneMarkup]=useState(DEFAULT_LAB_STONE_MARKUP);
+  const[tradeMarkupTable,setTradeMarkupTable]=useState(DEFAULT_TRADE_MARKUP_TABLE);        // trade profile: lower wholesale markups
+  const[tradeNatStoneMarkup,setTradeNatStoneMarkup]=useState(DEFAULT_TRADE_NATURAL_STONE_MARKUP);
+  const[tradeLabStoneMarkup,setTradeLabStoneMarkup]=useState(DEFAULT_TRADE_LAB_STONE_MARKUP);
   const[centreRates,setCentreRates]=useState(DEFAULT_SETTING_RATES);   // holds the unified settingRates object
   const[todos,setTodos]=useState({people:[],items:[]});
   const[stock,setStock]=useState([]);
@@ -8427,6 +8506,7 @@ export default function App(){
       [K.mt]:setMarkupTable,[K.smn]:setNaturalStoneMarkup,[K.sml]:setLabStoneMarkup,[K.csr]:setCentreRates,
       [K.ap]:setAppointments,[K.pp]:setProposals,[K.td]:setTodos,[K.st]:setStock,
       [K.gc]:setGemCustody,[K.spot]:setSpotPrices,
+      [K.tmt]:setTradeMarkupTable,[K.tsmn]:setTradeNatStoneMarkup,[K.tsml]:setTradeLabStoneMarkup,
     };
     // When a studio has no saved row for a key (a brand-new/empty studio, or one that just
     // switched in), reset that slice to a CLEAN default rather than leaving the previously
@@ -8437,6 +8517,7 @@ export default function App(){
       [K.td]:{people:[],items:[]},[K.st]:[],[K.gc]:[],[K.biz]:{},
       [K.pr]:SEED_PRICING,[K.mt]:DEFAULT_MARKUP_TABLE,[K.smn]:DEFAULT_NATURAL_STONE_MARKUP,
       [K.sml]:DEFAULT_LAB_STONE_MARKUP,[K.csr]:DEFAULT_SETTING_RATES,[K.spot]:SEED_SPOT,
+      [K.tmt]:DEFAULT_TRADE_MARKUP_TABLE,[K.tsmn]:DEFAULT_TRADE_NATURAL_STONE_MARKUP,[K.tsml]:DEFAULT_TRADE_LAB_STONE_MARKUP,
     };
     // Normalise legacy values before applying to state
     const applyLoaded=(k,v,setter)=>{
@@ -8636,17 +8717,17 @@ export default function App(){
     if(view==="jobs")return <Jobs clients={clients} jobs={jobs} setJobs={setJobs} quotes={quotes} setQuotes={setQuotes} payments={payments} setPayments={setPayments} notes={notes} setNotes={setNotes} invoices={invoices} setInvoices={setInvoices} markupTable={markupTable} setView={setView} setSelJob={setSelJob}/>;
     if(view==="jobDetail")return <JobDetail jobId={selJob} jobs={jobs} setJobs={setJobs} clients={clients} quotes={quotes} setQuotes={setQuotes} payments={payments} setPayments={setPayments} notes={notes} setNotes={setNotes} invoices={invoices} setInvoices={setInvoices} proposals={proposals} setProposals={setProposals} biz={biz} markupTable={markupTable} pricing={pricing} setView={setView}/>;
     if(view==="quotes")return <QuotesList quotes={quotes} jobs={jobs} clients={clients} markupTable={markupTable} biz={biz} setView={setView}/>;
-    if(view.startsWith("quoteDetail_"))return <QuoteDetail quoteId={view.split("_")[1]} quotes={quotes} setQuotes={setQuotes} jobs={jobs} clients={clients} biz={biz} markupTable={markupTable} naturalStoneMarkup={naturalStoneMarkup} labStoneMarkup={labStoneMarkup} payments={payments} invoices={invoices} setView={setView}/>;
-    if(view.startsWith("newQuote_"))return <QuoteBuilder jobId={view.split("_")[1]} jobs={jobs} clients={clients} quotes={quotes} setQuotes={setQuotes} pricing={pricing} setPricing={setPricing} markupTable={markupTable} naturalStoneMarkup={naturalStoneMarkup} labStoneMarkup={labStoneMarkup} centreRates={centreRates} setCentreRates={setCentreRates} setView={setView}/>;
-    if(view.startsWith("editQuote_"))return <QuoteBuilder editQuoteId={view.split("_")[1]} jobs={jobs} clients={clients} quotes={quotes} setQuotes={setQuotes} pricing={pricing} setPricing={setPricing} markupTable={markupTable} naturalStoneMarkup={naturalStoneMarkup} labStoneMarkup={labStoneMarkup} centreRates={centreRates} setCentreRates={setCentreRates} invoices={invoices} setInvoices={setInvoices} setView={setView}/>;
+    if(view.startsWith("quoteDetail_"))return <QuoteDetail quoteId={view.split("_")[1]} quotes={quotes} setQuotes={setQuotes} jobs={jobs} clients={clients} biz={biz} markupTable={markupTable} naturalStoneMarkup={naturalStoneMarkup} labStoneMarkup={labStoneMarkup} tradeNatStoneMarkup={tradeNatStoneMarkup} tradeLabStoneMarkup={tradeLabStoneMarkup} payments={payments} invoices={invoices} setView={setView}/>;
+    if(view.startsWith("newQuote_"))return <QuoteBuilder jobId={view.split("_")[1]} jobs={jobs} clients={clients} quotes={quotes} setQuotes={setQuotes} pricing={pricing} setPricing={setPricing} markupTable={markupTable} naturalStoneMarkup={naturalStoneMarkup} labStoneMarkup={labStoneMarkup} tradeMarkupTable={tradeMarkupTable} tradeNatStoneMarkup={tradeNatStoneMarkup} tradeLabStoneMarkup={tradeLabStoneMarkup} centreRates={centreRates} setCentreRates={setCentreRates} setView={setView}/>;
+    if(view.startsWith("editQuote_"))return <QuoteBuilder editQuoteId={view.split("_")[1]} jobs={jobs} clients={clients} quotes={quotes} setQuotes={setQuotes} pricing={pricing} setPricing={setPricing} markupTable={markupTable} naturalStoneMarkup={naturalStoneMarkup} labStoneMarkup={labStoneMarkup} tradeMarkupTable={tradeMarkupTable} tradeNatStoneMarkup={tradeNatStoneMarkup} tradeLabStoneMarkup={tradeLabStoneMarkup} centreRates={centreRates} setCentreRates={setCentreRates} invoices={invoices} setInvoices={setInvoices} setView={setView}/>;
     if(view==="invoices")return <InvoicesList invoices={invoices} jobs={jobs} clients={clients} quotes={quotes} payments={payments} setInvoices={setInvoices} markupTable={markupTable} setView={setView}/>;
     if(view.startsWith("invoiceDetail_"))return <InvoiceDetail invoiceId={view.split("_")[1]} invoices={invoices} setInvoices={setInvoices} jobs={jobs} clients={clients} payments={payments} biz={biz} setView={setView} quotes={quotes} markupTable={markupTable}/>;
     if(view==="stock")return <StockBoard stock={stock} setStock={setStock} setView={setView}/>;
     if(view==="gemcustody")return <GemCustody custody={gemCustody} setCustody={setGemCustody} clients={clients} biz={biz}/>;
-    if(view.startsWith("stockPrice_"))return <QuoteBuilder stockId={view.split("_")[1]} stock={stock} setStock={setStock} jobs={jobs} clients={clients} quotes={quotes} setQuotes={setQuotes} pricing={pricing} setPricing={setPricing} markupTable={markupTable} naturalStoneMarkup={naturalStoneMarkup} labStoneMarkup={labStoneMarkup} centreRates={centreRates} setCentreRates={setCentreRates} setView={setView}/>;
+    if(view.startsWith("stockPrice_"))return <QuoteBuilder stockId={view.split("_")[1]} stock={stock} setStock={setStock} jobs={jobs} clients={clients} quotes={quotes} setQuotes={setQuotes} pricing={pricing} setPricing={setPricing} markupTable={markupTable} naturalStoneMarkup={naturalStoneMarkup} labStoneMarkup={labStoneMarkup} tradeMarkupTable={tradeMarkupTable} tradeNatStoneMarkup={tradeNatStoneMarkup} tradeLabStoneMarkup={tradeLabStoneMarkup} centreRates={centreRates} setCentreRates={setCentreRates} setView={setView}/>;
     if(view==="pricing")return <PricingDB pricing={pricing} setPricing={setPricing} spotPrices={spotPrices} setSpotPrices={setSpotPrices} markupTable={markupTable} centreRates={centreRates} setCentreRates={setCentreRates}/>;
     if(view==="reports")return <Reports jobs={jobs} clients={clients} quotes={quotes} payments={payments} invoices={invoices} markupTable={markupTable}/>;
-    if(view==="settings")return <Settings biz={biz} setBiz={setBiz} markupTable={markupTable} setMarkupTable={setMarkupTable} naturalStoneMarkup={naturalStoneMarkup} setNaturalStoneMarkup={setNaturalStoneMarkup} labStoneMarkup={labStoneMarkup} setLabStoneMarkup={setLabStoneMarkup}/>;
+    if(view==="settings")return <Settings biz={biz} setBiz={setBiz} markupTable={markupTable} setMarkupTable={setMarkupTable} naturalStoneMarkup={naturalStoneMarkup} setNaturalStoneMarkup={setNaturalStoneMarkup} labStoneMarkup={labStoneMarkup} setLabStoneMarkup={setLabStoneMarkup} tradeMarkupTable={tradeMarkupTable} setTradeMarkupTable={setTradeMarkupTable} tradeNatStoneMarkup={tradeNatStoneMarkup} setTradeNatStoneMarkup={setTradeNatStoneMarkup} tradeLabStoneMarkup={tradeLabStoneMarkup} setTradeLabStoneMarkup={setTradeLabStoneMarkup}/>;
     return null;
   };
 
