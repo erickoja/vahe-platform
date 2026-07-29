@@ -3231,6 +3231,12 @@ function JobDetail({jobId,jobs,setJobs,clients,quotes,setQuotes,payments,setPaym
   const c=clients.find(x=>x.id===job.clientId);
   const jq=quotes.filter(q=>q.jobId===jobId);
   const jp=payments.filter(p=>p.jobId===jobId);
+  // Trade accounts can invoice a job straight from its quote — no separate "approve" step (the PO /
+  // standing account is the authorization). Invoicing auto-approves the quote so every downstream
+  // total (job charge, dashboard, statement) still keys off Approved and reconciles. Retail unchanged.
+  const isTrade=c?.accountType==="trade";
+  // Promote the given quote ids to Approved as part of invoicing (no-op for already-approved retail quotes).
+  const approveForInvoice=ids=>setQuotes(p=>{const s=new Set(ids);const n=p.map(q=>s.has(q.id)&&q.status!=="Approved"?{...q,status:"Approved"}:q);persist(K.qu,n);return n;});
   const ji=invoices.filter(i=>i.jobId===jobId);
   const paidTotal=jp.filter(p=>p.status==="Received").reduce((s,p)=>s+Number(p.amount),0);
   const usingOverride=Number(job.totalOverride)>0;
@@ -3284,21 +3290,23 @@ function JobDetail({jobId,jobs,setJobs,clients,quotes,setQuotes,payments,setPaym
   };
   const createInvoice=qid=>{
     const q=quotes.find(x=>x.id===qid);if(!q)return;
+    approveForInvoice([qid]);   // trade: skip the manual approve step; keeps invoiced quotes Approved
     // GST-inclusive model: the quoted price already includes GST (helper backs out the GST component).
     const content=invoiceContentFromQuote(q,job,markupTable);
     const inv={id:uid(),jobId,quoteId:qid,quoteIds:[qid],number:nextInvoiceNumber(invoices),date:today(),status:"Unpaid",notes:q.notes||"",...content};
     setInvoices(p=>{const n=[...p,inv];persist(K.inv,n);return n;});
     setView("invoiceDetail_"+inv.id);
   };
-  // Combine several approved quotes on this job into one invoice — without leaving the job card.
-  // Same builder the Invoices tab uses, so the result is identical (one line per option + prices).
-  const approvedUninvoiced=jq.filter(q=>q.status==="Approved"&&!quoteHasInvoice(invoices,q.id));
-  const openCombine=()=>{setCombineSel(approvedUninvoiced.map(q=>q.id));setCombineModal(true);};
+  // Quotes on this job that can be invoiced: approved (retail) or any not-yet-invoiced quote for a
+  // trade account (trade skips the approve step). Invoicing auto-approves them.
+  const invoiceableUninvoiced=jq.filter(q=>(q.status==="Approved"||isTrade)&&!quoteHasInvoice(invoices,q.id));
+  const openCombine=()=>{setCombineSel(invoiceableUninvoiced.map(q=>q.id));setCombineModal(true);};
   const toggleCombine=id=>setCombineSel(p=>p.includes(id)?p.filter(x=>x!==id):[...p,id]);
   const combineTotal=combineSel.reduce((s,id)=>{const q=jq.find(x=>x.id===id);return s+(q?quoteGrandTotal(q,markupTable):0);},0);
   const createCombinedInvoice=()=>{
     const qs=combineSel.map(id=>jq.find(x=>x.id===id)).filter(Boolean);
     if(!qs.length)return;
+    approveForInvoice(qs.map(q=>q.id));   // trade: promote to Approved so job/statement totals reconcile
     const inv=buildCombinedInvoice(qs,job,invoices,markupTable);
     setInvoices(p=>{const n=[...p,inv];persist(K.inv,n);return n;});
     setCombineModal(false);
@@ -3382,7 +3390,7 @@ function JobDetail({jobId,jobs,setJobs,clients,quotes,setQuotes,payments,setPaym
       <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:14}}>
         <div style={{fontWeight:700,fontSize:15,color:INK}}>Quotes ({jq.length})</div>
         <div style={{display:"flex",gap:8}}>
-          {approvedUninvoiced.length>=2&&<Btn sm onClick={openCombine}>→ Combine into invoice</Btn>}
+          {invoiceableUninvoiced.length>=2&&<Btn sm onClick={openCombine}>→ Combine into invoice</Btn>}
           <Btn sm onClick={()=>setView("newQuote_"+jobId)}>+ New quote</Btn>
         </div>
       </div>
@@ -3408,7 +3416,7 @@ function JobDetail({jobId,jobs,setJobs,clients,quotes,setQuotes,payments,setPaym
           <div style={{display:"flex",gap:8,alignItems:"center",flexWrap:"wrap",flexShrink:0}}>
             <Badge label={q.status} color={q.status==="Approved"?OK:q.status==="Draft"?WG:GOLD_D}/>
             <Btn sm={!isMobile} xs={isMobile} ghost onClick={()=>duplicateQuote(q)}>⧉ Duplicate</Btn>
-            {q.status==="Approved"&&!hasInv&&<Btn sm={!isMobile} xs={isMobile} onClick={()=>createInvoice(q.id)}>→ Invoice</Btn>}
+            {(q.status==="Approved"||isTrade)&&!hasInv&&<Btn sm={!isMobile} xs={isMobile} onClick={()=>createInvoice(q.id)}>→ Invoice</Btn>}
           </div>
         </div>;
       })}
@@ -3419,8 +3427,8 @@ function JobDetail({jobId,jobs,setJobs,clients,quotes,setQuotes,payments,setPaym
       <PaymentForm onSave={addPay} onCancel={()=>setPayModal(false)} suggestedAmount={balance>0?balance:""}/>
     </Modal>}
     {combineModal&&<Modal title="Combine quotes into one invoice" onClose={()=>setCombineModal(false)}>
-      <div style={{fontSize:13,color:WG,lineHeight:1.6,marginBottom:14}}>Tick the approved quotes to bill together on a single invoice — each appears as its own line with its price. Only approved quotes without an existing invoice are shown.</div>
-      {approvedUninvoiced.map(q=>{
+      <div style={{fontSize:13,color:WG,lineHeight:1.6,marginBottom:14}}>Tick the quotes to bill together on a single invoice — each appears as its own line with its price. {isTrade?"Trade account — quotes don't need approving first; invoicing confirms them.":"Only approved quotes without an existing invoice are shown."}</div>
+      {invoiceableUninvoiced.map(q=>{
         const on=combineSel.includes(q.id);
         return <label key={q.id} style={{display:"flex",alignItems:"center",gap:10,padding:"10px 12px",border:`1px solid ${on?GOLD:BD}`,borderRadius:6,marginBottom:8,cursor:"pointer",background:on?GOLD_L+"44":WHITE}}>
           <input type="checkbox" checked={on} onChange={()=>toggleCombine(q.id)}/>
@@ -6207,7 +6215,7 @@ function InvoiceDetail({invoiceId,invoices,setInvoices,jobs,clients,payments,biz
   </div>;
 }
 
-function InvoicesList({invoices,jobs,clients,quotes,payments,setInvoices,markupTable,setView}){
+function InvoicesList({invoices,jobs,clients,quotes,setQuotes,payments,setInvoices,markupTable,setView}){
   const isMobile=useIsMobile();
   const[modal,setModal]=useState(false);
   const[exportOpen,setExportOpen]=useState(false);
@@ -6227,10 +6235,12 @@ function InvoicesList({invoices,jobs,clients,quotes,payments,setInvoices,markupT
   const[selJob,setSelJob]=useState("");
   const[selQuotes,setSelQuotes]=useState([]);   // approved quote ids to combine into one invoice
   const clientJobs=selClient?jobs.filter(j=>j.clientId===selClient):[];
-  const jobQuotes=selJob?quotes.filter(q=>q.jobId===selJob&&q.status==="Approved"&&!quoteHasInvoice(invoices,q.id)):[];
-  // Approved quotes on this job that are hidden from the tick list because they're already on an
-  // invoice — surfaced (greyed out) so a "missing" option isn't a silent mystery.
-  const invoicedQuotes=selJob?quotes.filter(q=>q.jobId===selJob&&q.status==="Approved"&&quoteHasInvoice(invoices,q.id)):[];
+  // Trade accounts can bill a quote without approving it first (invoicing confirms it); retail still
+  // only offers approved quotes. Keeps parity with the "Invoice this job" flow on the job card.
+  const selClientTrade=clients.find(c=>c.id===selClient)?.accountType==="trade";
+  const jobQuotes=selJob?quotes.filter(q=>q.jobId===selJob&&(q.status==="Approved"||selClientTrade)&&!quoteHasInvoice(invoices,q.id)):[];
+  // Quotes on this job already on an invoice — surfaced (greyed out) so a "missing" option isn't a silent mystery.
+  const invoicedQuotes=selJob?quotes.filter(q=>q.jobId===selJob&&(q.status==="Approved"||selClientTrade)&&quoteHasInvoice(invoices,q.id)):[];
   const invoiceForQuote=qid=>invoices.find(i=>(i.quoteIds||(i.quoteId?[i.quoteId]:[])).includes(qid));
   const toggleQuote=qid=>setSelQuotes(p=>p.includes(qid)?p.filter(x=>x!==qid):[...p,qid]);
   const combinedTotal=selQuotes.reduce((s,qid)=>{const q=quotes.find(x=>x.id===qid);return s+(q?quoteGrandTotal(q,markupTable):0);},0);
@@ -6239,6 +6249,8 @@ function InvoicesList({invoices,jobs,clients,quotes,payments,setInvoices,markupT
     const qs=selQuotes.map(id=>quotes.find(x=>x.id===id)).filter(Boolean);
     if(!qs.length)return;
     const jb=jobs.find(j=>j.id===selJob);
+    // Trade: promote the billed quotes to Approved so the job/dashboard/statement totals reconcile.
+    if(setQuotes){const s=new Set(qs.map(q=>q.id));setQuotes(p=>{const n=p.map(q=>s.has(q.id)&&q.status!=="Approved"?{...q,status:"Approved"}:q);persist(K.qu,n);return n;});}
     const inv=buildCombinedInvoice(qs,jb,invoices,markupTable);
     setInvoices(p=>{const n=[...p,inv];persist(K.inv,n);return n;});
     setModal(false);
@@ -6333,20 +6345,20 @@ function InvoicesList({invoices,jobs,clients,quotes,payments,setInvoices,markupT
       </Card>;
     })}
     {modal&&<Modal title="New Invoice" onClose={()=>setModal(false)}>
-      <div style={{marginBottom:6,fontSize:13,color:WG,lineHeight:1.6}}>Create an invoice from one approved quote — or tick several from the same job to combine them into a single invoice (handy when a client accepts more than one option). Only approved quotes without an existing invoice are shown.</div>
+      <div style={{marginBottom:6,fontSize:13,color:WG,lineHeight:1.6}}>Create an invoice from one quote — or tick several from the same job to combine them into a single invoice (handy when a client accepts more than one option). {selClientTrade?"Trade account — quotes don't need approving first; invoicing confirms them.":"Only approved quotes without an existing invoice are shown."}</div>
       <div style={{height:1,background:BD,margin:"14px 0"}}/>
       <div style={{marginBottom:14}}>
         <label style={SS.lbl}>Client</label>
         <select value={selClient} onChange={e=>{setSelClient(e.target.value);setSelJob("");setSelQuotes([]);}} style={{...SS.inp,marginTop:4}}>
           <option value="">— Select client —</option>
-          {clients.filter(cl=>jobs.some(j=>j.clientId===cl.id&&quotes.some(q=>q.jobId===j.id&&q.status==="Approved"&&!quoteHasInvoice(invoices,q.id)))).map(cl=><option key={cl.id} value={cl.id}>{cl.name}</option>)}
+          {clients.filter(cl=>jobs.some(j=>j.clientId===cl.id&&quotes.some(q=>q.jobId===j.id&&(q.status==="Approved"||cl.accountType==="trade")&&!quoteHasInvoice(invoices,q.id)))).map(cl=><option key={cl.id} value={cl.id}>{cl.name}</option>)}
         </select>
       </div>
       {selClient&&<div style={{marginBottom:14}}>
         <label style={SS.lbl}>Job</label>
         <select value={selJob} onChange={e=>{setSelJob(e.target.value);setSelQuotes([]);}} style={{...SS.inp,marginTop:4}}>
           <option value="">— Select job —</option>
-          {clientJobs.filter(j=>quotes.some(q=>q.jobId===j.id&&q.status==="Approved"&&!quoteHasInvoice(invoices,q.id))).map(j=><option key={j.id} value={j.id}>{j.type} · {j.stage}</option>)}
+          {clientJobs.filter(j=>quotes.some(q=>q.jobId===j.id&&(q.status==="Approved"||selClientTrade)&&!quoteHasInvoice(invoices,q.id))).map(j=><option key={j.id} value={j.id}>{j.type} · {j.stage}</option>)}
         </select>
       </div>}
       {selJob&&<div style={{marginBottom:18}}>
@@ -9314,7 +9326,7 @@ export default function App(){
     if(view.startsWith("quoteDetail_"))return <QuoteDetail quoteId={view.split("_")[1]} quotes={quotes} setQuotes={setQuotes} jobs={jobs} clients={clients} biz={biz} markupTable={markupTable} naturalStoneMarkup={naturalStoneMarkup} labStoneMarkup={labStoneMarkup} tradeNatStoneMarkup={tradeNatStoneMarkup} tradeLabStoneMarkup={tradeLabStoneMarkup} payments={payments} invoices={invoices} setView={setView}/>;
     if(view.startsWith("newQuote_"))return <QuoteBuilder jobId={view.split("_")[1]} jobs={jobs} clients={clients} quotes={quotes} setQuotes={setQuotes} pricing={pricing} setPricing={setPricing} markupTable={markupTable} naturalStoneMarkup={naturalStoneMarkup} labStoneMarkup={labStoneMarkup} tradeMarkupTable={tradeMarkupTable} tradeNatStoneMarkup={tradeNatStoneMarkup} tradeLabStoneMarkup={tradeLabStoneMarkup} centreRates={centreRates} setCentreRates={setCentreRates} setView={setView}/>;
     if(view.startsWith("editQuote_"))return <QuoteBuilder editQuoteId={view.split("_")[1]} jobs={jobs} clients={clients} quotes={quotes} setQuotes={setQuotes} pricing={pricing} setPricing={setPricing} markupTable={markupTable} naturalStoneMarkup={naturalStoneMarkup} labStoneMarkup={labStoneMarkup} tradeMarkupTable={tradeMarkupTable} tradeNatStoneMarkup={tradeNatStoneMarkup} tradeLabStoneMarkup={tradeLabStoneMarkup} centreRates={centreRates} setCentreRates={setCentreRates} invoices={invoices} setInvoices={setInvoices} setView={setView}/>;
-    if(view==="invoices")return <InvoicesList invoices={invoices} jobs={jobs} clients={clients} quotes={quotes} payments={payments} setInvoices={setInvoices} markupTable={markupTable} setView={setView}/>;
+    if(view==="invoices")return <InvoicesList invoices={invoices} jobs={jobs} clients={clients} quotes={quotes} setQuotes={setQuotes} payments={payments} setInvoices={setInvoices} markupTable={markupTable} setView={setView}/>;
     if(view.startsWith("invoiceDetail_"))return <InvoiceDetail invoiceId={view.split("_")[1]} invoices={invoices} setInvoices={setInvoices} jobs={jobs} clients={clients} payments={payments} biz={biz} setView={setView} quotes={quotes} markupTable={markupTable}/>;
     if(view==="statements")return <StatementsList clients={clients} jobs={jobs} invoices={invoices} payments={payments} biz={biz} setView={setView}/>;
     if(view.startsWith("statementDetail_"))return <StatementDetail clientId={view.split("_")[1]} clients={clients} jobs={jobs} invoices={invoices} payments={payments} biz={biz} setView={setView}/>;
