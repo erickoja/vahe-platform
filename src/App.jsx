@@ -2325,6 +2325,38 @@ function Dashboard({clients,jobs,quotes,payments,invoices,appointments=[],propos
   // Repair links a client accepted/declined that haven't been acknowledged yet
   const repairUnseen=jobs.filter(j=>j.repairResponse&&j.repairResponse.seen===false);
   const active=jobs.filter(j=>j.stage!=="Collected");
+  // Rank active jobs by momentum so the ones that matter (money in, a proposal out awaiting a reply,
+  // approved/in production, overdue) surface first — a stale sent-quote with no engagement sinks and
+  // is dimmed. Each row also carries the signals we show (paid, owing, proposal status).
+  const PROD_STAGES=["On the bench","Design / CAD","Manufacturing","Stone setting","Polishing / Finish","QC check"];
+  const daysAgo=d=>{const n=Math.round((Date.now()-parseISO(d).getTime())/86400000);return n<=0?"today":n===1?"1 day ago":`${n} days ago`;};
+  const activeRanked=active.map(j=>{
+    const paid=payments.filter(p=>p.jobId===j.id&&p.status==="Received").reduce((s,p)=>s+Number(p.amount),0);
+    const jp=proposals.filter(p=>p.jobId===j.id);
+    const propAccepted=jp.some(p=>p.status==="accepted");
+    const sentProp=jp.filter(p=>p.status==="sent").sort((a,b)=>String(b.createdAt||"").localeCompare(String(a.createdAt||"")))[0];
+    const propSent=!!sentProp;
+    const approved=quotes.some(q=>q.jobId===j.id&&q.status==="Approved");
+    const od=!jobIsDone(j)&&j.deadline&&j.deadline<today();
+    const ready=j.stage==="Ready for collection";
+    const inProd=PROD_STAGES.includes(j.stage);
+    const total=jobHasCharge(j,quotes)?jobChargeTotal(j,quotes,markupTable,invoices):0;
+    const owing=Math.max(0,total-paid-jobTradeInCredit(j,quotes));
+    const awaiting=propSent&&!propAccepted&&!approved;   // proposal out, no yes yet
+    const awaitDays=awaiting&&sentProp?.createdAt?Math.round((Date.now()-parseISO(sentProp.createdAt).getTime())/86400000):null;
+    const stale=awaiting&&awaitDays!=null&&awaitDays>21;   // sent 3+ weeks ago, still no reply → effectively dead
+    let score=0;
+    if(paid>0)score+=100;
+    if(propAccepted||approved)score+=60;
+    if(ready)score+=55;
+    if(awaiting)score+=stale?8:45;                        // a fresh proposal matters; a stale one sinks
+    if(inProd)score+=35;
+    if(od)score+=30;
+    const quiet=!(paid>0||propAccepted||approved||propSent||ready||inProd||od);
+    return {j,paid,owing,awaiting,propAccepted,approved,od,ready,inProd,sentProp,quiet,stale,score};
+  }).sort((a,b)=>b.score-a.score
+    ||String(a.j.deadline||"9999-99-99").localeCompare(String(b.j.deadline||"9999-99-99"))
+    ||String(b.j.createdAt||"").localeCompare(String(a.j.createdAt||"")));
   const tISO=localToday();
   const upcomingAppts=[...appointments].filter(a=>(!a.status||a.status==="Scheduled")&&a.date>=tISO).sort((a,b)=>String(a.date+(a.time||"")).localeCompare(String(b.date+(b.time||"")))).slice(0,6);
   const todaysAppts=appointments.filter(a=>a.date===tISO&&(!a.status||a.status==="Scheduled"));
@@ -2400,13 +2432,28 @@ function Dashboard({clients,jobs,quotes,payments,invoices,appointments=[],propos
           <Btn sm ghost onClick={()=>setView("jobs")}>View all</Btn>
         </div>
         {active.length===0&&<div style={{color:WG,fontSize:14}}>No active jobs.</div>}
-        {active.slice(0,8).map((j,i,arr)=>{
+        {activeRanked.slice(0,8).map(({j,paid,owing,awaiting,ready,sentProp,quiet,stale,od},i,arr)=>{
           const c=clients.find(x=>x.id===j.clientId);
-          const od=j.deadline&&j.deadline<today();
+          // Sub-line = the signal that isn't already shown by the money chip / stage badge.
+          const signal=ready?{t:"Ready to collect",col:OK}
+            :awaiting?{t:`⏳ Proposal sent${sentProp?.createdAt?` · ${daysAgo(sentProp.createdAt)}`:""}`,col:stale?WG:GOLD_D}
+            :quiet?{t:"Quote out — no reply yet",col:WG}
+            :null;
           return <DashRow key={j.id} onClick={()=>setView("jobDetail_"+j.id)} last={i===arr.length-1} col={isMobile}>
-            <div style={{minWidth:0}}><div style={{fontWeight:600,fontSize:13,color:INK}}>{j.type} <span style={{color:WG,fontWeight:400}}>· {clientDisplayName(c)}</span></div>
-            {j.deadline&&<div style={{fontSize:12,color:od?DANGER:WG,marginTop:1}}>Due {fmtDate(j.deadline)}{od?" — OVERDUE":""}</div>}</div>
-            <Badge label={j.stage} color={SC[j.stage]||WG}/>
+            <div style={{minWidth:0,opacity:(quiet||stale)?0.58:1}}>
+              <div style={{fontWeight:600,fontSize:13,color:INK}}>{j.type} <span style={{color:WG,fontWeight:400}}>· {clientDisplayName(c)}</span></div>
+              <div style={{fontSize:12,marginTop:2}}>
+                {signal&&<span style={{color:signal.col,fontWeight:signal.col===WG?400:700}}>{signal.t}</span>}
+                {signal&&j.deadline&&<span style={{color:WG}}> · </span>}
+                {j.deadline&&<span style={{color:od?DANGER:WG,fontWeight:od?700:400}}>Due {fmtDate(j.deadline)}{od?" — overdue":""}</span>}
+              </div>
+            </div>
+            <div style={{display:"flex",flexDirection:"column",alignItems:isMobile?"flex-start":"flex-end",gap:5,flexShrink:0}}>
+              {paid>0?<span style={{fontSize:12.5,fontWeight:800,color:OK,whiteSpace:"nowrap"}}>{fmt(paid)} in</span>
+                :owing>0?<span style={{fontSize:12.5,fontWeight:800,color:WARN,whiteSpace:"nowrap"}}>{fmt(owing)} owing</span>
+                :null}
+              <Badge label={j.stage} color={SC[j.stage]||WG}/>
+            </div>
           </DashRow>;
         })}
       </Card>
