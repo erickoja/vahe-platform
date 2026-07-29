@@ -1479,6 +1479,19 @@ const accountAging=(client,jobs,invoices,payments,asOf)=>{
   accInv.forEach(inv=>{const b=Number(balMap[inv.id])||0;if(b>0)buckets[agingKey(invoiceDueDate(inv,client),asOf)]+=b;});
   return {buckets,total:Object.values(buckets).reduce((s,v)=>s+v,0)};
 };
+// Per-account business metrics for reporting: invoiced / collected / outstanding (all reconcile via
+// invoicePaidBalanceMap), job volume, and average turnaround (dateIn→dateOut) in days over completed jobs.
+const accountMetrics=(client,jobs,invoices,payments)=>{
+  const {invoices:accInv}=accountActivity(client,jobs,invoices,payments);
+  const {paidMap,balMap}=invoicePaidBalanceMap(invoices,payments);
+  const invoiced=accInv.reduce((s,i)=>s+(Number(i.totalIncGST)||0),0);
+  const collected=accInv.reduce((s,i)=>s+(Number(paidMap[i.id])||0),0);
+  const outstanding=accInv.reduce((s,i)=>s+(Number(balMap[i.id])||0),0);
+  const clientJobs=(jobs||[]).filter(j=>j.clientId===client?.id);
+  const turns=clientJobs.map(j=>(j.dateIn&&j.dateOut)?Math.round((parseISO(j.dateOut).getTime()-parseISO(j.dateIn).getTime())/86400000):null).filter(d=>d!=null&&d>=0);
+  const avgTurnaround=turns.length?Math.round(turns.reduce((s,d)=>s+d,0)/turns.length):null;
+  return {invoiced,collected,outstanding,invoiceCount:accInv.length,jobCount:clientJobs.length,activeJobs:clientJobs.filter(j=>j.stage!=="Collected").length,completedCount:turns.length,avgTurnaround};
+};
 // Export a statement's ledger rows to CSV (same BOM/Excel handling as the invoice export).
 const STATEMENT_CSV_HEADER=["Date","Type","Reference","Description","PO / ref","Charge","Credit","Balance"];
 const downloadStatementCsv=(client,opening,period,closing,filename)=>{
@@ -2936,12 +2949,18 @@ function RepairIntakeCard({job,setJobs,biz,clients,markupTable,pricing=[],invoic
   const intake=job.intake||{};
   const blankIntakeItem=()=>({id:uid(),itemType:"",damage:"",condition:"",price:"",priceMode:"set"});
   const[items,setItems]=useState(()=>{const ex=intakeItems(intake);return ex.length?ex.map(i=>({id:i.id||uid(),itemType:i.itemType||"",damage:i.damage||"",condition:i.condition||"",price:i.price!=null?String(i.price):"",priceMode:i.priceMode||"set"})):[blankIntakeItem()];});
+  // Trade accounts get 10% GST added to repair prices (their prices are treated as ex-GST, GST
+  // added on top); retail repair prices are used as-is (retail-ready / GST-inclusive). Retail is
+  // unchanged (tradeGst = 1). Applies to both a "set" price and a "cost + markup" figure.
+  const trade=c?.accountType==="trade";
+  const tradeGst=trade?1+GST_RATE:1;
   // Effective customer price (inc GST) for an item: a "set" price is used as-is; a "cost"
   // is run through the manufacturing markup table (bracket multiplier, then rounded).
   const itemClient=it=>{
     const v=Number(it.price)||0;if(v<=0)return 0;
-    if(it.priceMode==="cost"){const b=getBracket(v,markupTable);return roundQ(v*(b?b.multiplier:1));}
-    return v;
+    // Cost + markup is a retail-only mode (hidden for trade); trade always prices from the set value + GST.
+    if(!trade&&it.priceMode==="cost"){const b=getBracket(v,markupTable);return roundQ(v*(b?b.multiplier:1));}
+    return v*tradeGst;
   };
   const itemMult=it=>{const b=getBracket(Number(it.price)||0,markupTable);return b?b.multiplier:null;};
   const[instructions,setInstructions]=useState(intake.instructions||"");
@@ -3060,6 +3079,7 @@ function RepairIntakeCard({job,setJobs,biz,clients,markupTable,pricing=[],invoic
         <Btn sm ghost onClick={()=>printRepairIntake(biz,c,{...job,dateIn:dIn,dateOut:dOut,intake:{items:items.map(it=>({...it,clientPrice:itemClient(it)})),instructions}})}>Print / Save PDF</Btn>
       </div>
     </div>
+    {trade&&<div style={{background:"#4E8B6A14",border:"1px solid #4E8B6A55",borderRadius:4,padding:"9px 14px",marginBottom:16,fontSize:12.5,color:"#3B6E52",fontWeight:600}}>Trade account — <strong>10% GST is added</strong> on top of repair prices.</div>}
     {job.repairToken&&<div style={{background:GOLD_L+"55",border:`1px solid ${GOLD}55`,borderRadius:4,padding:"9px 14px",marginBottom:16,display:"flex",alignItems:"center",gap:12,flexWrap:"wrap"}}>
       <span style={{fontSize:12,fontWeight:700,color:GOLD_D,whiteSpace:"nowrap"}}>🔗 Client link</span>
       <span style={{flex:1,minWidth:180,fontSize:12,color:WG,wordBreak:"break-all",fontFamily:"monospace"}}>{repairLink}</span>
@@ -3098,23 +3118,28 @@ function RepairIntakeCard({job,setJobs,biz,clients,markupTable,pricing=[],invoic
           </div>
           <div>
             <div style={{display:"flex",gap:4,marginBottom:4}}>
-              {[["set","Set price"],["cost","Cost + markup"]].map(([m,lbl])=>(
-                <button key={m} onClick={()=>{setItemField(it.id,"priceMode",m);setTimeout(commit,0);}}
-                  style={{flex:1,padding:"5px 6px",borderRadius:6,border:`1px solid ${it.priceMode===m?INK:BD}`,background:it.priceMode===m?INK:"transparent",color:it.priceMode===m?WHITE:WG,fontSize:10,fontWeight:700,cursor:"pointer",fontFamily:"inherit"}}>{lbl}</button>
-              ))}
+              {/* Trade accounts price repairs from set prices only — the cost+markup mode is hidden
+                  so the trade GST rule (price + 10%) is never confused with a stacked markup. */}
+              {(trade?[["set","Set price"]]:[["set","Set price"],["cost","Cost + markup"]]).map(([m,lbl])=>{
+                const on=trade?m==="set":it.priceMode===m;
+                return <button key={m} onClick={()=>{setItemField(it.id,"priceMode",m);setTimeout(commit,0);}}
+                  style={{flex:1,padding:"5px 6px",borderRadius:6,border:`1px solid ${on?INK:BD}`,background:on?INK:"transparent",color:on?WHITE:WG,fontSize:10,fontWeight:700,cursor:"pointer",fontFamily:"inherit"}}>{lbl}</button>;
+              })}
               <button onClick={()=>{setPricingFor(it.id);setRpSearch("");}}
                 style={{padding:"5px 8px",borderRadius:6,border:`1px solid ${BD}`,background:"transparent",color:WG,fontSize:10,fontWeight:700,cursor:"pointer",fontFamily:"inherit",whiteSpace:"nowrap"}} title="Look up repair price">📋</button>
             </div>
             <div style={{position:"relative"}}>
               <span style={{position:"absolute",left:10,top:"50%",transform:"translateY(-50%)",fontSize:13,color:WG,pointerEvents:"none"}}>$</span>
-              <input type="number" min="0" step="0.01" style={{...SS.inp,marginTop:0,padding:"9px 10px 9px 22px",textAlign:"right",fontWeight:Number(it.price)>0?700:400}} value={it.price} placeholder={it.priceMode==="cost"?"Trade cost":"0.00"} onChange={e=>setItemField(it.id,"price",e.target.value)} onBlur={commit}/>
+              <input type="number" min="0" step="0.01" style={{...SS.inp,marginTop:0,padding:"9px 10px 9px 22px",textAlign:"right",fontWeight:Number(it.price)>0?700:400}} value={it.price} placeholder={(!trade&&it.priceMode==="cost")?"Trade cost":"0.00"} onChange={e=>setItemField(it.id,"price",e.target.value)} onBlur={commit}/>
             </div>
             <div style={{fontSize:10,color:WG,marginTop:4,textAlign:"right",lineHeight:1.4}}>
-              {it.priceMode==="cost"
+              {(!trade&&it.priceMode==="cost")
                 ?(Number(it.price)>0
                     ?(itemMult(it)?<>×{itemMult(it)} markup → <strong style={{color:OK}}>{fmt(itemClient(it))}</strong> inc GST</>:<span style={{color:WARN}}>cost outside markup table</span>)
                     :"Trade cost — manufacturing markup applied")
-                :"Final price (inc GST)"}
+                :(trade&&Number(it.price)>0
+                    ?<>+ 10% GST → <strong style={{color:OK}}>{fmt(itemClient(it))}</strong> inc GST</>
+                    :"Final price (inc GST)")}
             </div>
           </div>
         </div>
@@ -6433,6 +6458,7 @@ function StatementDetail({clientId,clients,jobs,invoices,payments,biz,setView}){
   const asOf=today();
   const st=accountStatement(c,jobs,invoices,payments,{from,to});
   const aging=accountAging(c,jobs,invoices,payments,asOf);
+  const m=accountMetrics(c,jobs,invoices,payments);
   const over=Number(c.creditLimit)>0&&aging.total>Number(c.creditLimit);
   const bucketColor=k=>k==="d90"?DANGER:k==="d61_90"||k==="d31_60"?WARN:INK;
   const doPrint=()=>printStatement(biz,c,{...st,aging,from,to});
@@ -6458,6 +6484,25 @@ function StatementDetail({clientId,clients,jobs,invoices,payments,biz,setView}){
         </div>
       </div>
       {over&&<div style={{marginTop:14,background:DANGER+"12",border:`1px solid ${DANGER}55`,borderRadius:8,padding:"10px 14px",fontSize:13,color:DANGER,fontWeight:600}}>⚠ Over credit limit — owing {fmt(aging.total)} against a {fmt(Number(c.creditLimit))} limit.</div>}
+    </Card>
+
+    <Card>
+      <div style={{...SS.lbl,marginBottom:12}}>Account overview <span style={{fontWeight:400,textTransform:"none",letterSpacing:0}}>(all time)</span></div>
+      <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr 1fr":"repeat(5,1fr)",gap:10}}>
+        {[
+          ["Jobs",String(m.jobCount),`${m.activeJobs} active`,INK],
+          ["Invoiced",fmtR(m.invoiced),`${m.invoiceCount} invoice${m.invoiceCount!==1?"s":""}`,INK],
+          ["Collected",fmtR(m.collected),"received",OK],
+          ["Outstanding",fmtR(m.outstanding),"owing",m.outstanding>0?WARN:OK],
+          ["Avg turnaround",m.avgTurnaround!=null?`${m.avgTurnaround}d`:"—",m.completedCount?`${m.completedCount} completed`:"in→out",INK],
+        ].map(([l,v,sub,col])=>(
+          <div key={l} style={{background:PARCH,border:`1px solid ${BD}`,borderRadius:8,padding:"12px 13px"}}>
+            <div style={{fontSize:9.5,color:WG,fontWeight:700,textTransform:"uppercase",letterSpacing:"0.06em"}}>{l}</div>
+            <div style={{fontSize:18,fontWeight:800,color:col,marginTop:3}}>{v}</div>
+            <div style={{fontSize:10.5,color:WG,marginTop:1}}>{sub}</div>
+          </div>
+        ))}
+      </div>
     </Card>
 
     <Card>
@@ -7293,7 +7338,7 @@ function SpotPriceUpdater({spotPrices,setSpotPrices,pricing,setPricing,onClose})
 }
 
 // ── Reports ───────────────────────────────────────────────────────────────
-function Reports({jobs,clients,quotes,payments,invoices,markupTable}){
+function Reports({jobs,clients,quotes,payments,invoices,markupTable,setView}){
   const isMobile=useIsMobile();
   // Compact money for the tight bar-chart labels on mobile (e.g. $84k) so they don't overflow.
   const compactMoney=n=>"$"+(n>=1000?Math.round(n/1000)+"k":Math.round(n));
@@ -7367,6 +7412,43 @@ function Reports({jobs,clients,quotes,payments,invoices,markupTable}){
         ))}
       </Card>
     </div>
+    {(()=>{
+      const trades=clients.filter(c=>c.accountType==="trade");
+      if(!trades.length)return null;
+      const rows=trades.map(c=>({c,m:accountMetrics(c,jobs,invoices,payments)})).sort((a,b)=>b.m.invoiced-a.m.invoiced);
+      const tot=rows.reduce((a,{m})=>({invoiced:a.invoiced+m.invoiced,collected:a.collected+m.collected,outstanding:a.outstanding+m.outstanding,jobCount:a.jobCount+m.jobCount}),{invoiced:0,collected:0,outstanding:0,jobCount:0});
+      return <Card style={{marginTop:14}}>
+        <div style={{fontWeight:700,fontSize:15,color:INK,marginBottom:4}}>Trade accounts</div>
+        <div style={{fontSize:12,color:WG,marginBottom:14}}>Revenue, volume and turnaround per account — heaviest first. Tap an account for its statement.</div>
+        {!isMobile&&<div style={{display:"grid",gridTemplateColumns:"1.6fr 0.7fr 1fr 1fr 1fr 0.9fr",gap:8,padding:"0 2px 8px",fontSize:10,fontWeight:700,color:WG,textTransform:"uppercase",letterSpacing:"0.05em",borderBottom:`2px solid ${INK}`}}>
+          <div>Account</div><div style={{textAlign:"right"}}>Jobs</div><div style={{textAlign:"right"}}>Invoiced</div><div style={{textAlign:"right"}}>Collected</div><div style={{textAlign:"right"}}>Outstanding</div><div style={{textAlign:"right"}}>Turnaround</div>
+        </div>}
+        {rows.map(({c,m})=>(
+          <div key={c.id} onClick={()=>setView&&setView("statementDetail_"+c.id)} style={isMobile
+            ?{padding:"11px 2px",borderBottom:`1px solid ${BD}`,cursor:"pointer"}
+            :{display:"grid",gridTemplateColumns:"1.6fr 0.7fr 1fr 1fr 1fr 0.9fr",gap:8,padding:"11px 2px",borderBottom:`1px solid ${BD}`,alignItems:"center",cursor:"pointer",fontSize:13}}
+            onMouseEnter={e=>e.currentTarget.style.background=PARCH} onMouseLeave={e=>e.currentTarget.style.background="transparent"}>
+            {isMobile?<>
+              <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",gap:10}}>
+                <span style={{fontWeight:700,color:INK,fontSize:14}}>{clientDisplayName(c)}</span>
+                <span style={{fontWeight:800,color:INK}}>{fmtR(m.invoiced)}</span>
+              </div>
+              <div style={{fontSize:12,color:WG,marginTop:3}}>{m.jobCount} job{m.jobCount!==1?"s":""} · Collected {fmtR(m.collected)}{m.outstanding>0?<span style={{color:WARN,fontWeight:600}}> · {fmtR(m.outstanding)} owing</span>:""}{m.avgTurnaround!=null?` · ~${m.avgTurnaround}d`:""}</div>
+            </>:<>
+              <div style={{fontWeight:700,color:INK,minWidth:0,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{clientDisplayName(c)}{c.terms&&<span style={{fontSize:10,color:WG,fontWeight:600}}> · {c.terms}</span>}</div>
+              <div style={{textAlign:"right",color:INK}}>{m.jobCount}</div>
+              <div style={{textAlign:"right",fontWeight:700,color:INK}}>{fmtR(m.invoiced)}</div>
+              <div style={{textAlign:"right",color:OK,fontWeight:600}}>{fmtR(m.collected)}</div>
+              <div style={{textAlign:"right",color:m.outstanding>0?WARN:WG,fontWeight:m.outstanding>0?700:400}}>{fmtR(m.outstanding)}</div>
+              <div style={{textAlign:"right",color:WG}}>{m.avgTurnaround!=null?`~${m.avgTurnaround}d`:"—"}</div>
+            </>}
+          </div>
+        ))}
+        {rows.length>1&&!isMobile&&<div style={{display:"grid",gridTemplateColumns:"1.6fr 0.7fr 1fr 1fr 1fr 0.9fr",gap:8,padding:"11px 2px 2px",fontSize:13,fontWeight:800,color:INK,borderTop:`2px solid ${INK}`,marginTop:2}}>
+          <div>All trade accounts</div><div style={{textAlign:"right"}}>{tot.jobCount}</div><div style={{textAlign:"right"}}>{fmtR(tot.invoiced)}</div><div style={{textAlign:"right",color:OK}}>{fmtR(tot.collected)}</div><div style={{textAlign:"right",color:tot.outstanding>0?WARN:INK}}>{fmtR(tot.outstanding)}</div><div/>
+        </div>}
+      </Card>;
+    })()}
   </div>;
 }
 
@@ -9240,7 +9322,7 @@ export default function App(){
     if(view==="gemcustody")return <GemCustody custody={gemCustody} setCustody={setGemCustody} clients={clients} biz={biz}/>;
     if(view.startsWith("stockPrice_"))return <QuoteBuilder stockId={view.split("_")[1]} stock={stock} setStock={setStock} jobs={jobs} clients={clients} quotes={quotes} setQuotes={setQuotes} pricing={pricing} setPricing={setPricing} markupTable={markupTable} naturalStoneMarkup={naturalStoneMarkup} labStoneMarkup={labStoneMarkup} tradeMarkupTable={tradeMarkupTable} tradeNatStoneMarkup={tradeNatStoneMarkup} tradeLabStoneMarkup={tradeLabStoneMarkup} centreRates={centreRates} setCentreRates={setCentreRates} setView={setView}/>;
     if(view==="pricing")return <PricingDB pricing={pricing} setPricing={setPricing} spotPrices={spotPrices} setSpotPrices={setSpotPrices} markupTable={markupTable} centreRates={centreRates} setCentreRates={setCentreRates}/>;
-    if(view==="reports")return <Reports jobs={jobs} clients={clients} quotes={quotes} payments={payments} invoices={invoices} markupTable={markupTable}/>;
+    if(view==="reports")return <Reports jobs={jobs} clients={clients} quotes={quotes} payments={payments} invoices={invoices} markupTable={markupTable} setView={setView}/>;
     if(view==="settings")return <Settings biz={biz} setBiz={setBiz} markupTable={markupTable} setMarkupTable={setMarkupTable} naturalStoneMarkup={naturalStoneMarkup} setNaturalStoneMarkup={setNaturalStoneMarkup} labStoneMarkup={labStoneMarkup} setLabStoneMarkup={setLabStoneMarkup} tradeMarkupTable={tradeMarkupTable} setTradeMarkupTable={setTradeMarkupTable} tradeNatStoneMarkup={tradeNatStoneMarkup} setTradeNatStoneMarkup={setTradeNatStoneMarkup} tradeLabStoneMarkup={tradeLabStoneMarkup} setTradeLabStoneMarkup={setTradeLabStoneMarkup}/>;
     return null;
   };
