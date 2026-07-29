@@ -6416,7 +6416,7 @@ function StatementsList({clients,jobs,invoices,payments,biz,setView}){
           <Btn onClick={()=>setView("clients")}>Go to Clients</Btn>
         </div></Card>
       : <>
-        <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr 1fr":"repeat(6,1fr)",gap:10,marginBottom:18}}>
+        <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(122px,1fr))",gap:10,marginBottom:18}}>
           {[["Total owing",totals.total,totals.total>0?WARN:OK],...AGE_BUCKETS.map(([k,l])=>[l,totals[k],bucketColor(k)])].map(([l,v,col],i)=>(
             <div key={l} style={{background:WHITE,border:`1px solid ${BD}`,borderRadius:8,padding:"13px 14px"}}>
               <div style={{fontSize:9.5,color:WG,fontWeight:700,textTransform:"uppercase",letterSpacing:"0.06em"}}>{l}</div>
@@ -6453,6 +6453,7 @@ function StatementsList({clients,jobs,invoices,payments,biz,setView}){
 // receivables, and Print / CSV export. All figures derive from invoices+payments (no new entity).
 function StatementDetail({clientId,clients,jobs,invoices,payments,biz,setView}){
   const isMobile=useIsMobile();
+  const isNarrow=useIsMobile(1024);   // tablet + phone: stack the fixed-column ledger table
   const c=(clients||[]).find(x=>x.id===clientId);
   const[preset,setPreset]=useState("all");
   const[from,setFrom]=useState("");
@@ -6500,7 +6501,7 @@ function StatementDetail({clientId,clients,jobs,invoices,payments,biz,setView}){
 
     <Card>
       <div style={{...SS.lbl,marginBottom:12}}>Account overview <span style={{fontWeight:400,textTransform:"none",letterSpacing:0}}>(all time)</span></div>
-      <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr 1fr":"repeat(5,1fr)",gap:10}}>
+      <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(120px,1fr))",gap:10}}>
         {[
           ["Jobs",String(m.jobCount),`${m.activeJobs} active`,INK],
           ["Invoiced",fmtR(m.invoiced),`${m.invoiceCount} invoice${m.invoiceCount!==1?"s":""}`,INK],
@@ -6541,21 +6542,21 @@ function StatementDetail({clientId,clients,jobs,invoices,payments,biz,setView}){
         <span style={{fontSize:12,fontWeight:700,color:WG,textTransform:"uppercase",letterSpacing:"0.06em"}}>Opening balance</span>
         <span style={{fontSize:15,fontWeight:800,color:INK}}>{fmt(st.opening)}</span>
       </div>
-      {!isMobile&&<div style={{display:"grid",gridTemplateColumns:"90px 1fr 110px 130px 120px",gap:8,padding:"8px 2px",fontSize:10,fontWeight:700,color:WG,textTransform:"uppercase",letterSpacing:"0.05em",borderBottom:`1px solid ${BD}`}}>
+      {!isNarrow&&<div style={{display:"grid",gridTemplateColumns:"90px 1fr 110px 130px 120px",gap:8,padding:"8px 2px",fontSize:10,fontWeight:700,color:WG,textTransform:"uppercase",letterSpacing:"0.05em",borderBottom:`1px solid ${BD}`}}>
         <div>Date</div><div>Description</div><div style={{textAlign:"right"}}>Charges</div><div style={{textAlign:"right"}}>Payments</div><div style={{textAlign:"right"}}>Balance</div>
       </div>}
       {st.period.length===0&&<div style={{color:WG,fontSize:13,padding:"18px 2px",fontStyle:"italic"}}>No transactions in this period.</div>}
       {st.period.map(e=>(
-        <div key={e.id} style={isMobile
+        <div key={e.id} style={isNarrow
           ?{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:10,padding:"11px 2px",borderBottom:`1px solid ${BD}`}
           :{display:"grid",gridTemplateColumns:"90px 1fr 110px 130px 120px",gap:8,padding:"11px 2px",borderBottom:`1px solid ${BD}`,alignItems:"center"}}>
           <div style={{fontSize:12,color:WG,whiteSpace:"nowrap"}}>{fmtDate(e.date)}</div>
-          <div style={{minWidth:0,order:isMobile?3:0,flexBasis:isMobile?"100%":"auto"}}>
+          <div style={{minWidth:0,order:isNarrow?3:0,flexBasis:isNarrow?"100%":"auto"}}>
             <div style={{fontSize:13,color:INK,fontWeight:600}}>{e.desc}{e.ref&&<span style={{color:WG,fontWeight:400}}> · {e.ref}</span>}</div>
             {(e.po||(e.kind==="invoice"&&e.due))&&<div style={{fontSize:11,color:WG,marginTop:1}}>{e.po?`PO ${e.po}`:""}{e.po&&e.kind==="invoice"&&e.due?" · ":""}{e.kind==="invoice"&&e.due?`Due ${fmtDate(e.due)}`:""}</div>}
           </div>
-          <div style={{fontSize:13,textAlign:"right",color:INK,fontWeight:e.charge?700:400}}>{e.charge?fmt(e.charge):(isMobile?"":"—")}</div>
-          <div style={{fontSize:13,textAlign:"right",color:e.credit?OK:WG,fontWeight:e.credit?700:400}}>{e.credit?fmt(e.credit):(isMobile?"":"—")}</div>
+          <div style={{fontSize:13,textAlign:"right",color:INK,fontWeight:e.charge?700:400}}>{e.charge?fmt(e.charge):(isNarrow?"":"—")}</div>
+          <div style={{fontSize:13,textAlign:"right",color:e.credit?OK:WG,fontWeight:e.credit?700:400}}>{e.credit?fmt(e.credit):(isNarrow?"":"—")}</div>
           <div style={{fontSize:13,textAlign:"right",fontWeight:700,color:INK}}>{fmt(e.balance)}</div>
         </div>
       ))}
@@ -6567,7 +6568,7 @@ function StatementDetail({clientId,clients,jobs,invoices,payments,biz,setView}){
 
     <Card>
       <div style={{...SS.lbl,marginBottom:12}}>Aged receivables <span style={{fontWeight:400,textTransform:"none",letterSpacing:0}}>(as at {fmtDate(asOf)})</span></div>
-      <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr 1fr":"repeat(5,1fr)",gap:10}}>
+      <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(120px,1fr))",gap:10}}>
         {AGE_BUCKETS.map(([k,l])=>(
           <div key={k} style={{background:PARCH,border:`1px solid ${BD}`,borderRadius:8,padding:"12px 13px"}}>
             <div style={{fontSize:9.5,color:WG,fontWeight:700,textTransform:"uppercase",letterSpacing:"0.06em"}}>{l}</div>
@@ -7352,6 +7353,7 @@ function SpotPriceUpdater({spotPrices,setSpotPrices,pricing,setPricing,onClose})
 // ── Reports ───────────────────────────────────────────────────────────────
 function Reports({jobs,clients,quotes,payments,invoices,markupTable,setView}){
   const isMobile=useIsMobile();
+  const isNarrow=useIsMobile(1024);   // tablet + phone: stack the wide trade-accounts table into cards
   // Compact money for the tight bar-chart labels on mobile (e.g. $84k) so they don't overflow.
   const compactMoney=n=>"$"+(n>=1000?Math.round(n/1000)+"k":Math.round(n));
   const months=Array.from({length:6},(_,i)=>{const d=new Date();d.setMonth(d.getMonth()-i);return d.toISOString().slice(0,7);}).reverse();
@@ -7432,15 +7434,15 @@ function Reports({jobs,clients,quotes,payments,invoices,markupTable,setView}){
       return <Card style={{marginTop:14}}>
         <div style={{fontWeight:700,fontSize:15,color:INK,marginBottom:4}}>Trade accounts</div>
         <div style={{fontSize:12,color:WG,marginBottom:14}}>Revenue, volume and turnaround per account — heaviest first. Tap an account for its statement.</div>
-        {!isMobile&&<div style={{display:"grid",gridTemplateColumns:"1.6fr 0.7fr 1fr 1fr 1fr 0.9fr",gap:8,padding:"0 2px 8px",fontSize:10,fontWeight:700,color:WG,textTransform:"uppercase",letterSpacing:"0.05em",borderBottom:`2px solid ${INK}`}}>
+        {!isNarrow&&<div style={{display:"grid",gridTemplateColumns:"1.6fr 0.7fr 1fr 1fr 1fr 0.9fr",gap:8,padding:"0 2px 8px",fontSize:10,fontWeight:700,color:WG,textTransform:"uppercase",letterSpacing:"0.05em",borderBottom:`2px solid ${INK}`}}>
           <div>Account</div><div style={{textAlign:"right"}}>Jobs</div><div style={{textAlign:"right"}}>Invoiced</div><div style={{textAlign:"right"}}>Collected</div><div style={{textAlign:"right"}}>Outstanding</div><div style={{textAlign:"right"}}>Turnaround</div>
         </div>}
         {rows.map(({c,m})=>(
-          <div key={c.id} onClick={()=>setView&&setView("statementDetail_"+c.id)} style={isMobile
+          <div key={c.id} onClick={()=>setView&&setView("statementDetail_"+c.id)} style={isNarrow
             ?{padding:"11px 2px",borderBottom:`1px solid ${BD}`,cursor:"pointer"}
             :{display:"grid",gridTemplateColumns:"1.6fr 0.7fr 1fr 1fr 1fr 0.9fr",gap:8,padding:"11px 2px",borderBottom:`1px solid ${BD}`,alignItems:"center",cursor:"pointer",fontSize:13}}
             onMouseEnter={e=>e.currentTarget.style.background=PARCH} onMouseLeave={e=>e.currentTarget.style.background="transparent"}>
-            {isMobile?<>
+            {isNarrow?<>
               <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",gap:10}}>
                 <span style={{fontWeight:700,color:INK,fontSize:14}}>{clientDisplayName(c)}</span>
                 <span style={{fontWeight:800,color:INK}}>{fmtR(m.invoiced)}</span>
@@ -7456,7 +7458,7 @@ function Reports({jobs,clients,quotes,payments,invoices,markupTable,setView}){
             </>}
           </div>
         ))}
-        {rows.length>1&&!isMobile&&<div style={{display:"grid",gridTemplateColumns:"1.6fr 0.7fr 1fr 1fr 1fr 0.9fr",gap:8,padding:"11px 2px 2px",fontSize:13,fontWeight:800,color:INK,borderTop:`2px solid ${INK}`,marginTop:2}}>
+        {rows.length>1&&!isNarrow&&<div style={{display:"grid",gridTemplateColumns:"1.6fr 0.7fr 1fr 1fr 1fr 0.9fr",gap:8,padding:"11px 2px 2px",fontSize:13,fontWeight:800,color:INK,borderTop:`2px solid ${INK}`,marginTop:2}}>
           <div>All trade accounts</div><div style={{textAlign:"right"}}>{tot.jobCount}</div><div style={{textAlign:"right"}}>{fmtR(tot.invoiced)}</div><div style={{textAlign:"right",color:OK}}>{fmtR(tot.collected)}</div><div style={{textAlign:"right",color:tot.outstanding>0?WARN:INK}}>{fmtR(tot.outstanding)}</div><div/>
         </div>}
       </Card>;
