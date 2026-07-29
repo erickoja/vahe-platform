@@ -2331,7 +2331,9 @@ function Dashboard({clients,jobs,quotes,payments,invoices,appointments=[],propos
   const PROD_STAGES=["On the bench","Design / CAD","Manufacturing","Stone setting","Polishing / Finish","QC check"];
   const daysAgo=d=>{const n=Math.round((Date.now()-parseISO(d).getTime())/86400000);return n<=0?"today":n===1?"1 day ago":`${n} days ago`;};
   const activeRanked=active.map(j=>{
-    const paid=payments.filter(p=>p.jobId===j.id&&p.status==="Received").reduce((s,p)=>s+Number(p.amount),0);
+    const cash=payments.filter(p=>p.jobId===j.id&&p.status==="Received").reduce((s,p)=>s+Number(p.amount),0);
+    const tradeIn=jobTradeInCredit(j,quotes);            // gold trade-in credit — also value received
+    const received=cash+tradeIn;                         // "money in" = cash + trade-in
     const jp=proposals.filter(p=>p.jobId===j.id);
     const propAccepted=jp.some(p=>p.status==="accepted");
     const sentProp=jp.filter(p=>p.status==="sent").sort((a,b)=>String(b.createdAt||"").localeCompare(String(a.createdAt||"")))[0];
@@ -2341,19 +2343,19 @@ function Dashboard({clients,jobs,quotes,payments,invoices,appointments=[],propos
     const ready=j.stage==="Ready for collection";
     const inProd=PROD_STAGES.includes(j.stage);
     const total=jobHasCharge(j,quotes)?jobChargeTotal(j,quotes,markupTable,invoices):0;
-    const owing=Math.max(0,total-paid-jobTradeInCredit(j,quotes));
+    const owing=Math.max(0,total-received);
     const awaiting=propSent&&!propAccepted&&!approved;   // proposal out, no yes yet
     const awaitDays=awaiting&&sentProp?.createdAt?Math.round((Date.now()-parseISO(sentProp.createdAt).getTime())/86400000):null;
     const stale=awaiting&&awaitDays!=null&&awaitDays>21;   // sent 3+ weeks ago, still no reply → effectively dead
     let score=0;
-    if(paid>0)score+=100;
+    if(received>0)score+=100;
     if(propAccepted||approved)score+=60;
     if(ready)score+=55;
     if(awaiting)score+=stale?8:45;                        // a fresh proposal matters; a stale one sinks
     if(inProd)score+=35;
     if(od)score+=30;
-    const quiet=!(paid>0||propAccepted||approved||propSent||ready||inProd||od);
-    return {j,paid,owing,awaiting,propAccepted,approved,od,ready,inProd,sentProp,quiet,stale,score};
+    const quiet=!(received>0||propAccepted||approved||propSent||ready||inProd||od);
+    return {j,received,tradeIn,owing,awaiting,propAccepted,approved,od,ready,inProd,sentProp,quiet,stale,score};
   }).sort((a,b)=>b.score-a.score
     ||String(a.j.deadline||"9999-99-99").localeCompare(String(b.j.deadline||"9999-99-99"))
     ||String(b.j.createdAt||"").localeCompare(String(a.j.createdAt||"")));
@@ -2432,7 +2434,7 @@ function Dashboard({clients,jobs,quotes,payments,invoices,appointments=[],propos
           <Btn sm ghost onClick={()=>setView("jobs")}>View all</Btn>
         </div>
         {active.length===0&&<div style={{color:WG,fontSize:14}}>No active jobs.</div>}
-        {activeRanked.slice(0,8).map(({j,paid,owing,awaiting,ready,sentProp,quiet,stale,od},i,arr)=>{
+        {activeRanked.slice(0,8).map(({j,received,tradeIn,owing,awaiting,ready,sentProp,quiet,stale,od},i,arr)=>{
           const c=clients.find(x=>x.id===j.clientId);
           // Sub-line = the signal that isn't already shown by the money chip / stage badge.
           const signal=ready?{t:"Ready to collect",col:OK}
@@ -2448,10 +2450,9 @@ function Dashboard({clients,jobs,quotes,payments,invoices,appointments=[],propos
                 {j.deadline&&<span style={{color:od?DANGER:WG,fontWeight:od?700:400}}>Due {fmtDate(j.deadline)}{od?" — overdue":""}</span>}
               </div>
             </div>
-            <div style={{display:"flex",flexDirection:"column",alignItems:isMobile?"flex-start":"flex-end",gap:5,flexShrink:0}}>
-              {paid>0?<span style={{fontSize:12.5,fontWeight:800,color:OK,whiteSpace:"nowrap"}}>{fmt(paid)} in</span>
-                :owing>0?<span style={{fontSize:12.5,fontWeight:800,color:WARN,whiteSpace:"nowrap"}}>{fmt(owing)} owing</span>
-                :null}
+            <div style={{display:"flex",flexDirection:"column",alignItems:isMobile?"flex-start":"flex-end",gap:3,flexShrink:0}}>
+              {received>0&&<span style={{fontSize:12.5,fontWeight:800,color:OK,whiteSpace:"nowrap"}}>{fmt(received)} in{tradeIn>0?<span style={{fontSize:10.5,fontWeight:600,color:WG}}> · incl. trade-in</span>:null}</span>}
+              {owing>0&&<span style={{fontSize:12,fontWeight:700,color:WARN,whiteSpace:"nowrap"}}>{fmt(owing)} owing</span>}
               <Badge label={j.stage} color={SC[j.stage]||WG}/>
             </div>
           </DashRow>;
