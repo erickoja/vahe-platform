@@ -2384,7 +2384,7 @@ function Dashboard({clients,jobs,quotes,payments,invoices,appointments=[],propos
       <div style={{color:INK,fontSize:15,marginTop:6,lineHeight:1.5}}>Here's everything happening in your workshop today.</div>
       <div style={{color:WG,fontSize:12.5,marginTop:3}}>{fmtDate(today())}</div>
     </div>
-    <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(150px,1fr))",gap:14,marginBottom:24}}>
+    <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(176px,1fr))",gap:14,marginBottom:24}}>
       <Stat label="Today's appts" value={todaysAppts.length} sub={todaysAppts.length>0?fmtTime(todaysAppts.slice().sort((a,b)=>String(a.time||"").localeCompare(String(b.time||"")))[0].time)+" first":"none today"} tint="slate" icon="◷" onClick={()=>setView("appointments")}/>
       <Stat label="Clients" value={clients.length} tint="slate" icon="♦" onClick={()=>setView("clients")}/>
       <Stat label="Active jobs" value={active.length} tint="slate" icon="✦" onClick={()=>setView("jobs")}/>
@@ -7444,7 +7444,7 @@ function Reports({jobs,clients,quotes,payments,invoices,markupTable,setView}){
   },0);
   return <div>
     <SectionHeader eyebrow="Business" title="Reports" subtitle="How the studio's tracking — sales, margins and conversion at a glance."/>
-    <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(140px,1fr))",gap:12,marginBottom:22}}>
+    <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(176px,1fr))",gap:12,marginBottom:22}}>
       <Stat label="Total clients" value={clients.length}/>
       <Stat label="Total jobs" value={jobs.length}/>
       <Stat label="Total sales" value={fmt(totalSales)} sub="agreed charges"/>
@@ -8413,7 +8413,7 @@ function TodoBoard({todos,setTodos,jobs=[],clients=[],setView,setSelJob}){
         </div></Card>
       : <>
           {/* Summary tiles */}
-          <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(150px,1fr))",gap:14,marginBottom:18}}>
+          <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(176px,1fr))",gap:14,marginBottom:18}}>
             <Stat label="People" value={people.length} tint="slate" icon="♦"/>
             <Stat label="To do" value={totalTodo} tint="slate" icon="○"/>
             <Stat label="In progress" value={totalDoing} tint="slate" icon="◐"/>
@@ -8956,7 +8956,7 @@ function StockBoard({stock,setStock,setView}){
         </div></Card>
       : <>
           {/* Summary tiles */}
-          <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(150px,1fr))",gap:14,marginBottom:20}}>
+          <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(176px,1fr))",gap:14,marginBottom:20}}>
             <Stat label="Pieces" value={stock.length} tint="slate" icon="◈"/>
             <Stat label="Available" value={availCount} tint="slate" icon="✓"/>
             <Stat label="Retail value" value={fmtR(retailVal)} tint="slate" icon="$" sub="excludes sold"/>
