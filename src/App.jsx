@@ -53,7 +53,7 @@ const TINTS={
 };
 
 // ── Constants ─────────────────────────────────────────────────────────────
-const JOB_TYPES=["Engagement ring","Wedding band","Eternity ring","Dress ring","Custom pendant","Necklace","Earrings","Bracelet","Repair","Remodelling","Grillz","Chain","Custom","Other"];
+const JOB_TYPES=["Engagement ring","Wedding band","Eternity ring","Dress ring","Custom pendant","Necklace","Earrings","Bracelet","Repair","Remodelling","Grillz","Chain","Trade / Wholesale","Custom","Other"];
 const JOB_TYPE_ICONS={"Engagement ring":"◇","Wedding band":"○","Eternity ring":"◉","Dress ring":"✧","Custom pendant":"✦","Necklace":"⌒","Earrings":"❖","Bracelet":"∞","Repair":"◆","Remodelling":"⟳","Grillz":"▦","Chain":"◈","Custom":"✶","Other":"◦"};
 // "On the bench" is the active-work stage — fits a repair being worked on (and any workshop job).
 const REPAIR_WIP_STAGE="On the bench";
@@ -1147,7 +1147,7 @@ const jobChargeTotal=(job,quotes,markupTable,invoices)=>{
 };
 // Sum of gold trade-in credits on a job's approved quotes. It's a credit RECEIVED (like paying in
 // gold) — it does NOT reduce the sale price (jobChargeTotal), it's counted alongside payments.
-const jobTradeInCredit=(job,quotes)=>(quotes||[]).filter(q=>q.jobId===job?.id&&q.status==="Approved").reduce((s,q)=>s+(Number(q.tradeInCredit)||0),0);
+const jobTradeInCredit=(job,quotes)=>(quotes||[]).filter(q=>q.jobId===job?.id&&q.status==="Approved").reduce((s,q)=>s+(Number(q.tradeInCredit)||0),0)+(Number(job?.repairTradeIn)||0);
 // True if the job has any agreed charge (override or approved quote)
 const jobHasCharge=(job,quotes)=>Number(job?.totalOverride)>0||(quotes||[]).some(q=>q.jobId===job.id&&q.status==="Approved");
 // Effective invoice status for display/aggregation. A manual "Paid" always wins. Otherwise, when
@@ -1565,6 +1565,8 @@ const buildRepairSnapshot=({job,client,biz,items,instructions,photos})=>({
   dateOut:job?.dateOut||"",
   items:(items||[]).map(it=>({itemType:it.itemType||"",damage:it.damage||"",condition:it.condition||"",price:Number(it.clientPrice)||0})),
   total:(items||[]).reduce((s,it)=>s+(Number(it.clientPrice)||0),0),
+  tradeIn:Number(job?.repairTradeIn)||0,
+  tradeInNote:job?.repairTradeInNote||"",
   instructions:instructions||"",
   // Inline data URLs (not signed URLs) so they don't expire and need no auth to view.
   photos:(photos||[]).map(p=>({url:p.url,caption:p.caption||""})),
@@ -2077,6 +2079,8 @@ async function printRepairIntake(biz,c,job){
   const itemAmt=it=>it.clientPrice!=null?Number(it.clientPrice):(Number(it.price)||0);
   const repairTotal=items.reduce((s,it)=>s+itemAmt(it),0);
   const hasPrices=repairTotal>0;
+  const tradeIn=Number(job.repairTradeIn)||0;
+  const amountDue=Math.max(0,repairTotal-tradeIn);
   const dash=`<span style="color:#bbb">—</span>`;
 
   // Top summary strip — the facts the customer cares about
@@ -2101,7 +2105,11 @@ ${hasPrices?`<td class="amt">${itemAmt(it)>0?fmt(itemAmt(it)):dash}</td>`:""}
   const itemsHtml=`<table class="itbl">
 <thead><tr><th class="num">#</th><th>Item</th><th>Issue / work required</th><th>Condition on arrival</th>${hasPrices?`<th class="amt">Price</th>`:""}</tr></thead>
 <tbody>${rows}</tbody></table>
-${hasPrices?`<div class="rtot"><span class="rt-l">Repair total (inc GST)</span><span class="rt-v">${fmt(repairTotal)}</span></div>`:""}`;
+${hasPrices?(tradeIn>0
+  ?`<div class="rtot"><span class="rt-l">Repair total (inc GST)</span><span class="rt-v" style="font-size:15px">${fmt(repairTotal)}</span></div>
+<div class="rtot" style="margin:2px 0 0"><span class="rt-l" style="color:#2D7A4F">Gold trade-in credit${tradeIn&&job.repairTradeInNote?" · "+esc(job.repairTradeInNote):""}</span><span class="rt-v" style="font-size:15px;color:#2D7A4F">− ${fmt(tradeIn)}</span></div>
+<div class="rtot" style="border-top:2px solid #1A1714;margin-top:6px;padding-top:8px"><span class="rt-l">Amount due</span><span class="rt-v">${fmt(amountDue)}</span></div>`
+  :`<div class="rtot"><span class="rt-l">Repair total (inc GST)</span><span class="rt-v">${fmt(repairTotal)}</span></div>`):""}`;
 
   // Uploaded photos of the piece(s) on intake
   const photosHtml=photos.length?`<div class="photos"><div class="ph-lbl">Photos on intake</div><div class="ph-grid">${photos.map(p=>`<figure class="ph-item"><img src="${p.url}" alt="Repair photo"/>${p.caption?`<figcaption>${esc(p.caption)}</figcaption>`:""}</figure>`).join("")}</div></div>`:"";
@@ -2644,6 +2652,12 @@ function JobForm({clients,initial={},onSave,onCancel}){
   const set=k=>v=>setF(p=>({...p,[k]:v}));
   const selClient=clients.find(c=>c.id===f.clientId);
   const isTradeJob=selClient?.accountType==="trade";
+  // New trade jobs default to the "Trade / Wholesale" type. Only when the type is still the untouched
+  // default and we're not editing an existing job (initial.type present), so a manual choice is kept.
+  useEffect(()=>{
+    if(initial.type)return;
+    if(isTradeJob&&f.type===JOB_TYPES[0])setF(p=>({...p,type:"Trade / Wholesale"}));
+  },[isTradeJob]);   // eslint-disable-line
   return <div>
     <Input label="Client" value={f.clientId} onChange={set("clientId")} as="select" options={[{value:"",label:"— Select a client —"},...clients.map(c=>({value:c.id,label:c.accountType==="trade"?`${c.name} · Trade`:c.name}))]}/>
     {isTradeJob&&<Input label={`PO / reference${selClient?.poRequired?" (required)":""}`} value={f.po||""} onChange={set("po")} placeholder="Client's PO or job reference"/>}
@@ -2945,6 +2959,7 @@ function JobImages({job,setJobs}){
 }
 
 function RepairIntakeCard({job,setJobs,biz,clients,markupTable,pricing=[],invoices=[],setInvoices,setView}){
+  const isMobile=useIsMobile();
   const c=clients.find(x=>x.id===job.clientId);
   const intake=job.intake||{};
   const blankIntakeItem=()=>({id:uid(),itemType:"",damage:"",condition:"",price:"",priceMode:"set"});
@@ -2966,6 +2981,10 @@ function RepairIntakeCard({job,setJobs,biz,clients,markupTable,pricing=[],invoic
   const[instructions,setInstructions]=useState(intake.instructions||"");
   const[dIn,setDIn]=useState(job.dateIn||"");
   const[dOut,setDOut]=useState(job.dateOut||"");
+  // Gold trade-in credit against this repair (customer's own metal) — a credit received, like the
+  // quote-level trade-in. Stored on the job; nets the balance and carries onto the repair invoice.
+  const[tradeIn,setTradeIn]=useState(job.repairTradeIn?String(job.repairTradeIn):"");
+  const[tradeInNote,setTradeInNote]=useState(job.repairTradeInNote||"");
   // Uploaded photos as inline data URLs, loaded once per image set and reused for both the
   // online link snapshot and the printed receipt (avoids re-fetching on every edit/autosave).
   const[photoData,setPhotoData]=useState([]);
@@ -2987,12 +3006,14 @@ function RepairIntakeCard({job,setJobs,biz,clients,markupTable,pricing=[],invoic
   // If a client link exists, keep its cloud snapshot in sync with edits so the link never goes stale.
   const refreshSnapshot=(itemsArg,instrArg,over)=>{
     if(!job.repairToken||!supabaseEnabled||!supabase)return;
-    const snap=buildRepairSnapshot({job:{...job,dateIn:over&&"dateIn"in over?over.dateIn:dIn,dateOut:over&&"dateOut"in over?over.dateOut:dOut},client:c,biz,items:itemsArg.map(it=>({...it,clientPrice:itemClient(it)})),instructions:instrArg,photos:photoData});
+    // `over` is a job patch merged in (dates or trade-in) so a just-changed value isn't lost to stale state.
+    const snap=buildRepairSnapshot({job:{...job,dateIn:dIn,dateOut:dOut,...(over||{})},client:c,biz,items:itemsArg.map(it=>({...it,clientPrice:itemClient(it)})),instructions:instrArg,photos:photoData});
     supabase.from(PUBLIC_PROPOSALS_TABLE).update({data:snap}).eq("token",job.repairToken).then(()=>{}).catch(()=>{});
   };
   // Persist the whole intake (items + instructions) as the new shape, and refresh the link snapshot
   const saveIntake=(nextItems,nextInstr)=>{setJobs(p=>{const n=p.map(j=>j.id===job.id?{...j,intake:{items:nextItems,instructions:nextInstr}}:j);persist(K.jo,n);return n;});refreshSnapshot(nextItems,nextInstr);};
-  const persistJob=patch=>{setJobs(p=>{const n=p.map(j=>j.id===job.id?{...j,...patch}:j);persist(K.jo,n);return n;});if("dateIn"in patch||"dateOut"in patch)refreshSnapshot(items,instructions,patch);};
+  const persistJob=patch=>{setJobs(p=>{const n=p.map(j=>j.id===job.id?{...j,...patch}:j);persist(K.jo,n);return n;});if("dateIn"in patch||"dateOut"in patch||"repairTradeIn"in patch)refreshSnapshot(items,instructions,patch);};
+  const commitTradeIn=()=>persistJob({repairTradeIn:Number(tradeIn)||0,repairTradeInNote:tradeInNote.trim()});
   const setItemField=(id,k,v)=>setItems(p=>p.map(i=>i.id===id?{...i,[k]:v}:i));
   const commit=()=>saveIntake(items,instructions);
   const addItem=()=>{const ni=[...items,blankIntakeItem()];setItems(ni);saveIntake(ni,instructions);};
@@ -3012,8 +3033,12 @@ function RepairIntakeCard({job,setJobs,biz,clients,markupTable,pricing=[],invoic
     const totalIncGST=repairTotal;
     const gst=totalIncGST-totalIncGST/(1+GST_RATE);
     const exGST=totalIncGST-gst;
-    const inv={id:uid(),jobId:job.id,quoteId:null,quoteIds:[],fromRepair:true,number:nextInvoiceNumber(invoices),date:today(),status:"Unpaid",exGST,gst,totalIncGST,subtotalIncGST:totalIncGST,discount:0,discountLabel:"Discount",lineItems,customerLines,notes:instructions||"",descriptionOverride:""};
-    persistJob({totalOverride:repairTotal});   // keep the job's amount owing in sync with the invoice
+    // Use the live field values (a just-typed trade-in may not be in the job closure yet), and
+    // persist them with the charge so the job balance and the invoice net the same trade-in.
+    const tiCredit=Number(tradeIn)||0;   // gold trade-in nets the balance (not the GST/total)
+    const tiNote=tradeInNote.trim();
+    const inv={id:uid(),jobId:job.id,quoteId:null,quoteIds:[],fromRepair:true,number:nextInvoiceNumber(invoices),date:today(),status:"Unpaid",exGST,gst,totalIncGST,subtotalIncGST:totalIncGST,discount:0,discountLabel:"Discount",tradeInCredit:tiCredit,tradeInNote:tiNote,lineItems,customerLines,notes:instructions||"",descriptionOverride:""};
+    persistJob({totalOverride:repairTotal,repairTradeIn:tiCredit,repairTradeInNote:tiNote});   // keep the job's amount owing in sync with the invoice
     setInvoices(p=>{const n=[...p,inv];persist(K.inv,n);return n;});
     if(setView)setView("invoiceDetail_"+inv.id);
   };
@@ -3043,7 +3068,7 @@ function RepairIntakeCard({job,setJobs,biz,clients,markupTable,pricing=[],invoic
     // that would momentarily wipe the freshly-set token. One write = the gold bar shows at once.
     setJobs(p=>{const n=p.map(j=>j.id===job.id?{...j,intake:{items,instructions},repairToken:token}:j);persist(K.jo,n);return n;});
     const photos=photoData.length?photoData:await jobImagesForPrint(job);
-    const snap=buildRepairSnapshot({job:{...job,dateIn:dIn,dateOut:dOut,repairToken:token},client:c,biz,items:items.map(it=>({...it,clientPrice:itemClient(it)})),instructions,photos});
+    const snap=buildRepairSnapshot({job:{...job,dateIn:dIn,dateOut:dOut,repairToken:token,repairTradeIn:Number(tradeIn)||0,repairTradeInNote:tradeInNote.trim()},client:c,biz,items:items.map(it=>({...it,clientPrice:itemClient(it)})),instructions,photos});
     const{error}=await supabase.from(PUBLIC_PROPOSALS_TABLE).upsert({token,studio_id:_studioId,data:snap,status:"sent",created_at:new Date().toISOString()},{onConflict:"token"});
     setLinkBusy(false);
     if(error){alert("Couldn't create the link: "+error.message+"\n\nIf it mentions a missing table, the proposals Supabase setup hasn't been run.");return;}
@@ -3155,11 +3180,32 @@ function RepairIntakeCard({job,setJobs,biz,clients,markupTable,pricing=[],invoic
     ))}
     <button onClick={addItem} style={{background:"none",border:`1px dashed ${GOLD}`,borderRadius:4,padding:"8px 16px",color:GOLD_D,fontSize:12,fontWeight:700,cursor:"pointer",fontFamily:"inherit",marginBottom:16}}>+ Add another item</button>
 
+    {/* Gold trade-in credit — customer's own metal offsets the repair (a credit, like on quotes) */}
+    <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"210px 1fr",gap:12,alignItems:"end",marginBottom:16,padding:"12px 14px",border:`1px solid ${BD}`,borderRadius:4,background:PARCH}}>
+      <div>
+        <div style={SS.lbl}>Gold trade-in credit ($)</div>
+        <div style={{position:"relative"}}>
+          <span style={{position:"absolute",left:10,top:"50%",transform:"translateY(-50%)",fontSize:13,color:WG,pointerEvents:"none"}}>$</span>
+          <input type="number" min="0" step="0.01" style={{...SS.inp,marginTop:0,padding:"9px 10px 9px 22px",textAlign:"right",fontWeight:Number(tradeIn)>0?700:400}} value={tradeIn} placeholder="0.00" onChange={e=>setTradeIn(e.target.value)} onBlur={commitTradeIn}/>
+        </div>
+      </div>
+      <div>
+        <div style={SS.lbl}>Trade-in note <span style={{fontWeight:400,textTransform:"none",letterSpacing:0}}>(optional)</span></div>
+        <input style={{...SS.inp,marginTop:0}} value={tradeInNote} placeholder="e.g. old 9ct band, 3.2g" onChange={e=>setTradeInNote(e.target.value)} onBlur={commitTradeIn}/>
+      </div>
+    </div>
+
     {/* Repair total */}
     {repairTotal>0&&<div style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:12,flexWrap:"wrap",background:INK,borderRadius:4,padding:"14px 18px",marginBottom:16}}>
       <div>
         <div style={{fontSize:10,fontWeight:700,color:"rgba(255,255,255,0.5)",textTransform:"uppercase",letterSpacing:"0.08em"}}>Repair total{items.filter(i=>Number(i.price)>0).length>1?` · ${items.filter(i=>Number(i.price)>0).length} items`:""}</div>
-        <div style={{fontSize:22,fontWeight:800,color:WHITE,marginTop:2}}>{fmt(repairTotal)} <span style={{fontSize:12,fontWeight:400,color:"rgba(255,255,255,0.5)"}}>inc GST</span></div>
+        {Number(tradeIn)>0
+          ?<>
+            <div style={{fontSize:15,fontWeight:700,color:"rgba(255,255,255,0.85)",marginTop:2}}>{fmt(repairTotal)} <span style={{fontSize:11,fontWeight:400,color:"rgba(255,255,255,0.5)"}}>inc GST</span></div>
+            <div style={{fontSize:12,color:"#8FD3AE",marginTop:2}}>less gold trade-in − {fmt(Number(tradeIn))}</div>
+            <div style={{fontSize:22,fontWeight:800,color:WHITE,marginTop:2}}>{fmt(Math.max(0,repairTotal-Number(tradeIn)))} <span style={{fontSize:12,fontWeight:400,color:"rgba(255,255,255,0.5)"}}>due</span></div>
+          </>
+          :<div style={{fontSize:22,fontWeight:800,color:WHITE,marginTop:2}}>{fmt(repairTotal)} <span style={{fontSize:12,fontWeight:400,color:"rgba(255,255,255,0.5)"}}>inc GST</span></div>}
       </div>
       <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
         <button onClick={setAsCharge} style={{background:"none",border:"1px solid rgba(255,255,255,0.4)",borderRadius:4,padding:"9px 16px",color:WHITE,fontSize:12,fontWeight:700,cursor:"pointer",fontFamily:"inherit"}}>Set as job charge</button>
@@ -4866,10 +4912,25 @@ function PublicRepairBody({snap,responded,decision,responderName,onRespond}){
           {hasPrices&&<div style={{fontWeight:700,color:INK,textAlign:"right"}}>{it.price>0?fmtR(it.price):dash}</div>}
         </div>
       ))}
-      {hasPrices&&<div style={{display:"flex",justifyContent:"flex-end",alignItems:"baseline",gap:16,marginTop:18}}>
-        <span style={{fontSize:10,fontWeight:700,color:WG,textTransform:"uppercase",letterSpacing:"0.08em"}}>Repair total (inc GST)</span>
-        <span style={{fontSize:22,fontWeight:800,color:INK}}>{fmtR(snap.total)}</span>
-      </div>}
+      {hasPrices&&(()=>{
+        const ti=Number(snap.tradeIn)||0,due=Math.max(0,(Number(snap.total)||0)-ti);
+        return <div style={{marginTop:18,marginLeft:"auto",maxWidth:340}}>
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"baseline",gap:16,padding:"3px 0"}}>
+            <span style={{fontSize:10,fontWeight:700,color:WG,textTransform:"uppercase",letterSpacing:"0.08em"}}>Repair total (inc GST)</span>
+            <span style={{fontSize:ti>0?15:22,fontWeight:800,color:INK}}>{fmtR(snap.total)}</span>
+          </div>
+          {ti>0&&<>
+            <div style={{display:"flex",justifyContent:"space-between",alignItems:"baseline",gap:16,padding:"3px 0",color:OK}}>
+              <span style={{fontSize:12}}>Gold trade-in credit{snap.tradeInNote?` · ${snap.tradeInNote}`:""}</span>
+              <span style={{fontSize:14,fontWeight:700}}>−{fmtR(ti)}</span>
+            </div>
+            <div style={{display:"flex",justifyContent:"space-between",alignItems:"baseline",gap:16,borderTop:`2px solid ${INK}`,marginTop:6,paddingTop:8}}>
+              <span style={{fontSize:11,fontWeight:800,color:INK,textTransform:"uppercase",letterSpacing:"0.06em"}}>Amount due</span>
+              <span style={{fontSize:22,fontWeight:800,color:INK}}>{fmtR(due)}</span>
+            </div>
+          </>}
+        </div>;
+      })()}
 
       {snap.instructions&&<div style={{fontSize:13,color:INK,lineHeight:1.7,background:PARCH,borderLeft:`3px solid ${GOLD}`,borderRadius:"0 8px 8px 0",padding:"14px 18px",margin:"26px 0 0"}}>
         <div style={{fontSize:9,fontWeight:700,color:WG,textTransform:"uppercase",letterSpacing:"0.08em",marginBottom:5}}>Client instructions</div>{snap.instructions}
