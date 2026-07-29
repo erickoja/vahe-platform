@@ -2738,20 +2738,17 @@ function Jobs({clients,jobs,setJobs,quotes,setQuotes,payments,setPayments,notes,
     <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Search jobs by client, type or description…" style={{...SS.inp,marginBottom:14,marginTop:0}}/>
     {typesByCount.length>0&&<div style={{marginBottom:16}}>
       <div style={{...SS.lbl,marginBottom:10}}>Job types</div>
-      {/* Compact filter tiles: icon + count on top, a normal-case label below that wraps cleanly —
-          so long names ("Trade / Wholesale", "Custom pendant") don't cram like the uppercase Stat label did. */}
-      <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(138px,1fr))",gap:10}}>
-        {[{key:"All",label:"All jobs",icon:"◎",count:jobs.length},...typesByCount.map(t=>({key:t,label:t,icon:JOB_TYPE_ICONS[t]||"◎",count:typeCounts[t]}))].map(tile=>{
-          const on=tf===tile.key;
-          return <button key={tile.key} type="button" onClick={()=>setTf(tf===tile.key?"All":tile.key)}
-            style={{textAlign:"left",fontFamily:"inherit",cursor:"pointer",background:on?GOLD_L:WHITE,border:`1.5px solid ${on?GOLD:BD_SOFT}`,borderRadius:RADIUS,padding:"12px 13px",transition:"all .15s",minWidth:0,boxShadow:SHADOW}}>
-            <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:8,marginBottom:9}}>
-              <span style={{width:30,height:30,flexShrink:0,borderRadius:9,background:on?WHITE:PARCH,display:"inline-flex",alignItems:"center",justifyContent:"center",fontSize:15,color:on?GOLD_D:WG}}>{tile.icon}</span>
-              <span style={{fontSize:22,fontWeight:800,color:on?GOLD_D:INK,lineHeight:1,letterSpacing:"-0.02em"}}>{tile.count}</span>
-            </div>
-            <div style={{fontSize:12,fontWeight:600,color:on?GOLD_D:WG,lineHeight:1.3,overflowWrap:"anywhere"}}>{tile.label}</div>
-          </button>;
-        })}
+      {/* Wider columns (min 176px) give long type names ("Trade / Wholesale") room to sit on one line
+          instead of cramming; the large Stat tiles are kept. */}
+      <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(176px,1fr))",gap:12}}>
+        <div style={{borderRadius:RADIUS,boxShadow:tf==="All"?`0 0 0 2px ${GOLD}`:"none"}}>
+          <Stat tint="slate" icon="◎" value={jobs.length} label="All jobs" onClick={()=>setTf("All")}/>
+        </div>
+        {typesByCount.map(t=>(
+          <div key={t} style={{borderRadius:RADIUS,boxShadow:tf===t?`0 0 0 2px ${GOLD}`:"none"}}>
+            <Stat tint="slate" icon={JOB_TYPE_ICONS[t]||"◎"} value={typeCounts[t]} label={t} onClick={()=>setTf(tf===t?"All":t)}/>
+          </div>
+        ))}
       </div>
     </div>}
     {/* List / Board view toggle — hidden on mobile (board needs drag-and-drop) */}
