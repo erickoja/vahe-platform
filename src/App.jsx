@@ -6512,19 +6512,29 @@ function StatementsList({clients,jobs,invoices,payments,biz,setView}){
   const isMobile=useIsMobile();
   const asOf=today();
   const trade=(clients||[]).filter(c=>c.accountType==="trade");
-  // Each trade account with its aged analysis, heaviest debtors first.
-  const rows=trade.map(c=>({c,aging:accountAging(c,jobs,invoices,payments,asOf)}))
-    .sort((a,b)=>b.aging.total-a.aging.total);
+  // Each trade account with its aged analysis, heaviest debtors first. Only accounts with billing
+  // activity (any invoice, received payment, or a balance) are listed — a brand-new trade account,
+  // or one whose jobs were all deleted, drops off rather than lingering at $0. Its statement is
+  // still reachable from the client's page.
+  const rows=trade.map(c=>{
+    const act=accountActivity(c,jobs,invoices,payments);
+    const aging=accountAging(c,jobs,invoices,payments,asOf);
+    return {c,aging,hasActivity:act.invoices.length>0||act.payments.length>0||aging.total>0};
+  }).filter(r=>r.hasActivity).sort((a,b)=>b.aging.total-a.aging.total);
   const totals=rows.reduce((acc,{aging})=>{AGE_BUCKETS.forEach(([k])=>acc[k]+=aging.buckets[k]);acc.total+=aging.total;return acc;},{current:0,d1_30:0,d31_60:0,d61_90:0,d90:0,total:0});
   const bucketColor=k=>k==="d90"?DANGER:k==="d61_90"?WARN:k==="d31_60"?WARN:INK;
   return <div>
     <SectionHeader eyebrow="Billing" title="Trade statements" subtitle="One consolidated statement per trade account — with a live account ledger and aged receivables (30/60/90)."/>
-    {trade.length===0
+    {rows.length===0
       ? <Card><div style={{color:WG,fontSize:14,textAlign:"center",padding:"24px 0"}}>
           <div style={{fontSize:32,marginBottom:10}}>🧾</div>
-          <div style={{fontWeight:600,color:INK,marginBottom:6}}>No trade accounts yet</div>
-          <div style={{marginBottom:16,lineHeight:1.6,maxWidth:420,margin:"0 auto 16px"}}>Set a client's account type to <strong>Trade</strong> (with terms like Net 30 / EOM) and their completed jobs roll up into a single monthly statement here.</div>
-          <Btn onClick={()=>setView("clients")}>Go to Clients</Btn>
+          {trade.length===0
+            ? <><div style={{fontWeight:600,color:INK,marginBottom:6}}>No trade accounts yet</div>
+                <div style={{marginBottom:16,lineHeight:1.6,maxWidth:420,margin:"0 auto 16px"}}>Set a client's account type to <strong>Trade</strong> (with terms like Net 30 / EOM) and their completed jobs roll up into a single monthly statement here.</div>
+                <Btn onClick={()=>setView("clients")}>Go to Clients</Btn></>
+            : <><div style={{fontWeight:600,color:INK,marginBottom:6}}>No trade billing yet</div>
+                <div style={{marginBottom:16,lineHeight:1.6,maxWidth:440,margin:"0 auto 16px"}}>You have {trade.length} trade account{trade.length!==1?"s":""}, but none have been invoiced yet. Invoice a trade job and it'll appear here as a statement.</div>
+                <Btn onClick={()=>setView("invoices")}>Go to Invoices</Btn></>}
         </div></Card>
       : <>
         <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(122px,1fr))",gap:10,marginBottom:18}}>
