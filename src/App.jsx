@@ -1653,6 +1653,29 @@ const persist=(k,v)=>{
   }
 };
 
+// ── Data-safety snapshots (Stage 1) ────────────────────────────────────────
+// Rolling full-data backups so a lost/overwritten record is recoverable. Stored as ONE isolated
+// row (key SNAP_KEY) holding an array of recent snapshots — it's never loaded into app state and
+// only ever upserted, so it can't touch or corrupt the live data keys. RLS scopes it per studio.
+const SNAP_KEY="__snapshots__";
+const SNAP_CAP=12;
+const _snapSummary=(d)=>({clients:(d?.[K.cl]||[]).length,jobs:(d?.[K.jo]||[]).length,quotes:(d?.[K.qu]||[]).length,invoices:(d?.[K.inv]||[]).length,payments:(d?.[K.pa]||[]).length});
+// Write a snapshot: prepend to the rolling list, cap to SNAP_CAP, upsert. Returns the ISO ts or null.
+const cloudSnapshot=async(data,reason)=>{
+  if(!supabase||!_studioId||!_cloudLoaded||!data)return null;
+  const ts=new Date().toISOString();
+  let list=[];
+  try{const{data:row}=await supabase.from(STATE_TABLE).select("value").eq("studio_id",_studioId).eq("key",SNAP_KEY).maybeSingle();if(row&&Array.isArray(row.value))list=row.value;}catch(e){}
+  const next=[{ts,reason:reason||"auto",summary:_snapSummary(data),data},...list].slice(0,SNAP_CAP);
+  const{error}=await supabase.from(STATE_TABLE).upsert({studio_id:_studioId,key:SNAP_KEY,value:next,updated_at:ts},{onConflict:"studio_id,key"});
+  if(error){console.warn("Snapshot failed:",error.message);return null;}
+  return ts;
+};
+const listCloudSnapshots=async()=>{
+  if(!supabase||!_studioId)return [];
+  try{const{data:row}=await supabase.from(STATE_TABLE).select("value").eq("studio_id",_studioId).eq("key",SNAP_KEY).maybeSingle();return(row&&Array.isArray(row.value))?row.value:[];}catch(e){return [];}
+};
+
 // ── Image storage (Supabase Storage, private bucket) ───────────────────────
 const IMG_BUCKET="job-images";
 const imagesEnabled=()=>Boolean(supabase&&_cloudActive);
@@ -7609,7 +7632,7 @@ function BracketEditor({rows,setRows,accent=GOLD_D}){
 }
 
 // ── Settings ──────────────────────────────────────────────────────────────
-function Settings({biz,setBiz,markupTable,setMarkupTable,naturalStoneMarkup,setNaturalStoneMarkup,labStoneMarkup,setLabStoneMarkup,tradeMarkupTable=[],setTradeMarkupTable,tradeNatStoneMarkup=[],setTradeNatStoneMarkup,tradeLabStoneMarkup=[],setTradeLabStoneMarkup}){
+function Settings({biz,setBiz,markupTable,setMarkupTable,naturalStoneMarkup,setNaturalStoneMarkup,labStoneMarkup,setLabStoneMarkup,tradeMarkupTable=[],setTradeMarkupTable,tradeNatStoneMarkup=[],setTradeNatStoneMarkup,tradeLabStoneMarkup=[],setTradeLabStoneMarkup,dataSafety}){
   const isMobile=useIsMobile();
   const[bForm,setBForm]=useState({name:"",email:"",phone:"",abn:"",address:"",depositPercent:50,quoteValidityDays:30,quoteTerms:"",bankName:"Commonwealth Bank of Australia",bankAccountName:"",bankBSB:"",bankAccount:"",...biz});
   const setBF=k=>v=>setBForm(p=>({...p,[k]:v}));
@@ -7876,7 +7899,44 @@ function Settings({biz,setBiz,markupTable,setMarkupTable,naturalStoneMarkup,setN
       <BracketEditor rows={tsl} setRows={setTsl} accent="#96627C"/>
       <div style={{display:"flex",justifyContent:"flex-end",marginTop:16}}><Btn onClick={saveTrade}>Save trade markups</Btn></div>
     </Card>
+    <SectionHeader eyebrow="Your studio" title="Data safety" subtitle="Automatic backups you can restore from — so nothing gets lost for good."/>
+    {dataSafety&&<DataSafetyCard {...dataSafety}/>}
   </div>;
+}
+// Backups list + restore. Backups are taken automatically (see App); this just views/restores them.
+function DataSafetyCard({backupNow,loadSnapshots,restoreSnapshot}){
+  const[snaps,setSnaps]=useState(null);
+  const[busy,setBusy]=useState(false);
+  const[msg,setMsg]=useState("");
+  const refresh=async()=>{try{setSnaps(await loadSnapshots());}catch(e){setSnaps([]);}};
+  useEffect(()=>{refresh();},[]);   // eslint-disable-line
+  const fmtWhen=ts=>{try{return new Date(ts).toLocaleString("en-AU",{day:"numeric",month:"short",hour:"numeric",minute:"2-digit"});}catch(e){return String(ts||"");}};
+  const reasonLabel=r=>r==="manual"?"Manual backup":r==="before restore"?"Before a restore":r==="session start"?"Session start":"Auto";
+  const doBackup=async()=>{setBusy(true);setMsg("");try{const ts=await backupNow();await refresh();setMsg(ts?"✓ Backed up just now.":"Couldn't back up — check you're online.");}catch(e){setMsg("Couldn't back up.");}setBusy(false);};
+  const doRestore=async(entry)=>{
+    const s=entry.summary||{};
+    if(!confirm(`Restore ALL your data to the backup from ${fmtWhen(entry.ts)}?\n\nThis replaces your current clients, jobs, quotes, invoices, payments and settings with that backup (${s.clients||0} clients · ${s.jobs||0} jobs · ${s.invoices||0} invoices).\n\nA backup of your current data is taken first, so you can undo this.`))return;
+    setBusy(true);setMsg("");try{await restoreSnapshot(entry);await refresh();setMsg("✓ Restored. Your previous data was backed up first — restore that entry to undo.");}catch(e){setMsg("Restore failed — nothing was changed.");}setBusy(false);
+  };
+  return <Card>
+    <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:10,marginBottom:6}}>
+      <div style={{fontWeight:700,fontSize:15,color:INK}}>Backups</div>
+      <Btn sm ghost onClick={doBackup} disabled={busy}>{busy?"Working…":"⬇ Back up now"}</Btn>
+    </div>
+    <div style={{fontSize:13,color:WG,lineHeight:1.6,marginBottom:14}}>Backups run automatically when you open the app and every 20 minutes while you work. If something goes missing, restore an earlier point — your current data is backed up first, so a restore can itself be undone.</div>
+    {msg&&<div style={{fontSize:12.5,color:OK,fontWeight:700,marginBottom:12,lineHeight:1.5}}>{msg}</div>}
+    {snaps===null?<div style={{fontSize:13,color:WG}}>Loading backups…</div>
+     :snaps.length===0?<div style={{fontSize:13,color:WG}}>No backups yet — one is taken automatically a few seconds after opening the app, or hit “Back up now”.</div>
+     :<div style={{border:`1px solid ${BD}`,borderRadius:8,overflow:"hidden"}}>
+       {snaps.map((e,i)=>{const s=e.summary||{};return <div key={e.ts||i} style={{display:"flex",justifyContent:"space-between",alignItems:"center",gap:12,flexWrap:"wrap",padding:"11px 14px",borderBottom:i===snaps.length-1?"none":`1px solid ${BD}`,background:i===0?PARCH:WHITE}}>
+         <div style={{minWidth:0}}>
+           <div style={{fontSize:13,fontWeight:700,color:INK}}>{fmtWhen(e.ts)} <span style={{fontSize:10.5,fontWeight:700,color:WG,textTransform:"uppercase",letterSpacing:"0.05em"}}>· {reasonLabel(e.reason)}</span></div>
+           <div style={{fontSize:11.5,color:WG,marginTop:2}}>{s.clients||0} clients · {s.jobs||0} jobs · {s.quotes||0} quotes · {s.invoices||0} invoices · {s.payments||0} payments</div>
+         </div>
+         <Btn sm ghost onClick={()=>doRestore(e)} disabled={busy}>Restore</Btn>
+       </div>;})}
+     </div>}
+  </Card>;
 }
 
 // ── Appointments ───────────────────────────────────────────────────────────
@@ -9344,6 +9404,39 @@ export default function App(){
     else setViewRaw(v);
   },[]);
 
+  // ── Data-safety snapshots (Stage 1) ──
+  // A full copy of every data slice at this moment (references only — cheap to build).
+  const buildDataSnapshot=useCallback(()=>({
+    [K.cl]:clients,[K.jo]:jobs,[K.qu]:quotes,[K.pa]:payments,[K.pr]:pricing,[K.biz]:biz,[K.no]:notes,[K.inv]:invoices,
+    [K.mt]:markupTable,[K.smn]:naturalStoneMarkup,[K.sml]:labStoneMarkup,[K.csr]:centreRates,[K.ap]:appointments,
+    [K.pp]:proposals,[K.td]:todos,[K.st]:stock,[K.gc]:gemCustody,[K.spot]:spotPrices,
+    [K.tmt]:tradeMarkupTable,[K.tsmn]:tradeNatStoneMarkup,[K.tsml]:tradeLabStoneMarkup,
+  }),[clients,jobs,quotes,payments,pricing,biz,notes,invoices,markupTable,naturalStoneMarkup,labStoneMarkup,centreRates,appointments,proposals,todos,stock,gemCustody,spotPrices,tradeMarkupTable,tradeNatStoneMarkup,tradeLabStoneMarkup]);
+  // Write each slice from a snapshot back to state + cloud. Setters are stable so no deps needed.
+  const applyRestore=useCallback((data)=>{
+    const map={[K.cl]:setClients,[K.jo]:setJobs,[K.qu]:setQuotes,[K.pa]:setPayments,[K.pr]:setPricing,[K.biz]:setBiz,[K.no]:setNotes,[K.inv]:setInvoices,[K.mt]:setMarkupTable,[K.smn]:setNaturalStoneMarkup,[K.sml]:setLabStoneMarkup,[K.csr]:setCentreRates,[K.ap]:setAppointments,[K.pp]:setProposals,[K.td]:setTodos,[K.st]:setStock,[K.gc]:setGemCustody,[K.spot]:setSpotPrices,[K.tmt]:setTradeMarkupTable,[K.tsmn]:setTradeNatStoneMarkup,[K.tsml]:setTradeLabStoneMarkup};
+    Object.entries(data||{}).forEach(([k,v])=>{const set=map[k];if(set&&v!==undefined&&v!==null){set(v);persist(k,v);}});
+  },[]);
+  const backupNow=useCallback(()=>cloudSnapshot(buildDataSnapshot(),"manual"),[buildDataSnapshot]);
+  const restoreSnapshot=useCallback(async(entry)=>{await cloudSnapshot(buildDataSnapshot(),"before restore");applyRestore(entry.data);},[buildDataSnapshot,applyRestore]);
+  // Live getter ref so the auto-snapshot timers always read current data without re-arming.
+  const snapGetterRef=useRef(buildDataSnapshot);snapGetterRef.current=buildDataSnapshot;
+  // Auto-snapshot: one on load (session start), then every 20 min if the data changed.
+  useEffect(()=>{
+    if(!storageReady||!supabaseEnabled)return;
+    let lastJson=null;
+    const snap=async(reason)=>{
+      const get=snapGetterRef.current;if(!get)return;
+      const data=get();const json=JSON.stringify(data);
+      if(reason==="auto"&&json===lastJson)return;   // nothing changed since last backup
+      const ts=await cloudSnapshot(data,reason);
+      if(ts)lastJson=json;
+    };
+    const t0=setTimeout(()=>snap("session start"),5000);
+    const iv=setInterval(()=>snap("auto"),1200000);
+    return()=>{clearTimeout(t0);clearInterval(iv);};
+  },[storageReady]);
+
   // ── Proposal + repair response notifications ───────────────────────────
   // Live refs so the realtime callback always sees current data (avoids stale closures).
   const proposalsRef=useRef(proposals);proposalsRef.current=proposals;
@@ -9459,7 +9552,7 @@ export default function App(){
     if(view.startsWith("stockPrice_"))return <QuoteBuilder stockId={view.split("_")[1]} stock={stock} setStock={setStock} jobs={jobs} clients={clients} quotes={quotes} setQuotes={setQuotes} pricing={pricing} setPricing={setPricing} markupTable={markupTable} naturalStoneMarkup={naturalStoneMarkup} labStoneMarkup={labStoneMarkup} tradeMarkupTable={tradeMarkupTable} tradeNatStoneMarkup={tradeNatStoneMarkup} tradeLabStoneMarkup={tradeLabStoneMarkup} centreRates={centreRates} setCentreRates={setCentreRates} setView={setView}/>;
     if(view==="pricing")return <PricingDB pricing={pricing} setPricing={setPricing} spotPrices={spotPrices} setSpotPrices={setSpotPrices} markupTable={markupTable} centreRates={centreRates} setCentreRates={setCentreRates}/>;
     if(view==="reports")return <Reports jobs={jobs} clients={clients} quotes={quotes} payments={payments} invoices={invoices} markupTable={markupTable} setView={setView}/>;
-    if(view==="settings")return <Settings biz={biz} setBiz={setBiz} markupTable={markupTable} setMarkupTable={setMarkupTable} naturalStoneMarkup={naturalStoneMarkup} setNaturalStoneMarkup={setNaturalStoneMarkup} labStoneMarkup={labStoneMarkup} setLabStoneMarkup={setLabStoneMarkup} tradeMarkupTable={tradeMarkupTable} setTradeMarkupTable={setTradeMarkupTable} tradeNatStoneMarkup={tradeNatStoneMarkup} setTradeNatStoneMarkup={setTradeNatStoneMarkup} tradeLabStoneMarkup={tradeLabStoneMarkup} setTradeLabStoneMarkup={setTradeLabStoneMarkup}/>;
+    if(view==="settings")return <Settings biz={biz} setBiz={setBiz} markupTable={markupTable} setMarkupTable={setMarkupTable} naturalStoneMarkup={naturalStoneMarkup} setNaturalStoneMarkup={setNaturalStoneMarkup} labStoneMarkup={labStoneMarkup} setLabStoneMarkup={setLabStoneMarkup} tradeMarkupTable={tradeMarkupTable} setTradeMarkupTable={setTradeMarkupTable} tradeNatStoneMarkup={tradeNatStoneMarkup} setTradeNatStoneMarkup={setTradeNatStoneMarkup} tradeLabStoneMarkup={tradeLabStoneMarkup} setTradeLabStoneMarkup={setTradeLabStoneMarkup} dataSafety={{backupNow,loadSnapshots:listCloudSnapshots,restoreSnapshot}}/>;
     return null;
   };
 
