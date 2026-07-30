@@ -6400,7 +6400,7 @@ function InvoicesList({invoices,jobs,clients,quotes,setQuotes,payments,setInvoic
     downloadInvoiceCsv(rows,`invoices-${span}.csv`);
   };
   return <div>
-    <SectionHeader eyebrow="Billing" title="Invoices" subtitle="Send, track and reconcile every invoice — paid, outstanding and overdue." action={<div style={{display:"flex",gap:8,alignItems:"center",flexWrap:"wrap"}}>{invoices.length>0&&<Btn ghost sm onClick={()=>setExportOpen(true)}>⬇ Export CSV</Btn>}<Btn onClick={openModal}>+ New Invoice</Btn></div>}/>
+    <SectionHeader eyebrow="Billing" title="Invoices" subtitle="Send, track and reconcile every invoice — paid, outstanding and overdue." action={<div style={{display:"flex",gap:8,alignItems:"center",flexWrap:"wrap"}}>{invoices.length>0&&<Btn ghost onClick={()=>setExportOpen(true)}>⬇ Export CSV</Btn>}<Btn onClick={openModal}>+ New Invoice</Btn></div>}/>
     {exportOpen&&<Modal title="Export invoices to CSV" onClose={()=>setExportOpen(false)}>
       <div style={{fontSize:13,color:WG,marginBottom:14,lineHeight:1.6}}>Pick a date range (by invoice date) for your bookkeeping, or leave both blank to export everything.</div>
       <div style={{display:"flex",gap:8,flexWrap:"wrap",marginBottom:16}}>
