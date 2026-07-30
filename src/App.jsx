@@ -939,6 +939,34 @@ async function sendClientEmail({to,cc,replyTo,fromName,subject,html}){
   if(data&&data.error) throw new Error(data.error);
   return data;
 }
+
+// ── SaaS subscription billing (Stripe) ──────────────────────────────────────
+// All billing UI/gating is inert unless this deploy opts in (VITE_BILLING_ENABLED="true").
+// The dogfooding/business deploy leaves it off → zero effect on the owner's own use.
+const BILLING_ENABLED=import.meta.env.VITE_BILLING_ENABLED==="true";
+// Call the `billing` edge fn (checkout | portal) and send the browser to the Stripe URL it returns.
+async function goBilling(action,plan){
+  if(!supabaseEnabled||!supabase)throw new Error("Billing needs the cloud.");
+  const{data,error}=await supabase.functions.invoke("billing",{body:{action,plan,returnUrl:window.location.origin}});
+  if(error)throw new Error(error.message||"Couldn't reach the billing service.");
+  if(data&&data.error)throw new Error(data.error);
+  if(data&&data.url){window.location.href=data.url;return;}
+  throw new Error("No checkout URL returned.");
+}
+// Derive a studio's access level from its billing fields. Full access unless billing is enabled
+// AND the studio is lapsed (trial ended with no active subscription). Existing/comped studios are
+// 'active' so they're never gated; new signups are 'trialing' until they subscribe.
+function billingState(sub){
+  const status=sub?.sub_status||null;
+  const trialEndsAt=sub?.trial_ends_at?new Date(sub.trial_ends_at).getTime():null;
+  const now=Date.now();
+  const active=status==="active";
+  const trialing=status==="trialing";
+  const trialLive=trialing&&(trialEndsAt==null||trialEndsAt>now);
+  const daysLeft=trialEndsAt!=null?Math.max(0,Math.ceil((trialEndsAt-now)/86400000)):null;
+  const canEdit=!BILLING_ENABLED||active||trialLive;
+  return {enabled:BILLING_ENABLED,status,plan:sub?.plan||null,active,trialing,trialLive,daysLeft,periodEnd:sub?.current_period_end||null,canEdit,lapsed:BILLING_ENABLED&&!canEdit};
+}
 // Reusable "✉️ Email" button + review dialog. Disabled until a shareable link exists.
 function EmailClientButton({to,clientName,biz,linkUrl,docType,defaultSubject,defaultMessage}){
   const[open,setOpen]=useState(false);
@@ -7670,7 +7698,7 @@ function BracketEditor({rows,setRows,accent=GOLD_D}){
 }
 
 // ── Settings ──────────────────────────────────────────────────────────────
-function Settings({biz,setBiz,markupTable,setMarkupTable,naturalStoneMarkup,setNaturalStoneMarkup,labStoneMarkup,setLabStoneMarkup,tradeMarkupTable=[],setTradeMarkupTable,tradeNatStoneMarkup=[],setTradeNatStoneMarkup,tradeLabStoneMarkup=[],setTradeLabStoneMarkup,dataSafety}){
+function Settings({biz,setBiz,markupTable,setMarkupTable,naturalStoneMarkup,setNaturalStoneMarkup,labStoneMarkup,setLabStoneMarkup,tradeMarkupTable=[],setTradeMarkupTable,tradeNatStoneMarkup=[],setTradeNatStoneMarkup,tradeLabStoneMarkup=[],setTradeLabStoneMarkup,dataSafety,billing}){
   const isMobile=useIsMobile();
   const[bForm,setBForm]=useState({name:"",email:"",phone:"",abn:"",address:"",depositPercent:50,quoteValidityDays:30,quoteTerms:"",bankName:"Commonwealth Bank of Australia",bankAccountName:"",bankBSB:"",bankAccount:"",...biz});
   const setBF=k=>v=>setBForm(p=>({...p,[k]:v}));
@@ -7937,9 +7965,39 @@ function Settings({biz,setBiz,markupTable,setMarkupTable,naturalStoneMarkup,setN
       <BracketEditor rows={tsl} setRows={setTsl} accent="#96627C"/>
       <div style={{display:"flex",justifyContent:"flex-end",marginTop:16}}><Btn onClick={saveTrade}>Save trade markups</Btn></div>
     </Card>
+    {billing&&billing.enabled&&<><SectionHeader eyebrow="Your studio" title="Subscription" subtitle="Your Prong Studio plan and billing."/><BillingCard billing={billing}/></>}
     <SectionHeader eyebrow="Your studio" title="Data safety" subtitle="Automatic backups you can restore from — so nothing gets lost for good."/>
     {dataSafety&&<DataSafetyCard {...dataSafety}/>}
   </div>;
+}
+// Subscription status + subscribe/manage. Only rendered when billing is enabled for the deploy.
+function BillingCard({billing}){
+  const[busy,setBusy]=useState("");
+  const[err,setErr]=useState("");
+  const act=async(action,plan)=>{setBusy(plan||action);setErr("");try{await goBilling(action,plan);}catch(e){setErr(e?.message||"Something went wrong.");setBusy("");}};
+  const statusLine=billing.active?`Active — ${billing.plan==="annual"?"annual":"monthly"} plan${billing.periodEnd?`, renews ${fmtDate(billing.periodEnd)}`:""}`
+    :billing.trialLive?`Free trial — ${billing.daysLeft} day${billing.daysLeft===1?"":"s"} left`
+    :billing.status==="past_due"?"Payment failed — please update your card"
+    :"No active subscription";
+  const col=billing.active?OK:billing.lapsed||billing.status==="past_due"?DANGER:GOLD_D;
+  return <Card>
+    <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:10,marginBottom:10}}>
+      <div>
+        <div style={{fontWeight:700,fontSize:15,color:INK}}>Plan</div>
+        <div style={{fontSize:13,fontWeight:700,color:col,marginTop:3}}>{statusLine}</div>
+      </div>
+      {billing.active&&<Btn sm ghost onClick={()=>act("portal")} disabled={!!busy}>{busy==="portal"?"Opening…":"Manage billing"}</Btn>}
+    </div>
+    {!billing.active&&<>
+      <div style={{fontSize:13,color:WG,lineHeight:1.6,marginBottom:14}}>{billing.lapsed?"Subscribe to keep adding and editing — all your data stays safe and viewable in the meantime.":"Choose a plan to continue after your trial. Cancel anytime."}</div>
+      <div style={{display:"flex",gap:10,flexWrap:"wrap"}}>
+        <Btn onClick={()=>act("checkout","monthly")} disabled={!!busy}>{busy==="monthly"?"Redirecting…":"Subscribe monthly"}</Btn>
+        <Btn ghost onClick={()=>act("checkout","annual")} disabled={!!busy}>{busy==="annual"?"Redirecting…":"Subscribe annually (save)"}</Btn>
+      </div>
+    </>}
+    {err&&<div style={{fontSize:13,color:DANGER,marginTop:12,lineHeight:1.5}}>{err}</div>}
+    <div style={{fontSize:11,color:WG,marginTop:14,lineHeight:1.5}}>Secure payment via Stripe. You'll be redirected to Stripe to enter card details — we never see or store them.</div>
+  </Card>;
 }
 // Backups list + restore. Backups are taken automatically (see App); this just views/restores them.
 function DataSafetyCard({backupNow,loadSnapshots,restoreSnapshot}){
@@ -9253,6 +9311,7 @@ export default function App(){
   const[tradeMarkupTable,setTradeMarkupTable]=useState(DEFAULT_TRADE_MARKUP_TABLE);        // trade profile: lower wholesale markups
   const[tradeNatStoneMarkup,setTradeNatStoneMarkup]=useState(DEFAULT_TRADE_NATURAL_STONE_MARKUP);
   const[tradeLabStoneMarkup,setTradeLabStoneMarkup]=useState(DEFAULT_TRADE_LAB_STONE_MARKUP);
+  const[subscription,setSubscription]=useState(null);   // studio billing fields (null = full access)
   const[centreRates,setCentreRates]=useState(DEFAULT_SETTING_RATES);   // holds the unified settingRates object
   const[todos,setTodos]=useState({people:[],items:[]});
   const[stock,setStock]=useState([]);
@@ -9297,7 +9356,11 @@ export default function App(){
       try{
         const{data}=await supabase.from("studio_members").select("studio_id").eq("user_id",userId).limit(1).maybeSingle();
         if(cancelled)return;
-        if(data&&data.studio_id){setStudioIdModule(data.studio_id);setStudioId(data.studio_id);}
+        if(data&&data.studio_id){
+          setStudioIdModule(data.studio_id);setStudioId(data.studio_id);
+          // Load the studio's subscription status (billing fields). Absent columns/rows → null = full access.
+          if(BILLING_ENABLED)supabase.from("studios").select("sub_status,plan,trial_ends_at,current_period_end").eq("id",data.studio_id).maybeSingle().then(({data:s})=>{if(!cancelled)setSubscription(s||null);}).catch(()=>{});
+        }
         else{setStudioIdModule(null);setStudioId("none");}
       }catch(e){if(!cancelled){setStudioIdModule(null);setStudioId("none");}}
     })();
@@ -9570,6 +9633,7 @@ export default function App(){
     return view;
   },[view]);
 
+  const billing=billingState(subscription);
   const render=()=>{
     if(view==="dashboard")return <Dashboard clients={clients} jobs={jobs} quotes={quotes} payments={payments} invoices={invoices} appointments={appointments} proposals={proposals} markProposalSeen={markProposalSeen} markRepairSeen={markRepairSeen} markupTable={markupTable} setView={setView} setSelClient={setSelClient}/>;
     if(view==="todo")return <TodoBoard todos={todos} setTodos={setTodos} jobs={jobs} clients={clients} setView={setView} setSelJob={setSelJob}/>;
@@ -9591,7 +9655,7 @@ export default function App(){
     if(view.startsWith("stockPrice_"))return <QuoteBuilder stockId={view.split("_")[1]} stock={stock} setStock={setStock} jobs={jobs} clients={clients} quotes={quotes} setQuotes={setQuotes} pricing={pricing} setPricing={setPricing} markupTable={markupTable} naturalStoneMarkup={naturalStoneMarkup} labStoneMarkup={labStoneMarkup} tradeMarkupTable={tradeMarkupTable} tradeNatStoneMarkup={tradeNatStoneMarkup} tradeLabStoneMarkup={tradeLabStoneMarkup} centreRates={centreRates} setCentreRates={setCentreRates} setView={setView}/>;
     if(view==="pricing")return <PricingDB pricing={pricing} setPricing={setPricing} spotPrices={spotPrices} setSpotPrices={setSpotPrices} markupTable={markupTable} centreRates={centreRates} setCentreRates={setCentreRates}/>;
     if(view==="reports")return <Reports jobs={jobs} clients={clients} quotes={quotes} payments={payments} invoices={invoices} markupTable={markupTable} setView={setView}/>;
-    if(view==="settings")return <Settings biz={biz} setBiz={setBiz} markupTable={markupTable} setMarkupTable={setMarkupTable} naturalStoneMarkup={naturalStoneMarkup} setNaturalStoneMarkup={setNaturalStoneMarkup} labStoneMarkup={labStoneMarkup} setLabStoneMarkup={setLabStoneMarkup} tradeMarkupTable={tradeMarkupTable} setTradeMarkupTable={setTradeMarkupTable} tradeNatStoneMarkup={tradeNatStoneMarkup} setTradeNatStoneMarkup={setTradeNatStoneMarkup} tradeLabStoneMarkup={tradeLabStoneMarkup} setTradeLabStoneMarkup={setTradeLabStoneMarkup} dataSafety={{backupNow,loadSnapshots:listCloudSnapshots,restoreSnapshot}}/>;
+    if(view==="settings")return <Settings biz={biz} setBiz={setBiz} markupTable={markupTable} setMarkupTable={setMarkupTable} naturalStoneMarkup={naturalStoneMarkup} setNaturalStoneMarkup={setNaturalStoneMarkup} labStoneMarkup={labStoneMarkup} setLabStoneMarkup={setLabStoneMarkup} tradeMarkupTable={tradeMarkupTable} setTradeMarkupTable={setTradeMarkupTable} tradeNatStoneMarkup={tradeNatStoneMarkup} setTradeNatStoneMarkup={setTradeNatStoneMarkup} tradeLabStoneMarkup={tradeLabStoneMarkup} setTradeLabStoneMarkup={setTradeLabStoneMarkup} dataSafety={{backupNow,loadSnapshots:listCloudSnapshots,restoreSnapshot}} billing={billing}/>;
     return null;
   };
 
@@ -9680,6 +9744,13 @@ export default function App(){
       </div>
     </div>
     <div className="mainpad" style={{flex:1,width:"100%",minWidth:0,overflowX:"auto"}}>
+      {billing.enabled&&(billing.lapsed||(billing.trialing&&billing.daysLeft!=null))&&<div onClick={()=>setView("settings")} style={{cursor:"pointer",marginBottom:16,borderRadius:10,padding:"12px 16px",display:"flex",alignItems:"center",gap:12,flexWrap:"wrap",background:billing.lapsed?DANGER+"12":GOLD_L,border:`1px solid ${billing.lapsed?DANGER+"66":GOLD}55`}}>
+        <span style={{fontSize:18}}>{billing.lapsed?"🔒":"✨"}</span>
+        <span style={{flex:1,minWidth:180,fontSize:13,fontWeight:600,color:billing.lapsed?DANGER:GOLD_D}}>
+          {billing.lapsed?"Your trial has ended — your data is safe and viewable, but you'll need to subscribe to add or edit.":`${billing.daysLeft} day${billing.daysLeft===1?"":"s"} left in your free trial.`}
+        </span>
+        <span style={{fontSize:12,fontWeight:800,color:"#fff",background:billing.lapsed?DANGER:GOLD,borderRadius:8,padding:"7px 14px",whiteSpace:"nowrap"}}>{billing.lapsed?"Subscribe":"View plans"}</span>
+      </div>}
       {!storageReady
         ?<div style={{display:"flex",alignItems:"center",justifyContent:"center",height:300,flexDirection:"column",gap:12}}>
             <div style={{fontSize:13,color:WG}}>Loading your data…</div>
