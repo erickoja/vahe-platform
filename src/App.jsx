@@ -943,7 +943,12 @@ async function sendClientEmail({to,cc,replyTo,fromName,subject,html}){
 // ── SaaS subscription billing (Stripe) ──────────────────────────────────────
 // All billing UI/gating is inert unless this deploy opts in (VITE_BILLING_ENABLED="true").
 // The dogfooding/business deploy leaves it off → zero effect on the owner's own use.
-const BILLING_ENABLED=import.meta.env.VITE_BILLING_ENABLED==="true";
+// Billing turns on for the customer-facing deploys — either via the env var, or by hostname (so
+// the tester/customer domains work without a build-time env var). The owner's business app
+// (vahe-platform.vercel.app) and local dev are deliberately NOT listed, so billing stays off there.
+const BILLING_HOSTS=["vahe-testers.vercel.app"];   // add customer domains here, e.g. "app.prongstudio.app"
+const BILLING_ENABLED=import.meta.env.VITE_BILLING_ENABLED==="true"
+  ||(typeof window!=="undefined"&&BILLING_HOSTS.includes(window.location.hostname));
 // Call the `billing` edge fn (checkout | portal) and send the browser to the Stripe URL it returns.
 async function goBilling(action,plan){
   if(!supabaseEnabled||!supabase)throw new Error("Billing needs the cloud.");
