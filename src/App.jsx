@@ -956,6 +956,17 @@ async function goBilling(action,plan){
 // Derive a studio's access level from its billing fields. Full access unless billing is enabled
 // AND the studio is lapsed (trial ended with no active subscription). Existing/comped studios are
 // 'active' so they're never gated; new signups are 'trialing' until they subscribe.
+// Read-only enforcement (Stage B). Module-level so any handler can gate itself without prop-drilling.
+// Defaults to editable → a total no-op unless billing is enabled AND the studio has lapsed.
+let _canEdit=true;
+const setCanEdit=(v)=>{_canEdit=v;};
+// Call at the top of a create/save/record handler: returns true if editing is allowed, else pops a
+// prompt and returns false so the caller bails. Viewing, exporting and subscribing stay available.
+const guardEdit=()=>{
+  if(_canEdit)return true;
+  try{alert("Your trial has ended.\n\nYour data is safe and you can still view and export everything — but adding or editing needs an active subscription.\n\nGo to Settings → Subscription to subscribe.");}catch(e){}
+  return false;
+};
 function billingState(sub){
   const status=sub?.sub_status||null;
   const trialEndsAt=sub?.trial_ends_at?new Date(sub.trial_ends_at).getTime():null;
@@ -2657,7 +2668,7 @@ function Clients({clients,setClients,jobs,payments,setView,setSelClient,quotes=[
   const[search,setSearch]=useState("");
   const filtered=clients.filter(c=>{const s=search.toLowerCase();return [c.name,c.partnerName,c.email,c.partnerEmail,c.contactName,c.abn].filter(Boolean).some(v=>v.toLowerCase().includes(s));})
     .sort((a,b)=>(a.name||"").localeCompare(b.name||"",undefined,{sensitivity:"base"}));
-  const save_=(f,id)=>{setClients(p=>{const n=id?p.map(c=>c.id===id?{...c,...f}:c):[...p,{...f,id:uid(),createdAt:today()}];persist(K.cl,n);return n;});setModal(null);};
+  const save_=(f,id)=>{if(!guardEdit())return;setClients(p=>{const n=id?p.map(c=>c.id===id?{...c,...f}:c):[...p,{...f,id:uid(),createdAt:today()}];persist(K.cl,n);return n;});setModal(null);};
   const del=id=>{
     const jobCount=jobs.filter(j=>j.clientId===id).length;
     const msg=jobCount>0
@@ -2705,9 +2716,9 @@ function ClientDetail({clientId,clients,setClients,jobs,setJobs,quotes,payments,
   const c=clients.find(x=>x.id===clientId);
   const[jobModal,setJobModal]=useState(false);
   const[editModal,setEditModal]=useState(false);
-  const saveClient=f=>{setClients(p=>{const n=p.map(x=>x.id===clientId?{...x,...f}:x);persist(K.cl,n);return n;});setEditModal(false);};
+  const saveClient=f=>{if(!guardEdit())return;setClients(p=>{const n=p.map(x=>x.id===clientId?{...x,...f}:x);persist(K.cl,n);return n;});setEditModal(false);};
   if(!c)return null;
-  const addJob=f=>{const id=uid();setJobs(p=>{const n=[...p,{...f,id,createdAt:today()}];persist(K.jo,n);return n;});setJobModal(false);setSelJob(id);setView("jobDetail");};
+  const addJob=f=>{if(!guardEdit())return;const id=uid();setJobs(p=>{const n=[...p,{...f,id,createdAt:today()}];persist(K.jo,n);return n;});setJobModal(false);setSelJob(id);setView("jobDetail");};
   const cj=jobs.filter(j=>j.clientId===clientId);
   const spent=cj.flatMap(j=>payments.filter(p=>p.jobId===j.id&&p.status==="Received")).reduce((s,p)=>s+Number(p.amount),0);
   const charged=cj.reduce((s,j)=>s+jobChargeTotal(j,quotes,markupTable,invoices),0);
@@ -2860,7 +2871,7 @@ function Jobs({clients,jobs,setJobs,quotes,setQuotes,payments,setPayments,notes,
     if(!bd)return -1;
     return ad.localeCompare(bd);
   });
-  const add=f=>{setJobs(p=>{const n=[...p,{...f,id:uid(),createdAt:today()}];persist(K.jo,n);return n;});setModal(null);};
+  const add=f=>{if(!guardEdit())return;setJobs(p=>{const n=[...p,{...f,id:uid(),createdAt:today()}];persist(K.jo,n);return n;});setModal(null);};
   const delJob=(id,e)=>{
     e.stopPropagation();
     if(!confirm("Delete this job? This will also remove all related quotes, payments, notes and invoices."))return;
@@ -2971,7 +2982,7 @@ function ActivityLog({jobId,notes,setNotes}){
   const[form,setForm]=useState({type:NOTE_TYPES[0],text:"",date:today()});
   const jn=notes.filter(n=>n.jobId===jobId).sort((a,b)=>b.createdAt.localeCompare(a.createdAt));
   const NTC={"Client call":"#4E8B6A","Client email":"#5E9078","Client visit":"#96627C","Approval received":"#2D7A4F","Internal update":"#888780","General note":"#6B6560"};
-  const add=()=>{if(!form.text.trim())return;const n={...form,id:uid(),jobId,createdAt:new Date().toISOString()};setNotes(p=>{const nw=[...p,n];persist(K.no,nw);return nw;});setForm(f=>({...f,text:""}));};
+  const add=()=>{if(!guardEdit())return;if(!form.text.trim())return;const n={...form,id:uid(),jobId,createdAt:new Date().toISOString()};setNotes(p=>{const nw=[...p,n];persist(K.no,nw);return nw;});setForm(f=>({...f,text:""}));};
   const del=id=>{setNotes(p=>{const n=p.filter(x=>x.id!==id);persist(K.no,n);return n;});};
   return <Card>
     <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:open?16:0}}>
@@ -3162,6 +3173,7 @@ function RepairIntakeCard({job,setJobs,biz,clients,markupTable,pricing=[],invoic
   const setAsCharge=()=>{persistJob({totalOverride:repairTotal});alert(`Job charge set to ${fmt(repairTotal)} from the repair items.`);};
   // Build a tax invoice straight from the repair items — each item becomes a customer-facing line.
   const createRepairInvoice=()=>{
+    if(!guardEdit())return;
     if(!setInvoices)return;
     if(repairTotal<=0)return alert("Add at least one repair item with a price first.");
     if(!confirm(`Create an invoice for ${fmt(repairTotal)} from these repair items?`))return;
@@ -3462,7 +3474,7 @@ function JobDetail({jobId,jobs,setJobs,clients,quotes,setQuotes,payments,setPaym
     const n=[...prev];[n[ia],n[ib]]=[n[ib],n[ia]];
     persist(K.qu,n);return n;
   });
-  const addPay=f=>{const n=[...payments,{...f,id:uid(),jobId,date:f.date||today()}];setPayments(n);persist(K.pa,n);refreshLinks(n);setPayModal(false);};
+  const addPay=f=>{if(!guardEdit())return;const n=[...payments,{...f,id:uid(),jobId,date:f.date||today()}];setPayments(n);persist(K.pa,n);refreshLinks(n);setPayModal(false);};
   const delPay=id=>{if(!confirm("Delete this payment?"))return;const n=payments.filter(x=>x.id!==id);setPayments(n);persist(K.pa,n);refreshLinks(n);};
   const delJob=()=>{
     if(!confirm("Delete this job? This will also remove all related quotes, payments, notes and invoices."))return;
@@ -3474,6 +3486,7 @@ function JobDetail({jobId,jobs,setJobs,clients,quotes,setQuotes,payments,setPaym
     setView("jobs");
   };
   const createInvoice=qid=>{
+    if(!guardEdit())return;
     const q=quotes.find(x=>x.id===qid);if(!q)return;
     approveForInvoice([qid]);   // trade: skip the manual approve step; keeps invoiced quotes Approved
     // GST-inclusive model: the quoted price already includes GST (helper backs out the GST component).
@@ -3489,6 +3502,7 @@ function JobDetail({jobId,jobs,setJobs,clients,quotes,setQuotes,payments,setPaym
   const toggleCombine=id=>setCombineSel(p=>p.includes(id)?p.filter(x=>x!==id):[...p,id]);
   const combineTotal=combineSel.reduce((s,id)=>{const q=jq.find(x=>x.id===id);return s+(q?quoteGrandTotal(q,markupTable):0);},0);
   const createCombinedInvoice=()=>{
+    if(!guardEdit())return;
     const qs=combineSel.map(id=>jq.find(x=>x.id===id)).filter(Boolean);
     if(!qs.length)return;
     approveForInvoice(qs.map(q=>q.id));   // trade: promote to Approved so job/statement totals reconcile
@@ -4176,6 +4190,7 @@ function QuoteBuilder({jobId:jobIdProp,editQuoteId,stockId,stock,setStock,jobs,c
   const linkedInvoice=editQuoteId?(invoices||[]).find(i=>(i.quoteIds||(i.quoteId?[i.quoteId]:[])).includes(editQuoteId)):null;
 
   const save_=status=>{
+    if(!guardEdit())return;
     const baseValidItems=items.filter(i=>i.description.trim()&&Number(i.costLow)>0);
     const hasSourcedStones=stoneMode==="sourcing"&&validStoneItems.length>0;
     if(!baseValidItems.length&&!validAccentItems.length&&!hasSourcedStones&&!manualOn)return alert("Add at least one cost item — a line item, a sourced stone, or a manual quoted price.");
@@ -6446,6 +6461,7 @@ function InvoicesList({invoices,jobs,clients,quotes,setQuotes,payments,setInvoic
   const combinedTotal=selQuotes.reduce((s,qid)=>{const q=quotes.find(x=>x.id===qid);return s+(q?quoteGrandTotal(q,markupTable):0);},0);
   const openModal=()=>{setSelClient("");setSelJob("");setSelQuotes([]);setModal(true);};
   const createInv=()=>{
+    if(!guardEdit())return;
     const qs=selQuotes.map(id=>quotes.find(x=>x.id===id)).filter(Boolean);
     if(!qs.length)return;
     const jb=jobs.find(j=>j.id===selJob);
@@ -8126,6 +8142,7 @@ function Appointments({appointments,setAppointments,clients,setClients,jobs=[],s
   const[showPast,setShowPast]=useState(false);
 
   const save=(form,id)=>{
+    if(!guardEdit())return;
     // Double-booking guard: warn if another live appointment shares the same date + time
     const clash=appointments.find(a=>a.id!==id&&a.date===form.date&&a.time&&a.time===form.time&&isLiveAppt(a)&&isLiveAppt(form));
     if(clash&&!confirm(`Heads up — you already have ${apptName(clash,clients)} (${clash.type}) booked at ${fmtTime(form.time)} on ${fmtDayShort(form.date)}. Book anyway?`))return;
@@ -8539,7 +8556,7 @@ function TodoBoard({todos,setTodos,jobs=[],clients=[],setView,setSelJob}){
   const[statusFilter,setStatusFilter]=useState("all"); // all / open / doing / done / overdue
   const[showDone,setShowDone]=useState({});            // per-person: is the Completed section expanded
   const toggleShowDone=pid=>setShowDone(s=>({...s,[pid]:!s[pid]}));
-  const save=next=>{setTodos(next);persist(K.td,next);};
+  const save=next=>{if(!guardEdit())return;setTodos(next);persist(K.td,next);};
   const addPerson=()=>{const name=newPerson.trim();if(!name)return;save({people:[...people,{id:uid(),name}],items});setNewPerson("");};
   const removePerson=id=>{const p=people.find(x=>x.id===id);if(!confirm(`Remove ${p?.name||"this person"} and their whole list?`))return;save({people:people.filter(x=>x.id!==id),items:items.filter(i=>i.personId!==id)});};
   const setDraftFor=(pid,v)=>setDraft(d=>({...d,[pid]:v}));
@@ -8789,7 +8806,7 @@ const PIECE_TYPES=["Ring","Necklace","Pendant","Bracelet","Bangle","Earrings","B
 // proof for the customer. It's a bailment record: ownership stays with the client.
 function GemCustody({custody,setCustody,clients,biz}){
   const isMobile=useIsMobile();
-  const save=next=>{setCustody(next);persist(K.gc,next);};
+  const save=next=>{if(!guardEdit())return;setCustody(next);persist(K.gc,next);};
   const[draft,setDraft]=useState(null);        // the record open in the modal (new or edit)
   const[filter,setFilter]=useState("Holding"); // Holding | Returned | All
   const[qStr,setQStr]=useState("");
@@ -9041,7 +9058,7 @@ function GemCustody({custody,setCustody,clients,biz}){
 function StockBoard({stock,setStock,setView}){
   // Persist + set together. Pass a function to update from the freshest state — this is
   // race-safe: a slow photo upload can't clobber edits (or lose images) made meanwhile.
-  const save=next=>setStock(prev=>{const n=typeof next==="function"?next(prev):next;persist(K.st,n);return n;});
+  const save=next=>{if(!guardEdit())return;setStock(prev=>{const n=typeof next==="function"?next(prev):next;persist(K.st,n);return n;});};
 
   const[q,setQ]=useState("");
   const[filterCat,setFilterCat]=useState("All");
@@ -9634,6 +9651,7 @@ export default function App(){
   },[view]);
 
   const billing=billingState(subscription);
+  useEffect(()=>{setCanEdit(billing.canEdit);},[billing.canEdit]);   // gate edits when lapsed
   const render=()=>{
     if(view==="dashboard")return <Dashboard clients={clients} jobs={jobs} quotes={quotes} payments={payments} invoices={invoices} appointments={appointments} proposals={proposals} markProposalSeen={markProposalSeen} markRepairSeen={markRepairSeen} markupTable={markupTable} setView={setView} setSelClient={setSelClient}/>;
     if(view==="todo")return <TodoBoard todos={todos} setTodos={setTodos} jobs={jobs} clients={clients} setView={setView} setSelJob={setSelJob}/>;
