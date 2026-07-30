@@ -8153,7 +8153,8 @@ const NAV=[
 const NAV_MAP=Object.fromEntries(NAV.map(n=>[n.id,n]));
 const NAV_GROUPS=[
   {label:null,ids:["dashboard","todo"]},
-  {label:"Workflow",ids:["appointments","clients","jobs","quotes","invoices","statements","gemcustody"]},
+  {label:"Workflow",ids:["appointments","clients","jobs","quotes","invoices","gemcustody"]},
+  {label:"Trade",ids:["statements"]},
   {label:"Studio",ids:["stock","pricing","reports","settings"]},
 ];
 // Cohesive line-icon set for the sidebar (single 24-grid, 1.6 stroke, inherits color).
