@@ -1637,6 +1637,46 @@ const _storeGet=async(k)=>{
   }
   return await _localGet(k);
 };
+// ── Concurrent-write protection (Stage 2) ──────────────────────────────────
+// High-churn data keys are arrays of {id}. To stop one session's save clobbering a record another
+// session added/edited (last-write-wins lost update), those keys read the latest cloud copy and
+// 3-way merge by id before writing. Settings/catalogue keys keep the simple write.
+const MERGE_KEYS=new Set([K.cl,K.jo,K.qu,K.pa,K.no,K.inv,K.ap,K.pp,K.st,K.gc]);
+const _known={};        // last local value per key = the merge base (what this session last synced/wrote)
+const _writeChain={};   // per-key promise chain so this client's own writes never race each other
+const _byId=arr=>{const m={};(arr||[]).forEach(x=>{if(x&&x.id!=null)m[x.id]=x;});return m;};
+const _sameRec=(a,b)=>JSON.stringify(a)===JSON.stringify(b);
+// base = common ancestor (this session's last value); local = the change we want; remote = latest cloud.
+const merge3=(base,local,remote)=>{
+  const B=_byId(base),R=_byId(remote),out=[],seen=new Set();
+  (local||[]).forEach(l=>{
+    if(!l||l.id==null){out.push(l);return;}
+    seen.add(l.id);const b=B[l.id],r=R[l.id];
+    if(!b||!_sameRec(l,b)){out.push(l);return;}   // locally added or edited → local wins
+    if(r!==undefined)out.push(r);                 // unchanged locally → take remote (its edits); drop if remote-deleted
+  });
+  (remote||[]).forEach(r=>{
+    if(!r||r.id==null||seen.has(r.id))return;
+    if(B[r.id]!==undefined)return;   // in base but not local → local deleted it → respect the delete
+    out.push(r);                     // remote added it → keep
+  });
+  return out;
+};
+const _cloudUpsert=(k,v)=>{const ts=new Date().toISOString();_lastWriteAt[k]=ts;return supabase.from(STATE_TABLE).upsert({studio_id:_studioId,key:k,value:v,updated_at:ts},{onConflict:"studio_id,key"});};
+// Serialized read-merge-write for a merge key. base is read at run time (after prior writes settle).
+const _mergedWrite=(k,v)=>{
+  const run=async()=>{
+    let toWrite=v;
+    try{
+      const{data:row,error}=await supabase.from(STATE_TABLE).select("value").eq("studio_id",_studioId).eq("key",k).maybeSingle();
+      if(!error&&row&&Array.isArray(row.value)&&Array.isArray(v))toWrite=merge3(Array.isArray(_known[k])?_known[k]:[],v,row.value);
+    }catch(e){/* offline / read failed → best-effort: write our own value */}
+    try{const{error}=await _cloudUpsert(k,toWrite);if(error)console.warn("Cloud save failed for",k,error.message);}catch(e){}
+    _known[k]=v;   // base for the NEXT write = the local value we just committed
+  };
+  _writeChain[k]=(_writeChain[k]||Promise.resolve()).then(run,run);
+  return _writeChain[k];
+};
 const persist=(k,v)=>{
   // Always keep a local copy (offline resilience + instant reloads)
   _localSet(k,v);
@@ -1645,11 +1685,9 @@ const persist=(k,v)=>{
     // cloud read this session. Stops a stale/seed boot from wiping real data.
     if(!_cloudLoaded){console.warn("Skipped cloud save for",k,"— cloud not loaded yet");return;}
     if(!_studioId){console.warn("Skipped cloud save for",k,"— no studio resolved yet");return;}
-    const ts=new Date().toISOString();
-    _lastWriteAt[k]=ts;   // remember our own write so its realtime echo can be ignored
-    supabase.from(STATE_TABLE).upsert({studio_id:_studioId,key:k,value:v,updated_at:ts},{onConflict:"studio_id,key"}).then(({error})=>{
-      if(error)console.warn("Cloud save failed for",k,error.message);
-    });
+    if(MERGE_KEYS.has(k)){_mergedWrite(k,v);return;}   // merge-protected keys
+    _known[k]=v;
+    _cloudUpsert(k,v).then(({error})=>{if(error)console.warn("Cloud save failed for",k,error.message);});
   }
 };
 
@@ -9336,6 +9374,7 @@ export default function App(){
         v=v.map(j=>{if(!j)return j;if(j.stage==="Wax / Cast")return{...j,stage:"Manufacturing"};if(j.stage==="Render approval")return{...j,stage:"Design / CAD"};return j;});   // renamed/removed stages
       }
       if(k===K.csr)v=normalizeSettingRates(v);   // migrate legacy centre rates → unified setting-rates shape
+      _known[k]=v;   // merge base: the value we're now in sync with (used by the concurrent-write merge)
       setter(v);
     };
 
@@ -9357,7 +9396,7 @@ export default function App(){
           const values=await Promise.all(entries.map(([k])=>_cloudGet(k)));
           entries.forEach(([k,setter],i)=>{
             const v=values[i];
-            if(v===null||v===undefined){if(k in studioDefaults)setter(studioDefaults[k]);}   // empty studio → clean default, never the prior studio's data
+            if(v===null||v===undefined){if(k in studioDefaults){_known[k]=studioDefaults[k];setter(studioDefaults[k]);}}   // empty studio → clean default, never the prior studio's data
             else applyLoaded(k,v,setter);
           });
           setCloudLoaded(true);   // ✅ now safe to persist to the cloud
