@@ -953,7 +953,12 @@ const BILLING_ENABLED=import.meta.env.VITE_BILLING_ENABLED==="true"
 async function goBilling(action,plan){
   if(!supabaseEnabled||!supabase)throw new Error("Billing needs the cloud.");
   const{data,error}=await supabase.functions.invoke("billing",{body:{action,plan,returnUrl:window.location.origin}});
-  if(error)throw new Error(error.message||"Couldn't reach the billing service.");
+  if(error){
+    // Surface the edge function's actual error body (the real Stripe/config reason), not the generic message.
+    let detail="";
+    try{const body=await error.context?.json?.();detail=body?.error||"";}catch(_){}
+    throw new Error(detail||error.message||"Couldn't reach the billing service.");
+  }
   if(data&&data.error)throw new Error(data.error);
   if(data&&data.url){window.location.href=data.url;return;}
   throw new Error("No checkout URL returned.");
