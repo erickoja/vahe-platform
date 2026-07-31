@@ -8363,7 +8363,12 @@ function NavIcon({name,size=17}){
 
 // ── Login screen ──────────────────────────────────────────────────────────
 function Login(){
-  const[mode,setMode]=useState("in");   // "in" = sign in · "up" = create account
+  // "in" = sign in · "up" = create account. The landing's "Start free trial" links to ?signup so
+  // new visitors open straight on the create-account view instead of the sign-in wall.
+  const[mode,setMode]=useState(()=>{
+    try{if(typeof window!=="undefined"&&new URLSearchParams(window.location.search).has("signup"))return "up";}catch(e){}
+    return "in";
+  });
   const[email,setEmail]=useState("");
   const[password,setPassword]=useState("");
   const[studioName,setStudioName]=useState("");
