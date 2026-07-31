@@ -96,7 +96,6 @@ Deno.serve(async (req) => {
         "line_items[0][price]": price,
         "line_items[0][quantity]": "1",
         client_reference_id: studioId,
-        "subscription_data[trial_period_days]": String(TRIAL_DAYS),
         "subscription_data[metadata][studio_id]": studioId,
         allow_promotion_codes: "true",
         success_url: `${origin}/?billing=success`,
