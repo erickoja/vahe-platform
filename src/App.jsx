@@ -9662,6 +9662,21 @@ export default function App(){
 
   const billing=billingState(subscription);
   useEffect(()=>{setCanEdit(billing.canEdit);},[billing.canEdit]);   // gate edits when lapsed
+  // After returning from Stripe Checkout (?billing=success) the webhook can take a second to land —
+  // poll the studio's subscription a few times so the UI updates without a manual reload.
+  useEffect(()=>{
+    if(!BILLING_ENABLED||!supabase||!studioId||studioId==="none")return;
+    if(new URLSearchParams(window.location.search).get("billing")!=="success")return;
+    window.history.replaceState({},"",window.location.pathname);
+    let n=0,stop=false;
+    const poll=()=>{
+      if(stop)return;
+      supabase.from("studios").select("sub_status,plan,trial_ends_at,current_period_end").eq("id",studioId).maybeSingle().then(({data})=>{if(data&&!stop)setSubscription(data);}).catch(()=>{});
+      if(++n<5)setTimeout(poll,2000);
+    };
+    poll();
+    return()=>{stop=true;};
+  },[studioId]);
   const render=()=>{
     if(view==="dashboard")return <Dashboard clients={clients} jobs={jobs} quotes={quotes} payments={payments} invoices={invoices} appointments={appointments} proposals={proposals} markProposalSeen={markProposalSeen} markRepairSeen={markRepairSeen} markupTable={markupTable} setView={setView} setSelClient={setSelClient}/>;
     if(view==="todo")return <TodoBoard todos={todos} setTodos={setTodos} jobs={jobs} clients={clients} setView={setView} setSelJob={setSelJob}/>;
