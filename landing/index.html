@@ -103,10 +103,6 @@
   .trust-line .dot{width:4px;height:4px;border-radius:50%;background:var(--peri);display:inline-block}
 
   .hero-demo{position:relative}
-  .sq{position:absolute;border-radius:13px;box-shadow:var(--shadow-sm);z-index:2;display:grid;place-items:center;color:#fff}
-  .sq svg{width:20px;height:20px}
-  .sq.a{width:44px;height:44px;background:var(--peri);top:-18px;left:-14px;transform:rotate(-8deg)}
-  .sq.b{width:40px;height:40px;background:var(--sun);bottom:-14px;right:34px;transform:rotate(9deg)}
 
   /* quote card */
   .quote{position:relative;z-index:1;background:var(--surface);border:1px solid var(--line);border-radius:var(--rc);box-shadow:var(--shadow);overflow:hidden;font-variant-numeric:tabular-nums}
@@ -126,6 +122,30 @@
   .quote-total .l{font-size:.72rem;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--peri-ink)}
   .quote-total .v{font-size:1.62rem;font-weight:700;color:var(--strong)}
   .fig-note{font-size:.74rem;color:var(--muted);text-align:center;margin:12px 0 0}
+
+  /* client-quote deposit line */
+  .quote-deposit{display:flex;align-items:center;justify-content:space-between;padding:12px 20px;font-size:.82rem;color:var(--muted);background:var(--surface);border-top:1px dashed var(--line);font-variant-numeric:tabular-nums}
+  .quote-deposit .tnum{color:var(--strong);font-weight:700}
+  /* client-quote meta + piece block */
+  .quote-meta{display:flex;flex-wrap:wrap;gap:4px 14px;justify-content:space-between;padding:12px 20px;border-bottom:1px solid var(--line);font-size:.78rem;color:var(--muted)}
+  .quote-meta b{color:var(--strong);font-weight:700}
+  .qpiece{padding:17px 20px}
+  .qpiece .pt{font-size:1.02rem;font-weight:700;color:var(--strong)}
+  .qpiece .ps{font-size:.84rem;color:var(--muted);margin-top:4px}
+  .qphoto{position:relative;margin-top:13px;border:1px solid var(--line);border-radius:12px;overflow:hidden;background:linear-gradient(160deg,#F7F1EA,#ECE1D4)}
+  .qphoto svg,.qphoto img{width:100%;height:auto;display:block}
+  .qphoto .tag{position:absolute;top:9px;left:9px;font-size:.6rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);background:color-mix(in srgb,var(--surface) 88%,transparent);border:1px solid var(--line);border-radius:999px;padding:3px 9px;backdrop-filter:blur(4px)}
+
+  /* internal cost-breakdown summary bar + profit strip */
+  .costbar{display:grid;grid-template-columns:1fr 1fr;background:var(--surface-2)}
+  .costbar .cell{padding:11px 15px;border-top:1px solid var(--line);border-right:1px solid var(--line)}
+  .costbar .cell:nth-child(2n){border-right:none}
+  .costbar .k{font-size:.58rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+  .costbar .v{font-size:.92rem;font-weight:700;color:var(--strong);margin-top:3px;font-variant-numeric:tabular-nums}
+  .costbar .v.mult{color:var(--accent)} .costbar .v.mk{color:var(--ok)}
+  .profitbar{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:13px 20px;background:color-mix(in srgb,var(--ok) 12%,var(--surface));border-top:1px solid var(--line);font-size:.82rem}
+  .profitbar .l{font-weight:600;color:var(--text)}
+  .profitbar .r{font-weight:700;color:var(--ok);font-variant-numeric:tabular-nums}
 
   /* trust strip */
   .strip{border-top:1px solid var(--line);border-bottom:1px solid var(--line);background:var(--surface-2)}
@@ -274,7 +294,6 @@
     .frow.rev .ftxt{order:0}
     .why .grid3{grid-template-columns:1fr}
     .story .mark-wm{opacity:.1;right:-90px}
-    .sq{display:none}
   }
   @media (prefers-reduced-motion:reduce){
     .reveal{opacity:1;transform:none;transition:none}
@@ -338,19 +357,35 @@
         </div>
 
         <div class="hero-demo reveal">
-          <div class="sq a" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3l7 3v6c0 4-3 7-7 9-4-2-7-5-7-9V6z"/></svg></div>
-          <div class="sq b" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m5 12 5 5L20 6"/></svg></div>
-          <div class="quote" role="img" aria-label="Example quote for an engagement ring, totalling $12,320 including GST">
-            <div class="quote-head"><span class="t">Quote · Engagement ring</span><span class="n">Q-1042</span></div>
-            <div class="quote-body">
-              <div class="qline"><span class="d">Design &amp; CAD</span><span class="v">$580</span></div>
-              <div class="qline"><span class="d">18ct yellow gold · 9.4g<small>at $148.20/g<span class="live"><span class="pip"></span>live</span></small></span><span class="v">$1,393</span></div>
-              <div class="qline"><span class="d">Round brilliant · 1.10ct</span><span class="v">$8,750</span></div>
-              <div class="qline"><span class="d">Setting · six-claw</span><span class="v">$240</span></div>
+          <div class="quote" role="img" aria-label="Example client quote for an engagement ring, total $6,090 including GST with a 50% deposit of $3,045">
+            <div class="quote-head"><span class="t">Quote · Engagement ring</span><span class="n">QT-1042</span></div>
+            <div class="quote-meta"><span>Prepared for <b>M. Harlow</b></span><span>Valid until 30 Aug 2026</span></div>
+            <div class="qpiece">
+              <div class="pt">Option #1</div>
+              <div class="ps">18ct yellow gold solitaire set with a 1.10ct D/VVS2 round lab-grown diamond · finger size &ldquo;O&rdquo;</div>
+              <div class="qphoto">
+                <span class="tag">Reference</span>
+                <svg viewBox="0 0 320 180" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Illustration of a solitaire engagement ring">
+                  <ellipse cx="160" cy="150" rx="58" ry="8" fill="#00000012"/>
+                  <ellipse cx="160" cy="112" rx="45" ry="48" fill="none" stroke="#D7A94F" stroke-width="12"/>
+                  <ellipse cx="160" cy="112" rx="45" ry="48" fill="none" stroke="#F1D48A" stroke-width="4" opacity=".85"/>
+                  <path d="M147 66 L150 82 M173 66 L170 82" stroke="#D7A94F" stroke-width="4" stroke-linecap="round"/>
+                  <g transform="translate(160,50)">
+                    <polygon points="-26,-14 26,-14 0,30" fill="#C7DCF0"/>
+                    <polygon points="-26,-14 -14,-28 14,-28 26,-14" fill="#E7F1FB"/>
+                    <line x1="-14" y1="-28" x2="0" y2="30" stroke="#ffffff" stroke-width="1.2" opacity=".7"/>
+                    <line x1="14" y1="-28" x2="0" y2="30" stroke="#ffffff" stroke-width="1.2" opacity=".7"/>
+                    <line x1="-26" y1="-14" x2="26" y2="-14" stroke="#ffffff" stroke-width="1" opacity=".5"/>
+                    <line x1="-14" y1="-28" x2="-26" y2="-14" stroke="#ffffff" stroke-width="1" opacity=".45"/>
+                    <line x1="14" y1="-28" x2="26" y2="-14" stroke="#ffffff" stroke-width="1" opacity=".45"/>
+                  </g>
+                </svg>
+              </div>
             </div>
-            <div class="quote-total"><span class="l">Client price · inc GST</span><span class="v">$12,320</span></div>
+            <div class="quote-total"><span class="l">Total quoted price · inc GST</span><span class="v">$6,090</span></div>
+            <div class="quote-deposit"><span>50% deposit to commence</span><span class="tnum">$3,045</span></div>
           </div>
-          <p class="fig-note">An illustrative quote. Your metals, stones, settings and markups — your numbers.</p>
+          <p class="fig-note">An illustrative quote — the polished version your client receives. Your metals, stones and markups, your numbers.</p>
         </div>
       </div>
     </section>
@@ -400,14 +435,20 @@
         </div>
         <div class="visual">
           <div class="quote">
-            <div class="quote-head"><span class="t">Quote · Engagement ring</span><span class="n">Q-1042</span></div>
+            <div class="quote-head"><span class="t">Cost breakdown · Engagement ring</span><span class="n">#1042</span></div>
             <div class="quote-body">
-              <div class="qline"><span class="d">Design &amp; CAD</span><span class="v">$580</span></div>
-              <div class="qline"><span class="d">18ct white gold · 9.4g<small>white-gold premium applied</small></span><span class="v">$1,486</span></div>
-              <div class="qline"><span class="d">Round brilliant · 1.10ct</span><span class="v">$8,750</span></div>
-              <div class="qline"><span class="d">Setting · six-claw</span><span class="v">$240</span></div>
+              <div class="qline"><span class="d">18ct white gold<small>3.4g × $153.10/g · cast<span class="live"><span class="pip"></span>live</span></small></span><span class="v">$521</span></div>
+              <div class="qline"><span class="d">Bench labour<small>1 hr × $70.00/hr</small></span><span class="v">$70</span></div>
+              <div class="qline"><span class="d">Lab-grown diamond<small>1.10ct round brilliant</small></span><span class="v">$938</span></div>
+              <div class="qline"><span class="d">Prong / claw setting<small>six-claw · volume</small></span><span class="v">$140</span></div>
             </div>
-            <div class="quote-total"><span class="l">Client price · inc GST</span><span class="v">$12,470</span></div>
+            <div class="costbar">
+              <div class="cell"><div class="k">Base cost</div><div class="v">$1,669</div></div>
+              <div class="cell"><div class="k">Bracket</div><div class="v">$1k–$2.5k</div></div>
+              <div class="cell"><div class="k">Multiplier</div><div class="v mult">2.5×</div></div>
+              <div class="cell"><div class="k">Markup total</div><div class="v mk">$4,173</div></div>
+            </div>
+            <div class="profitbar"><span class="l">Your profit · excl GST</span><span class="r">$2,504 · 60% margin</span></div>
           </div>
         </div>
       </div>
@@ -426,13 +467,13 @@
         </div>
         <div class="visual">
           <div class="panel">
-            <div class="panel-head"><span class="t">Proposal · sent to client</span><span class="b">3 options</span></div>
+            <div class="panel-head"><span class="t">Quote options · sent to client</span><span class="b">3 options</span></div>
             <div class="opts">
-              <div class="opt"><div><div class="lbl">Option A</div><div class="met">9ct yellow gold</div></div><div class="pr">$3,950</div></div>
-              <div class="opt sel"><div><div class="lbl">Option B</div><div class="met">18ct yellow gold</div><div class="acc"><svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="3"><path d="m5 12 5 5L20 6"/></svg> Accepted</div></div><div class="pr">$5,090</div></div>
-              <div class="opt"><div><div class="lbl">Option C</div><div class="met">Platinum</div></div><div class="pr">$6,480</div></div>
+              <div class="opt"><div><div class="lbl">9ct yellow gold</div><div class="met">Solitaire · six-claw</div></div><div class="pr">$3,950</div></div>
+              <div class="opt sel"><div><div class="lbl">18ct yellow gold</div><div class="met">Solitaire · six-claw</div><div class="acc"><svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="3"><path d="m5 12 5 5L20 6"/></svg> Approved</div></div><div class="pr">$5,090</div></div>
+              <div class="opt"><div><div class="lbl">Platinum</div><div class="met">Solitaire · six-claw</div></div><div class="pr">$6,480</div></div>
             </div>
-            <div class="opt-btn">Accept this option</div>
+            <div class="opt-btn">Approve this option</div>
           </div>
         </div>
       </div>
@@ -451,12 +492,12 @@
         </div>
         <div class="visual">
           <div class="panel">
-            <div class="panel-head"><span class="t">Production board</span><span class="b">8 active</span></div>
+            <div class="panel-head"><span class="t">Production board</span><span class="b">Drag to move stage</span></div>
             <div class="board">
-              <div class="col"><div class="ch">CAD <b>2</b></div><div class="jcard"><div class="jn">Halo ring</div><div class="jc">M. Ellis</div><div class="jd">Due Fri</div></div></div>
-              <div class="col"><div class="ch">Bench <b>3</b></div><div class="jcard"><div class="jn">Signet</div><div class="jc">R. Okafor</div><div class="jd">Due Mon</div></div></div>
-              <div class="col"><div class="ch">Setting <b>2</b></div><div class="jcard"><div class="jn">Solitaire</div><div class="jc">T. Nguyen</div><div class="jd">Due Wed</div></div></div>
-              <div class="col"><div class="ch">QC <b>1</b></div><div class="jcard"><div class="jn">Eternity</div><div class="jc">A. Rossi</div><div class="jd">Ready</div></div></div>
+              <div class="col"><div class="ch">Enquiry <b>3</b></div><div class="jcard"><div class="jn">Engagement ring</div><div class="jc">A. Rossi</div><div class="jd">Due Mon</div></div></div>
+              <div class="col"><div class="ch">Design / CAD <b>2</b></div><div class="jcard"><div class="jn">Wedding band</div><div class="jc">M. Ellis</div><div class="jd">Due Fri</div></div></div>
+              <div class="col"><div class="ch">Manufacturing <b>3</b></div><div class="jcard"><div class="jn">Dress ring</div><div class="jc">R. Okafor</div><div class="jd">Due Wed</div></div></div>
+              <div class="col"><div class="ch">QC check <b>1</b></div><div class="jcard"><div class="jn">Eternity ring</div><div class="jc">T. Nguyen</div><div class="jd">Ready</div></div></div>
             </div>
           </div>
         </div>
@@ -476,12 +517,12 @@
         </div>
         <div class="visual">
           <div class="panel">
-            <div class="panel-head"><span class="t">This month</span><span class="b">Reporting</span></div>
+            <div class="panel-head"><span class="t">Reports</span><span class="b">At a glance</span></div>
             <div class="stats">
-              <div class="stat"><div class="k">Revenue</div><div class="v">$48,210</div><div class="s">+18% vs last</div></div>
-              <div class="stat"><div class="k">Gross profit</div><div class="v">47.5%</div><div class="s mut">$22,894</div></div>
-              <div class="stat"><div class="k">Jobs accepted</div><div class="v">14</div><div class="s mut">6 in production</div></div>
-              <div class="stat"><div class="k">Avg job value</div><div class="v">$3,443</div><div class="s mut">across all types</div></div>
+              <div class="stat"><div class="k">Total sales</div><div class="v">$52,400</div><div class="s mut">agreed charges</div></div>
+              <div class="stat"><div class="k">Total received</div><div class="v">$47,900</div><div class="s">cash + trade-ins</div></div>
+              <div class="stat"><div class="k">Outstanding</div><div class="v">$4,500</div><div class="s mut">balance owed</div></div>
+              <div class="stat"><div class="k">Quote conversion</div><div class="v">72%</div><div class="s mut">21 of 29 decided</div></div>
             </div>
             <p class="fig-note" style="margin-top:12px">Illustrative figures.</p>
           </div>
