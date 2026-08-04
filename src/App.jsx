@@ -2434,7 +2434,7 @@ function Dashboard({clients,jobs,quotes,payments,invoices,appointments=[],propos
   const acceptedUnseen=proposals.filter(p=>p.status==="accepted"&&p.seen===false);
   // Repair links a client accepted/declined that haven't been acknowledged yet
   const repairUnseen=jobs.filter(j=>j.repairResponse&&j.repairResponse.seen===false);
-  const active=jobs.filter(j=>j.stage!=="Collected");
+  const active=jobs.filter(j=>j.stage!=="Collected"&&!j.parked);   // parked = "awaiting client" → dropped from active tracking
   // Rank active jobs by momentum so the ones that matter (money in, a proposal out awaiting a reply,
   // approved/in production, overdue) surface first — a stale sent-quote with no engagement sinks and
   // is dimmed. Each row also carries the signals we show (paid, owing, proposal status).
@@ -2849,6 +2849,7 @@ function Jobs({clients,jobs,setJobs,quotes,setQuotes,payments,setPayments,notes,
   const[sf,setSf]=useState("All");
   const[tf,setTf]=useState("All");
   const[search,setSearch]=useState("");
+  const[awaitOnly,setAwaitOnly]=useState(false);   // filter to only "awaiting client" (parked) jobs
   const[mode,setMode]=useState("list");        // list | board (production board)
   const isMobile=useIsMobile();
   // The board is drag-and-drop, which isn't practical on touch — force List on mobile
@@ -2857,9 +2858,11 @@ function Jobs({clients,jobs,setJobs,quotes,setQuotes,payments,setPayments,notes,
   const[dragOver,setDragOver]=useState(null);   // stage column being dragged over
   const moveJobToStage=(id,stage)=>{setJobs(p=>{const n=p.map(j=>j.id===id&&j.stage!==stage?{...j,stage}:j);persist(K.jo,n);return n;});};
   const typeCounts=useMemo(()=>{const m={};jobs.forEach(j=>{m[j.type]=(m[j.type]||0)+1;});return m;},[jobs]);
+  const parkedCount=useMemo(()=>jobs.filter(j=>j.parked).length,[jobs]);
   const typesByCount=useMemo(()=>Object.keys(typeCounts).sort((a,b)=>typeCounts[b]-typeCounts[a]),[typeCounts]);
   const q=search.trim().toLowerCase();
   const filtered=jobs.filter(j=>{
+    if(awaitOnly&&!j.parked)return false;
     if(sf!=="All"&&j.stage!==sf)return false;
     if(tf!=="All"&&j.type!==tf)return false;
     if(q){
@@ -2918,7 +2921,10 @@ function Jobs({clients,jobs,setJobs,quotes,setQuotes,payments,setPayments,notes,
     {vMode==="list"&&<div style={{display:"flex",gap:6,flexWrap:"wrap",marginBottom:14}}>
       {["All",...JOB_STAGES].map(s=><button key={s} onClick={()=>setSf(s)} style={{padding:"4px 11px",borderRadius:3,border:`1px solid ${sf===s?GOLD:BD}`,background:sf===s?GOLD:"transparent",color:sf===s?WHITE:WG,fontSize:11,fontWeight:700,cursor:"pointer",fontFamily:"inherit"}}>{s}</button>)}
     </div>}
-    {vMode==="list"&&(q||tf!=="All"||sf!=="All")&&<div style={{fontSize:12,color:WG,marginBottom:12}}>Showing <b style={{color:INK}}>{filtered.length}</b> of {jobs.length} job{jobs.length!==1?"s":""}{tf!=="All"?` · ${tf}`:""}{sf!=="All"?` · ${sf}`:""}{q?` · “${search.trim()}”`:""}{(q||tf!=="All"||sf!=="All")&&<button onClick={()=>{setSearch("");setTf("All");setSf("All");}} style={{background:"none",border:"none",color:GOLD,fontWeight:700,fontSize:12,cursor:"pointer",fontFamily:"inherit",marginLeft:8,padding:0}}>Clear</button>}</div>}
+    {vMode==="list"&&parkedCount>0&&<div style={{marginBottom:14}}>
+      <button onClick={()=>setAwaitOnly(v=>!v)} style={{padding:"4px 11px",borderRadius:3,border:`1px solid ${awaitOnly?WARN:BD}`,background:awaitOnly?WARN:"transparent",color:awaitOnly?WHITE:WG,fontSize:11,fontWeight:700,cursor:"pointer",fontFamily:"inherit"}}>⏸ Awaiting client ({parkedCount})</button>
+    </div>}
+    {vMode==="list"&&(q||tf!=="All"||sf!=="All"||awaitOnly)&&<div style={{fontSize:12,color:WG,marginBottom:12}}>Showing <b style={{color:INK}}>{filtered.length}</b> of {jobs.length} job{jobs.length!==1?"s":""}{tf!=="All"?` · ${tf}`:""}{sf!=="All"?` · ${sf}`:""}{awaitOnly?" · Awaiting client":""}{q?` · “${search.trim()}”`:""}<button onClick={()=>{setSearch("");setTf("All");setSf("All");setAwaitOnly(false);}} style={{background:"none",border:"none",color:GOLD,fontWeight:700,fontSize:12,cursor:"pointer",fontFamily:"inherit",marginLeft:8,padding:0}}>Clear</button></div>}
 
     {/* ── Production board ── */}
     {vMode==="board"&&(()=>{
@@ -2947,6 +2953,7 @@ function Jobs({clients,jobs,setJobs,quotes,setQuotes,payments,setPayments,notes,
                 <div style={{fontSize:14.5,fontWeight:700,color:INK,lineHeight:1.3}}>{j.type}</div>
                 <div style={{fontSize:12.5,color:WG,marginTop:3,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{clientDisplayName(c)||"—"}</div>
                 {j.deadline&&<div style={{fontSize:11.5,color:od?DANGER:WG,marginTop:7,fontWeight:od?700:600}}>Due {fmtDate(j.deadline)}{od?" · OVERDUE":""}</div>}
+                {j.parked&&<div style={{fontSize:11,color:WARN,marginTop:6,fontWeight:700}}>⏸ Awaiting client</div>}
               </div>;
             })}
           </div>;
@@ -2970,6 +2977,7 @@ function Jobs({clients,jobs,setJobs,quotes,setQuotes,payments,setPayments,notes,
           {j.description&&<div style={{fontSize:13,color:INK}}>{j.description.slice(0,90)}{j.description.length>90?"…":""}</div>}</div>
           <div style={{display:"flex",flexDirection:"column",alignItems:"flex-end",gap:8}}>
             <Badge label={j.stage} color={SC[j.stage]||WG}/>
+            {j.parked&&<Badge label="Awaiting client" color={WARN}/>}
             <button onClick={e=>delJob(j.id,e)} style={{background:"none",border:`1px solid ${DANGER}44`,borderRadius:2,padding:"3px 10px",fontSize:11,color:DANGER,cursor:"pointer",fontFamily:"inherit",fontWeight:700,letterSpacing:"0.04em",opacity:0.7}} onMouseEnter={e=>e.currentTarget.style.opacity=1} onMouseLeave={e=>e.currentTarget.style.opacity=0.7}>Delete</button>
           </div>
         </div>
@@ -3455,6 +3463,9 @@ function JobDetail({jobId,jobs,setJobs,clients,quotes,setQuotes,payments,setPaym
   const[combineModal,setCombineModal]=useState(false);
   const[combineSel,setCombineSel]=useState([]);   // approved quote ids to combine into one invoice
   const moveStage=s=>{setJobs(p=>{const n=p.map(j=>j.id===jobId?{...j,stage:s}:j);persist(K.jo,n);return n;});setEditStage(false);};
+  // "Awaiting client" park toggle — a manual flag (orthogonal to stage) that drops the job out of
+  // the dashboard's active tracking until the client responds. parkedAt is kept for reference.
+  const togglePark=()=>{setJobs(p=>{const n=p.map(j=>j.id===jobId?{...j,parked:!j.parked,parkedAt:j.parked?null:today()}:j);persist(K.jo,n);return n;});};
   // Keep any live invoice/proposal link(s) for this job in sync after a payment change, so the
   // customer's link shows the updated Paid / Balance due instead of a stale snapshot.
   const refreshLinks=async(pmts)=>{
@@ -3528,7 +3539,9 @@ function JobDetail({jobId,jobs,setJobs,clients,quotes,setQuotes,payments,setPaym
       {job.supplier&&<div style={{fontSize:12,color:WG,marginTop:2}}>Supplier: {job.supplier}{job.supplierRef?` · ${job.supplierRef}`:""}</div>}</div>
       <div style={{display:"flex",gap:8,alignItems:"center",flexWrap:"wrap",flexShrink:0}}>
         <Badge label={job.stage} color={SC[job.stage]||WG} size="lg"/>
+        {job.parked&&<Badge label="Awaiting client" color={WARN} size="lg"/>}
         <Btn sm={!isMobile} xs={isMobile} ghost onClick={()=>setEditStage(v=>!v)}>Move stage</Btn>
+        <Btn sm={!isMobile} xs={isMobile} ghost onClick={togglePark}>{job.parked?"↩ Reactivate":"⏸ Awaiting client"}</Btn>
         <Btn sm={!isMobile} xs={isMobile} ghost onClick={()=>printJobDocket(biz,c,job)}>🏷 Docket</Btn>
         <Btn sm={!isMobile} xs={isMobile} ghost onClick={()=>printJobLabel(biz,c,job)}>Tag</Btn>
         <Btn sm={!isMobile} xs={isMobile} ghost onClick={()=>setEditJobModal(true)}>Edit job</Btn>
