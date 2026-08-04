@@ -147,11 +147,16 @@
   .profitbar .l{font-weight:600;color:var(--text)}
   .profitbar .r{font-weight:700;color:var(--ok);font-variant-numeric:tabular-nums}
 
-  /* trust strip */
-  .strip{border-top:1px solid var(--line);border-bottom:1px solid var(--line);background:var(--surface-2)}
-  .strip .wrap{display:flex;flex-wrap:wrap;gap:14px 34px;justify-content:center;padding:22px 28px}
-  .strip .item{display:flex;align-items:center;gap:9px;font-size:.88rem;font-weight:600;color:var(--text)}
+  /* trust strip — continuous marquee */
+  .strip{border-top:1px solid var(--line);border-bottom:1px solid var(--line);background:var(--surface-2);overflow:hidden}
+  .marquee{display:flex;overflow:hidden;-webkit-mask-image:linear-gradient(90deg,transparent,#000 7%,#000 93%,transparent);mask-image:linear-gradient(90deg,transparent,#000 7%,#000 93%,transparent)}
+  .mtrack{display:flex;align-items:center;gap:26px;flex-shrink:0;padding:22px 13px;white-space:nowrap;will-change:transform;animation:marquee 32s linear infinite}
+  .strip:hover .mtrack{animation-play-state:paused}
+  .strip .item{display:flex;align-items:center;gap:9px;font-size:.88rem;font-weight:600;color:var(--text);white-space:nowrap}
   .strip .item svg{color:var(--accent);width:18px;height:18px;flex-shrink:0}
+  .strip .sep{color:var(--accent);opacity:.55;font-size:.5rem}
+  .sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
+  @keyframes marquee{from{transform:translateX(0)}to{transform:translateX(-50%)}}
 
   /* sections */
   .section{padding:82px 0}
@@ -299,6 +304,7 @@
     .reveal{opacity:1;transform:none;transition:none}
     .btn,.card,details summary::after{transition:none}
     .live .pip{animation:none}
+    .mtrack{animation:none}
   }
 </style>
 
@@ -390,11 +396,27 @@
     </section>
 
     <!-- TRUST STRIP -->
-    <div class="strip reveal">
-      <div class="wrap">
-        <div class="item"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 20V10l8-6 8 6v10"/><path d="M9 20v-6h6v6"/></svg> Built at the bench, not the boardroom</div>
-        <div class="item"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="m8 12 3 3 5-6"/></svg> In real, daily use in a working studio</div>
-        <div class="item"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3v18M5 8l7-5 7 5"/></svg> Independent &amp; Australian-made</div>
+    <div class="strip reveal" aria-label="What Prong Studio stands for">
+      <ul class="sr-only">
+        <li>Built at the bench, not the boardroom</li>
+        <li>In real, daily use in a working studio</li>
+        <li>Independent &amp; Australian-made</li>
+      </ul>
+      <div class="marquee" aria-hidden="true">
+        <div class="mtrack">
+          <span class="sep">◆</span><span class="item"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 20V10l8-6 8 6v10"/><path d="M9 20v-6h6v6"/></svg> Built at the bench, not the boardroom</span>
+          <span class="sep">◆</span><span class="item"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="m8 12 3 3 5-6"/></svg> In real, daily use in a working studio</span>
+          <span class="sep">◆</span><span class="item"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3v18M5 8l7-5 7 5"/></svg> Independent &amp; Australian-made</span>
+          <span class="sep">◆</span><span class="item"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 20V10l8-6 8 6v10"/><path d="M9 20v-6h6v6"/></svg> Built at the bench, not the boardroom</span>
+          <span class="sep">◆</span><span class="item"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="m8 12 3 3 5-6"/></svg> In real, daily use in a working studio</span>
+          <span class="sep">◆</span><span class="item"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3v18M5 8l7-5 7 5"/></svg> Independent &amp; Australian-made</span>
+          <span class="sep">◆</span><span class="item"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 20V10l8-6 8 6v10"/><path d="M9 20v-6h6v6"/></svg> Built at the bench, not the boardroom</span>
+          <span class="sep">◆</span><span class="item"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="m8 12 3 3 5-6"/></svg> In real, daily use in a working studio</span>
+          <span class="sep">◆</span><span class="item"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3v18M5 8l7-5 7 5"/></svg> Independent &amp; Australian-made</span>
+          <span class="sep">◆</span><span class="item"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 20V10l8-6 8 6v10"/><path d="M9 20v-6h6v6"/></svg> Built at the bench, not the boardroom</span>
+          <span class="sep">◆</span><span class="item"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="m8 12 3 3 5-6"/></svg> In real, daily use in a working studio</span>
+          <span class="sep">◆</span><span class="item"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3v18M5 8l7-5 7 5"/></svg> Independent &amp; Australian-made</span>
+        </div>
       </div>
     </div>
 
