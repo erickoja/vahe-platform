@@ -2789,7 +2789,7 @@ function ClientDetail({clientId,clients,setClients,jobs,setJobs,quotes,payments,
       {cj.map(j=>(
         <div key={j.id} onClick={()=>{setSelJob(j.id);setView("jobDetail");}} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"10px 0",borderBottom:`1px solid ${BD}`,cursor:"pointer"}}
           onMouseEnter={e=>e.currentTarget.style.background=PARCH} onMouseLeave={e=>e.currentTarget.style.background="transparent"}>
-          <div><div style={{fontWeight:600,fontSize:14,color:INK}}>{j.type}</div><div style={{fontSize:12,color:WG,marginTop:2}}>Due {fmtDate(j.deadline)}</div></div>
+          <div><div style={{fontWeight:600,fontSize:14,color:INK}}>{j.type}</div><div style={{fontSize:12,color:WG,marginTop:2}}>{j.deadline?`Due ${fmtDate(j.deadline)}`:"No due date"}</div></div>
           <Badge label={j.stage} color={SC[j.stage]||WG}/>
         </div>
       ))}
@@ -2821,7 +2821,7 @@ function JobForm({clients,initial={},onSave,onCancel}){
     <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:"0 16px"}}>
       <Input label="Job type" value={f.type} onChange={set("type")} as="select" options={JOB_TYPES}/>
       <Input label="Stage" value={f.stage} onChange={set("stage")} as="select" options={JOB_STAGES}/>
-      <Input label="Due date" value={f.deadline} onChange={set("deadline")} type="date"/>
+      <Input label="Due date (optional)" value={f.deadline} onChange={set("deadline")} type="date"/>
     </div>
     <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"0 16px"}}>
       <Input label="Date taken in" value={f.dateIn} onChange={set("dateIn")} type="date"/>
@@ -2973,7 +2973,7 @@ function Jobs({clients,jobs,setJobs,quotes,setQuotes,payments,setPayments,notes,
       return <Card key={j.id} onClick={()=>{setSelJob(j.id);setView("jobDetail");}}>
         <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start"}}>
           <div><div style={{fontWeight:700,fontSize:15,color:INK,marginBottom:2}}>{j.type} <span style={{color:WG,fontWeight:400,fontSize:13}}>· {clientDisplayName(c)}</span></div>
-          <div style={{fontSize:12,color:od?DANGER:WG,marginBottom:5}}>Due {fmtDate(j.deadline)}{od?" — OVERDUE":""}</div>
+          <div style={{fontSize:12,color:od?DANGER:WG,marginBottom:5}}>{j.deadline?`Due ${fmtDate(j.deadline)}${od?" — OVERDUE":""}`:"No due date"}</div>
           {j.description&&<div style={{fontSize:13,color:INK}}>{j.description.slice(0,90)}{j.description.length>90?"…":""}</div>}</div>
           <div style={{display:"flex",flexDirection:"column",alignItems:"flex-end",gap:8}}>
             <Badge label={j.stage} color={SC[j.stage]||WG}/>
@@ -3534,7 +3534,7 @@ function JobDetail({jobId,jobs,setJobs,clients,quotes,setQuotes,payments,setPaym
   return <div>
     <div style={{display:"flex",flexDirection:isMobile?"column":"row",justifyContent:"space-between",alignItems:isMobile?"stretch":"flex-start",gap:isMobile?14:10,marginBottom:20}}>
       <div style={{minWidth:0}}><h1 style={{margin:0,fontSize:isMobile?20:24,fontWeight:800,color:INK,letterSpacing:"-0.02em",wordBreak:"break-word"}}>{job.type}</h1>
-      <div style={{color:WG,fontSize:13,marginTop:3}}>{clientDisplayName(c)} · Due {fmtDate(job.deadline)}</div>
+      <div style={{color:WG,fontSize:13,marginTop:3}}>{clientDisplayName(c)}{job.deadline?` · Due ${fmtDate(job.deadline)}`:""}</div>
       {(job.dateIn||job.dateOut)&&<div style={{fontSize:12,color:WG,marginTop:2}}>Taken in: <b style={{color:INK}}>{job.dateIn?fmtDate(job.dateIn):"—"}</b> · Pickup: <b style={{color:INK}}>{job.dateOut?fmtDate(job.dateOut):"—"}</b></div>}
       {job.supplier&&<div style={{fontSize:12,color:WG,marginTop:2}}>Supplier: {job.supplier}{job.supplierRef?` · ${job.supplierRef}`:""}</div>}</div>
       <div style={{display:"flex",gap:8,alignItems:"center",flexWrap:"wrap",flexShrink:0}}>
