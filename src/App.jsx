@@ -2735,7 +2735,6 @@ function ClientDetail({clientId,clients,setClients,jobs,setJobs,quotes,payments,
   const tradeIn=cj.reduce((s,j)=>s+jobTradeInCredit(j,quotes),0);
   const owing=Math.max(0,charged-spent-tradeIn);   // trade-in credits count toward what's covered
   return <div>
-    <button onClick={()=>setView("clients")} style={{background:"none",border:"none",cursor:"pointer",color:GOLD,fontSize:13,fontWeight:700,fontFamily:"inherit",marginBottom:18,padding:0}}>← Back to clients</button>
     <div style={{display:"flex",alignItems:"center",gap:14,marginBottom:20}}>
       <div style={{width:isMobile?42:50,height:isMobile?42:50,borderRadius:"50%",background:GOLD_L,display:"flex",alignItems:"center",justifyContent:"center",fontSize:isMobile?17:20,fontWeight:800,color:GOLD_D,flexShrink:0}}>{c.name.charAt(0)}</div>
       <div style={{flex:1,minWidth:0}}><h1 style={{margin:0,fontSize:isMobile?19:24,fontWeight:800,color:INK,letterSpacing:"-0.02em",wordBreak:"break-word",display:"flex",alignItems:"center",gap:10,flexWrap:"wrap"}}>{clientDisplayName(c)}{c.accountType==="trade"&&<span style={{fontSize:10,fontWeight:800,letterSpacing:"0.08em",color:GOLD_D,background:GOLD_L,border:`1px solid ${GOLD}55`,borderRadius:999,padding:"3px 9px",textTransform:"uppercase"}}>Trade account</span>}</h1>
@@ -3522,7 +3521,6 @@ function JobDetail({jobId,jobs,setJobs,clients,quotes,setQuotes,payments,setPaym
     setView("invoiceDetail_"+inv.id);
   };
   return <div>
-    <button onClick={()=>setView("jobs")} style={{background:"none",border:"none",cursor:"pointer",color:GOLD,fontSize:13,fontWeight:700,fontFamily:"inherit",marginBottom:18,padding:0}}>← Back to jobs</button>
     <div style={{display:"flex",flexDirection:isMobile?"column":"row",justifyContent:"space-between",alignItems:isMobile?"stretch":"flex-start",gap:isMobile?14:10,marginBottom:20}}>
       <div style={{minWidth:0}}><h1 style={{margin:0,fontSize:isMobile?20:24,fontWeight:800,color:INK,letterSpacing:"-0.02em",wordBreak:"break-word"}}>{job.type}</h1>
       <div style={{color:WG,fontSize:13,marginTop:3}}>{clientDisplayName(c)} · Due {fmtDate(job.deadline)}</div>
@@ -4252,7 +4250,6 @@ function QuoteBuilder({jobId:jobIdProp,editQuoteId,stockId,stock,setStock,jobs,c
     :pricing.filter(p=>pCat==="All"||p.category===pCat);
 
   return <div>
-    <button onClick={()=>setView(stockMode?"stock":"jobDetail_"+jobId)} style={{background:"none",border:"none",cursor:"pointer",color:GOLD,fontSize:13,fontWeight:700,fontFamily:"inherit",marginBottom:18,padding:0}}>{stockMode?"← Back to stock":"← Back to job"}</button>
     <div style={{marginBottom:20}}>
       <h1 style={{margin:0,fontSize:isMobile?19:24,fontWeight:700,color:INK,wordBreak:"break-word"}}>{stockMode?(seed?"Update price":"Generate price"):(isEditing?"Edit quote":"New quote")}{title.trim()?`: ${title.trim()}`:(stockMode&&stockItem?.title?`: ${stockItem.title}`:"")}</h1>
       {job&&<div style={{color:WG,fontSize:13,marginTop:3}}>{job.type} · {clientDisplayName(c)}</div>}
@@ -5783,7 +5780,6 @@ function QuoteDetail({quoteId,quotes,setQuotes,jobs,clients,biz,markupTable,natu
 
   return <div>
     {showProposal&&<ProposalPreview quote={q} job={job} clients={clients} biz={biz} calc={calc} payments={payments} reconcilePayments={soleBilled} onClose={()=>setShowProposal(false)}/>}
-    <button onClick={()=>setView("jobDetail_"+q.jobId)} style={{background:"none",border:"none",cursor:"pointer",color:GOLD,fontSize:13,fontWeight:700,fontFamily:"inherit",marginBottom:18,padding:0}}>← Back to job</button>
     <div style={{display:"flex",flexDirection:isMobile?"column":"row",justifyContent:"space-between",alignItems:isMobile?"stretch":"flex-start",gap:isMobile?14:10,marginBottom:20}}>
       <div style={{minWidth:0}}><h1 style={{margin:0,fontSize:isMobile?20:24,fontWeight:800,color:INK,letterSpacing:"-0.02em",wordBreak:"break-word",display:"flex",alignItems:"center",gap:10,flexWrap:"wrap"}}>{quoteLabel(q)}{tradeQ&&<span style={{fontSize:11,fontWeight:800,letterSpacing:"0.08em",color:"#4E8B6A",background:"#EDF5EF",border:"1px solid #A6CBB4",borderRadius:999,padding:"3px 9px",textTransform:"uppercase"}}>Trade priced</span>}</h1>
       <div style={{color:WG,fontSize:13,marginTop:3}}>Quote {quoteRef(q)} · {job?.type} · {clientDisplayName(c)} · {fmtDate(q.createdAt)}</div>
@@ -9532,11 +9528,30 @@ export default function App(){
     return()=>{clearTimeout(giveUp);if(channel&&supabase){try{supabase.removeChannel(channel);}catch(e){}}};
   },[authReady,userId,studioId,loadNonce]);
 
-  const setView=useCallback(v=>{
+  // Apply a view token (…_id forms select the record first, then switch the raw view).
+  const applyView=useCallback(v=>{
     if(v.startsWith("clientDetail_")){setSelClient(v.split("_")[1]);setViewRaw("clientDetail");}
     else if(v.startsWith("jobDetail_")){setSelJob(v.split("_")[1]);setViewRaw("jobDetail");}
     else setViewRaw(v);
   },[]);
+  // Navigation history → one global Back button that works on every page. selJob/selClient
+  // live in separate state, so detail views are remembered by their resolvable token
+  // ("jobDetail_<id>" / "clientDetail_<id>"). navRef mirrors the current location each render.
+  const navRef=useRef({view:"dashboard",selClient:null,selJob:null});
+  navRef.current={view,selClient,selJob};
+  const histRef=useRef([]);
+  const[histLen,setHistLen]=useState(0);
+  const tokenOf=s=>s.view==="jobDetail"?"jobDetail_"+(s.selJob||""):s.view==="clientDetail"?"clientDetail_"+(s.selClient||""):s.view;
+  const setView=useCallback(v=>{
+    const cur=tokenOf(navRef.current);
+    if(cur&&cur!==v){histRef.current.push(cur);if(histRef.current.length>50)histRef.current.shift();setHistLen(histRef.current.length);}
+    applyView(v);
+  },[applyView]);
+  const goBack=useCallback(()=>{
+    const prev=histRef.current.pop();
+    setHistLen(histRef.current.length);
+    if(prev)applyView(prev);
+  },[applyView]);
 
   // ── Data-safety snapshots (Stage 1) ──
   // A full copy of every data slice at this moment (references only — cheap to build).
@@ -9799,6 +9814,9 @@ export default function App(){
         </span>
         <span style={{fontSize:12,fontWeight:800,color:"#fff",background:billing.lapsed?DANGER:GOLD,borderRadius:8,padding:"7px 14px",whiteSpace:"nowrap"}}>{billing.lapsed?"Subscribe":"View plans"}</span>
       </div>}
+      {storageReady&&histLen>0&&<button onClick={goBack} aria-label="Go back" style={{display:"inline-flex",alignItems:"center",gap:7,marginBottom:18,background:"none",border:`1px solid ${BD}`,borderRadius:8,padding:"7px 13px",cursor:"pointer",color:INK,fontSize:12.5,fontWeight:700,fontFamily:"inherit"}}
+        onMouseEnter={e=>{e.currentTarget.style.borderColor=GOLD;e.currentTarget.style.color=GOLD;}}
+        onMouseLeave={e=>{e.currentTarget.style.borderColor=BD;e.currentTarget.style.color=INK;}}>← Back</button>}
       {!storageReady
         ?<div style={{display:"flex",alignItems:"center",justifyContent:"center",height:300,flexDirection:"column",gap:12}}>
             <div style={{fontSize:13,color:WG}}>Loading your data…</div>
