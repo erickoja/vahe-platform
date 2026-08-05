@@ -1646,6 +1646,32 @@ const setStudioIdModule=(v)=>{_studioId=v;};
 // survives the sign-up + email-confirmation round-trip. accept_studio_invite() consumes it on
 // first sign-in for a user who has no studio yet (see the studio-resolution effect).
 try{const _iv=new URLSearchParams(window.location.search).get("invite");if(_iv)localStorage.setItem("pendingInvite",_iv);}catch(e){}
+
+// ── Auto-update: reload when a newer deployment is live ──────────────────────
+// Vite fingerprints the main bundle (…/assets/index-<hash>.js). Compare the hash we're RUNNING
+// against the hash a freshly-fetched index.html points to; if they differ, a new version has
+// shipped, so reload — no more manual Ctrl+Shift+R to pick up a deploy (e.g. after switching
+// computers). No-op in dev (the Vite dev server serves no hashed bundle) and never reloads while
+// a field is focused, and after reloading the running hash matches the latest, so it can't loop.
+const RUNNING_BUNDLE=(()=>{try{
+  const s=[...document.querySelectorAll("script[src]")].map(x=>x.getAttribute("src")||"").find(v=>/\/assets\/index-[A-Za-z0-9_-]+\.js/.test(v));
+  const m=s&&s.match(/index-[A-Za-z0-9_-]+\.js/);return m?m[0]:null;
+}catch(e){return null;}})();
+async function checkForUpdate(){
+  if(!RUNNING_BUNDLE)return;
+  try{
+    const res=await fetch(`/?_ts=${Date.now()}`,{cache:"no-store"});
+    if(!res.ok)return;
+    const html=await res.text();
+    const m=html.match(/index-[A-Za-z0-9_-]+\.js/);
+    const latest=m?m[0]:null;
+    if(latest&&latest!==RUNNING_BUNDLE){
+      const el=document.activeElement;
+      const typing=el&&(el.tagName==="INPUT"||el.tagName==="TEXTAREA"||el.isContentEditable);
+      if(!typing)location.reload();
+    }
+  }catch(e){}
+}
 // Per-key timestamp of THIS client's last cloud write. The realtime channel echoes
 // our own writes back; without this we can re-apply a stale/older echo on top of
 // fresh state and get stuck (e.g. wrong "balance owing" until the next reload).
@@ -9512,6 +9538,26 @@ export default function App(){
     return()=>{cancelled=true;};
   },[userId]);
 
+  // Stay current when returning to the tab / switching computers: pick up a new deployment (reload)
+  // AND silently re-sync data (catch anything the live channel missed while the tab was asleep).
+  // The data re-sync fires on focus/visibility-return only (not mid-work), is throttled to ≥20s,
+  // skips while a field is focused, and re-runs the load effect silently (no loading flash; a blip
+  // keeps existing data). A separate 5-min timer only checks for a new build.
+  useEffect(()=>{
+    let lastSync=Date.now();
+    const onReturn=()=>{
+      checkForUpdate();
+      const el=document.activeElement;
+      const typing=el&&(el.tagName==="INPUT"||el.tagName==="TEXTAREA"||el.isContentEditable);
+      if(!typing&&Date.now()-lastSync>20000){lastSync=Date.now();setLoadNonce(n=>n+1);}
+    };
+    const onVis=()=>{if(document.visibilityState==="visible")onReturn();};
+    document.addEventListener("visibilitychange",onVis);
+    window.addEventListener("focus",onReturn);
+    const iv=setInterval(()=>{if(document.visibilityState==="visible")checkForUpdate();},5*60*1000);
+    return()=>{document.removeEventListener("visibilitychange",onVis);window.removeEventListener("focus",onReturn);clearInterval(iv);};
+  },[]);
+
   // Keep the pure-calc globals (used by calcQuote/jobChargeTotal) in sync with business
   // settings on EVERY render — synchronously, before children compute. Doing this in a
   // useEffect instead runs one render too late, so the first paint after load computes
@@ -9609,10 +9655,11 @@ export default function App(){
           });
           setCloudLoaded(true);   // ✅ now safe to persist to the cloud
         }catch(e){
-          setCloudLoaded(false);
           clearTimeout(giveUp);
-          setLoadError(true);
-          setStorageReady(true);
+          // First load failing blocks the app (don't boot/write on seed data). A later background
+          // refresh (cloud already loaded once) failing is harmless — keep the data we have and
+          // stay writable, so a flaky reconnect never throws up the error screen.
+          if(!_cloudLoaded){setCloudLoaded(false);setLoadError(true);setStorageReady(true);}
           return;
         }
       }else{
