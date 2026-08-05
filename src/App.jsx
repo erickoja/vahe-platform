@@ -5277,7 +5277,7 @@ function PublicInvoiceBody({snap}){
         <div style={{minWidth:240}}>
           {snap.discount>0&&<div style={{display:"flex",justifyContent:"space-between",fontSize:13,color:WG,padding:"3px 0"}}><span>Subtotal</span><span>{fmt(snap.subtotalIncGST)}</span></div>}
           {snap.discount>0&&<div style={{display:"flex",justifyContent:"space-between",fontSize:13,color:OK,padding:"3px 0"}}><span>{snap.discountLabel||"Discount"}</span><span>−{fmt(snap.discount)}</span></div>}
-          <div style={{display:"flex",justifyContent:"space-between",fontSize:13,color:WG,padding:"3px 0"}}><span>Includes GST</span><span>{fmt(snap.gst)}</span></div>
+          <div style={{display:"flex",justifyContent:"space-between",fontSize:13,color:WG,padding:"3px 0"}}><span>Includes {TAX_LABEL}</span><span>{fmt(snap.gst)}</span></div>
           <div style={{display:"flex",justifyContent:"space-between",fontSize:17,fontWeight:800,color:INK,borderTop:`2px solid ${INK}`,marginTop:8,paddingTop:10}}><span>{`Total (inc ${TAX_LABEL})`}</span><span>{fmt(snap.totalIncGST)}</span></div>
           {snap.tradeIn>0&&<div style={{display:"flex",justifyContent:"space-between",fontSize:13,color:OK,padding:"6px 0 3px"}}><span>Gold trade-in credit</span><span>−{fmt(snap.tradeIn)}</span></div>}
           {snap.paidTotal>0&&<div style={{display:"flex",justifyContent:"space-between",fontSize:13,color:OK,padding:"6px 0 3px"}}><span>Paid to date</span><span>−{fmt(snap.paidTotal)}</span></div>}
@@ -5694,7 +5694,7 @@ function ProposalPreview({quote,job,clients=[],biz,calc,payments=[],reconcilePay
             const sDetails=(quote.stoneItems||[]).map(s=>(s.detail||"").trim()).filter(Boolean);
             const title=sDescs.length?sDescs.join(" + "):"Centre / feature stone";
             const subParts=sDescs.length?(sDetails.length?[sDetails.join(" · ")]:[]):[(quote.stoneType==="lab"?"Lab-grown diamond / gemstone":"Natural diamond / gemstone")];
-            subParts.push("inc. GST");
+            subParts.push(`inc. ${TAX_LABEL}`);
             return <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"13px 0",borderTop:`1px solid ${BD}`}}>
               <div>
                 <div style={{fontSize:13,fontWeight:600,color:INK,fontFamily:"'Poppins',sans-serif"}}>{title}</div>
@@ -6241,7 +6241,7 @@ function InvoicePrintView({inv,job,client,biz,payments,onClose}){
         {/* totals */}
         <div style={{padding:"28px 56px 40px",display:"flex",justifyContent:"flex-end"}}>
           <div style={{minWidth:300}}>
-            {[...(invDiscount>0?[["Subtotal",fmt(invSubtotal)],[inv.discountLabel||"Discount","−"+fmt(invDiscount)]]:[]),["Total (incl. GST)",fmt(inv.totalIncGST)],["Includes GST",fmt(inv.gst)],...(invTradeIn>0?[["Gold trade-in credit","−"+fmt(invTradeIn)]]:[]),["Paid to date",fmt(paidTotal)],...((staged||invTradeIn>0)?[["Balance outstanding",fmt(balance)]]:[])].map(([l,v])=>(
+            {[...(invDiscount>0?[["Subtotal",fmt(invSubtotal)],[inv.discountLabel||"Discount","−"+fmt(invDiscount)]]:[]),[`Total (incl. ${TAX_LABEL})`,fmt(inv.totalIncGST)],[`Includes ${TAX_LABEL}`,fmt(inv.gst)],...(invTradeIn>0?[["Gold trade-in credit","−"+fmt(invTradeIn)]]:[]),["Paid to date",fmt(paidTotal)],...((staged||invTradeIn>0)?[["Balance outstanding",fmt(balance)]]:[])].map(([l,v])=>(
               <div key={l} style={{display:"flex",justifyContent:"space-between",fontSize:13,padding:"8px 0",borderBottom:`1px solid ${BD_SOFT}`}}>
                 <span style={{color:WG}}>{l}</span><span style={{fontWeight:600,color:INK}}>{v}</span>
               </div>
@@ -6440,8 +6440,8 @@ function InvoiceDetail({invoiceId,invoices,setInvoices,jobs,clients,payments,biz
         {discount>0&&<Btn sm ghost onClick={()=>setDiscount(0,inv.discountLabel)}>Clear</Btn>}
       </div>
       {discount>0
-        ?<div style={{fontSize:12,color:WG,marginTop:8,lineHeight:1.6}}>Subtotal <strong style={{color:INK}}>{fmt(subtotalIncGST)}</strong> − {(inv.discountLabel||"Discount").toLowerCase()} <strong style={{color:INK}}>{fmt(discount)}</strong> = total <strong style={{color:OK}}>{fmt(inv.totalIncGST)}</strong> inc GST (GST {fmt(inv.gst)}). Shows as a line on the customer's invoice.</div>
-        :<div style={{fontSize:11,color:WG,marginTop:8,lineHeight:1.5}}>Enter an amount to take off the total — it appears as its own line on the customer's invoice, and the total, GST and balance recalculate automatically.</div>}
+        ?<div style={{fontSize:12,color:WG,marginTop:8,lineHeight:1.6}}>Subtotal <strong style={{color:INK}}>{fmt(subtotalIncGST)}</strong> − {(inv.discountLabel||"Discount").toLowerCase()} <strong style={{color:INK}}>{fmt(discount)}</strong> = total <strong style={{color:OK}}>{fmt(inv.totalIncGST)}</strong> inc {TAX_LABEL} ({TAX_LABEL} {fmt(inv.gst)}). Shows as a line on the customer's invoice.</div>
+        :<div style={{fontSize:11,color:WG,marginTop:8,lineHeight:1.5}}>Enter an amount to take off the total — it appears as its own line on the customer's invoice, and the total, {TAX_LABEL} and balance recalculate automatically.</div>}
       {discount>0&&<div style={{fontSize:11,color:GOLD_D,marginTop:8}}>After changing this, click <strong>🔗 Copy link</strong> above to refresh what the client sees.</div>}
     </Card>
     <Card>
@@ -6474,7 +6474,7 @@ function InvoiceDetail({invoiceId,invoices,setInvoices,jobs,clients,payments,biz
       {!isMobile&&<div style={{display:"grid",gridTemplateColumns:"1fr 100px 120px",gap:6,marginBottom:8,paddingBottom:8,borderBottom:`1px solid ${BD}`}}>
         {["Item / Description (internal)","Tax",`Amount inc ${TAX_LABEL}`].map(h=><div key={h} style={{fontSize:10,fontWeight:700,color:WG,textTransform:"uppercase",letterSpacing:"0.05em"}}>{h}</div>)}
       </div>}
-      {isMobile&&<div style={{fontSize:10,fontWeight:700,color:WG,textTransform:"uppercase",letterSpacing:"0.05em",marginBottom:6,paddingBottom:8,borderBottom:`1px solid ${BD}`}}>Internal cost breakdown · all lines incl. GST</div>}
+      {isMobile&&<div style={{fontSize:10,fontWeight:700,color:WG,textTransform:"uppercase",letterSpacing:"0.05em",marginBottom:6,paddingBottom:8,borderBottom:`1px solid ${BD}`}}>Internal cost breakdown · all lines incl. {TAX_LABEL}</div>}
       {inv.lineItems.map(li=>(isMobile
         ? <div key={li.id} style={{padding:"10px 0",borderBottom:`1px solid ${BD}`,fontSize:13}}>
             <div style={{display:"flex",justifyContent:"space-between",gap:10,alignItems:"baseline"}}>
@@ -6493,8 +6493,8 @@ function InvoiceDetail({invoiceId,invoices,setInvoices,jobs,clients,payments,biz
         <div style={{minWidth:isMobile?0:280,width:isMobile?"100%":undefined}}>
           {discount>0&&<div style={{display:"flex",justifyContent:"space-between",fontSize:13,padding:"4px 0",color:WG}}><span>Subtotal</span><span>{fmt(subtotalIncGST)}</span></div>}
           {discount>0&&<div style={{display:"flex",justifyContent:"space-between",fontSize:13,padding:"4px 0",color:OK}}><span>{inv.discountLabel||"Discount"}</span><span>−{fmt(discount)}</span></div>}
-          <div style={{display:"flex",justifyContent:"space-between",fontSize:13,padding:"4px 0",color:WG}}><span>Includes GST</span><span>{fmt(inv.gst)}</span></div>
-          <div style={{display:"flex",justifyContent:"space-between",fontSize:17,fontWeight:800,color:INK,borderTop:`2px solid ${INK}`,marginTop:8,paddingTop:10}}><span>Total (incl. GST)</span><span>{fmt(inv.totalIncGST)}</span></div>
+          <div style={{display:"flex",justifyContent:"space-between",fontSize:13,padding:"4px 0",color:WG}}><span>Includes {TAX_LABEL}</span><span>{fmt(inv.gst)}</span></div>
+          <div style={{display:"flex",justifyContent:"space-between",fontSize:17,fontWeight:800,color:INK,borderTop:`2px solid ${INK}`,marginTop:8,paddingTop:10}}><span>Total (incl. {TAX_LABEL})</span><span>{fmt(inv.totalIncGST)}</span></div>
           {invTradeIn>0&&<div style={{display:"flex",justifyContent:"space-between",fontSize:13,padding:"6px 0 2px",color:OK}}><span>Gold trade-in credit</span><span>−{fmt(invTradeIn)}</span></div>}
           {paidTotal>0&&<div style={{display:"flex",justifyContent:"space-between",fontSize:13,padding:"6px 0 2px",color:OK}}><span>Paid to date</span><span>−{fmt(paidTotal)}</span></div>}
           {(invTradeIn>0||paidTotal>0)&&<div style={{display:"flex",justifyContent:"space-between",fontSize:15,fontWeight:800,color:balance>0.5?WARN:OK,marginTop:2}}><span>Balance due</span><span>{fmt(balance)}</span></div>}
@@ -6635,7 +6635,7 @@ function InvoicesList({invoices,jobs,clients,quotes,setQuotes,payments,setInvoic
           <div style={{display:"flex",gap:14,alignItems:"center",justifyContent:isMobile?"space-between":"flex-start",flexShrink:0}}>
             <Badge label={es} color={es==="Paid"?OK:es==="Overdue"?DANGER:WARN}/>
             <div style={{fontWeight:800,fontSize:17,color:INK,textAlign:"right"}}>
-              {fmt(inv.totalIncGST)}<div style={{fontSize:11,color:WG,fontWeight:400}}>inc GST</div>
+              {fmt(inv.totalIncGST)}<div style={{fontSize:11,color:WG,fontWeight:400}}>inc {TAX_LABEL}</div>
             </div>
             <Btn sm danger onClick={e=>delInv(inv.id,e)}>×</Btn>
           </div>
@@ -8002,14 +8002,14 @@ function Settings({biz,setBiz,markupTable,setMarkupTable,naturalStoneMarkup,setN
     {/* Stone markup tables */}
     <div style={{marginBottom:10,paddingTop:4}}>
       <div style={{fontSize:13,fontWeight:700,color:INK,marginBottom:4}}>Stone markup tables</div>
-      <div style={{fontSize:13,color:WG,lineHeight:1.6}}>Two separate markup tables for centre &amp; feature stones — one for natural, one for lab-grown. Applied in the quote builder based on stone type. GST (10%) is added at invoice time on top of the marked-up price.</div>
+      <div style={{fontSize:13,color:WG,lineHeight:1.6}}>Two separate markup tables for centre &amp; feature stones — one for natural, one for lab-grown. Applied in the quote builder based on stone type. {STONE_TAX_INCLUSIVE?<>{TAX_LABEL} ({Math.round(GST_RATE*100)}%) is included within the marked-up price.</>:<>{TAX_LABEL} ({Math.round(GST_RATE*100)}%) is added at invoice time on top of the marked-up price.</>}</div>
     </div>
     <Card>
       <div style={{display:"flex",alignItems:"center",gap:10,flexWrap:"wrap",rowGap:6,marginBottom:6}}>
         <div style={{background:"#4E8B6A",color:WHITE,borderRadius:3,padding:"4px 12px",fontSize:10.5,fontWeight:700,letterSpacing:"0.08em",textTransform:"uppercase",whiteSpace:"nowrap"}}>Natural Diamond &amp; Gemstone</div>
         <div style={{fontSize:11,color:WG,fontWeight:600}}>3.00× down to 1.20×</div>
       </div>
-      <div style={{fontSize:12,color:WG,marginBottom:14,lineHeight:1.5}}>"Natural" is selected in the quote builder stone section. <strong style={{color:INK}}>GST added at invoice time.</strong></div>
+      <div style={{fontSize:12,color:WG,marginBottom:14,lineHeight:1.5}}>"Natural" is selected in the quote builder stone section. <strong style={{color:INK}}>{STONE_TAX_INCLUSIVE?<>{TAX_LABEL} included in the marked-up price.</>:<>{TAX_LABEL} added at invoice time.</>}</strong></div>
       <div style={{background:WHITE,borderRadius:4,border:`1px solid ${BD}`,overflow:"hidden",marginBottom:12}}>
         <div style={{display:"grid",gridTemplateColumns:isMobile?"repeat(2,1fr) auto auto":"1fr 1fr 130px 44px",columnGap:isMobile?7:0,padding:"9px 16px",background:PARCH,borderBottom:`1px solid ${BD}`}}>
           {[`Cost from (${CUR_SYM})`,`Cost to (${CUR_SYM})`,"Multiplier",""].map(h=><div key={h} style={{fontSize:10,fontWeight:700,color:WG,textTransform:"uppercase",letterSpacing:"0.05em"}}>{h}</div>)}
@@ -8041,7 +8041,7 @@ function Settings({biz,setBiz,markupTable,setMarkupTable,naturalStoneMarkup,setN
         <div style={{background:"#96627C",color:WHITE,borderRadius:3,padding:"4px 12px",fontSize:10.5,fontWeight:700,letterSpacing:"0.08em",textTransform:"uppercase",whiteSpace:"nowrap"}}>Lab-Grown Diamond &amp; Gemstone</div>
         <div style={{fontSize:11,color:WG,fontWeight:600}}>4.25× down to 1.20×</div>
       </div>
-      <div style={{fontSize:12,color:WG,marginBottom:14,lineHeight:1.5}}>"Lab-Grown" is selected in the quote builder stone section. <strong style={{color:INK}}>GST added at invoice time.</strong></div>
+      <div style={{fontSize:12,color:WG,marginBottom:14,lineHeight:1.5}}>"Lab-Grown" is selected in the quote builder stone section. <strong style={{color:INK}}>{STONE_TAX_INCLUSIVE?<>{TAX_LABEL} included in the marked-up price.</>:<>{TAX_LABEL} added at invoice time.</>}</strong></div>
       <div style={{background:WHITE,borderRadius:4,border:`1px solid ${BD}`,overflow:"hidden",marginBottom:12}}>
         <div style={{display:"grid",gridTemplateColumns:isMobile?"repeat(2,1fr) auto auto":"1fr 1fr 130px 44px",columnGap:isMobile?7:0,padding:"9px 16px",background:PARCH,borderBottom:`1px solid ${BD}`}}>
           {[`Cost from (${CUR_SYM})`,`Cost to (${CUR_SYM})`,"Multiplier",""].map(h=><div key={h} style={{fontSize:10,fontWeight:700,color:WG,textTransform:"uppercase",letterSpacing:"0.05em"}}>{h}</div>)}
