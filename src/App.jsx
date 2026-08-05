@@ -4424,13 +4424,13 @@ function QuoteBuilder({jobId:jobIdProp,editQuoteId,stockId,stock,setStock,jobs,c
             <input type="number" value={li.costLow} onChange={e=>setAccentItem(li.id,"costLow",e.target.value)} placeholder="0.00" min="0" step="0.01" style={{...SS.inp,marginTop:0,fontSize:13,padding:"7px 8px 7px 22px",textAlign:"right",borderColor:cost>0?"#A6CBB4":BD,fontWeight:cost>0?700:400}}/>
           </div>
           <div style={{fontSize:13,fontWeight:700,color:INK,textAlign:"right",whiteSpace:"nowrap"}}>{totalStr}</div>
-          <div style={{display:"flex",gap:4,alignItems:"center"}}>
-            <select value={li.markupMode||"mfg"} onChange={e=>setAccentItem(li.id,"markupMode",e.target.value)} title="Markup basis — switch to natural/lab to price it separately" style={{...SS.inp,marginTop:0,fontSize:11,padding:"5px 4px",width:"auto"}}>
+          <div style={{display:"flex",gap:6,alignItems:"center",flexWrap:"wrap"}}>
+            <select value={li.markupMode||"mfg"} onChange={e=>setAccentItem(li.id,"markupMode",e.target.value)} title="Markup basis — switch to natural/lab to price it separately" style={{...SS.inp,marginTop:0,fontSize:12,padding:"5px 8px",width:"auto"}}>
               <option value="mfg">Mfg</option>
               <option value="natural">Natural</option>
               <option value="lab">Lab</option>
             </select>
-            <button onClick={()=>removeAccentItem(li.id)} title="Delete this line" style={{background:"none",border:"none",cursor:"pointer",color:DANGER,fontSize:17,padding:0,lineHeight:1}}>×</button>
+            <button onClick={()=>removeAccentItem(li.id)} title="Delete this line" style={{display:"inline-flex",alignItems:"center",gap:5,background:"none",border:`1px solid ${DANGER}55`,borderRadius:6,padding:"4px 10px",fontSize:12,fontWeight:600,color:DANGER,cursor:"pointer",fontFamily:"inherit",lineHeight:1.3,whiteSpace:"nowrap"}}><span style={{fontSize:14,lineHeight:1}}>✕</span> Delete</button>
           </div>
         </div>;})}
       {/* Sourced centre / feature stone — folded into the jewellery costs list (priced on the stone markup) */}
@@ -4448,7 +4448,7 @@ function QuoteBuilder({jobId:jobIdProp,editQuoteId,stockId,stock,setStock,jobs,c
             <input type="number" value={li.cost||""} onChange={e=>setStonItem(li.id,"cost",e.target.value)} placeholder="0.00" min="0" step="0.01" style={{...SS.inp,marginTop:0,fontSize:13,padding:"7px 8px 7px 22px",textAlign:"right",borderColor:stoneCost>0?(stoneType==="lab"?"#CDB2C1":"#A6CBB4"):BD,fontWeight:stoneCost>0?700:400}}/>
           </div>
           <div style={{display:"flex",gap:3,alignItems:"center",justifyContent:"flex-end"}}>
-            <button onClick={()=>removeStoneItem(li.id)} style={{background:"none",border:"none",cursor:"pointer",color:DANGER,fontSize:17,padding:0,lineHeight:1}}>×</button>
+            <button onClick={()=>removeStoneItem(li.id)} title="Delete this line" style={{display:"inline-flex",alignItems:"center",gap:5,background:"none",border:`1px solid ${DANGER}55`,borderRadius:6,padding:"4px 10px",fontSize:12,fontWeight:600,color:DANGER,cursor:"pointer",fontFamily:"inherit",lineHeight:1.3,whiteSpace:"nowrap"}}><span style={{fontSize:14,lineHeight:1}}>✕</span> Delete</button>
           </div>
         </div>;})}
       <div style={{display:"flex",gap:10,marginTop:8,flexWrap:"wrap"}}>
