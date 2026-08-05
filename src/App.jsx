@@ -1445,7 +1445,7 @@ const buildInvoiceSnapshot=({inv,job,client,biz,payments})=>{
 
 // ── Invoice CSV export (shared by the Invoices list range-export and single-invoice export) ──
 const _csvCell=v=>{const s=String(v==null?"":v);return /[",\r\n]/.test(s)?'"'+s.replace(/"/g,'""')+'"':s;};
-const INVOICE_CSV_HEADER=["Invoice","Date","Customer","Description","Subtotal (ex GST)","GST","Total (inc GST)","Trade-in credit","Amount received","Balance","Status"];
+const invoiceCsvHeader=()=>["Invoice","Date","Customer","Description",`Subtotal (ex ${TAX_LABEL})`,TAX_LABEL,`Total (inc ${TAX_LABEL})`,"Trade-in credit","Amount received","Balance","Status"];
 // Per-invoice paid/balance: distribute each job's received cash across its invoices oldest-first
 // (payments are job-level), so figures reconcile with the summary tiles.
 const invoicePaidBalanceMap=(invoices,payments)=>{
@@ -1468,7 +1468,7 @@ const invoiceCsvRow=(inv,{jobs,clients,payments,allInvoices,paidMap,balMap})=>{
   return [inv.number,inv.date,cl?clientDisplayName(cl):"",desc,(total-gst).toFixed(2),gst.toFixed(2),total.toFixed(2),(Number(inv.tradeInCredit)||0).toFixed(2),(paidMap[inv.id]||0).toFixed(2),(balMap[inv.id]||0).toFixed(2),invoiceEffectiveStatus(inv,payments,allInvoices)];
 };
 const downloadInvoiceCsv=(rows,filename)=>{
-  const csv="﻿"+[INVOICE_CSV_HEADER,...rows].map(r=>r.map(_csvCell).join(",")).join("\r\n");
+  const csv="﻿"+[invoiceCsvHeader(),...rows].map(r=>r.map(_csvCell).join(",")).join("\r\n");
   const url=URL.createObjectURL(new Blob([csv],{type:"text/csv;charset=utf-8;"}));
   const a=document.createElement("a");a.href=url;a.download=filename;document.body.appendChild(a);a.click();a.remove();URL.revokeObjectURL(url);
 };
@@ -1930,7 +1930,7 @@ function StoneMarkupSummary({calc}){
         ["Bracket",calc.bracket?`${fmt(calc.bracket.low)}–${fmt(calc.bracket.high)}`:"—",WG],
         ["Markup",`${calc.mult}×${calc.overridden?" (override)":""}`,calc.overridden?GOLD:"#96627C"],
         ["Marked up",fmt(calc.markedUp),INK],
-        ["+ GST → Client",fmtR(calc.clientTotal),OK],
+        [`+ ${TAX_LABEL} → Client`,fmtR(calc.clientTotal),OK],
       ].map(([l,v,col])=>(
         <div key={l} style={{padding:"12px 14px",borderRight:`1px solid ${BD}`}}>
           <div style={{fontSize:9,fontWeight:700,color:WG,textTransform:"uppercase",letterSpacing:"0.06em",marginBottom:4}}>{l}</div>
@@ -1943,11 +1943,11 @@ function StoneMarkupSummary({calc}){
       const profit=calc.markedUp-calc.totalCost;                       // gross profit, ex GST
       const margin=calc.markedUp>0?Math.round(profit/calc.markedUp*100):0;   // margin on the ex-GST sell price
       return <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:12,flexWrap:"wrap",padding:"10px 14px",background:OK+"0E",borderBottom:`1px solid ${BD}`}}>
-        <span style={{fontSize:11,fontWeight:700,color:WG,textTransform:"uppercase",letterSpacing:"0.06em"}}>Your profit on this stone <span style={{fontWeight:400,textTransform:"none",letterSpacing:0}}>(internal — excl. GST)</span></span>
+        <span style={{fontSize:11,fontWeight:700,color:WG,textTransform:"uppercase",letterSpacing:"0.06em"}}>Your profit on this stone <span style={{fontWeight:400,textTransform:"none",letterSpacing:0}}>(internal — excl. {TAX_LABEL})</span></span>
         <span style={{fontSize:13,color:INK}}><strong style={{color:OK,fontSize:15}}>{fmt(profit)}</strong> profit · <strong style={{color:INK}}>{margin}%</strong> margin · {calc.mult}× markup</span>
       </div>;
     })()}
-    <div style={{padding:"8px 14px",fontSize:11,color:WG}}>Stone price shown to client: <strong style={{color:INK}}>{fmtR(calc.clientTotal)}</strong> (your cost {fmt(calc.totalCost)} × {calc.mult} markup = {fmt(calc.markedUp)} + 10% GST)</div>
+    <div style={{padding:"8px 14px",fontSize:11,color:WG}}>Stone price shown to client: <strong style={{color:INK}}>{fmtR(calc.clientTotal)}</strong> (your cost {fmt(calc.totalCost)} × {calc.mult} markup = {fmt(calc.markedUp)} + {Math.round(GST_RATE*100)}% {TAX_LABEL})</div>
   </div>;
 }
 
@@ -2048,7 +2048,7 @@ function MarkupSummary({baseLow,baseHigh,isRange,bracket,mult,autoMult,overridde
       const profit=exGstSell-baseLow;
       const margin=exGstSell>0?Math.round(profit/exGstSell*100):0;
       return <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:12,flexWrap:"wrap",padding:"10px 16px",background:OK+"0E",borderTop:`1px solid ${BD}`}}>
-        <span style={{fontSize:11,fontWeight:700,color:WG,textTransform:"uppercase",letterSpacing:"0.06em"}}>Your profit on the jewellery <span style={{fontWeight:400,textTransform:"none",letterSpacing:0}}>(internal — excl. GST{hasFlat?"; no-markup items at cost":""})</span></span>
+        <span style={{fontSize:11,fontWeight:700,color:WG,textTransform:"uppercase",letterSpacing:"0.06em"}}>Your profit on the jewellery <span style={{fontWeight:400,textTransform:"none",letterSpacing:0}}>(internal — excl. {TAX_LABEL}{hasFlat?"; no-markup items at cost":""})</span></span>
         <span style={{fontSize:13,color:INK}}><strong style={{color:OK,fontSize:15}}>{fmt(profit)}</strong> profit · <strong style={{color:INK}}>{margin}%</strong> margin · {mult}× markup</span>
       </div>;
     })()}
@@ -2253,7 +2253,7 @@ async function printRepairIntake(biz,c,job){
     ["Client",esc(c?.name||"—")],
     ["Taken in",job.dateIn?fmtDate(job.dateIn):"—"],
     ["Ready for collection",job.dateOut?fmtDate(job.dateOut):"—"],
-    ...(hasPrices?[["Repair total · inc GST",`<span style="color:#8B6914">${fmt(repairTotal)}</span>`]]:[]),
+    ...(hasPrices?[[`Repair total · inc ${TAX_LABEL}`,`<span style="color:#8B6914">${fmt(repairTotal)}</span>`]]:[]),
   ];
   const summaryHtml=`<div class="rsum" style="grid-template-columns:repeat(${sum.length},1fr)">${sum.map(([l,v])=>`<div><div class="rs-lbl">${l}</div><div class="rs-val">${v}</div></div>`).join("")}</div>`;
 
@@ -2271,10 +2271,10 @@ ${hasPrices?`<td class="amt">${itemAmt(it)>0?fmt(itemAmt(it)):dash}</td>`:""}
 <thead><tr><th class="num">#</th><th>Item</th><th>Issue / work required</th><th>Condition on arrival</th>${hasPrices?`<th class="amt">Price</th>`:""}</tr></thead>
 <tbody>${rows}</tbody></table>
 ${hasPrices?(tradeIn>0
-  ?`<div class="rtot"><span class="rt-l">Repair total (inc GST)</span><span class="rt-v" style="font-size:15px">${fmt(repairTotal)}</span></div>
+  ?`<div class="rtot"><span class="rt-l">Repair total (inc ${TAX_LABEL})</span><span class="rt-v" style="font-size:15px">${fmt(repairTotal)}</span></div>
 <div class="rtot" style="margin:2px 0 0"><span class="rt-l" style="color:#2D7A4F">Gold trade-in credit${tradeIn&&job.repairTradeInNote?" · "+esc(job.repairTradeInNote):""}</span><span class="rt-v" style="font-size:15px;color:#2D7A4F">− ${fmt(tradeIn)}</span></div>
 <div class="rtot" style="border-top:2px solid #1A1714;margin-top:6px;padding-top:8px"><span class="rt-l">Amount due</span><span class="rt-v">${fmt(amountDue)}</span></div>`
-  :`<div class="rtot"><span class="rt-l">Repair total (inc GST)</span><span class="rt-v">${fmt(repairTotal)}</span></div>`):""}`;
+  :`<div class="rtot"><span class="rt-l">Repair total (inc ${TAX_LABEL})</span><span class="rt-v">${fmt(repairTotal)}</span></div>`):""}`;
 
   // Uploaded photos of the piece(s) on intake
   const photosHtml=photos.length?`<div class="photos"><div class="ph-lbl">Photos on intake</div><div class="ph-grid">${photos.map(p=>`<figure class="ph-item"><img src="${p.url}" alt="Repair photo"/>${p.caption?`<figcaption>${esc(p.caption)}</figcaption>`:""}</figure>`).join("")}</div></div>`:"";
@@ -2695,7 +2695,7 @@ function ClientForm({initial={},onSave,onCancel}){
       <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"0 16px"}}>
         <Input label="ABN" value={f.abn||""} onChange={set("abn")} placeholder="12 345 678 901"/>
         <Input label="Account terms" value={f.terms||""} onChange={set("terms")} as="select" options={[{value:"",label:"— Select —"},"COD","Net 7","Net 14","Net 30","EOM (end of month)"]}/>
-        <Input label="Credit limit ($) — optional" value={f.creditLimit||""} onChange={set("creditLimit")} type="number" min="0" step="1" placeholder="e.g. 5000"/>
+        <Input label={`Credit limit (${CUR_SYM}) — optional`} value={f.creditLimit||""} onChange={set("creditLimit")} type="number" min="0" step="1" placeholder="e.g. 5000"/>
       </div>
       <div style={{fontSize:11,color:WG,margin:"-4px 0 14px",lineHeight:1.5}}>Trade pricing comes from your <strong>Trade markups</strong> in Settings — quotes for this account use them automatically.</div>
       <label style={{display:"flex",alignItems:"center",gap:9,fontSize:13,color:INK,cursor:"pointer",margin:"2px 0 16px"}}>
@@ -2884,7 +2884,7 @@ function JobForm({clients,initial={},onSave,onCancel}){
     </div>
     <div style={{borderTop:`1px solid ${BD}`,margin:"6px 0 16px"}}/>
     <div style={{background:GOLD_L,border:`1px solid ${GOLD}55`,borderRadius:4,padding:"12px 16px",marginBottom:16}}>
-      <Input label="Total charge override ($) — optional" value={f.totalOverride||""} onChange={set("totalOverride")} type="number" min="0" step="0.01" placeholder="e.g. 4500"/>
+      <Input label={`Total charge override (${CUR_SYM}) — optional`} value={f.totalOverride||""} onChange={set("totalOverride")} type="number" min="0" step="0.01" placeholder="e.g. 4500"/>
       <div style={{fontSize:11,color:GOLD_D,marginTop:-6,lineHeight:1.5}}>Set this when the sale was agreed outside the CRM (no quote needed). The CRM uses it as the job's total for balances, overview &amp; reports. Leave blank to use approved quotes instead.</div>
     </div>
     <Input label="Job description" value={f.description} onChange={set("description")} as="textarea" rows={3} placeholder="Describe the piece, specifications, materials…"/>
@@ -3327,7 +3327,7 @@ function RepairIntakeCard({job,setJobs,biz,clients,markupTable,pricing=[],invoic
         <Btn sm ghost onClick={()=>printRepairIntake(biz,c,{...job,dateIn:dIn,dateOut:dOut,intake:{items:items.map(it=>({...it,clientPrice:itemClient(it)})),instructions}})}>Print / Save PDF</Btn>
       </div>
     </div>
-    {trade&&<div style={{background:"#4E8B6A14",border:"1px solid #4E8B6A55",borderRadius:4,padding:"9px 14px",marginBottom:16,fontSize:12.5,color:"#3B6E52",fontWeight:600}}>Trade account — <strong>10% GST is added</strong> on top of repair prices.</div>}
+    {trade&&<div style={{background:"#4E8B6A14",border:"1px solid #4E8B6A55",borderRadius:4,padding:"9px 14px",marginBottom:16,fontSize:12.5,color:"#3B6E52",fontWeight:600}}>Trade account — <strong>{Math.round(GST_RATE*100)}% {TAX_LABEL} is added</strong> on top of repair prices.</div>}
     {job.repairToken&&<div style={{background:GOLD_L+"55",border:`1px solid ${GOLD}55`,borderRadius:4,padding:"9px 14px",marginBottom:16,display:"flex",alignItems:"center",gap:12,flexWrap:"wrap"}}>
       <span style={{fontSize:12,fontWeight:700,color:GOLD_D,whiteSpace:"nowrap"}}>🔗 Client link</span>
       <span style={{flex:1,minWidth:180,fontSize:12,color:WG,wordBreak:"break-all",fontFamily:"monospace"}}>{repairLink}</span>
@@ -3383,11 +3383,11 @@ function RepairIntakeCard({job,setJobs,biz,clients,markupTable,pricing=[],invoic
             <div style={{fontSize:10,color:WG,marginTop:4,textAlign:"right",lineHeight:1.4}}>
               {(!trade&&it.priceMode==="cost")
                 ?(Number(it.price)>0
-                    ?(itemMult(it)?<>×{itemMult(it)} markup → <strong style={{color:OK}}>{fmt(itemClient(it))}</strong> inc GST</>:<span style={{color:WARN}}>cost outside markup table</span>)
+                    ?(itemMult(it)?<>×{itemMult(it)} markup → <strong style={{color:OK}}>{fmt(itemClient(it))}</strong> inc {TAX_LABEL}</>:<span style={{color:WARN}}>cost outside markup table</span>)
                     :"Trade cost — manufacturing markup applied")
                 :(trade&&Number(it.price)>0
-                    ?<>+ 10% GST → <strong style={{color:OK}}>{fmt(itemClient(it))}</strong> inc GST</>
-                    :"Final price (inc GST)")}
+                    ?<>+ {Math.round(GST_RATE*100)}% {TAX_LABEL} → <strong style={{color:OK}}>{fmt(itemClient(it))}</strong> inc {TAX_LABEL}</>
+                    :`Final price (inc ${TAX_LABEL})`)}
             </div>
           </div>
         </div>
@@ -3406,7 +3406,7 @@ function RepairIntakeCard({job,setJobs,biz,clients,markupTable,pricing=[],invoic
     {/* Gold trade-in credit — customer's own metal offsets the repair (a credit, like on quotes) */}
     <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"210px 1fr",gap:12,alignItems:"end",marginBottom:16,padding:"12px 14px",border:`1px solid ${BD}`,borderRadius:4,background:PARCH}}>
       <div>
-        <div style={SS.lbl}>Gold trade-in credit ($)</div>
+        <div style={SS.lbl}>{`Gold trade-in credit (${CUR_SYM})`}</div>
         <div style={{position:"relative"}}>
           <span style={{position:"absolute",left:10,top:"50%",transform:"translateY(-50%)",fontSize:13,color:WG,pointerEvents:"none"}}>$</span>
           <input type="number" min="0" step="0.01" style={{...SS.inp,marginTop:0,padding:"9px 10px 9px 22px",textAlign:"right",fontWeight:Number(tradeIn)>0?700:400}} value={tradeIn} placeholder="0.00" onChange={e=>setTradeIn(e.target.value)} onBlur={commitTradeIn}/>
@@ -3424,11 +3424,11 @@ function RepairIntakeCard({job,setJobs,biz,clients,markupTable,pricing=[],invoic
         <div style={{fontSize:10,fontWeight:700,color:"rgba(255,255,255,0.5)",textTransform:"uppercase",letterSpacing:"0.08em"}}>Repair total{items.filter(i=>Number(i.price)>0).length>1?` · ${items.filter(i=>Number(i.price)>0).length} items`:""}</div>
         {Number(tradeIn)>0
           ?<>
-            <div style={{fontSize:15,fontWeight:700,color:"rgba(255,255,255,0.85)",marginTop:2}}>{fmt(repairTotal)} <span style={{fontSize:11,fontWeight:400,color:"rgba(255,255,255,0.5)"}}>inc GST</span></div>
+            <div style={{fontSize:15,fontWeight:700,color:"rgba(255,255,255,0.85)",marginTop:2}}>{fmt(repairTotal)} <span style={{fontSize:11,fontWeight:400,color:"rgba(255,255,255,0.5)"}}>inc {TAX_LABEL}</span></div>
             <div style={{fontSize:12,color:"#8FD3AE",marginTop:2}}>less gold trade-in − {fmt(Number(tradeIn))}</div>
             <div style={{fontSize:22,fontWeight:800,color:WHITE,marginTop:2}}>{fmt(Math.max(0,repairTotal-Number(tradeIn)))} <span style={{fontSize:12,fontWeight:400,color:"rgba(255,255,255,0.5)"}}>due</span></div>
           </>
-          :<div style={{fontSize:22,fontWeight:800,color:WHITE,marginTop:2}}>{fmt(repairTotal)} <span style={{fontSize:12,fontWeight:400,color:"rgba(255,255,255,0.5)"}}>inc GST</span></div>}
+          :<div style={{fontSize:22,fontWeight:800,color:WHITE,marginTop:2}}>{fmt(repairTotal)} <span style={{fontSize:12,fontWeight:400,color:"rgba(255,255,255,0.5)"}}>inc {TAX_LABEL}</span></div>}
       </div>
       <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
         <button onClick={setAsCharge} style={{background:"none",border:"1px solid rgba(255,255,255,0.4)",borderRadius:4,padding:"9px 16px",color:WHITE,fontSize:12,fontWeight:700,cursor:"pointer",fontFamily:"inherit"}}>Set as job charge</button>
@@ -3656,7 +3656,7 @@ function JobDetail({jobId,jobs,setJobs,clients,quotes,setQuotes,payments,setPaym
           <div style={{minWidth:0}}><div style={{fontWeight:600,fontSize:14,color:INK}}>{inv.number}</div><div style={{fontSize:12,color:WG,marginTop:1}}>{fmtDate(inv.date)}</div></div>
           <div style={{display:"flex",gap:12,alignItems:"center",justifyContent:isMobile?"space-between":"flex-end",flexShrink:0}}>
             <Badge label={es} color={es==="Paid"?OK:es==="Overdue"?DANGER:WARN}/>
-            <div style={{fontWeight:800,fontSize:14,color:INK}}>{fmt(inv.totalIncGST)} <span style={{fontSize:11,color:WG,fontWeight:400}}>inc GST</span></div>
+            <div style={{fontWeight:800,fontSize:14,color:INK}}>{fmt(inv.totalIncGST)} <span style={{fontSize:11,color:WG,fontWeight:400}}>inc {TAX_LABEL}</span></div>
           </div>
         </div>;
       })}
@@ -3716,7 +3716,7 @@ function JobDetail({jobId,jobs,setJobs,clients,quotes,setQuotes,payments,setPaym
       })}
       <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",borderTop:`1px solid ${BD}`,marginTop:6,paddingTop:12}}>
         <span style={{fontSize:12,color:WG}}>Invoice {nextInvoiceNumber(invoices)} · {combineSel.length} quote{combineSel.length!==1?"s":""}{combineSel.length>1?" combined":""}</span>
-        <span style={{fontSize:16,fontWeight:800,color:OK}}>{fmtR(combineTotal)} <span style={{fontSize:11,color:WG,fontWeight:400}}>inc GST</span></span>
+        <span style={{fontSize:16,fontWeight:800,color:OK}}>{fmtR(combineTotal)} <span style={{fontSize:11,color:WG,fontWeight:400}}>inc {TAX_LABEL}</span></span>
       </div>
       <div style={{display:"flex",gap:10,justifyContent:"flex-end",marginTop:16}}>
         <Btn ghost onClick={()=>setCombineModal(false)}>Cancel</Btn>
@@ -3745,7 +3745,7 @@ function PaymentForm({onSave,onCancel,suggestedAmount}){
       {isTradeIn
         ?<div style={{marginBottom:14}}><label style={SS.lbl}>Recording</label><div style={{...SS.inp,background:PARCH,color:GOLD_D,fontWeight:700,display:"flex",alignItems:"center"}}>Trade-in credit</div></div>
         :<Input label="Payment stage" value={f.type} onChange={set("type")} as="select" options={PAY_TYPES.filter(t=>t!=="Trade-in credit")}/>}
-      <Input label="Amount ($)" value={f.amount} onChange={set("amount")} type="number" min="0" step="0.01"/>
+      <Input label={`Amount (${CUR_SYM})`} value={f.amount} onChange={set("amount")} type="number" min="0" step="0.01"/>
       <Input label="Date" value={f.date} onChange={set("date")} type="date"/>
       <Input label="Method" value={f.method} onChange={setMethod} as="select" options={PAY_METHODS}/>
     </div>
@@ -3843,7 +3843,7 @@ function AccentStoneModal({pricing,setPricing,naturalStoneMarkup,labStoneMarkup,
             </div>
             {perCtMode
               ?<div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"0 16px"}}>
-                <Input label="Price per carat ($/ct)" value={perCt} onChange={setPerCt} type="number" min="0" step="0.01" placeholder="e.g. 500"/>
+                <Input label={`Price per carat (${CUR_SYM}/ct)`} value={perCt} onChange={setPerCt} type="number" min="0" step="0.01" placeholder="e.g. 500"/>
                 <div style={{marginBottom:14}}>
                   <label style={SS.lbl}>Calculated total</label>
                   <div style={{...SS.inp,background:PARCH,fontWeight:cn>0?700:400,color:cn>0?INK:WG,textAlign:"right"}}>
@@ -3851,7 +3851,7 @@ function AccentStoneModal({pricing,setPricing,naturalStoneMarkup,labStoneMarkup,
                   </div>
                 </div>
               </div>
-              :<Input label="Total cost ($)" value={cost} onChange={setCost} type="number" min="0" step="0.01" placeholder="0.00"/>}
+              :<Input label={`Total cost (${CUR_SYM})`} value={cost} onChange={setCost} type="number" min="0" step="0.01" placeholder="0.00"/>}
           </div>
         </div>
         <div style={{fontSize:11,color:WG,marginTop:2,lineHeight:1.5,fontStyle:"italic"}}>
@@ -3872,8 +3872,8 @@ function AccentStoneModal({pricing,setPricing,naturalStoneMarkup,labStoneMarkup,
         {/* Markup hint — when on the stone markup, show the resulting client price */}
         {stoneMU&&<div style={{fontSize:12,marginTop:10,lineHeight:1.5,color:stonePreview?(stonePreview.bracket?"#96627C":WARN):WG}}>
           {stonePreview
-            ?(stonePreview.bracket?<>→ <strong>{fmtR(stonePreview.clientTotal)}</strong> to client (×{stonePreview.mult} + GST)</>:"Cost is outside your stone markup table — check the rates in Pricing DB.")
-            :"Priced on the "+(qMarkup==="lab"?"lab-grown":"natural")+" stone markup (cost × tier + GST). Enter a cost to preview."}
+            ?(stonePreview.bracket?<>→ <strong>{fmtR(stonePreview.clientTotal)}</strong> to client (×{stonePreview.mult} + {TAX_LABEL})</>:"Cost is outside your stone markup table — check the rates in Pricing DB.")
+            :"Priced on the "+(qMarkup==="lab"?"lab-grown":"natural")+" stone markup (cost × tier + "+TAX_LABEL+"). Enter a cost to preview."}
         </div>}
         {!stoneMU&&<div style={{fontSize:12,marginTop:10,lineHeight:1.5,color:WG}}>Priced with the jewellery piece on the manufacturing markup.</div>}
 
@@ -3974,7 +3974,7 @@ function CentreStoneModal({stoneType,activeStoneMarkup,stoneOverride,onAdd,onClo
           </div>
           {perCtMode
             ?<div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"0 16px"}}>
-              <Input label="Price per carat ($/ct)" value={perCt} onChange={setPerCt} type="number" min="0" step="0.01" placeholder="e.g. 4500"/>
+              <Input label={`Price per carat (${CUR_SYM}/ct)`} value={perCt} onChange={setPerCt} type="number" min="0" step="0.01" placeholder="e.g. 4500"/>
               <div style={{marginBottom:14}}>
                 <label style={SS.lbl}>Calculated total</label>
                 <div style={{...SS.inp,background:PARCH,fontWeight:cn>0?700:400,color:cn>0?INK:WG,textAlign:"right"}}>
@@ -3982,14 +3982,14 @@ function CentreStoneModal({stoneType,activeStoneMarkup,stoneOverride,onAdd,onClo
                 </div>
               </div>
             </div>
-            :<Input label="Total cost ($)" value={cost} onChange={setCost} type="number" min="0" step="0.01" placeholder="0.00"/>}
+            :<Input label={`Total cost (${CUR_SYM})`} value={cost} onChange={setCost} type="number" min="0" step="0.01" placeholder="0.00"/>}
         </div>
       </div>
       {desc&&<div style={{fontSize:12,color:INK,marginTop:2,lineHeight:1.5,background:WHITE,border:`1px solid ${BD}`,borderRadius:4,padding:"9px 12px"}}><span style={{fontSize:10,fontWeight:700,color:WG,textTransform:"uppercase",letterSpacing:"0.06em",marginRight:8}}>Preview</span>{desc}</div>}
       {/* Client price on the stone markup — same maths as the quote's stone section */}
       <div style={{fontSize:12,marginTop:12,lineHeight:1.5,color:preview?(preview.bracket?accent:WARN):WG}}>
         {preview
-          ?(preview.bracket?<>→ <strong>{fmtR(preview.clientTotal)}</strong> to client (×{preview.mult} + GST)</>:"Cost is outside your stone markup table — check the rates in Pricing DB.")
+          ?(preview.bracket?<>→ <strong>{fmtR(preview.clientTotal)}</strong> to client (×{preview.mult} + {TAX_LABEL})</>:"Cost is outside your stone markup table — check the rates in Pricing DB.")
           :"Enter a cost to preview the client price."}
       </div>
       <div style={{display:"flex",justifyContent:"center",marginTop:20}}>
@@ -4375,7 +4375,7 @@ function QuoteBuilder({jobId:jobIdProp,editQuoteId,stockId,stock,setStock,jobs,c
         const totalStr=cost>0?fmt(cost):"—";
         return <div key={li.id} style={{display:"grid",gridTemplateColumns:isMobile?"1fr auto":"minmax(240px,1.6fr) 1fr 120px 104px",columnGap:8,rowGap:isMobile?7:8,marginBottom:isMobile?16:8,alignItems:"center",...(isMobile?{padding:"10px",border:`1px solid ${BD}`,borderRadius:6,background:PARCH}:{})}}>
           <input value={li.description} onChange={e=>setItem(li.id,"description",e.target.value)} placeholder="Item — e.g. 9ct white gold" style={{...SS.inp,marginTop:0,fontSize:13,padding:"7px 10px",gridColumn:isMobile?"1 / -1":"auto"}}/>
-          <input value={li.detail} onChange={e=>setItem(li.id,"detail",e.target.value)} placeholder="Detail — e.g. 5g × $110/g" style={{...SS.inp,marginTop:0,fontSize:13,padding:"7px 10px",color:WG,gridColumn:isMobile?"1 / -1":"auto"}}/>
+          <input value={li.detail} onChange={e=>setItem(li.id,"detail",e.target.value)} placeholder={`Detail — e.g. 5g × ${CUR_SYM}110/g`} style={{...SS.inp,marginTop:0,fontSize:13,padding:"7px 10px",color:WG,gridColumn:isMobile?"1 / -1":"auto"}}/>
           <input type="number" value={li.costLow} onChange={e=>setItem(li.id,"costLow",e.target.value)} placeholder="0.00" min="0" step="0.01" style={{...SS.inp,marginTop:0,fontSize:13,padding:"7px 8px",textAlign:"right"}}/>
           <div style={{fontSize:13,fontWeight:700,color:INK,textAlign:"right",whiteSpace:"nowrap"}}>{totalStr}</div>
           <div style={{display:"flex",gap:3,alignItems:"center",flexWrap:"wrap",gridColumn:isMobile?"1 / -1":"auto"}}>
@@ -4479,7 +4479,7 @@ function QuoteBuilder({jobId:jobIdProp,editQuoteId,stockId,stock,setStock,jobs,c
       {/* ── Accent stones priced on the stone markup (natural / lab) ── */}
       {stoneAccents.length>0&&<div style={{borderTop:`1px solid ${BD}`,margin:"8px 0 20px",paddingTop:20}}>
         <div style={{fontSize:11,fontWeight:700,color:"#96627C",textTransform:"uppercase",letterSpacing:"0.08em"}}>Accent stones on stone markup</div>
-        <div style={{fontSize:11,color:WG,margin:"3px 0 12px",lineHeight:1.55}}>These are priced like the centre stone — your cost × the natural/lab stone tier + GST — not the jewellery markup. Switch one back to <strong>Mfg markup</strong> to fold it into the jewellery costs above.</div>
+        <div style={{fontSize:11,color:WG,margin:"3px 0 12px",lineHeight:1.55}}>These are priced like the centre stone — your cost × the natural/lab stone tier + {TAX_LABEL} — not the jewellery markup. Switch one back to <strong>Mfg markup</strong> to fold it into the jewellery costs above.</div>
         <div style={{display:"grid",gridTemplateColumns:"1.3fr 1fr 150px 110px 36px",gap:8,marginBottom:6,padding:"0 2px"}}>
           {["Stone","Notes / detail","Markup","Your cost",""].map(h=><div key={h} style={{fontSize:10,fontWeight:700,color:WG,textTransform:"uppercase",letterSpacing:"0.04em"}}>{h}</div>)}
         </div>
@@ -4489,7 +4489,7 @@ function QuoteBuilder({jobId:jobIdProp,editQuoteId,stockId,stock,setStock,jobs,c
           const sc=cost>0?calcStoneQuote([{cost:li.costLow}],mode==="lab"?labTable:natTable):null;
           return <div key={li.id} style={{display:"grid",gridTemplateColumns:"1.3fr 1fr 150px 110px 36px",gap:8,marginBottom:8,alignItems:"center"}}>
             <div style={{fontSize:13,fontWeight:600,color:INK,padding:"7px 0"}}>{li.description||<span style={{color:WG,fontStyle:"italic"}}>—</span>}
-              <div style={{fontSize:10,color:sc?(sc.bracket?"#96627C":WARN):WG,marginTop:1}}>{sc?(sc.bracket?`→ ${fmtR(sc.clientTotal)} to client (×${sc.mult} + GST)`:"cost outside stone table"):""}</div>
+              <div style={{fontSize:10,color:sc?(sc.bracket?"#96627C":WARN):WG,marginTop:1}}>{sc?(sc.bracket?`→ ${fmtR(sc.clientTotal)} to client (×${sc.mult} + ${TAX_LABEL})`:"cost outside stone table"):""}</div>
             </div>
             <div style={{fontSize:12,color:WG,padding:"7px 0"}}>{li.detail||"—"}</div>
             <select value={mode} onChange={e=>setAccentItem(li.id,"markupMode",e.target.value)} style={{...SS.inp,marginTop:0,fontSize:12,padding:"7px 8px"}}>
@@ -4557,7 +4557,7 @@ function QuoteBuilder({jobId:jobIdProp,editQuoteId,stockId,stock,setStock,jobs,c
           <div style={{fontSize:12,color:WG,marginBottom:12,lineHeight:1.5}}>Add the centre stone with <strong style={{color:stoneType==="lab"?"#96627C":"#4E8B6A"}}>+ Centre stone</strong> in the jewellery costs list above — it's tagged <strong>CENTRE</strong> and priced on the {stoneType==="lab"?"lab-grown":"natural"} stone markup below.</div>
           {stoneCalc&&<div style={{marginBottom:4}}>
             <div style={{fontSize:11,fontWeight:700,color:stoneType==="lab"?"#96627C":"#4E8B6A",textTransform:"uppercase",letterSpacing:"0.06em",marginBottom:10}}>
-              {stoneType==="lab"?"Lab-Grown stone":"Natural stone"} — markup + GST
+              {stoneType==="lab"?"Lab-Grown stone":"Natural stone"} — markup + {TAX_LABEL}
             </div>
             <StoneMarkupSummary calc={stoneCalc}/>
             {/* Manual stone-markup override — dial a pricey stone down, this quote only */}
@@ -4629,7 +4629,7 @@ function QuoteBuilder({jobId:jobIdProp,editQuoteId,stockId,stock,setStock,jobs,c
         <div style={{display:"flex",alignItems:"center",gap:14,flexWrap:"wrap"}}>
           <div style={{flex:1,minWidth:240}}>
             <div style={{fontSize:11,fontWeight:700,color:WG,textTransform:"uppercase",letterSpacing:"0.08em"}}>Manual quoted price</div>
-            <div style={{fontSize:11,color:WG,marginTop:3,lineHeight:1.5}}>Quoted verbally over the phone or in person? Enter the final price (inc GST) — it becomes the quote total everywhere, no line items needed.</div>
+            <div style={{fontSize:11,color:WG,marginTop:3,lineHeight:1.5}}>Quoted verbally over the phone or in person? Enter the final price (inc {TAX_LABEL}) — it becomes the quote total everywhere, no line items needed.</div>
           </div>
           <div style={{position:"relative",width:150,flexShrink:0}}>
             <span style={{position:"absolute",left:10,top:"50%",transform:"translateY(-50%)",fontSize:13,color:WG,pointerEvents:"none"}}>$</span>
@@ -4785,7 +4785,7 @@ function QuoteBuilder({jobId:jobIdProp,editQuoteId,stockId,stock,setStock,jobs,c
               :<span>The popup stays open — add as many items as you need, then hit Done.</span>}
           </div>
           <div style={{display:"flex",alignItems:"center",gap:16}}>
-            <span style={{fontSize:12,color:WG}}>Quote total: <strong style={{color:OK,fontSize:15}}>{fmtR(manualOn?Number(manualTotal):grandTotal)}</strong> inc GST</span>
+            <span style={{fontSize:12,color:WG}}>Quote total: <strong style={{color:OK,fontSize:15}}>{fmtR(manualOn?Number(manualTotal):grandTotal)}</strong> inc {TAX_LABEL}</span>
             <Btn onClick={closePricing}>Done</Btn>
           </div>
         </div>
@@ -5009,7 +5009,7 @@ function JobProposals({job,client,quotes,proposals,setProposals,setQuotes,biz,ma
             <input type="checkbox" checked={on} onChange={()=>toggle(q.id)} style={{width:16,height:16,cursor:"pointer",accentColor:GOLD}}/>
             <div style={{flex:1,cursor:"pointer"}} onClick={()=>toggle(q.id)}>
               <div style={{fontWeight:700,fontSize:14,color:INK}}>{quoteLabel(q)}</div>
-              <div style={{fontSize:12,color:WG,marginTop:1}}>{fmtR(quoteGrandTotal(q,markupTable))} inc GST · {q.status}</div>
+              <div style={{fontSize:12,color:WG,marginTop:1}}>{fmtR(quoteGrandTotal(q,markupTable))} inc {TAX_LABEL} · {q.status}</div>
             </div>
             {selectMode!=="multi"&&<button onClick={()=>setRecommended(r=>r===q.id?"":q.id)} disabled={!on}
               title="Mark as recommended"
@@ -5054,7 +5054,7 @@ function JobProposals({job,client,quotes,proposals,setProposals,setQuotes,biz,ma
         <label style={{...SS.lbl,marginBottom:6}}>Payment terms <span style={{fontWeight:400,color:WG,textTransform:"none",letterSpacing:0}}>(optional)</span></label>
         <div style={{fontSize:11,color:WG,lineHeight:1.5,marginBottom:10}}>Bundled options (multi-select) prefill at your {depositPct}% deposit of the combined total — edit it to any amount, or clear it to ask for the full balance. The rest is shown as due on completion. Single-option proposals ask for the {depositPct}% deposit automatically.</div>
         <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"0 16px"}}>
-          <Input label="Amount due now ($)" value={dueNow} onChange={v=>{setDueNowTouched(true);setDueNow(v);}} type="number" min="0" step="0.01" placeholder="Leave blank for full balance"/>
+          <Input label={`Amount due now (${CUR_SYM})`} value={dueNow} onChange={v=>{setDueNowTouched(true);setDueNow(v);}} type="number" min="0" step="0.01" placeholder="Leave blank for full balance"/>
           <Input label="Payment note" value={payNote} onChange={setPayNote} placeholder="e.g. Remaining 50% of the centre diamond"/>
         </div>
       </div>
@@ -5093,7 +5093,7 @@ function PublicRepairBody({snap,responded,decision,responderName,onRespond}){
     ["Client",snap.clientName||"—"],
     ["Taken in",snap.dateIn?fmtDate(snap.dateIn):"—"],
     ["Ready for collection",snap.dateOut?fmtDate(snap.dateOut):"—"],
-    ...(hasPrices?[["Repair total · inc GST",fmtR(snap.total)]]:[]),
+    ...(hasPrices?[[`Repair total · inc ${TAX_LABEL}`,fmtR(snap.total)]]:[]),
   ];
   const accepted=responded&&decision!=="declined";
   return <div style={{maxWidth:760,margin:"0 auto"}}>
@@ -5145,7 +5145,7 @@ function PublicRepairBody({snap,responded,decision,responderName,onRespond}){
         const ti=Number(snap.tradeIn)||0,due=Math.max(0,(Number(snap.total)||0)-ti);
         return <div style={{marginTop:18,marginLeft:"auto",maxWidth:340}}>
           <div style={{display:"flex",justifyContent:"space-between",alignItems:"baseline",gap:16,padding:"3px 0"}}>
-            <span style={{fontSize:10,fontWeight:700,color:WG,textTransform:"uppercase",letterSpacing:"0.08em"}}>Repair total (inc GST)</span>
+            <span style={{fontSize:10,fontWeight:700,color:WG,textTransform:"uppercase",letterSpacing:"0.08em"}}>Repair total (inc {TAX_LABEL})</span>
             <span style={{fontSize:ti>0?15:22,fontWeight:800,color:INK}}>{fmtR(snap.total)}</span>
           </div>
           {ti>0&&<>
@@ -5393,7 +5393,7 @@ function PublicProposalPage({token}){
 
       {accepted&&<div style={{background:OK+"12",border:`1px solid ${OK}55`,borderRadius:4,padding:"16px 18px",margin:"20px 0 4px"}}>
         <div style={{fontSize:15,fontWeight:800,color:OK,marginBottom:3}}>✓ Thank you, {acceptedName||"and welcome"}!</div>
-        <div style={{fontSize:13,color:INK,lineHeight:1.6}}>You've accepted <strong>{selectedOpts.length?selectedOpts.map(o=>o.label).join(" + "):"your option"}</strong>{comboPrice>0?` at ${fmtR(comboPrice)} (inc GST)`:""}. The studio has been notified and will be in touch about your deposit and next steps.</div>
+        <div style={{fontSize:13,color:INK,lineHeight:1.6}}>You've accepted <strong>{selectedOpts.length?selectedOpts.map(o=>o.label).join(" + "):"your option"}</strong>{comboPrice>0?` at ${fmtR(comboPrice)} (inc ${TAX_LABEL})`:""}. The studio has been notified and will be in touch about your deposit and next steps.</div>
       </div>}
 
       {/* Options */}
@@ -5416,7 +5416,7 @@ function PublicProposalPage({token}){
               </div>
               <div style={{textAlign:"right",flexShrink:0}}>
                 <div style={{fontSize:22,fontWeight:800,color:INK}}>{o.price!=null?fmtR(o.price):"—"}</div>
-                <div style={{fontSize:10,color:WG}}>inc GST</div>
+                <div style={{fontSize:10,color:WG}}>inc {TAX_LABEL}</div>
               </div>
             </div>
             {(()=>{const photos=o.photos&&o.photos.length?o.photos:(o.photo?[o.photo]:[]);return photos.length>0&&
@@ -5440,7 +5440,7 @@ function PublicProposalPage({token}){
       {/* Combined total (multi-select) */}
       {multi&&selectedOpts.length>0&&<div style={{display:"flex",justifyContent:"space-between",alignItems:"baseline",marginTop:14,padding:"12px 16px",background:INK,borderRadius:4}}>
         <span style={{fontSize:12,fontWeight:700,color:"rgba(255,255,255,0.6)",textTransform:"uppercase",letterSpacing:"0.06em"}}>Combined total · {selectedOpts.length} piece{selectedOpts.length!==1?"s":""}</span>
-        <span style={{fontSize:20,fontWeight:800,color:WHITE}}>{fmtR(comboPrice)} <span style={{fontSize:11,fontWeight:400,color:"rgba(255,255,255,0.5)"}}>inc GST</span></span>
+        <span style={{fontSize:20,fontWeight:800,color:WHITE}}>{fmtR(comboPrice)} <span style={{fontSize:11,fontWeight:400,color:"rgba(255,255,255,0.5)"}}>inc {TAX_LABEL}</span></span>
       </div>}
 
       {/* Payments received → balance due, else deposit note (on the combined total) */}
@@ -5538,7 +5538,7 @@ function ProposalPreview({quote,job,clients=[],biz,calc,payments=[],reconcilePay
       `${job?.type||"Custom Jewellery"}`,
       description||"",  // client description only
       ``,
-      `Total price: ${priceDisplay} (inc. GST)`,
+      `Total price: ${priceDisplay} (inc. ${TAX_LABEL})`,
       ...((hasPaid||qTrade>0)?[
         ...(qTrade>0?[`Gold trade-in credit: -${fmtR(qTrade)}`]:[]),
         ...(hasPaid?[`Payments received: -${fmtR(paidTotal)}`]:[]),
@@ -5709,7 +5709,7 @@ function ProposalPreview({quote,job,clients=[],biz,calc,payments=[],reconcilePay
           {!markupUndef&&(hasPaid||qTrade>0)
             ?<div style={{marginTop:12,background:INK,borderRadius:4,padding:"18px 22px",fontFamily:"'Poppins',sans-serif"}}>
               <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",fontSize:13,color:"rgba(255,255,255,0.65)",padding:"3px 0"}}>
-                <span>Total price (inc. GST)</span><span style={{color:WHITE,fontWeight:600}}>{priceDisplay}</span>
+                <span>Total price (inc. {TAX_LABEL})</span><span style={{color:WHITE,fontWeight:600}}>{priceDisplay}</span>
               </div>
               {qTrade>0&&<div style={{display:"flex",justifyContent:"space-between",alignItems:"center",fontSize:13,color:"rgba(255,255,255,0.65)",padding:"3px 0"}}>
                 <span>Gold trade-in credit</span><span style={{color:"#7FD7A6",fontWeight:600}}>− {fmtR(qTrade)}</span>
@@ -5919,7 +5919,7 @@ function QuoteDetail({quoteId,quotes,setQuotes,jobs,clients,biz,markupTable,natu
           </div>;
         })}
         <div style={{marginTop:16}}>
-          <div style={{fontSize:11,fontWeight:700,color:q.stoneType==="lab"?"#96627C":"#4E8B6A",textTransform:"uppercase",letterSpacing:"0.06em",marginBottom:10}}>Stone pricing — markup + GST</div>
+          <div style={{fontSize:11,fontWeight:700,color:q.stoneType==="lab"?"#96627C":"#4E8B6A",textTransform:"uppercase",letterSpacing:"0.06em",marginBottom:10}}>Stone pricing — markup + {TAX_LABEL}</div>
           <StoneMarkupSummary calc={stoneCalc}/>
         </div>
         {q.stoneNotes&&<div style={{marginTop:10,fontSize:12,color:WG,fontStyle:"italic"}}>{q.stoneNotes}</div>}
@@ -6207,7 +6207,7 @@ function InvoicePrintView({inv,job,client,biz,payments,onClose}){
               <tr style={{borderBottom:`2px solid ${INK}`}}>
                 <th style={{padding:"0 0 12px",textAlign:"left",fontWeight:700,fontSize:10,letterSpacing:"0.1em",textTransform:"uppercase",color:WG,width:"64%"}}>Description</th>
                 <th style={{padding:"0 0 12px",textAlign:"center",fontWeight:700,fontSize:10,letterSpacing:"0.1em",textTransform:"uppercase",color:WG,width:"12%"}}>Tax</th>
-                <th style={{padding:"0 0 12px",textAlign:"right",fontWeight:700,fontSize:10,letterSpacing:"0.1em",textTransform:"uppercase",color:WG,width:"24%"}}>Amount (inc&nbsp;GST)</th>
+                <th style={{padding:"0 0 12px",textAlign:"right",fontWeight:700,fontSize:10,letterSpacing:"0.1em",textTransform:"uppercase",color:WG,width:"24%"}}>Amount (inc&nbsp;{TAX_LABEL})</th>
               </tr>
             </thead>
             <tbody>
@@ -6464,7 +6464,7 @@ function InvoiceDetail({invoiceId,invoices,setInvoices,jobs,clients,payments,biz
     </Card>
     <Card>
       {!isMobile&&<div style={{display:"grid",gridTemplateColumns:"1fr 100px 120px",gap:6,marginBottom:8,paddingBottom:8,borderBottom:`1px solid ${BD}`}}>
-        {["Item / Description (internal)","Tax","Amount inc GST"].map(h=><div key={h} style={{fontSize:10,fontWeight:700,color:WG,textTransform:"uppercase",letterSpacing:"0.05em"}}>{h}</div>)}
+        {["Item / Description (internal)","Tax",`Amount inc ${TAX_LABEL}`].map(h=><div key={h} style={{fontSize:10,fontWeight:700,color:WG,textTransform:"uppercase",letterSpacing:"0.05em"}}>{h}</div>)}
       </div>}
       {isMobile&&<div style={{fontSize:10,fontWeight:700,color:WG,textTransform:"uppercase",letterSpacing:"0.05em",marginBottom:6,paddingBottom:8,borderBottom:`1px solid ${BD}`}}>Internal cost breakdown · all lines incl. GST</div>}
       {inv.lineItems.map(li=>(isMobile
@@ -6660,18 +6660,18 @@ function InvoicesList({invoices,jobs,clients,quotes,setQuotes,payments,setInvoic
             return <button key={q.id} onClick={()=>toggleQuote(q.id)} style={{display:"flex",alignItems:"center",gap:12,padding:"10px 12px",border:`1px solid ${on?GOLD:BD}`,borderRadius:4,background:on?GOLD_L+"55":WHITE,cursor:"pointer",fontFamily:"inherit",textAlign:"left"}}>
               <div style={{width:18,height:18,borderRadius:4,border:`2px solid ${on?GOLD:BD}`,background:on?GOLD:"transparent",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>{on&&<span style={{color:WHITE,fontSize:12,fontWeight:900,lineHeight:1}}>✓</span>}</div>
               <div style={{flex:1,minWidth:0}}><div style={{fontWeight:700,fontSize:13,color:INK}}>{quoteLabel(q)}</div>{quoteIsManual(q)&&<div style={{fontSize:11,color:GOLD_D,fontWeight:600}}>Manual quoted price</div>}</div>
-              <div style={{fontWeight:800,fontSize:13,color:INK,whiteSpace:"nowrap"}}>{fmtR(quoteGrandTotal(q,markupTable))}<span style={{fontSize:10,color:WG,fontWeight:400}}> inc GST</span></div>
+              <div style={{fontWeight:800,fontSize:13,color:INK,whiteSpace:"nowrap"}}>{fmtR(quoteGrandTotal(q,markupTable))}<span style={{fontSize:10,color:WG,fontWeight:400}}> inc {TAX_LABEL}</span></div>
             </button>;
           })}
           {selQuotes.length>0&&<div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginTop:4,padding:"11px 14px",background:OK+"11",border:`1px solid ${OK}44`,borderRadius:4}}>
             <span style={{fontSize:12,color:WG}}>Invoice <strong style={{color:INK}}>{nextInvoiceNumber(invoices)}</strong> · {selQuotes.length} quote{selQuotes.length!==1?"s":""}{selQuotes.length>1?" combined":""}</span>
-            <span style={{fontSize:16,fontWeight:800,color:OK}}>{fmtR(combinedTotal)}<span style={{fontSize:11,color:WG,fontWeight:400}}> inc GST</span></span>
+            <span style={{fontSize:16,fontWeight:800,color:OK}}>{fmtR(combinedTotal)}<span style={{fontSize:11,color:WG,fontWeight:400}}> inc {TAX_LABEL}</span></span>
           </div>}
           {invoicedQuotes.length>0&&<div style={{marginTop:jobQuotes.length?8:2}}>
             <div style={{fontSize:11,color:WG,lineHeight:1.5,marginBottom:6}}>Already on an invoice — delete that invoice first to include it in a combined one.</div>
             {invoicedQuotes.map(q=>{const iv=invoiceForQuote(q.id);return <div key={q.id} style={{display:"flex",alignItems:"center",gap:12,padding:"10px 12px",border:`1px dashed ${BD}`,borderRadius:4,background:PARCH,opacity:0.75,marginBottom:6}}>
               <div style={{flex:1,minWidth:0}}><div style={{fontWeight:700,fontSize:13,color:WG,textDecoration:"line-through"}}>{quoteLabel(q)}</div><div style={{fontSize:11,color:WG,fontWeight:600}}>On invoice {iv?.number||"—"}{iv&&<button onClick={()=>{setModal(false);setView("invoiceDetail_"+iv.id);}} style={{background:"none",border:"none",padding:"0 0 0 6px",color:GOLD_D,fontWeight:700,fontSize:11,cursor:"pointer",fontFamily:"inherit",textDecoration:"underline"}}>view</button>}</div></div>
-              <div style={{fontWeight:800,fontSize:13,color:WG,whiteSpace:"nowrap"}}>{fmtR(quoteGrandTotal(q,markupTable))}<span style={{fontSize:10,color:WG,fontWeight:400}}> inc GST</span></div>
+              <div style={{fontWeight:800,fontSize:13,color:WG,whiteSpace:"nowrap"}}>{fmtR(quoteGrandTotal(q,markupTable))}<span style={{fontSize:10,color:WG,fontWeight:400}}> inc {TAX_LABEL}</span></div>
             </div>;})}
           </div>}
         </div>}
@@ -7091,14 +7091,14 @@ function PrintCastTable({items,onSavePrices,onQtyChange}){
     {/* Rate editor */}
     <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:16,padding:"16px 18px",borderBottom:onQtyChange?`1px solid ${BD}`:"none",background:editing?GOLD_L+"66":WHITE}}>
       <div>
-        <div style={{fontSize:10,fontWeight:700,color:WG,textTransform:"uppercase",letterSpacing:"0.06em",marginBottom:6}}>Print fee per piece ($)</div>
+        <div style={{fontSize:10,fontWeight:700,color:WG,textTransform:"uppercase",letterSpacing:"0.06em",marginBottom:6}}>{`Print fee per piece (${CUR_SYM})`}</div>
         {editing
           ?<input type="number" value={printFee} min="0" step="0.01" onChange={e=>setPrintFee(e.target.value)}
               style={{...SS.inp,marginTop:0,fontSize:16,fontWeight:700,padding:"8px 12px",color:GOLD_D,border:`1px solid ${GOLD}`}}/>
           :<div style={{fontSize:20,fontWeight:800,color:INK}}>{fmt(print)}<span style={{fontSize:12,fontWeight:400,color:WG}}>/piece</span></div>}
       </div>
       <div>
-        <div style={{fontSize:10,fontWeight:700,color:WG,textTransform:"uppercase",letterSpacing:"0.06em",marginBottom:6}}>Casting fee per piece ($)</div>
+        <div style={{fontSize:10,fontWeight:700,color:WG,textTransform:"uppercase",letterSpacing:"0.06em",marginBottom:6}}>{`Casting fee per piece (${CUR_SYM})`}</div>
         {editing
           ?<input type="number" value={castFee} min="0" step="0.01" onChange={e=>setCastFee(e.target.value)}
               style={{...SS.inp,marginTop:0,fontSize:16,fontWeight:700,padding:"8px 12px",color:GOLD_D,border:`1px solid ${GOLD}`}}/>
@@ -7288,7 +7288,7 @@ function PricingDB({pricing,setPricing,spotPrices,setSpotPrices,markupTable,cent
       <div style={{fontSize:11,color:WG,marginBottom:16,lineHeight:1.6}}><strong style={{color:INK}}>Platinum uplift:</strong> some setters charge more to set stones into platinum, as it's harder and slower to work than gold. Enter that surcharge as a % — it only applies when you tick <strong>Platinum</strong> on a setting line. <strong style={{color:INK}}>Leave it at 0 if your setter doesn't charge extra for platinum.</strong></div>
       {/* #3 Carat rate bands (centre / large stones) */}
       <div style={{fontSize:12,fontWeight:700,color:INK,marginBottom:2}}>Setting fee by carat weight <span style={{fontWeight:400,color:WG}}>(centre / feature stones)</span></div>
-      <div style={{fontSize:11,color:WG,marginBottom:6,lineHeight:1.6}}>What it costs to set a centre or feature stone, based on its carat weight. A bigger stone takes more time to set — but a 2ct isn't double the work of a 1ct — so you charge a bit less per carat as the stone gets heavier. Each row is a weight range with its own $/ct rate. <strong style={{color:INK}}>Example:</strong> with your rates below, a {cExampleCt}ct stone = {cSegStr} = <strong style={{color:INK}}>{fmt(cTotal)}</strong>. Leave the last row's <strong>“up to”</strong> blank so it covers everything heavier. Want one flat rate instead? Set every row to the same $/ct.<br/><span style={{color:INK,fontWeight:600}}>These are trade / wholesale cost prices</span> — your markup table is applied on top to reach the retail price the client sees.</div>
+      <div style={{fontSize:11,color:WG,marginBottom:6,lineHeight:1.6}}>What it costs to set a centre or feature stone, based on its carat weight. A bigger stone takes more time to set — but a 2ct isn't double the work of a 1ct — so you charge a bit less per carat as the stone gets heavier. Each row is a weight range with its own {CUR_SYM}/ct rate. <strong style={{color:INK}}>Example:</strong> with your rates below, a {cExampleCt}ct stone = {cSegStr} = <strong style={{color:INK}}>{fmt(cTotal)}</strong>. Leave the last row's <strong>“up to”</strong> blank so it covers everything heavier. Want one flat rate instead? Set every row to the same {CUR_SYM}/ct.<br/><span style={{color:INK,fontWeight:600}}>These are trade / wholesale cost prices</span> — your markup table is applied on top to reach the retail price the client sees.</div>
       <div style={{background:WHITE,border:`1px solid ${BD}`,borderRadius:5,overflow:"hidden",marginBottom:16}}>
         <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 44px",gap:8,padding:"9px 16px",background:PARCH,borderBottom:`1px solid ${BD}`}}>
           {["Up to (ct)","$ per carat",""].map(h=><div key={h} style={{fontSize:10,fontWeight:700,color:WG,textTransform:"uppercase",letterSpacing:"0.05em"}}>{h}</div>)}
@@ -7537,7 +7537,7 @@ function PricingItemForm({initial={},spotPrices={},onSave,onCancel}){
           <label style={SS.lbl}>Cost per gram <span style={{textTransform:"none",letterSpacing:0,fontWeight:400,color:WG}}>(auto from spot — cast · fabricated)</span></label>
           <div style={{...SS.inp,marginTop:4,background:PARCH,color:autoCost>0?INK:WG,fontWeight:autoCost>0?700:400}}>{autoCost>0?<>{fmt(autoCost)} <span style={{color:WG,fontWeight:400}}>cast</span> · {fmt(fabCost)} <span style={{color:WG,fontWeight:400}}>fabricated</span> / g</>:"Update spot prices to calculate"}</div>
         </div>
-        :<Input label="Your cost per unit ($)" value={f.baseCost} onChange={set("baseCost")} type="number" min="0" step="0.01"/>
+        :<Input label={`Your cost per unit (${CUR_SYM})`} value={f.baseCost} onChange={set("baseCost")} type="number" min="0" step="0.01"/>
     }
     <div style={{display:"flex",gap:10,justifyContent:"flex-end"}}>
       <Btn ghost onClick={onCancel}>Cancel</Btn>
@@ -7932,7 +7932,7 @@ function Settings({biz,setBiz,markupTable,setMarkupTable,naturalStoneMarkup,setN
       <div style={{fontSize:13,color:WG,marginBottom:16,lineHeight:1.6}}>Your tiered multiplier table. The quote builder uses this to find the right bracket and calculate your final price automatically. Adjust any row and save.</div>
       <div style={{background:WHITE,borderRadius:5,border:`1px solid ${BD}`,overflow:"hidden",marginBottom:16}}>
         <div style={{display:"grid",gridTemplateColumns:isMobile?"repeat(2,1fr) auto":"1fr 1fr 120px",columnGap:isMobile?7:0,padding:"9px 16px",background:PARCH,borderBottom:`1px solid ${BD}`}}>
-          {["Cost from ($)","Cost to ($)","Multiplier"].map(h=><div key={h} style={{fontSize:10,fontWeight:700,color:WG,textTransform:"uppercase",letterSpacing:"0.05em"}}>{h}</div>)}
+          {[`Cost from (${CUR_SYM})`,`Cost to (${CUR_SYM})`,"Multiplier"].map(h=><div key={h} style={{fontSize:10,fontWeight:700,color:WG,textTransform:"uppercase",letterSpacing:"0.05em"}}>{h}</div>)}
         </div>
         {mt.map((b,i)=>{
           const exGST=1000;
@@ -7954,7 +7954,7 @@ function Settings({biz,setBiz,markupTable,setMarkupTable,naturalStoneMarkup,setN
       <div style={{background:GOLD_L,border:`1px solid ${GOLD}55`,borderRadius:4,padding:"14px 16px",marginBottom:16}}>
         <div style={{display:"flex",alignItems:"flex-start",gap:14,flexWrap:"wrap"}}>
           <div style={{flexShrink:0}}>
-            <label style={SS.lbl}>Bracket threshold buffer ($)</label>
+            <label style={SS.lbl}>{`Bracket threshold buffer (${CUR_SYM})`}</label>
             <div style={{position:"relative",width:130,marginTop:4}}>
               <span style={{position:"absolute",left:10,top:"50%",transform:"translateY(-50%)",fontSize:13,color:WG,pointerEvents:"none"}}>$</span>
               <input type="number" value={buffer} onChange={e=>setBuffer(e.target.value)} min="0" step="10" style={{...SS.inp,marginTop:0,padding:"8px 10px 8px 22px",fontWeight:700}}/>
@@ -7999,7 +7999,7 @@ function Settings({biz,setBiz,markupTable,setMarkupTable,naturalStoneMarkup,setN
       <div style={{fontSize:12,color:WG,marginBottom:14,lineHeight:1.5}}>"Natural" is selected in the quote builder stone section. <strong style={{color:INK}}>GST added at invoice time.</strong></div>
       <div style={{background:WHITE,borderRadius:4,border:`1px solid ${BD}`,overflow:"hidden",marginBottom:12}}>
         <div style={{display:"grid",gridTemplateColumns:isMobile?"repeat(2,1fr) auto auto":"1fr 1fr 130px 44px",columnGap:isMobile?7:0,padding:"9px 16px",background:PARCH,borderBottom:`1px solid ${BD}`}}>
-          {["Cost from ($)","Cost to ($)","Multiplier",""].map(h=><div key={h} style={{fontSize:10,fontWeight:700,color:WG,textTransform:"uppercase",letterSpacing:"0.05em"}}>{h}</div>)}
+          {[`Cost from (${CUR_SYM})`,`Cost to (${CUR_SYM})`,"Multiplier",""].map(h=><div key={h} style={{fontSize:10,fontWeight:700,color:WG,textTransform:"uppercase",letterSpacing:"0.05em"}}>{h}</div>)}
         </div>
         {smn.map((b,i)=>(
           <div key={b.id} style={{display:"grid",gridTemplateColumns:isMobile?"repeat(2,1fr) auto auto":"1fr 1fr 130px 44px",columnGap:isMobile?7:0,padding:"8px 16px",borderBottom:i<smn.length-1?`1px solid ${BD}`:"none",alignItems:"center",background:i%2===0?WHITE:PARCH+"88"}}>
@@ -8031,7 +8031,7 @@ function Settings({biz,setBiz,markupTable,setMarkupTable,naturalStoneMarkup,setN
       <div style={{fontSize:12,color:WG,marginBottom:14,lineHeight:1.5}}>"Lab-Grown" is selected in the quote builder stone section. <strong style={{color:INK}}>GST added at invoice time.</strong></div>
       <div style={{background:WHITE,borderRadius:4,border:`1px solid ${BD}`,overflow:"hidden",marginBottom:12}}>
         <div style={{display:"grid",gridTemplateColumns:isMobile?"repeat(2,1fr) auto auto":"1fr 1fr 130px 44px",columnGap:isMobile?7:0,padding:"9px 16px",background:PARCH,borderBottom:`1px solid ${BD}`}}>
-          {["Cost from ($)","Cost to ($)","Multiplier",""].map(h=><div key={h} style={{fontSize:10,fontWeight:700,color:WG,textTransform:"uppercase",letterSpacing:"0.05em"}}>{h}</div>)}
+          {[`Cost from (${CUR_SYM})`,`Cost to (${CUR_SYM})`,"Multiplier",""].map(h=><div key={h} style={{fontSize:10,fontWeight:700,color:WG,textTransform:"uppercase",letterSpacing:"0.05em"}}>{h}</div>)}
         </div>
         {sml.map((b,i)=>(
           <div key={b.id} style={{display:"grid",gridTemplateColumns:isMobile?"repeat(2,1fr) auto auto":"1fr 1fr 130px 44px",columnGap:isMobile?7:0,padding:"8px 16px",borderBottom:i<sml.length-1?`1px solid ${BD}`:"none",alignItems:"center",background:i%2===0?WHITE:PARCH+"88"}}>
@@ -9189,7 +9189,7 @@ function GemCustody({custody,setCustody,clients,biz}){
                 <div style={{gridColumn:"span 2"}}><label style={SS.lbl}>Stone(s) set in the piece</label><input value={it.stones} onChange={e=>setItem(it.id,"stones",e.target.value)} placeholder="e.g. 1.00ct round diamond centre + 2 sapphire accents" style={smInp}/></div>
                 <div><label style={SS.lbl}>Certificate / appraisal #</label><input value={it.cert} onChange={e=>setItem(it.id,"cert",e.target.value)} placeholder="GIA / valuation no." style={smInp}/></div>
                 <div><label style={SS.lbl}>Condition on arrival</label><input value={it.condition} onChange={e=>setItem(it.id,"condition",e.target.value)} placeholder="e.g. light wear, no damage" style={smInp}/></div>
-                <div><label style={SS.lbl}>Declared value ($)</label><input value={it.estValue} onChange={e=>setItem(it.id,"estValue",e.target.value)} placeholder="0" type="number" min="0" style={smInp}/></div>
+                <div><label style={SS.lbl}>{`Declared value (${CUR_SYM})`}</label><input value={it.estValue} onChange={e=>setItem(it.id,"estValue",e.target.value)} placeholder="0" type="number" min="0" style={smInp}/></div>
                 <div><label style={SS.lbl}>Notes</label><input value={it.notes} onChange={e=>setItem(it.id,"notes",e.target.value)} placeholder="hallmarks, inscriptions…" style={smInp}/></div>
               </div>
             : <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:10}}>
@@ -9200,7 +9200,7 @@ function GemCustody({custody,setCustody,clients,biz}){
                 <div><label style={SS.lbl}>Clarity</label><input value={it.clarity} onChange={e=>setItem(it.id,"clarity",e.target.value)} placeholder="e.g. VS1" style={smInp}/></div>
                 <div><label style={SS.lbl}>Measurements</label><input value={it.measurements} onChange={e=>setItem(it.id,"measurements",e.target.value)} placeholder="6.8 × 6.8 × 4.2mm" style={smInp}/></div>
                 <div><label style={SS.lbl}>Certificate #</label><input value={it.cert} onChange={e=>setItem(it.id,"cert",e.target.value)} placeholder="GIA / IGI no." style={smInp}/></div>
-                <div><label style={SS.lbl}>Declared value ($)</label><input value={it.estValue} onChange={e=>setItem(it.id,"estValue",e.target.value)} placeholder="0" type="number" min="0" style={smInp}/></div>
+                <div><label style={SS.lbl}>{`Declared value (${CUR_SYM})`}</label><input value={it.estValue} onChange={e=>setItem(it.id,"estValue",e.target.value)} placeholder="0" type="number" min="0" style={smInp}/></div>
                 <div><label style={SS.lbl}>Notes</label><input value={it.notes} onChange={e=>setItem(it.id,"notes",e.target.value)} placeholder="marks, inscriptions…" style={smInp}/></div>
               </div>}
         </div>;
@@ -9373,7 +9373,7 @@ function StockBoard({stock,setStock,setView}){
             <Stat label="Pieces" value={stock.length} tint="slate" icon="◈"/>
             <Stat label="Available" value={availCount} tint="slate" icon="✓"/>
             <Stat label="Retail value" value={fmtR(retailVal)} tint="slate" icon="$" sub="excludes sold"/>
-            <Stat label="Potential margin" value={fmtR(marginVal)} tint="slate" icon="▲" sub={`cost ${fmtR(costVal)} · excl. GST`}/>
+            <Stat label="Potential margin" value={fmtR(marginVal)} tint="slate" icon="▲" sub={`cost ${fmtR(costVal)} · excl. ${TAX_LABEL}`}/>
           </div>
 
           {/* Filter bar */}
@@ -9430,10 +9430,10 @@ function StockBoard({stock,setStock,setView}){
         {/* Right column */}
         <div>
           <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:14}}>
-            <Input label="Cost price ($)" type="number" min="0" value={draft.cost} onChange={v=>setDraft(d=>({...d,cost:v}))}/>
-            <Input label="Retail price ($)" type="number" min="0" value={draft.price} onChange={v=>setDraft(d=>({...d,price:v}))}/>
+            <Input label={`Cost price (${CUR_SYM})`} type="number" min="0" value={draft.cost} onChange={v=>setDraft(d=>({...d,cost:v}))}/>
+            <Input label={`Retail price (${CUR_SYM})`} type="number" min="0" value={draft.price} onChange={v=>setDraft(d=>({...d,price:v}))}/>
           </div>
-          {(()=>{const m=stockMargin(draft.price,draft.cost);return m&&<div style={{fontSize:12,color:WG,marginTop:-4,marginBottom:10}}>Margin: <strong style={{color:OK}}>{fmtR(m.profit)}</strong> · {m.pct}% <span style={{color:WG}}>(excl. GST)</span></div>;})()}
+          {(()=>{const m=stockMargin(draft.price,draft.cost);return m&&<div style={{fontSize:12,color:WG,marginTop:-4,marginBottom:10}}>Margin: <strong style={{color:OK}}>{fmtR(m.profit)}</strong> · {m.pct}% <span style={{color:WG}}>(excl. {TAX_LABEL})</span></div>;})()}
           {/* Build the price with the same engine as quotes (materials + labour + stones + your markup) */}
           <div style={{background:PARCH,border:`1px solid ${BD}`,borderRadius:5,padding:"12px 14px",marginBottom:14}}>
             <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",gap:10,flexWrap:"wrap"}}>
