@@ -7914,7 +7914,7 @@ function Settings({biz,setBiz,markupTable,setMarkupTable,naturalStoneMarkup,setN
         <Input label="Tax label" value={bForm.taxLabel??"GST"} onChange={setBF("taxLabel")} placeholder="GST"/>
         <Input label="Tax rate (%)" value={String(bForm.taxRatePct??10)} onChange={v=>setBF("taxRatePct")(v===""?"":Number(v))} type="number" min="0" step="0.1" placeholder="10"/>
       </div>
-      <div style={{fontSize:12,color:WG,marginTop:2,lineHeight:1.6}}>Preview: a {Number(bForm.taxRatePct??10)}% {bForm.taxLabel||"GST"} total of <strong style={{color:INK}}>{bForm.currencySymbol||"$"}1,234.50 {bForm.currencyCode||"AUD"}</strong>. Set the tax rate to <strong>0</strong> if you don't charge sales tax.</div>
+      <div style={{fontSize:12,color:WG,marginTop:2,lineHeight:1.6}}>Preview: your prices will show as <strong style={{color:INK}}>{bForm.currencySymbol||"$"}1,234.50 {bForm.currencyCode||"AUD"}</strong>, with {Number(bForm.taxRatePct??10)}% {bForm.taxLabel||"GST"} included in the total. Set the tax rate to <strong>0</strong> if you don't charge sales tax.</div>
       <label style={{display:"flex",alignItems:"flex-start",gap:9,fontSize:13,color:INK,cursor:"pointer",margin:"14px 0 2px"}}>
         <input type="checkbox" checked={!!bForm.stoneTaxInclusive} onChange={e=>setBF("stoneTaxInclusive")(e.target.checked)} style={{width:16,height:16,accentColor:GOLD,cursor:"pointer",marginTop:2,flexShrink:0}}/>
         <span>Centre-stone prices are tax-<strong>inclusive</strong> (marked-up stone already includes {bForm.taxLabel||"GST"})</span>
