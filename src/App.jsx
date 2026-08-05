@@ -8073,13 +8073,17 @@ function Settings({biz,setBiz,markupTable,setMarkupTable,naturalStoneMarkup,setN
       <div style={{fontSize:13,color:WG,lineHeight:1.6}}>Your lower markups for trade accounts. Quotes for a trade-account client price through these instead of your retail markups (the quote builder has a Retail/Trade toggle). Seeded as a copy of your retail markups — lower them to your wholesale rates. Same brackets, same method, different numbers.</div>
     </div>
     <Card>
-      <div style={{fontWeight:700,fontSize:14,color:INK,marginBottom:10}}>Metal &amp; labour — trade</div>
+      <div style={{fontWeight:700,fontSize:15,color:INK,marginBottom:10}}>Markup table (Trade)</div>
       <BracketEditor rows={tmt} setRows={setTmt}/>
       <div style={{borderTop:`1px solid ${BD}`,margin:"20px 0 14px"}}/>
-      <div style={{fontWeight:700,fontSize:14,color:INK,marginBottom:10}}>Natural stones — trade</div>
+      <div style={{display:"flex",alignItems:"center",gap:10,flexWrap:"wrap",rowGap:6,marginBottom:10}}>
+        <div style={{background:"#4E8B6A",color:WHITE,borderRadius:3,padding:"4px 12px",fontSize:10.5,fontWeight:700,letterSpacing:"0.08em",textTransform:"uppercase",whiteSpace:"nowrap"}}>Natural Diamond &amp; Gemstone (Trade)</div>
+      </div>
       <BracketEditor rows={tsn} setRows={setTsn} accent="#4E8B6A"/>
       <div style={{borderTop:`1px solid ${BD}`,margin:"20px 0 14px"}}/>
-      <div style={{fontWeight:700,fontSize:14,color:INK,marginBottom:10}}>Lab-grown stones — trade</div>
+      <div style={{display:"flex",alignItems:"center",gap:10,flexWrap:"wrap",rowGap:6,marginBottom:10}}>
+        <div style={{background:"#96627C",color:WHITE,borderRadius:3,padding:"4px 12px",fontSize:10.5,fontWeight:700,letterSpacing:"0.08em",textTransform:"uppercase",whiteSpace:"nowrap"}}>Lab-Grown Diamond &amp; Gemstone (Trade)</div>
+      </div>
       <BracketEditor rows={tsl} setRows={setTsl} accent="#96627C"/>
       <div style={{display:"flex",justifyContent:"flex-end",marginTop:16}}><Btn onClick={saveTrade}>Save trade markups</Btn></div>
     </Card>
