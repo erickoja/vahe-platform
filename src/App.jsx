@@ -4413,18 +4413,15 @@ function QuoteBuilder({jobId:jobIdProp,editQuoteId,stockId,stock,setStock,jobs,c
       {mfgAccents.map(li=>{
         const cost=Number(li.costLow)||0;
         const totalStr=cost>0?fmt(cost):"—";
-        return <div key={li.id} style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"minmax(240px,1.6fr) 1fr 120px 104px",gap:8,marginBottom:isMobile?14:8,alignItems:isMobile?"stretch":"center",...(isMobile?{padding:"10px",border:`1px solid ${BD}`,borderRadius:6,background:PARCH}:{})}}>
-          <div style={{display:"flex",alignItems:"center",gap:6,minWidth:0}}>
+        return <div key={li.id} style={{display:"grid",gridTemplateColumns:isMobile?"1fr auto":"minmax(240px,1.6fr) 1fr 120px 104px",columnGap:8,rowGap:isMobile?7:8,marginBottom:isMobile?16:8,alignItems:"center",...(isMobile?{padding:"10px",border:`1px solid ${BD}`,borderRadius:6,background:PARCH}:{})}}>
+          <div style={{display:"flex",alignItems:"center",gap:6,minWidth:0,gridColumn:isMobile?"1 / -1":"auto"}}>
             <span style={{background:"#EDF5EF",color:"#4E8B6A",fontSize:8,fontWeight:800,padding:"3px 5px",borderRadius:3,letterSpacing:"0.04em",flexShrink:0}} title="Accent, feature or fancy stone">ACCENT</span>
             <input value={li.description} onChange={e=>setAccentItem(li.id,"description",e.target.value)} placeholder="e.g. pear sapphire" style={{...SS.inp,marginTop:0,fontSize:13,padding:"7px 10px",flex:1,minWidth:0}}/>
           </div>
-          <input value={li.detail||""} onChange={e=>setAccentItem(li.id,"detail",e.target.value)} placeholder="notes (optional)" style={{...SS.inp,marginTop:0,fontSize:13,padding:"7px 10px",color:WG}}/>
-          <div style={{position:"relative"}}>
-            <span style={{position:"absolute",left:10,top:"50%",transform:"translateY(-50%)",fontSize:12,color:WG,pointerEvents:"none"}}>$</span>
-            <input type="number" value={li.costLow} onChange={e=>setAccentItem(li.id,"costLow",e.target.value)} placeholder="0.00" min="0" step="0.01" style={{...SS.inp,marginTop:0,fontSize:13,padding:"7px 8px 7px 22px",textAlign:"right",borderColor:cost>0?"#A6CBB4":BD,fontWeight:cost>0?700:400}}/>
-          </div>
+          <input value={li.detail||""} onChange={e=>setAccentItem(li.id,"detail",e.target.value)} placeholder="notes (optional)" style={{...SS.inp,marginTop:0,fontSize:13,padding:"7px 10px",color:WG,gridColumn:isMobile?"1 / -1":"auto"}}/>
+          <input type="number" value={li.costLow} onChange={e=>setAccentItem(li.id,"costLow",e.target.value)} placeholder="0.00" min="0" step="0.01" style={{...SS.inp,marginTop:0,fontSize:13,padding:"7px 8px",textAlign:"right"}}/>
           <div style={{fontSize:13,fontWeight:700,color:INK,textAlign:"right",whiteSpace:"nowrap"}}>{totalStr}</div>
-          <div style={{display:"flex",gap:6,alignItems:"center",flexWrap:"wrap"}}>
+          <div style={{display:"flex",gap:6,alignItems:"center",flexWrap:"wrap",gridColumn:"1 / -1",marginTop:isMobile?2:4}}>
             <select value={li.markupMode||"mfg"} onChange={e=>setAccentItem(li.id,"markupMode",e.target.value)} title="Markup basis — switch to natural/lab to price it separately" style={{...SS.inp,marginTop:0,fontSize:12,padding:"5px 8px",width:"auto"}}>
               <option value="mfg">Mfg</option>
               <option value="natural">Natural</option>
@@ -4437,17 +4434,15 @@ function QuoteBuilder({jobId:jobIdProp,editQuoteId,stockId,stock,setStock,jobs,c
       {stoneMode==="sourcing"&&stoneType&&stoneItems.map(li=>{
         const stoneCost=Number(li.cost)||Number(li.costLow)||0;
         const accent=stoneType==="lab"?"#96627C":"#4E8B6A";
-        return <div key={li.id} style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"minmax(240px,1.6fr) 1fr 120px 104px",gap:8,marginBottom:isMobile?14:8,alignItems:isMobile?"stretch":"center",...(isMobile?{padding:"10px",border:`1px solid ${BD}`,borderRadius:6,background:PARCH}:{})}}>
-          <input value={li.description} onChange={e=>setStonItem(li.id,"description",e.target.value)} placeholder="e.g. 1.52ct oval sapphire" style={{...SS.inp,marginTop:0,fontSize:13,padding:"7px 10px",borderColor:stoneType==="lab"?"#CDB2C1":"#A6CBB4"}}/>
-          <div style={{display:"flex",alignItems:"center",gap:6,minWidth:0}}>
+        return <div key={li.id} style={{display:"grid",gridTemplateColumns:isMobile?"1fr auto":"minmax(240px,1.6fr) 1fr 120px 104px",columnGap:8,rowGap:isMobile?7:8,marginBottom:isMobile?16:8,alignItems:"center",...(isMobile?{padding:"10px",border:`1px solid ${BD}`,borderRadius:6,background:PARCH}:{})}}>
+          <div style={{display:"flex",alignItems:"center",gap:6,minWidth:0,gridColumn:isMobile?"1 / -1":"auto"}}>
             <span style={{background:accent+"18",color:accent,fontSize:8,fontWeight:800,padding:"3px 5px",borderRadius:3,letterSpacing:"0.04em",flexShrink:0,whiteSpace:"nowrap"}} title="Centre / feature stone — priced on the stone markup">CENTRE · {stoneType==="lab"?"LAB":"NAT"}</span>
-            <input value={li.detail} onChange={e=>setStonItem(li.id,"detail",e.target.value)} placeholder="cert / source / notes" style={{...SS.inp,marginTop:0,fontSize:13,padding:"7px 10px",color:WG,flex:1,minWidth:0}}/>
+            <input value={li.description} onChange={e=>setStonItem(li.id,"description",e.target.value)} placeholder="e.g. 1.52ct oval sapphire" style={{...SS.inp,marginTop:0,fontSize:13,padding:"7px 10px",flex:1,minWidth:0}}/>
           </div>
-          <div style={{position:"relative"}}>
-            <span style={{position:"absolute",left:10,top:"50%",transform:"translateY(-50%)",fontSize:12,color:WG,pointerEvents:"none"}}>$</span>
-            <input type="number" value={li.cost||""} onChange={e=>setStonItem(li.id,"cost",e.target.value)} placeholder="0.00" min="0" step="0.01" style={{...SS.inp,marginTop:0,fontSize:13,padding:"7px 8px 7px 22px",textAlign:"right",borderColor:stoneCost>0?(stoneType==="lab"?"#CDB2C1":"#A6CBB4"):BD,fontWeight:stoneCost>0?700:400}}/>
-          </div>
-          <div style={{display:"flex",gap:3,alignItems:"center",justifyContent:"flex-end"}}>
+          <input value={li.detail} onChange={e=>setStonItem(li.id,"detail",e.target.value)} placeholder="cert / source / notes" style={{...SS.inp,marginTop:0,fontSize:13,padding:"7px 10px",color:WG,gridColumn:isMobile?"1 / -1":"auto"}}/>
+          <input type="number" value={li.cost||""} onChange={e=>setStonItem(li.id,"cost",e.target.value)} placeholder="0.00" min="0" step="0.01" style={{...SS.inp,marginTop:0,fontSize:13,padding:"7px 8px",textAlign:"right"}}/>
+          <div style={{fontSize:13,fontWeight:700,color:INK,textAlign:"right",whiteSpace:"nowrap"}}>{stoneCost>0?fmt(stoneCost):"—"}</div>
+          <div style={{display:"flex",gap:6,alignItems:"center",flexWrap:"wrap",gridColumn:"1 / -1",marginTop:isMobile?2:4}}>
             <button onClick={()=>removeStoneItem(li.id)} title="Delete this line" style={{display:"inline-flex",alignItems:"center",gap:5,background:"none",border:`1px solid ${DANGER}55`,borderRadius:6,padding:"4px 10px",fontSize:12,fontWeight:600,color:DANGER,cursor:"pointer",fontFamily:"inherit",lineHeight:1.3,whiteSpace:"nowrap"}}><span style={{fontSize:14,lineHeight:1}}>✕</span> Delete</button>
           </div>
         </div>;})}
