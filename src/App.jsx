@@ -8007,7 +8007,6 @@ function Settings({biz,setBiz,markupTable,setMarkupTable,naturalStoneMarkup,setN
     <Card>
       <div style={{display:"flex",alignItems:"center",gap:10,flexWrap:"wrap",rowGap:6,marginBottom:6}}>
         <div style={{background:"#4E8B6A",color:WHITE,borderRadius:3,padding:"4px 12px",fontSize:10.5,fontWeight:700,letterSpacing:"0.08em",textTransform:"uppercase",whiteSpace:"nowrap"}}>Natural Diamond &amp; Gemstone</div>
-        <div style={{fontSize:11,color:WG,fontWeight:600}}>3.00× down to 1.20×</div>
       </div>
       <div style={{fontSize:12,color:WG,marginBottom:14,lineHeight:1.5}}>"Natural" is selected in the quote builder stone section. <strong style={{color:INK}}>{STONE_TAX_INCLUSIVE?<>{TAX_LABEL} included in the marked-up price.</>:<>{TAX_LABEL} added at invoice time.</>}</strong></div>
       <div style={{background:WHITE,borderRadius:4,border:`1px solid ${BD}`,overflow:"hidden",marginBottom:12}}>
@@ -8039,7 +8038,6 @@ function Settings({biz,setBiz,markupTable,setMarkupTable,naturalStoneMarkup,setN
     <Card>
       <div style={{display:"flex",alignItems:"center",gap:10,flexWrap:"wrap",rowGap:6,marginBottom:6}}>
         <div style={{background:"#96627C",color:WHITE,borderRadius:3,padding:"4px 12px",fontSize:10.5,fontWeight:700,letterSpacing:"0.08em",textTransform:"uppercase",whiteSpace:"nowrap"}}>Lab-Grown Diamond &amp; Gemstone</div>
-        <div style={{fontSize:11,color:WG,fontWeight:600}}>4.25× down to 1.20×</div>
       </div>
       <div style={{fontSize:12,color:WG,marginBottom:14,lineHeight:1.5}}>"Lab-Grown" is selected in the quote builder stone section. <strong style={{color:INK}}>{STONE_TAX_INCLUSIVE?<>{TAX_LABEL} included in the marked-up price.</>:<>{TAX_LABEL} added at invoice time.</>}</strong></div>
       <div style={{background:WHITE,borderRadius:4,border:`1px solid ${BD}`,overflow:"hidden",marginBottom:12}}>
