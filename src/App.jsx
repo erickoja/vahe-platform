@@ -7964,36 +7964,28 @@ function Settings({biz,setBiz,markupTable,setMarkupTable,naturalStoneMarkup,setN
           </div>;
         })}
       </div>
-      <div style={{background:GOLD_L,border:`1px solid ${GOLD}55`,borderRadius:4,padding:"14px 16px",marginBottom:16}}>
-        <div style={{display:"flex",alignItems:"flex-start",gap:14,flexWrap:"wrap"}}>
-          <div style={{flexShrink:0}}>
-            <label style={SS.lbl}>{`Bracket threshold buffer (${CUR_SYM})`}</label>
-            <div style={{position:"relative",width:130,marginTop:4}}>
-              <span style={{position:"absolute",left:10,top:"50%",transform:"translateY(-50%)",fontSize:13,color:WG,pointerEvents:"none"}}>$</span>
-              <input type="number" value={buffer} onChange={e=>setBuffer(e.target.value)} min="0" step="10" style={{...SS.inp,marginTop:0,padding:"8px 10px 8px 22px",fontWeight:700}}/>
-            </div>
+      <div style={{borderTop:`1px solid ${BD}`,margin:"4px 0 18px"}}/>
+      <div style={{fontWeight:700,fontSize:13,color:INK,marginBottom:14}}>Pricing options</div>
+      <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"1fr 1fr",gap:isMobile?22:28,marginBottom:16}}>
+        <div>
+          <label style={SS.lbl}>{`Bracket threshold buffer (${CUR_SYM})`}</label>
+          <div style={{position:"relative",marginTop:4}}>
+            <span style={{position:"absolute",left:14,top:"50%",transform:"translateY(-50%)",fontSize:13,color:WG,pointerEvents:"none"}}>{CUR_SYM}</span>
+            <input type="number" value={buffer} onChange={e=>setBuffer(e.target.value)} min="0" step="10" style={{...SS.inp,marginTop:0,paddingLeft:28,fontWeight:700}}/>
           </div>
-          <div style={{flex:1,minWidth:220,fontSize:12,color:GOLD_D,lineHeight:1.6}}>
-            If a cost is within this much of the next bracket, it's bumped up to that bracket's (lower) multiplier — so a cost just under a threshold doesn't get charged the higher markup. Set to <strong>0</strong> to disable. Example: a $100 buffer means a $920 cost is priced as if it were in the $1,000+ bracket.
-          </div>
+          <div style={{fontSize:12,color:WG,lineHeight:1.6,marginTop:8}}>If a cost is within this much of the next bracket, it's bumped up to that bracket's (lower) multiplier — so a cost just under a threshold doesn't get charged the higher markup. Set to <strong style={{color:INK}}>0</strong> to disable. Example: a {CUR_SYM}100 buffer means a {CUR_SYM}920 cost is priced as if it were in the {CUR_SYM}1,000+ bracket.</div>
         </div>
-      </div>
-      <div style={{background:GOLD_L,border:`1px solid ${GOLD}55`,borderRadius:4,padding:"14px 16px",marginBottom:16}}>
-        <div style={{display:"flex",alignItems:"flex-start",gap:14,flexWrap:"wrap"}}>
-          <div style={{flexShrink:0}}>
-            <label style={SS.lbl}>Round quote prices</label>
-            <select value={rounding} onChange={e=>setRounding(e.target.value)} style={{...SS.inp,marginTop:4,width:170,fontWeight:700}}>
-              <option value="0">Off — exact figures</option>
-              <option value="5">Nearest $5</option>
-              <option value="10">Nearest $10</option>
-              <option value="25">Nearest $25</option>
-              <option value="50">Nearest $50</option>
-              <option value="100">Nearest $100</option>
-            </select>
-          </div>
-          <div style={{flex:1,minWidth:220,fontSize:12,color:GOLD_D,lineHeight:1.6}}>
-            Rounds every calculated quote price — jewellery, stones and totals — so quotes don't land on odd figures. Example: nearest $10 turns <strong>$4,587</strong> into <strong>$4,590</strong>; nearest $50 makes it <strong>$4,600</strong>. Manual quoted prices are never rounded. Applies everywhere prices are recalculated, including existing quotes.
-          </div>
+        <div>
+          <label style={SS.lbl}>Round quote prices</label>
+          <select value={rounding} onChange={e=>setRounding(e.target.value)} style={{...SS.inp,marginTop:4,fontWeight:700}}>
+            <option value="0">Off — exact figures</option>
+            <option value="5">Nearest {CUR_SYM}5</option>
+            <option value="10">Nearest {CUR_SYM}10</option>
+            <option value="25">Nearest {CUR_SYM}25</option>
+            <option value="50">Nearest {CUR_SYM}50</option>
+            <option value="100">Nearest {CUR_SYM}100</option>
+          </select>
+          <div style={{fontSize:12,color:WG,lineHeight:1.6,marginTop:8}}>Rounds every calculated quote price — jewellery, stones and totals — so quotes don't land on odd figures. Example: nearest {CUR_SYM}10 turns <strong style={{color:INK}}>{CUR_SYM}4,587</strong> into <strong style={{color:INK}}>{CUR_SYM}4,590</strong>; nearest {CUR_SYM}50 makes it <strong style={{color:INK}}>{CUR_SYM}4,600</strong>. Manual quoted prices are never rounded. Applies everywhere prices are recalculated, including existing quotes.</div>
         </div>
       </div>
       <div style={{display:"flex",justifyContent:"flex-end"}}><Btn onClick={saveMt}>Save markup table</Btn></div>
