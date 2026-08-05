@@ -238,6 +238,7 @@ const NOTE_TYPES=["General note","Client call","Client email","Client visit","In
 // when the studio's region loads; fmt/fmtR/fmtDate read the currency symbol/code + locale below.
 let GST_RATE=0.10;      // tax rate as a fraction (AU GST 10% → 0.10)
 let TAX_LABEL="GST";    // "GST" | "VAT" | "Sales Tax" | "Tax"
+let STONE_TAX_INCLUSIVE=false;  // false → tax added on top of the marked-up stone (default); true → marked-up stone price already includes tax
 let CUR_SYM="$";        // currency symbol shown before amounts
 let CUR_CODE="AUD";     // ISO code shown on documents + used to fetch metal prices
 let LOCALE="en-AU";     // number/date locale
@@ -257,6 +258,7 @@ function applyRegion(b){
   TAX_LABEL= b.taxLabel       || "GST";
   LOCALE   = b.locale         || "en-AU";
   GST_RATE = (b.taxRatePct!=null && b.taxRatePct!=="") ? Number(b.taxRatePct)/100 : 0.10;
+  STONE_TAX_INCLUSIVE = !!b.stoneTaxInclusive;   // default off → tax on top of marked-up stones (unchanged for existing studios)
 }
 
 // ── Default markup table ──────────────────────────────────────────────────
@@ -1253,7 +1255,12 @@ const duplicateQuoteObj=q=>{
 const clientDisplayName=c=>{if(!c)return"";const p=(c.partnerName||"").trim();return p?`${c.name} & ${p}`:(c.name||"");};
 
 // ── Storage ───────────────────────────────────────────────────────────────
-// ── Stone quote calculation (cost → markup → +GST) ───────────────────────
+// ── Stone quote calculation (cost → markup → tax) ────────────────────────
+// Two per-studio modes for how tax meets the marked-up stone (STONE_TAX_INCLUSIVE):
+//   • default (false): tax is ADDED ON TOP of the marked-up stone → client pays cost×mult×(1+rate).
+//   • inclusive (true): the marked-up stone price ALREADY INCLUDES tax → client pays cost×mult,
+//     and the tax component is backed out of that figure.
+// Either way the returned clientTotal is tax-inclusive and markedUp+gst sum exactly to it.
 const calcStoneQuote=(items,table,overrideMult)=>{
   const stones=items.filter(i=>Number(i.cost||i.costLow)>0);
   if(!stones.length)return null;
@@ -1262,9 +1269,10 @@ const calcStoneQuote=(items,table,overrideMult)=>{
   const autoMult=bracket?.multiplier||1;
   const ov=Number(overrideMult)||0;                 // per-quote manual multiplier (e.g. dial a big stone down)
   const mult=ov>0?ov:autoMult;
-  // Round the final inclusive price (global rounding setting), then back out the GST
+  // Round the final inclusive price (global rounding setting), then back out the tax
   // component so markedUp + gst still sum exactly to what the client pays.
-  const clientTotal=roundQ(totalCost*mult*(1+GST_RATE));
+  const taxMult=STONE_TAX_INCLUSIVE?1:(1+GST_RATE);  // inclusive → markup is already the client price
+  const clientTotal=roundQ(totalCost*mult*taxMult);
   const gst=clientTotal-clientTotal/(1+GST_RATE);
   const markedUp=clientTotal-gst;
   return{totalCost,bracket,mult,autoMult,overridden:ov>0,markedUp,gst,clientTotal};
@@ -1947,7 +1955,7 @@ function StoneMarkupSummary({calc}){
         <span style={{fontSize:13,color:INK}}><strong style={{color:OK,fontSize:15}}>{fmt(profit)}</strong> profit · <strong style={{color:INK}}>{margin}%</strong> margin · {calc.mult}× markup</span>
       </div>;
     })()}
-    <div style={{padding:"8px 14px",fontSize:11,color:WG}}>Stone price shown to client: <strong style={{color:INK}}>{fmtR(calc.clientTotal)}</strong> (your cost {fmt(calc.totalCost)} × {calc.mult} markup = {fmt(calc.markedUp)} + {Math.round(GST_RATE*100)}% {TAX_LABEL})</div>
+    <div style={{padding:"8px 14px",fontSize:11,color:WG}}>Stone price shown to client: <strong style={{color:INK}}>{fmtR(calc.clientTotal)}</strong> ({STONE_TAX_INCLUSIVE?<>your cost {fmt(calc.totalCost)} × {calc.mult} markup, {TAX_LABEL} included ({fmt(calc.gst)})</>:<>your cost {fmt(calc.totalCost)} × {calc.mult} markup = {fmt(calc.markedUp)} + {Math.round(GST_RATE*100)}% {TAX_LABEL}</>})</div>
   </div>;
 }
 
@@ -2039,7 +2047,7 @@ function MarkupSummary({baseLow,baseHigh,isRange,bracket,mult,autoMult,overridde
         </div>
       ))}
     </div>
-    {gstOnMarkup&&((baseLow>0&&(bracket||overridden))||hasFlat)&&<div style={{padding:"9px 16px",fontSize:11,color:WG,borderTop:`1px solid ${BD}`,background:WHITE}}>* Trade pricing — 10% GST added across the supply.{baseLow>0&&(bracket||overridden)?<> Markup: {fmt(baseLow)} × {mult} × 1.10 = <strong style={{color:INK}}>{fmtR(mfLow)}</strong>.</>:null}{hasFlat?<> At-cost items include GST on top of cost.</>:null}</div>}
+    {gstOnMarkup&&((baseLow>0&&(bracket||overridden))||hasFlat)&&<div style={{padding:"9px 16px",fontSize:11,color:WG,borderTop:`1px solid ${BD}`,background:WHITE}}>* Trade pricing — {Math.round(GST_RATE*100)}% {TAX_LABEL} added across the supply.{baseLow>0&&(bracket||overridden)?<> Markup: {fmt(baseLow)} × {mult} × {(1+GST_RATE).toFixed(2)} = <strong style={{color:INK}}>{fmtR(mfLow)}</strong>.</>:null}{hasFlat?<> At-cost items include {TAX_LABEL} on top of cost.</>:null}</div>}
     {/* Profit / margin on the marked-up jewellery — internal only. GST (baked into the retail
         multiplier, or added explicitly for trade) is backed out for a true profit; no-markup
         (flat) items are pass-through and excluded. */}
@@ -7907,6 +7915,11 @@ function Settings({biz,setBiz,markupTable,setMarkupTable,naturalStoneMarkup,setN
         <Input label="Tax rate (%)" value={String(bForm.taxRatePct??10)} onChange={v=>setBF("taxRatePct")(v===""?"":Number(v))} type="number" min="0" step="0.1" placeholder="10"/>
       </div>
       <div style={{fontSize:12,color:WG,marginTop:2,lineHeight:1.6}}>Preview: a {Number(bForm.taxRatePct??10)}% {bForm.taxLabel||"GST"} total of <strong style={{color:INK}}>{bForm.currencySymbol||"$"}1,234.50 {bForm.currencyCode||"AUD"}</strong>. Set the tax rate to <strong>0</strong> if you don't charge sales tax.</div>
+      <label style={{display:"flex",alignItems:"flex-start",gap:9,fontSize:13,color:INK,cursor:"pointer",margin:"14px 0 2px"}}>
+        <input type="checkbox" checked={!!bForm.stoneTaxInclusive} onChange={e=>setBF("stoneTaxInclusive")(e.target.checked)} style={{width:16,height:16,accentColor:GOLD,cursor:"pointer",marginTop:2,flexShrink:0}}/>
+        <span>Centre-stone prices are tax-<strong>inclusive</strong> (marked-up stone already includes {bForm.taxLabel||"GST"})</span>
+      </label>
+      <div style={{fontSize:11.5,color:WG,marginTop:2,lineHeight:1.55}}>Off (default): the {bForm.taxLabel||"GST"} is <strong>added on top</strong> of the marked-up stone — cost × markup, then + {Number(bForm.taxRatePct??10)}%. On: the marked-up stone price <strong>already includes</strong> {bForm.taxLabel||"GST"}, and the tax is backed out as a component. Applies to all sourced &amp; accent stones.</div>
       <div style={{background:GOLD_L,border:`1px solid ${GOLD}55`,borderRadius:4,padding:"10px 14px",marginTop:12,fontSize:11.5,color:GOLD_D,lineHeight:1.5}}>Prices are tax-<strong>inclusive</strong> — the tax is shown as a component of the total (the way AU, UK, NZ and EU retail work). US-style sales tax added on top at checkout isn't supported yet.</div>
       <div style={{display:"flex",justifyContent:"flex-end",marginTop:14}}><Btn onClick={saveBiz}>Save region &amp; currency</Btn></div>
     </Card>
