@@ -1642,6 +1642,10 @@ const setCloudLoaded=(v)=>{_cloudLoaded=v;};
 // Resolved from studio_members at login; null until known (blocks cloud writes).
 let _studioId=null;
 const setStudioIdModule=(v)=>{_studioId=v;};
+// Capture a teammate invite token from the URL (…/?invite=<token>) as early as possible so it
+// survives the sign-up + email-confirmation round-trip. accept_studio_invite() consumes it on
+// first sign-in for a user who has no studio yet (see the studio-resolution effect).
+try{const _iv=new URLSearchParams(window.location.search).get("invite");if(_iv)localStorage.setItem("pendingInvite",_iv);}catch(e){}
 // Per-key timestamp of THIS client's last cloud write. The realtime channel echoes
 // our own writes back; without this we can re-apply a stale/older echo on top of
 // fresh state and get stuck (e.g. wrong "balance owing" until the next reload).
@@ -8001,9 +8005,90 @@ function Settings({biz,setBiz,markupTable,setMarkupTable,naturalStoneMarkup,setN
       <div style={{display:"flex",justifyContent:"flex-end",marginTop:16}}><Btn onClick={saveTrade}>Save trade markups</Btn></div>
     </Card>
     {billing&&billing.enabled&&<><SectionHeader eyebrow="Your studio" title="Subscription" subtitle="Your Prong Studio plan and billing."/><BillingCard billing={billing}/></>}
+    {supabaseEnabled&&<><SectionHeader eyebrow="Your studio" title="Team" subtitle="Invite teammates into this studio — everyone shares the same jobs, clients and invoices."/><TeamCard/></>}
     <SectionHeader eyebrow="Your studio" title="Data safety" subtitle="Automatic backups you can restore from — so nothing gets lost for good."/>
     {dataSafety&&<DataSafetyCard {...dataSafety}/>}
   </div>;
+}
+// Team management — invite teammates into this studio via a shareable link, list members, remove
+// them. Backed by the team-invites.sql RPCs. Every member gets full access; only owner/admin manage.
+function TeamCard(){
+  const[members,setMembers]=useState(null);
+  const[invites,setInvites]=useState([]);
+  const[me,setMe]=useState(null);
+  const[link,setLink]=useState("");
+  const[busy,setBusy]=useState(false);
+  const[err,setErr]=useState("");
+  const[copied,setCopied]=useState(false);
+  const load=useCallback(async()=>{
+    setErr("");
+    try{
+      const{data:u}=await supabase.auth.getUser();setMe(u?.user||null);
+      const{data:m,error}=await supabase.rpc("list_studio_members");
+      if(error)throw error;
+      setMembers(m||[]);
+      const{data:iv}=await supabase.from("studio_invites").select("token,role,email,created_at").is("accepted_at",null).order("created_at",{ascending:false});
+      setInvites(iv||[]);
+    }catch(e){setMembers([]);setErr(e.message||"Couldn't load your team — the team-invites database migration may not be run yet.");}
+  },[]);
+  useEffect(()=>{load();},[load]);
+  const myRole=(members&&me)?(members.find(x=>x.user_id===me.id)?.role||null):null;
+  const canManage=myRole==="owner"||myRole==="admin";
+  const inviteUrl=t=>`${window.location.origin}/?invite=${t}`;
+  const makeInvite=async()=>{
+    setBusy(true);setErr("");setCopied(false);setLink("");
+    try{
+      const{data:token,error}=await supabase.rpc("create_studio_invite",{p_role:"staff",p_email:null});
+      if(error)throw error;
+      setLink(inviteUrl(token));load();
+    }catch(e){setErr(e.message||"Couldn't create an invite.");}
+    setBusy(false);
+  };
+  const copy=async(text)=>{try{await navigator.clipboard.writeText(text);setCopied(true);setTimeout(()=>setCopied(false),1800);}catch(e){}};
+  const revoke=async(t)=>{if(!confirm("Revoke this invite link? Anyone still holding it won't be able to join."))return;try{await supabase.rpc("revoke_studio_invite",{p_token:t});load();}catch(e){setErr(e.message||"Couldn't revoke the invite.");}};
+  const remove=async(uid,email)=>{if(!confirm(`Remove ${email||"this teammate"} from your studio? They'll immediately lose access.`))return;try{const{error}=await supabase.rpc("remove_studio_member",{p_user:uid});if(error)throw error;load();}catch(e){setErr(e.message||"Couldn't remove the member.");}};
+  const roleColor=r=>r==="owner"?GOLD_D:r==="admin"?"#6E67A0":WG;
+  return <Card>
+    {err&&<div style={{background:DANGER+"14",border:`1px solid ${DANGER}44`,color:DANGER,fontSize:12.5,padding:"9px 12px",borderRadius:6,marginBottom:14,lineHeight:1.5}}>{err}</div>}
+    {members===null
+      ?<div style={{fontSize:13,color:WG}}>Loading team…</div>
+      :<>
+        <div style={{display:"flex",flexDirection:"column"}}>
+          {members.map(m=><div key={m.user_id} style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:10,padding:"10px 0",borderBottom:`1px solid ${BD}`}}>
+            <div style={{fontSize:14,fontWeight:600,color:INK,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",minWidth:0}}>{m.email}{me&&m.user_id===me.id&&<span style={{color:WG,fontWeight:400}}> · you</span>}</div>
+            <div style={{display:"flex",alignItems:"center",gap:10,flexShrink:0}}>
+              <span style={{fontSize:10.5,fontWeight:800,letterSpacing:"0.08em",textTransform:"uppercase",color:roleColor(m.role)}}>{m.role}</span>
+              {canManage&&m.role!=="owner"&&m.user_id!==me?.id&&<button onClick={()=>remove(m.user_id,m.email)} style={{background:"none",border:`1px solid ${DANGER}44`,borderRadius:4,padding:"3px 9px",fontSize:11,color:DANGER,cursor:"pointer",fontFamily:"inherit",fontWeight:700}}>Remove</button>}
+            </div>
+          </div>)}
+        </div>
+        {canManage&&<>
+          <div style={{display:"flex",alignItems:"center",gap:10,marginTop:16,flexWrap:"wrap"}}>
+            <Btn sm onClick={makeInvite} disabled={busy}>{busy?"Creating…":"+ Invite teammate"}</Btn>
+            <span style={{fontSize:12,color:WG}}>Generates a link — send it to them however you like.</span>
+          </div>
+          {link&&<div style={{marginTop:12,background:PARCH,border:`1px solid ${BD}`,borderRadius:8,padding:"12px 14px"}}>
+            <div style={{fontSize:11,fontWeight:700,color:WG,textTransform:"uppercase",letterSpacing:"0.06em",marginBottom:6}}>Invite link</div>
+            <div style={{display:"flex",gap:8,alignItems:"center",flexWrap:"wrap"}}>
+              <input readOnly value={link} onFocus={e=>e.target.select()} style={{...SS.inp,marginTop:0,flex:1,minWidth:180,fontSize:12.5}}/>
+              <Btn sm onClick={()=>copy(link)}>{copied?"Copied ✓":"Copy"}</Btn>
+            </div>
+            <div style={{fontSize:11.5,color:WG,marginTop:8,lineHeight:1.5}}>They open this link, create their account, and join your studio automatically.</div>
+          </div>}
+          {invites.length>0&&<div style={{marginTop:16}}>
+            <div style={{fontSize:11,fontWeight:700,color:WG,textTransform:"uppercase",letterSpacing:"0.06em",marginBottom:8}}>Pending invites ({invites.length})</div>
+            {invites.map(iv=><div key={iv.token} style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:10,padding:"8px 0",borderBottom:`1px solid ${BD}`}}>
+              <div style={{fontSize:12.5,color:WG,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",minWidth:0}}>…/?invite={iv.token.slice(0,10)}… · {iv.role}</div>
+              <div style={{display:"flex",gap:8,flexShrink:0}}>
+                <button onClick={()=>copy(inviteUrl(iv.token))} style={{background:"none",border:`1px solid ${BD}`,borderRadius:4,padding:"3px 9px",fontSize:11,color:INK,cursor:"pointer",fontFamily:"inherit",fontWeight:700}}>Copy link</button>
+                <button onClick={()=>revoke(iv.token)} style={{background:"none",border:`1px solid ${DANGER}44`,borderRadius:4,padding:"3px 9px",fontSize:11,color:DANGER,cursor:"pointer",fontFamily:"inherit",fontWeight:700}}>Revoke</button>
+              </div>
+            </div>)}
+          </div>}
+        </>}
+        {!canManage&&<div style={{fontSize:12.5,color:WG,marginTop:10,lineHeight:1.5}}>Only the studio owner or an admin can invite or remove teammates.</div>}
+      </>}
+  </Card>;
 }
 // Subscription status + subscribe/manage. Only rendered when billing is enabled for the deploy.
 function BillingCard({billing}){
@@ -8375,7 +8460,7 @@ function Login(){
   // "in" = sign in · "up" = create account. The landing's "Start free trial" links to ?signup so
   // new visitors open straight on the create-account view instead of the sign-in wall.
   const[mode,setMode]=useState(()=>{
-    try{if(typeof window!=="undefined"&&new URLSearchParams(window.location.search).has("signup"))return "up";}catch(e){}
+    try{if(typeof window!=="undefined"){const p=new URLSearchParams(window.location.search);if(p.has("signup")||p.has("invite"))return "up";}}catch(e){}
     return "in";
   });
   const[email,setEmail]=useState("");
@@ -8388,10 +8473,13 @@ function Login(){
   // single-tenant business deployment keeps an admin-only login; the tester deployment turns it on.
   const allowSignup=import.meta.env.VITE_ALLOW_SIGNUP==="true";
   const signUp=allowSignup&&mode==="up";
+  // Teammate invites: when the user arrived via …/?invite=<token> they're joining an existing
+  // studio, not creating one — hide the studio-name field and reframe the copy.
+  const invited=(()=>{try{return new URLSearchParams(window.location.search).has("invite")||!!localStorage.getItem("pendingInvite");}catch(e){return false;}})();
   const submit=async(e)=>{
     e&&e.preventDefault();
     if(!email.trim()||!password)return setErr("Enter your email and password.");
-    if(signUp&&!studioName.trim())return setErr("Enter your studio / business name.");
+    if(signUp&&!invited&&!studioName.trim())return setErr("Enter your studio / business name.");
     if(signUp&&password.length<6)return setErr("Choose a password of at least 6 characters.");
     setBusy(true);setErr("");
     if(signUp){
@@ -8419,11 +8507,12 @@ function Login(){
         ?<div style={{textAlign:"center"}}>
           <div style={{fontSize:30,marginBottom:12}}>📧</div>
           <div style={{fontSize:16,fontWeight:800,color:WHITE,marginBottom:8}}>Check your email</div>
-          <div style={{fontSize:13,color:"rgba(255,255,255,0.55)",lineHeight:1.6,marginBottom:22}}>We sent a confirmation link to <strong style={{color:WHITE}}>{sentTo}</strong>. Click it, then sign in to set up your studio.</div>
+          <div style={{fontSize:13,color:"rgba(255,255,255,0.55)",lineHeight:1.6,marginBottom:22}}>We sent a confirmation link to <strong style={{color:WHITE}}>{sentTo}</strong>. Click it, then sign in to {invited?"join the team":"set up your studio"}.</div>
           <button type="button" onClick={()=>switchMode("in")} style={{background:"none",border:"none",color:GOLD,fontSize:12,fontWeight:700,cursor:"pointer",fontFamily:"inherit"}}>Back to sign in</button>
         </div>
         :<>
-          {signUp&&<>
+          {signUp&&invited&&<div style={{background:"rgba(184,146,42,0.12)",border:`1px solid ${GOLD}55`,borderRadius:8,padding:"11px 13px",marginBottom:16,fontSize:12.5,color:"rgba(255,255,255,0.75)",lineHeight:1.5}}>You've been invited to join a studio. Create your account below to join the team.</div>}
+          {signUp&&!invited&&<>
             <label style={{...SS.lbl,color:"rgba(255,255,255,0.5)"}}>Studio / business name</label>
             <input value={studioName} onChange={e=>setStudioName(e.target.value)} autoFocus placeholder="e.g. Aurora Fine Jewellery" style={darkInp}/>
           </>}
@@ -8433,7 +8522,7 @@ function Login(){
           <input type="password" value={password} onChange={e=>setPassword(e.target.value)} placeholder={signUp?"At least 6 characters":"••••••••"} style={{...darkInp,marginBottom:18}}/>
           {err&&<div style={{background:DANGER+"22",border:`1px solid ${DANGER}55`,color:"#FF9B91",fontSize:12,padding:"9px 12px",borderRadius:4,marginBottom:14}}>{err}</div>}
           <button type="submit" disabled={busy} style={{width:"100%",background:busy?"#7A5F0F":GOLD,color:WHITE,border:"none",borderRadius:4,padding:"11px",fontSize:14,fontWeight:700,cursor:busy?"default":"pointer",fontFamily:"inherit",letterSpacing:"0.04em"}}>
-            {busy?(signUp?"Creating account…":"Signing in…"):(signUp?"Create account":"Sign in")}
+            {busy?(signUp?"Creating account…":"Signing in…"):(signUp?(invited?"Create account & join":"Create account"):"Sign in")}
           </button>
           <div style={{fontSize:12,color:"rgba(255,255,255,0.4)",textAlign:"center",marginTop:16,lineHeight:1.6}}>
             {!allowSignup
@@ -9402,7 +9491,22 @@ export default function App(){
           // Load the studio's subscription status (billing fields). Absent columns/rows → null = full access.
           if(BILLING_ENABLED)supabase.from("studios").select("sub_status,plan,trial_ends_at,current_period_end").eq("id",data.studio_id).maybeSingle().then(({data:s})=>{if(!cancelled)setSubscription(s||null);}).catch(()=>{});
         }
-        else{setStudioIdModule(null);setStudioId("none");}
+        else{
+          // No studio yet — if they followed a teammate invite link, join that studio instead of onboarding.
+          let joined=false;
+          try{
+            const token=localStorage.getItem("pendingInvite");
+            if(token){
+              const{data:sid,error}=await supabase.rpc("accept_studio_invite",{p_token:token});
+              try{localStorage.removeItem("pendingInvite");}catch(_){}
+              if(!cancelled&&sid&&!error){
+                joined=true;setStudioIdModule(sid);setStudioId(sid);
+                if(BILLING_ENABLED)supabase.from("studios").select("sub_status,plan,trial_ends_at,current_period_end").eq("id",sid).maybeSingle().then(({data:s})=>{if(!cancelled)setSubscription(s||null);}).catch(()=>{});
+              }
+            }
+          }catch(_){try{localStorage.removeItem("pendingInvite");}catch(__){}}
+          if(!joined&&!cancelled){setStudioIdModule(null);setStudioId("none");}
+        }
       }catch(e){if(!cancelled){setStudioIdModule(null);setStudioId("none");}}
     })();
     return()=>{cancelled=true;};
