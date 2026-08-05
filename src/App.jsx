@@ -1988,11 +1988,15 @@ function Card({children,style={},onClick,id}){
     style={{background:WHITE,borderRadius:RADIUS,border:`1px solid ${onClick&&h?"#D2D2D6":BD_SOFT}`,padding:"22px 26px",marginBottom:16,transition:"all 0.18s",cursor:onClick?"pointer":"default",boxShadow:onClick&&h?SHADOW_HV:SHADOW,transform:onClick&&h?"translateY(-2px)":"none",...style}}>{children}</div>;
 }
 function Modal({title,onClose,children,wide}){
-  return <div style={{position:"fixed",inset:0,background:"rgba(26,23,20,0.6)",display:"flex",alignItems:"center",justifyContent:"center",zIndex:200,backdropFilter:"blur(3px)"}}>
-    <div style={{background:WHITE,borderRadius:4,padding:"30px 34px",width:"100%",maxWidth:wide?860:580,maxHeight:"92vh",overflowY:"auto",border:`1px solid ${BD}`,boxShadow:"0 24px 64px rgba(0,0,0,0.2)"}}>
-      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:22}}>
-        <h2 style={{margin:0,fontSize:19,fontWeight:800,color:INK}}>{title}</h2>
-        <button onClick={onClose} style={{background:"none",border:"none",fontSize:24,cursor:"pointer",color:WG,lineHeight:1,padding:0}}>×</button>
+  const isMobile=useIsMobile();
+  // Padding on the overlay keeps the card off the screen edges, so the dark backdrop frames it on
+  // all sides — the main visual cue that you're in a modal (without it, a full-width phone card
+  // reads as just another page section).
+  return <div style={{position:"fixed",inset:0,background:"rgba(26,23,20,0.62)",display:"flex",alignItems:"center",justifyContent:"center",zIndex:200,backdropFilter:"blur(3px)",padding:isMobile?16:24,boxSizing:"border-box"}}>
+    <div style={{background:WHITE,borderRadius:isMobile?16:18,padding:isMobile?"22px 20px":"30px 34px",width:"100%",maxWidth:wide?860:580,maxHeight:isMobile?"90vh":"92vh",overflowY:"auto",border:`1px solid ${BD}`,boxShadow:"0 20px 60px rgba(0,0,0,0.35), 0 4px 16px rgba(0,0,0,0.18)"}}>
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",gap:12,marginBottom:isMobile?18:22}}>
+        <h2 style={{margin:0,fontSize:isMobile?17:19,fontWeight:800,color:INK,minWidth:0}}>{title}</h2>
+        <button onClick={onClose} aria-label="Close" style={{background:PARCH,border:`1px solid ${BD}`,borderRadius:9,width:34,height:34,display:"flex",alignItems:"center",justifyContent:"center",fontSize:21,cursor:"pointer",color:WG,lineHeight:1,padding:0,flexShrink:0}}>×</button>
       </div>
       {children}
     </div>
