@@ -4381,29 +4381,32 @@ function QuoteBuilder({jobId:jobIdProp,editQuoteId,stockId,stock,setStock,jobs,c
       {items.map((li,idx)=>{
         const cost=Number(li.costLow)||0;
         const totalStr=cost>0?fmt(cost):"—";
+        const actBtn={display:"inline-flex",alignItems:"center",gap:5,background:"none",border:`1px solid ${BD}`,borderRadius:6,padding:"4px 10px",fontSize:12,fontWeight:600,color:WG,cursor:"pointer",fontFamily:"inherit",lineHeight:1.3,whiteSpace:"nowrap"};
         return <div key={li.id} style={{display:"grid",gridTemplateColumns:isMobile?"1fr auto":"minmax(240px,1.6fr) 1fr 120px 104px",columnGap:8,rowGap:isMobile?7:8,marginBottom:isMobile?16:8,alignItems:"center",...(isMobile?{padding:"10px",border:`1px solid ${BD}`,borderRadius:6,background:PARCH}:{})}}>
           <input value={li.description} onChange={e=>setItem(li.id,"description",e.target.value)} placeholder="Item — e.g. 9ct white gold" style={{...SS.inp,marginTop:0,fontSize:13,padding:"7px 10px",gridColumn:isMobile?"1 / -1":"auto"}}/>
           <input value={li.detail} onChange={e=>setItem(li.id,"detail",e.target.value)} placeholder={`Detail — e.g. 5g × ${CUR_SYM}110/g`} style={{...SS.inp,marginTop:0,fontSize:13,padding:"7px 10px",color:WG,gridColumn:isMobile?"1 / -1":"auto"}}/>
           <input type="number" value={li.costLow} onChange={e=>setItem(li.id,"costLow",e.target.value)} placeholder="0.00" min="0" step="0.01" style={{...SS.inp,marginTop:0,fontSize:13,padding:"7px 8px",textAlign:"right"}}/>
           <div style={{fontSize:13,fontWeight:700,color:INK,textAlign:"right",whiteSpace:"nowrap"}}>{totalStr}</div>
-          <div style={{display:"flex",gap:3,alignItems:"center",flexWrap:"wrap",gridColumn:isMobile?"1 / -1":"auto"}}>
-            {li.metalMethod&&<div style={{display:"inline-flex",border:`1px solid ${BD}`,borderRadius:2,overflow:"hidden",flexShrink:0}} title="Metal supply — pick one: Cast (casting-house premium) or hand-Fabricated (mill metal)">
-              {[["cast","CAST",Number(li.metalCastPerG)||0],["fab","FAB",Number(li.metalFabPerG)||0]].map(([m,lbl,perG],i)=>{
+          <div style={{display:"flex",gap:6,alignItems:"center",flexWrap:"wrap",gridColumn:"1 / -1",marginTop:isMobile?2:4}}>
+            {li.metalMethod&&<div style={{display:"inline-flex",border:`1px solid ${BD}`,borderRadius:6,overflow:"hidden",flexShrink:0}} title="Metal supply — pick one: Cast (casting-house premium) or hand-Fabricated (mill metal)">
+              {[["cast","Cast",Number(li.metalCastPerG)||0],["fab","Fabricated",Number(li.metalFabPerG)||0]].map(([m,lbl,perG],i)=>{
                 const on=li.metalMethod===m;
                 return <button key={m} onClick={()=>setMetalMethod(li.id,m)}
                   title={`${m==="fab"?"Hand-fabricated (mill metal)":"Cast (casting-house premium)"} — ${fmt(perG)}/g`}
-                  style={{background:on?GOLD:WHITE,border:"none",borderLeft:i?`1px solid ${BD}`:"none",padding:"2px 7px",fontSize:9,fontWeight:700,color:on?WHITE:WG,cursor:on?"default":"pointer",letterSpacing:"0.04em",lineHeight:"16px",whiteSpace:"nowrap"}}>{lbl}</button>;
+                  style={{background:on?GOLD:WHITE,border:"none",borderLeft:i?`1px solid ${BD}`:"none",padding:"4px 10px",fontSize:12,fontWeight:600,color:on?WHITE:WG,cursor:on?"default":"pointer",lineHeight:1.3,whiteSpace:"nowrap"}}>{lbl}</button>;
               })}
             </div>}
             <button
               onClick={()=>setItem(li.id,"noMarkup",!li.noMarkup)}
-              title={li.noMarkup?"No markup applied — click to include in markup":"Click to exclude this item from markup"}
-              style={{background:li.noMarkup?"#96627C":"transparent",border:`1px solid ${li.noMarkup?"#96627C":BD}`,borderRadius:2,padding:"1px 5px",fontSize:9,fontWeight:700,color:li.noMarkup?WHITE:WG,cursor:"pointer",letterSpacing:"0.04em",lineHeight:"16px",whiteSpace:"nowrap"}}>
-              {li.noMarkup?"NO MU":"MU"}
+              title={li.noMarkup?"This line is excluded from your markup — click to include it":"This line is included in your markup — click to exclude it (charge at cost)"}
+              style={li.noMarkup
+                ?{...actBtn,background:"#96627C",border:"1px solid #96627C",color:WHITE}
+                :{...actBtn,border:`1px solid ${GOLD}`,color:GOLD_D}}>
+              {li.noMarkup?"No markup":"Markup ✓"}
             </button>
-            <button onClick={()=>duplicateItem(li.id)} title="Duplicate this line" style={{background:"none",border:"none",cursor:"pointer",color:WG,fontSize:13,padding:"0 2px"}}>⧉</button>
-            <button onClick={()=>removeItem(li.id)} title="Delete this line" style={{background:"none",border:"none",cursor:"pointer",color:DANGER,fontSize:17,padding:0,lineHeight:1}}>×</button>
-            {idx>0&&<button onClick={()=>moveItem(li.id,-1)} title="Move up" style={{background:"none",border:"none",cursor:"pointer",color:WG,fontSize:13,padding:"0 2px"}}>↑</button>}
+            <button onClick={()=>duplicateItem(li.id)} title="Duplicate this line" style={actBtn}><span style={{fontSize:13}}>⧉</span> Duplicate</button>
+            {idx>0&&<button onClick={()=>moveItem(li.id,-1)} title="Move this line up" style={actBtn}><span style={{fontSize:13}}>↑</span> Move up</button>}
+            <button onClick={()=>removeItem(li.id)} title="Delete this line" style={{...actBtn,color:DANGER,border:`1px solid ${DANGER}55`}}><span style={{fontSize:14,lineHeight:1}}>✕</span> Delete</button>
           </div>
         </div>;})}
       {/* Manufacturing-markup accent stones — folded into the jewellery costs list (editable) */}
