@@ -7971,13 +7971,13 @@ function Settings({biz,setBiz,markupTable,setMarkupTable,naturalStoneMarkup,setN
           <label style={SS.lbl}>{`Bracket threshold buffer (${CUR_SYM})`}</label>
           <div style={{position:"relative",marginTop:4}}>
             <span style={{position:"absolute",left:14,top:"50%",transform:"translateY(-50%)",fontSize:13,color:WG,pointerEvents:"none"}}>{CUR_SYM}</span>
-            <input type="number" value={buffer} onChange={e=>setBuffer(e.target.value)} min="0" step="10" style={{...SS.inp,marginTop:0,paddingLeft:28,fontWeight:700}}/>
+            <input type="number" value={buffer} onChange={e=>setBuffer(e.target.value)} min="0" step="10" style={{...SS.inp,marginTop:0,paddingLeft:28}}/>
           </div>
           <div style={{fontSize:12,color:WG,lineHeight:1.6,marginTop:8}}>If a cost is within this much of the next bracket, it's bumped up to that bracket's (lower) multiplier — so a cost just under a threshold doesn't get charged the higher markup. Set to <strong style={{color:INK}}>0</strong> to disable. Example: a {CUR_SYM}100 buffer means a {CUR_SYM}920 cost is priced as if it were in the {CUR_SYM}1,000+ bracket.</div>
         </div>
         <div>
           <label style={SS.lbl}>Round quote prices</label>
-          <select value={rounding} onChange={e=>setRounding(e.target.value)} style={{...SS.inp,marginTop:4,fontWeight:700}}>
+          <select value={rounding} onChange={e=>setRounding(e.target.value)} style={{...SS.inp,marginTop:4}}>
             <option value="0">Off — exact figures</option>
             <option value="5">Nearest {CUR_SYM}5</option>
             <option value="10">Nearest {CUR_SYM}10</option>
