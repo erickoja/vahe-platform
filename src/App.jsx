@@ -5869,7 +5869,7 @@ function QuoteDetail({quoteId,quotes,setQuotes,jobs,clients,biz,markupTable,natu
     <Card>
       {/* Cost breakdown table */}
       <div style={{fontWeight:700,fontSize:14,color:INK,marginBottom:12}}>Cost breakdown</div>
-      {!isMobile&&<div style={{display:"grid",gridTemplateColumns:"180px 1fr 44px 110px",gap:6,marginBottom:8}}>
+      {!isMobile&&<div style={{display:"grid",gridTemplateColumns:"minmax(200px,1.4fr) minmax(200px,2fr) 44px 120px",gap:12,marginBottom:8}}>
         {[["Item","left"],["Detail","left"],["",""],["Cost","right"]].map(([h,align],i)=><div key={i} style={{fontSize:10,fontWeight:700,color:WG,textTransform:"uppercase",letterSpacing:"0.05em",textAlign:align}}>{h}</div>)}
       </div>}
       {q.lineItems.length===0&&<div style={{fontSize:13,color:WG,fontStyle:"italic",padding:"10px 0"}}>No itemised costs — this quote uses a manual quoted price.</div>}
@@ -5885,7 +5885,7 @@ function QuoteDetail({quoteId,quotes,setQuotes,jobs,clients,biz,markupTable,natu
           </div>
           {(li.detail||muBadge)&&<div style={{color:WG,fontSize:12,marginTop:3,display:"flex",gap:6,alignItems:"center",flexWrap:"wrap"}}>{li.detail&&<span>{li.detail}</span>}{muBadge}</div>}
         </div>;
-        return <div key={li.id} style={{display:"grid",gridTemplateColumns:"180px 1fr 44px 110px",gap:6,padding:"9px 0",borderBottom:`1px solid ${BD}`,fontSize:13,alignItems:"center"}}>
+        return <div key={li.id} style={{display:"grid",gridTemplateColumns:"minmax(200px,1.4fr) minmax(200px,2fr) 44px 120px",gap:12,padding:"9px 0",borderBottom:`1px solid ${BD}`,fontSize:13,alignItems:"center"}}>
           <span style={{fontWeight:600,color:INK}}>{li.description}</span>
           <span style={{color:WG,fontSize:12}}>{li.detail}</span>
           <span>{muBadge}</span>
