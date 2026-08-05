@@ -4446,7 +4446,7 @@ function QuoteBuilder({jobId:jobIdProp,editQuoteId,stockId,stock,setStock,jobs,c
             <button onClick={()=>removeStoneItem(li.id)} title="Delete this line" style={{display:"inline-flex",alignItems:"center",gap:5,background:"none",border:`1px solid ${DANGER}55`,borderRadius:6,padding:"4px 10px",fontSize:12,fontWeight:600,color:DANGER,cursor:"pointer",fontFamily:"inherit",lineHeight:1.3,whiteSpace:"nowrap"}}><span style={{fontSize:14,lineHeight:1}}>✕</span> Delete</button>
           </div>
         </div>;})}
-      <div style={{display:"flex",gap:10,marginTop:8,flexWrap:"wrap"}}>
+      <div style={{display:"flex",gap:10,marginTop:20,flexWrap:"wrap"}}>
         <button onClick={()=>setItems(p=>[...p,blankItem()])} style={{background:"none",border:`1px dashed ${GOLD}`,borderRadius:4,padding:"6px 14px",color:GOLD,fontSize:12,fontWeight:700,cursor:"pointer",fontFamily:"inherit"}}>+ Add item</button>
         <button onClick={openPricing} style={{background:GOLD_L,border:`1px solid ${GOLD}`,borderRadius:4,padding:"6px 14px",color:GOLD_D,fontSize:12,fontWeight:700,cursor:"pointer",fontFamily:"inherit"}}>⊕ Pricing DB</button>
         <button onClick={()=>setAccentModal(true)} style={{background:"#EDF5EF",border:"1px solid #A6CBB4",borderRadius:4,padding:"6px 14px",color:"#4E8B6A",fontSize:12,fontWeight:700,cursor:"pointer",fontFamily:"inherit"}}>+ Accent, feature or fancy stone</button>
