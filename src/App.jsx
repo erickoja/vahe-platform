@@ -5869,8 +5869,8 @@ function QuoteDetail({quoteId,quotes,setQuotes,jobs,clients,biz,markupTable,natu
     <Card>
       {/* Cost breakdown table */}
       <div style={{fontWeight:700,fontSize:14,color:INK,marginBottom:12}}>Cost breakdown</div>
-      {!isMobile&&<div style={{display:"grid",gridTemplateColumns:"180px 1fr 130px",gap:6,marginBottom:8}}>
-        {["Item","Detail","Cost"].map(h=><div key={h} style={{fontSize:10,fontWeight:700,color:WG,textTransform:"uppercase",letterSpacing:"0.05em"}}>{h}</div>)}
+      {!isMobile&&<div style={{display:"grid",gridTemplateColumns:"180px 1fr 44px 110px",gap:6,marginBottom:8}}>
+        {[["Item","left"],["Detail","left"],["",""],["Cost","right"]].map(([h,align],i)=><div key={i} style={{fontSize:10,fontWeight:700,color:WG,textTransform:"uppercase",letterSpacing:"0.05em",textAlign:align}}>{h}</div>)}
       </div>}
       {q.lineItems.length===0&&<div style={{fontSize:13,color:WG,fontStyle:"italic",padding:"10px 0"}}>No itemised costs — this quote uses a manual quoted price.</div>}
       {q.lineItems.map(li=>{
