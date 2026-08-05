@@ -7603,16 +7603,16 @@ function SpotPriceUpdater({spotPrices,setSpotPrices,pricing,setPricing,onClose})
     onClose();
   };
   return <div>
-    <div style={{background:GOLD_L,borderRadius:4,padding:"12px 16px",marginBottom:16,fontSize:13,color:GOLD_D,lineHeight:1.6}}>Enter today's fine metal spot price per gram (AUD). All metal pricing items update automatically based on purity.</div>
+    <div style={{background:GOLD_L,borderRadius:4,padding:"12px 16px",marginBottom:16,fontSize:13,color:GOLD_D,lineHeight:1.6}}>{`Enter today's fine metal spot price per gram (${CUR_CODE}). All metal pricing items update automatically based on purity.`}</div>
     {supabaseEnabled&&<div style={{display:"flex",alignItems:"center",gap:12,marginBottom:16}}>
       <Btn sm onClick={fetchLive} disabled={fetching}>{fetching?"Fetching…":"⟳ Fetch live prices"}</Btn>
       {fetched&&<span style={{fontSize:12,color:OK,fontWeight:600}}>✓ Live spot loaded{fetched.marketTimestamp?` · market time ${new Date(fetched.marketTimestamp).toLocaleString(LOCALE,{day:"numeric",month:"short",hour:"numeric",minute:"2-digit"})}`:""} — review &amp; apply below</span>}
-      {!fetched&&!fetching&&<span style={{fontSize:12,color:WG}}>Live AUD spot per gram via metals.dev</span>}
+      {!fetched&&!fetching&&<span style={{fontSize:12,color:WG}}>{`Live ${CUR_CODE} spot per gram via metals.dev`}</span>}
     </div>}
     <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:"0 16px"}}>
-      <Input label="Fine gold ($/g)" value={g} onChange={setG} type="number" min="0" step="0.01"/>
-      <Input label="Platinum ($/g)" value={pt} onChange={setPt} type="number" min="0" step="0.01"/>
-      <Input label="Silver ($/g)" value={ag} onChange={setAg} type="number" min="0" step="0.01"/>
+      <Input label={`Fine gold (${CUR_SYM}/g)`} value={g} onChange={setG} type="number" min="0" step="0.01"/>
+      <Input label={`Platinum (${CUR_SYM}/g)`} value={pt} onChange={setPt} type="number" min="0" step="0.01"/>
+      <Input label={`Silver (${CUR_SYM}/g)`} value={ag} onChange={setAg} type="number" min="0" step="0.01"/>
     </div>
     {/* Casting-house premium — the % your supplier charges above spot for casted metal */}
     <div style={{background:PARCH,border:`1px solid ${BD}`,borderRadius:4,padding:"12px 16px",marginBottom:14}}>
