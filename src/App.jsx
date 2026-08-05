@@ -4422,11 +4422,6 @@ function QuoteBuilder({jobId:jobIdProp,editQuoteId,stockId,stock,setStock,jobs,c
           <input type="number" value={li.costLow} onChange={e=>setAccentItem(li.id,"costLow",e.target.value)} placeholder="0.00" min="0" step="0.01" style={{...SS.inp,marginTop:0,fontSize:13,padding:"7px 8px",textAlign:"right"}}/>
           <div style={{fontSize:13,fontWeight:700,color:INK,textAlign:"right",whiteSpace:"nowrap"}}>{totalStr}</div>
           <div style={{display:"flex",gap:6,alignItems:"center",flexWrap:"wrap",gridColumn:"1 / -1",marginTop:isMobile?2:4}}>
-            <select value={li.markupMode||"mfg"} onChange={e=>setAccentItem(li.id,"markupMode",e.target.value)} title="Markup basis — switch to natural/lab to price it separately" style={{...SS.inp,marginTop:0,fontSize:12,padding:"5px 8px",width:"auto"}}>
-              <option value="mfg">Mfg</option>
-              <option value="natural">Natural</option>
-              <option value="lab">Lab</option>
-            </select>
             <button onClick={()=>removeAccentItem(li.id)} title="Delete this line" style={{display:"inline-flex",alignItems:"center",gap:5,background:"none",border:`1px solid ${DANGER}55`,borderRadius:6,padding:"4px 10px",fontSize:12,fontWeight:600,color:DANGER,cursor:"pointer",fontFamily:"inherit",lineHeight:1.3,whiteSpace:"nowrap"}}><span style={{fontSize:14,lineHeight:1}}>✕</span> Delete</button>
           </div>
         </div>;})}
