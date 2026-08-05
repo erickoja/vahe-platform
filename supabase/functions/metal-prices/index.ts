@@ -28,8 +28,14 @@ Deno.serve(async (req) => {
   try {
     if (!API_KEY) return json({ error: "METALS_DEV_API_KEY secret is not set" }, 500);
 
+    // The app passes the studio's currency (e.g. { currency: "GBP" }); default to AUD. Sanitised to
+    // a 3-letter ISO code so it can't corrupt the request.
+    let cur = "AUD";
+    try { const b = await req.json(); if (b && typeof b.currency === "string") cur = b.currency; } catch { /* no body */ }
+    cur = (cur || "AUD").toUpperCase().replace(/[^A-Z]/g, "").slice(0, 3) || "AUD";
+
     const r = await fetch(
-      `https://api.metals.dev/v1/latest?api_key=${encodeURIComponent(API_KEY)}&currency=AUD&unit=g`,
+      `https://api.metals.dev/v1/latest?api_key=${encodeURIComponent(API_KEY)}&currency=${cur}&unit=g`,
     );
     if (!r.ok) return json({ error: `metals.dev responded ${r.status}: ${await r.text()}` }, 502);
     const data = await r.json();
@@ -54,7 +60,7 @@ Deno.serve(async (req) => {
       gold: round(gold),
       platinum: platinum > 0 ? round(platinum) : null,
       silver: round(silver),
-      currency: "AUD",
+      currency: cur,
       unit: "g",
       source: "metals.dev",
       marketTimestamp: data.timestamps?.metal ?? null,

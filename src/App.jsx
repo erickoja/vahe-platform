@@ -232,7 +232,32 @@ const CAT_TITLE={
 };
 const catTitle=cat=>CAT_TITLE[cat]||cat;
 const NOTE_TYPES=["General note","Client call","Client email","Client visit","Internal update","Approval received"];
-const GST_RATE=0.10;
+// ── Region & currency (per-studio, driven by biz settings via applyRegion) ──────────────────
+// Defaults are Australia, so studios created before this feature are unchanged. GST_RATE keeps its
+// name (it's the tax rate threaded through the whole pricing model) but is now a LIVE value updated
+// when the studio's region loads; fmt/fmtR/fmtDate read the currency symbol/code + locale below.
+let GST_RATE=0.10;      // tax rate as a fraction (AU GST 10% → 0.10)
+let TAX_LABEL="GST";    // "GST" | "VAT" | "Sales Tax" | "Tax"
+let CUR_SYM="$";        // currency symbol shown before amounts
+let CUR_CODE="AUD";     // ISO code shown on documents + used to fetch metal prices
+let LOCALE="en-AU";     // number/date locale
+const REGION_PRESETS={
+  AU:   {label:"Australia (GST 10%, AUD)",      sym:"$", code:"AUD", taxPct:10, taxLabel:"GST", locale:"en-AU"},
+  NZ:   {label:"New Zealand (GST 15%, NZD)",    sym:"$", code:"NZD", taxPct:15, taxLabel:"GST", locale:"en-NZ"},
+  GB:   {label:"United Kingdom (VAT 20%, GBP)", sym:"£", code:"GBP", taxPct:20, taxLabel:"VAT", locale:"en-GB"},
+  IE:   {label:"Ireland (VAT 23%, EUR)",        sym:"€", code:"EUR", taxPct:23, taxLabel:"VAT", locale:"en-IE"},
+  OTHER:{label:"Other / custom",                sym:"$", code:"",    taxPct:0,  taxLabel:"Tax", locale:"en-AU"},
+};
+// Push a studio's saved region settings into the module-level values above. Missing fields fall
+// back to Australia, so a studio created before this feature keeps AUD + 10% GST unchanged.
+function applyRegion(b){
+  b=b||{};
+  CUR_SYM  = b.currencySymbol || "$";
+  CUR_CODE = b.currencyCode   || "AUD";
+  TAX_LABEL= b.taxLabel       || "GST";
+  LOCALE   = b.locale         || "en-AU";
+  GST_RATE = (b.taxRatePct!=null && b.taxRatePct!=="") ? Number(b.taxRatePct)/100 : 0.10;
+}
 
 // ── Default markup table ──────────────────────────────────────────────────
 const DEFAULT_MARKUP_TABLE=[
@@ -900,7 +925,7 @@ const SEED_APPOINTMENTS=[];
 const uid=()=>Math.random().toString(36).slice(2,9);
 // Longer, hard-to-guess token for public proposal share links (~20 chars)
 const proposalToken=()=>(uid()+uid()+Date.now().toString(36)).replace(/[^a-z0-9]/gi,"").slice(0,20);
-const fmt=n=>`$${Number(n||0).toLocaleString("en-AU",{minimumFractionDigits:2,maximumFractionDigits:2})}`;
+const fmt=n=>`${CUR_SYM}${Number(n||0).toLocaleString(LOCALE,{minimumFractionDigits:2,maximumFractionDigits:2})}`;
 
 // ── Client-facing email (proposal / invoice / repair links) via the `send-email` edge function ──
 // Supabase gives functions an auto-generated URL slug separate from the display name;
@@ -1090,9 +1115,9 @@ function ReadyForCollectionCard({job,client,biz,setJobs}){
     </Modal>}
   </Card>;
 }
-const fmtR=n=>`$${Math.round(Number(n||0)).toLocaleString("en-AU")}`;
+const fmtR=n=>`${CUR_SYM}${Math.round(Number(n||0)).toLocaleString(LOCALE)}`;
 const today=()=>new Date().toISOString().slice(0,10);
-const fmtDate=d=>d?new Date(d).toLocaleDateString("en-AU",{day:"numeric",month:"short",year:"numeric"}):"—";
+const fmtDate=d=>d?new Date(d).toLocaleDateString(LOCALE,{day:"numeric",month:"short",year:"numeric"}):"—";
 // ── Calendar helpers (local-time based, so "today" is correct in AU) ───────
 const pad2=n=>String(n).padStart(2,"0");
 const toISO=d=>`${d.getFullYear()}-${pad2(d.getMonth()+1)}-${pad2(d.getDate())}`;
@@ -1102,8 +1127,8 @@ const addDays=(s,n)=>{const d=parseISO(s);d.setDate(d.getDate()+n);return toISO(
 const addMonths=(s,n)=>{const d=parseISO(s);d.setMonth(d.getMonth()+n);return toISO(d);};
 const startOfWeek=s=>{const d=parseISO(s);const dow=(d.getDay()+6)%7;d.setDate(d.getDate()-dow);return toISO(d);}; // Monday
 const fmtTime=t=>{if(!t)return"";const[h,m]=String(t).split(":").map(Number);if(isNaN(h))return"";const ap=h<12?"am":"pm";return`${h%12||12}:${pad2(m||0)}${ap}`;};
-const fmtDayShort=s=>parseISO(s).toLocaleDateString("en-AU",{weekday:"short",day:"numeric",month:"short"});
-const monthLabel=s=>parseISO(s).toLocaleDateString("en-AU",{month:"long",year:"numeric"});
+const fmtDayShort=s=>parseISO(s).toLocaleDateString(LOCALE,{weekday:"short",day:"numeric",month:"short"});
+const monthLabel=s=>parseISO(s).toLocaleDateString(LOCALE,{month:"long",year:"numeric"});
 const addMin=(t,min)=>{if(!t||!min)return"";const[h,m]=String(t).split(":").map(Number);if(isNaN(h))return"";const tot=h*60+m+Number(min);const hh=Math.floor((tot%1440)/60),mm=tot%60;return`${pad2(hh)}:${pad2(mm)}`;};
 const APPT_TYPES=["Consultation","Engagement Ring","Wedding Ring","Custom Design","Jewellery Repair","Laser Engraving","Other"];
 const APPT_COLORS={"Consultation":"#5E9078","Engagement Ring":"#A85D78","Wedding Ring":"#2D7A4F","Custom Design":"#96627C","Jewellery Repair":"#C47A2E","Laser Engraving":"#5E6B7A","Other":"#7A6C5D"};
@@ -2433,9 +2458,9 @@ ${job?.description?`<div class="desc-box"><strong>${job.type}</strong><br>${job.
 <table><thead><tr><th>Description</th><th>Detail</th><th class="right">Amount</th></tr></thead><tbody>${rows}</tbody></table>
 <div style="display:flex;justify-content:flex-end;margin-bottom:20px">
   <div style="min-width:240px">
-    <div style="display:flex;justify-content:space-between;font-size:12px;color:#6B6560;padding:4px 0"><span>Subtotal (ex GST)</span><span>${fmt(inv.exGST)}</span></div>
-    <div style="display:flex;justify-content:space-between;font-size:12px;color:#6B6560;padding:4px 0"><span>GST (10%)</span><span>${fmt(inv.gst)}</span></div>
-    <div style="display:flex;justify-content:space-between;font-size:20px;font-weight:800;border-top:2px solid #1A1714;margin-top:6px;padding-top:8px"><span>Total inc GST</span><span>${fmt(inv.totalIncGST)}</span></div>
+    <div style="display:flex;justify-content:space-between;font-size:12px;color:#6B6560;padding:4px 0"><span>Subtotal (ex ${TAX_LABEL})</span><span>${fmt(inv.exGST)}</span></div>
+    <div style="display:flex;justify-content:space-between;font-size:12px;color:#6B6560;padding:4px 0"><span>${TAX_LABEL} (${+(GST_RATE*100).toFixed(2)}%)</span><span>${fmt(inv.gst)}</span></div>
+    <div style="display:flex;justify-content:space-between;font-size:20px;font-weight:800;border-top:2px solid #1A1714;margin-top:6px;padding-top:8px"><span>Total inc ${TAX_LABEL}</span><span>${fmt(inv.totalIncGST)}</span></div>
   </div>
 </div>
 ${inv.notes?`<div class="notes">${inv.notes}</div>`:""}
@@ -5182,7 +5207,7 @@ function PublicRepairBody({snap,responded,decision,responderName,onRespond}){
           <strong style={{color:INK}}>Repair warranty:</strong> {b.name||"We"} carry out repairs with the utmost care and craftsmanship, but do not provide a warranty on repaired pieces. The nature of jewellery repair means we cannot guarantee against further damage, wear or failure of repaired areas after the piece leaves our care. All repairs are undertaken at the client's risk.
         </div>
       </div>
-      <div style={{textAlign:"center",fontSize:10,color:WG,marginTop:26}}>All prices inclusive of GST · Quoted in AUD</div>
+      <div style={{textAlign:"center",fontSize:10,color:WG,marginTop:26}}>{`All prices inclusive of ${TAX_LABEL} · Quoted in ${CUR_CODE}`}</div>
     </div>
     {photo&&<div onClick={()=>setPhoto(null)} style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.85)",zIndex:600,display:"flex",alignItems:"center",justifyContent:"center",padding:"30px 16px",cursor:"zoom-out"}}>
       <button onClick={e=>{e.stopPropagation();setPhoto(null);}} aria-label="Close image" style={{position:"fixed",top:14,right:14,width:46,height:46,borderRadius:"50%",background:"rgba(0,0,0,0.6)",border:"1px solid rgba(255,255,255,0.5)",color:WHITE,fontSize:26,lineHeight:1,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",zIndex:601}}>×</button>
@@ -5245,7 +5270,7 @@ function PublicInvoiceBody({snap}){
           {snap.discount>0&&<div style={{display:"flex",justifyContent:"space-between",fontSize:13,color:WG,padding:"3px 0"}}><span>Subtotal</span><span>{fmt(snap.subtotalIncGST)}</span></div>}
           {snap.discount>0&&<div style={{display:"flex",justifyContent:"space-between",fontSize:13,color:OK,padding:"3px 0"}}><span>{snap.discountLabel||"Discount"}</span><span>−{fmt(snap.discount)}</span></div>}
           <div style={{display:"flex",justifyContent:"space-between",fontSize:13,color:WG,padding:"3px 0"}}><span>Includes GST</span><span>{fmt(snap.gst)}</span></div>
-          <div style={{display:"flex",justifyContent:"space-between",fontSize:17,fontWeight:800,color:INK,borderTop:`2px solid ${INK}`,marginTop:8,paddingTop:10}}><span>Total (inc GST)</span><span>{fmt(snap.totalIncGST)}</span></div>
+          <div style={{display:"flex",justifyContent:"space-between",fontSize:17,fontWeight:800,color:INK,borderTop:`2px solid ${INK}`,marginTop:8,paddingTop:10}}><span>{`Total (inc ${TAX_LABEL})`}</span><span>{fmt(snap.totalIncGST)}</span></div>
           {snap.tradeIn>0&&<div style={{display:"flex",justifyContent:"space-between",fontSize:13,color:OK,padding:"6px 0 3px"}}><span>Gold trade-in credit</span><span>−{fmt(snap.tradeIn)}</span></div>}
           {snap.paidTotal>0&&<div style={{display:"flex",justifyContent:"space-between",fontSize:13,color:OK,padding:"6px 0 3px"}}><span>Paid to date</span><span>−{fmt(snap.paidTotal)}</span></div>}
           {snap.staged
@@ -5270,7 +5295,7 @@ function PublicInvoiceBody({snap}){
         <a href={payUrl} target="_blank" rel="noopener noreferrer" style={{display:"inline-block",background:INK,color:WHITE,textDecoration:"none",padding:"14px 34px",borderRadius:6,fontSize:15,fontWeight:700}}>Pay online</a>
         <div style={{fontSize:12,color:WG,marginTop:10}}>Amount due: <strong style={{color:INK}}>{fmt(owed)}</strong> · use reference <strong style={{color:INK}}>{snap.number}</strong></div>
       </div>}
-      <div style={{textAlign:"center",fontSize:10,color:WG,marginTop:24}}>All amounts in AUD · GST inclusive</div>
+      <div style={{textAlign:"center",fontSize:10,color:WG,marginTop:24}}>{`All amounts in ${CUR_CODE} · ${TAX_LABEL} inclusive`}</div>
     </div>
   </div>;
 }
@@ -5435,7 +5460,7 @@ function PublicProposalPage({token}){
         const remaining=Math.max(0,comboPrice-paid-tradeIn-dueNowAmt);
         const dueLabel=custom>0.005?"Amount due now":(dueNowAmt<=0.005?"Paid in full":"Balance now due");
         return <div style={{marginTop:16,background:PARCH,border:`1px solid ${BD}`,borderRadius:4,padding:"14px 16px"}}>
-          <div style={{display:"flex",justifyContent:"space-between",fontSize:13,color:WG,padding:"2px 0"}}><span>{multi?"Combined total":"Total price"} (inc GST)</span><span style={{color:INK,fontWeight:600}}>{fmtR(comboPrice)}</span></div>
+          <div style={{display:"flex",justifyContent:"space-between",fontSize:13,color:WG,padding:"2px 0"}}><span>{multi?"Combined total":"Total price"} (inc {TAX_LABEL})</span><span style={{color:INK,fontWeight:600}}>{fmtR(comboPrice)}</span></div>
           {tradeIn>0.005&&<div style={{display:"flex",justifyContent:"space-between",fontSize:13,color:WG,padding:"2px 0"}}><span>Gold trade-in credit</span><span style={{color:OK,fontWeight:600}}>− {fmtR(tradeIn)}</span></div>}
           {paid>0.005&&<div style={{display:"flex",justifyContent:"space-between",fontSize:13,color:WG,padding:"2px 0"}}><span>Payments received</span><span style={{color:OK,fontWeight:600}}>− {fmtR(paid)}</span></div>}
           <div style={{display:"flex",justifyContent:"space-between",alignItems:"baseline",borderTop:`1px solid ${BD}`,marginTop:8,paddingTop:10}}><span style={{fontSize:13,fontWeight:700,color:INK}}>{dueLabel}</span><span style={{fontSize:18,fontWeight:800,color:dueNowAmt<=0.005?OK:INK}}>{fmtR(dueNowAmt)}</span></div>
@@ -5462,7 +5487,7 @@ function PublicProposalPage({token}){
         <div style={{fontSize:9,fontWeight:700,color:WG,letterSpacing:"0.16em",textTransform:"uppercase",marginBottom:10}}>Terms &amp; conditions</div>
         <div style={{fontSize:11,color:WG,lineHeight:1.7,whiteSpace:"pre-wrap"}}>{snap.terms}</div>
       </div>}
-      <div style={{textAlign:"center",fontSize:10,color:WG,marginTop:24}}>All prices inclusive of GST · Quoted in AUD</div>
+      <div style={{textAlign:"center",fontSize:10,color:WG,marginTop:24}}>{`All prices inclusive of ${TAX_LABEL} · Quoted in ${CUR_CODE}`}</div>
     </div>
     {photo&&<div onClick={()=>setPhoto(null)} style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.85)",zIndex:600,display:"flex",alignItems:"center",justifyContent:"center",padding:"30px 16px",cursor:"zoom-out"}}>
       <button onClick={e=>{e.stopPropagation();setPhoto(null);}} aria-label="Close image" style={{position:"fixed",top:14,right:14,width:46,height:46,borderRadius:"50%",background:"rgba(0,0,0,0.6)",border:"1px solid rgba(255,255,255,0.5)",color:WHITE,fontSize:26,lineHeight:1,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",zIndex:601}}>×</button>
@@ -5476,9 +5501,9 @@ function PublicProposalPage({token}){
 function ProposalPreview({quote,job,clients=[],biz,calc,payments=[],reconcilePayments=true,onClose}){
   const client=clients.find(x=>x.id===job?.clientId)||null;
   const quoteNum="QT-"+quote.id.slice(-6).toUpperCase();
-  const issuedDate=new Date(quote.createdAt).toLocaleDateString("en-AU",{day:"numeric",month:"long",year:"numeric"});
+  const issuedDate=new Date(quote.createdAt).toLocaleDateString(LOCALE,{day:"numeric",month:"long",year:"numeric"});
   const validDays=biz.quoteValidityDays||30;
-  const validUntil=new Date(new Date(quote.createdAt).getTime()+validDays*86400000).toLocaleDateString("en-AU",{day:"numeric",month:"long",year:"numeric"});
+  const validUntil=new Date(new Date(quote.createdAt).getTime()+validDays*86400000).toLocaleDateString(LOCALE,{day:"numeric",month:"long",year:"numeric"});
   const deposit=biz.depositPercent||50;
   const terms=biz.quoteTerms||"All custom jewellery requires a deposit before work commences. The final balance is due prior to collection. Quoted prices are valid for the period stated above. Price variations may apply if material costs change significantly. All pieces are handcrafted to order and cannot be returned unless faulty. Estimated completion times are indicative only.";
   // Grand total = setting final + stone client total (inc GST); a manual quoted price wins over everything
@@ -5642,7 +5667,7 @@ function ProposalPreview({quote,job,clients=[],biz,calc,payments=[],reconcilePay
         <div style={{padding:"28px 52px",borderBottom:`1px solid ${BD}`}}>
           <div style={{display:"flex",justifyContent:"space-between",alignItems:"baseline",marginBottom:16}}>
             <div style={{fontSize:9,fontWeight:700,color:WG,letterSpacing:"0.16em",textTransform:"uppercase",fontFamily:"'Poppins',sans-serif"}}>Price breakdown</div>
-            <div style={{fontSize:10,color:WG,fontFamily:"'Poppins',sans-serif"}}>All prices inclusive of GST</div>
+            <div style={{fontSize:10,color:WG,fontFamily:"'Poppins',sans-serif"}}>{`All prices inclusive of ${TAX_LABEL}`}</div>
           </div>
 
           {/* Jewellery row */}
@@ -5695,7 +5720,7 @@ function ProposalPreview({quote,job,clients=[],biz,calc,payments=[],reconcilePay
               <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-end",borderTop:"1px solid rgba(255,255,255,0.18)",marginTop:10,paddingTop:12}}>
                 <div>
                   <div style={{fontSize:11,fontWeight:700,color:"rgba(255,255,255,0.5)",letterSpacing:"0.1em",textTransform:"uppercase",marginBottom:2}}>{paidInFull?"Paid in full":"Balance now due"}</div>
-                  <div style={{fontSize:10,color:"rgba(255,255,255,0.3)"}}>Inc. GST · AUD</div>
+                  <div style={{fontSize:10,color:"rgba(255,255,255,0.3)"}}>{`Inc. ${TAX_LABEL} · ${CUR_CODE}`}</div>
                 </div>
                 <div style={{fontSize:30,fontWeight:800,color:paidInFull?"#7FD7A6":WHITE,letterSpacing:"-0.02em"}}>{fmtR(outstanding)}</div>
               </div>
@@ -5703,7 +5728,7 @@ function ProposalPreview({quote,job,clients=[],biz,calc,payments=[],reconcilePay
             :<div style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"16px 20px",marginTop:12,background:INK,borderRadius:4}}>
               <div>
                 <div style={{fontSize:11,fontWeight:700,color:"rgba(255,255,255,0.5)",letterSpacing:"0.1em",textTransform:"uppercase",fontFamily:"'Poppins',sans-serif",marginBottom:2}}>Total quoted price</div>
-                <div style={{fontSize:10,color:"rgba(255,255,255,0.3)",fontFamily:"'Poppins',sans-serif"}}>Inc. GST · Quoted in AUD</div>
+                <div style={{fontSize:10,color:"rgba(255,255,255,0.3)",fontFamily:"'Poppins',sans-serif"}}>{`Inc. ${TAX_LABEL} · Quoted in ${CUR_CODE}`}</div>
               </div>
               <div style={{textAlign:"right"}}>
                 <div style={{fontSize:30,fontWeight:800,color:WHITE,letterSpacing:"-0.02em",fontFamily:"'Poppins',sans-serif"}}>{priceDisplay}</div>
@@ -6192,13 +6217,13 @@ function InvoicePrintView({inv,job,client,biz,payments,onClose}){
                 ?inv.customerLines.map((l,i)=>(
                   <tr key={l.id||i} style={{borderBottom:`1px solid ${BD_SOFT}`}}>
                     <td style={{padding:"18px 0",color:INK,lineHeight:1.65,whiteSpace:"pre-wrap",fontWeight:500}}>{(l.description||"").trim()}</td>
-                    <td style={{padding:"18px 0",textAlign:"center",color:WG,fontSize:12}}>GST</td>
+                    <td style={{padding:"18px 0",textAlign:"center",color:WG,fontSize:12}}>{TAX_LABEL}</td>
                     <td style={{padding:"18px 0",textAlign:"right",fontWeight:700,color:INK}}>{fmt(l.amount)}</td>
                   </tr>
                 ))
                 :<tr style={{borderBottom:`1px solid ${BD_SOFT}`}}>
                   <td style={{padding:"18px 0",color:INK,lineHeight:1.65,whiteSpace:"pre-wrap",fontWeight:500}}>{(inv.descriptionOverride||"").trim()}</td>
-                  <td style={{padding:"18px 0",textAlign:"center",color:WG,fontSize:12}}>GST</td>
+                  <td style={{padding:"18px 0",textAlign:"center",color:WG,fontSize:12}}>{TAX_LABEL}</td>
                   <td style={{padding:"18px 0",textAlign:"right",fontWeight:700,color:INK}}>{fmt(invDiscount>0?invSubtotal:inv.totalIncGST)}</td>
                 </tr>}
             </tbody>
@@ -6452,7 +6477,7 @@ function InvoiceDetail({invoiceId,invoices,setInvoices,jobs,clients,payments,biz
           </div>
         : <div key={li.id} style={{display:"grid",gridTemplateColumns:"1fr 100px 120px",gap:6,padding:"10px 0",borderBottom:`1px solid ${BD}`,fontSize:13,alignItems:"start"}}>
           <div><div style={{fontWeight:600,color:INK}}>{li.description}</div>{li.detail&&<div style={{fontSize:11,color:WG,marginTop:2}}>{li.detail}</div>}</div>
-          <div style={{fontSize:11,color:WG,paddingTop:2}}>GST</div>
+          <div style={{fontSize:11,color:WG,paddingTop:2}}>{TAX_LABEL}</div>
           <div style={{fontWeight:700,color:INK,textAlign:"right"}}>{fmt(lineCostLow(li))}</div>
         </div>
       ))}
@@ -7555,7 +7580,7 @@ function SpotPriceUpdater({spotPrices,setSpotPrices,pricing,setPricing,onClose})
   const fetchLive=async()=>{
     setFetching(true);
     try{
-      const{data,error}=await supabase.functions.invoke("metal-prices");
+      const{data,error}=await supabase.functions.invoke("metal-prices",{body:{currency:CUR_CODE||"AUD"}});
       if(error||!data||data.error||!(Number(data.gold)>0))throw new Error(data?.error||error?.message||"No prices returned");
       setG(String(data.gold));
       if(Number(data.platinum)>0)setPt(String(data.platinum));
@@ -7581,7 +7606,7 @@ function SpotPriceUpdater({spotPrices,setSpotPrices,pricing,setPricing,onClose})
     <div style={{background:GOLD_L,borderRadius:4,padding:"12px 16px",marginBottom:16,fontSize:13,color:GOLD_D,lineHeight:1.6}}>Enter today's fine metal spot price per gram (AUD). All metal pricing items update automatically based on purity.</div>
     {supabaseEnabled&&<div style={{display:"flex",alignItems:"center",gap:12,marginBottom:16}}>
       <Btn sm onClick={fetchLive} disabled={fetching}>{fetching?"Fetching…":"⟳ Fetch live prices"}</Btn>
-      {fetched&&<span style={{fontSize:12,color:OK,fontWeight:600}}>✓ Live spot loaded{fetched.marketTimestamp?` · market time ${new Date(fetched.marketTimestamp).toLocaleString("en-AU",{day:"numeric",month:"short",hour:"numeric",minute:"2-digit"})}`:""} — review &amp; apply below</span>}
+      {fetched&&<span style={{fontSize:12,color:OK,fontWeight:600}}>✓ Live spot loaded{fetched.marketTimestamp?` · market time ${new Date(fetched.marketTimestamp).toLocaleString(LOCALE,{day:"numeric",month:"short",hour:"numeric",minute:"2-digit"})}`:""} — review &amp; apply below</span>}
       {!fetched&&!fetching&&<span style={{fontSize:12,color:WG}}>Live AUD spot per gram via metals.dev</span>}
     </div>}
     <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:"0 16px"}}>
@@ -7633,7 +7658,7 @@ function Reports({jobs,clients,quotes,payments,invoices,markupTable,setView}){
   const compactMoney=n=>"$"+(n>=1000?Math.round(n/1000)+"k":Math.round(n));
   const months=Array.from({length:6},(_,i)=>{const d=new Date();d.setMonth(d.getMonth()-i);return d.toISOString().slice(0,7);}).reverse();
   const monthData=months.map(m=>({
-    month:new Date(m+"-01").toLocaleDateString("en-AU",{month:"short",year:"numeric"}),
+    month:new Date(m+"-01").toLocaleDateString(LOCALE,{month:"short",year:"numeric"}),
     paid:payments.filter(p=>p.date?.startsWith(m)&&p.status==="Received").reduce((s,p)=>s+Number(p.amount),0)
       +quotes.filter(q=>q.status==="Approved"&&(Number(q.tradeInCredit)||0)>0&&String(q.updatedAt||q.createdAt||"").slice(0,7)===m).reduce((s,q)=>s+Number(q.tradeInCredit),0),
   }));
@@ -7794,6 +7819,8 @@ function Settings({biz,setBiz,markupTable,setMarkupTable,naturalStoneMarkup,setN
     }
     showToast("Business details saved");
   };
+  // Region & currency: choosing a preset fills the currency + tax fields (still editable after).
+  const applyPreset=key=>{const p=REGION_PRESETS[key];if(!p)return;setBForm(f=>({...f,region:key,currencySymbol:p.sym,currencyCode:p.code,taxLabel:p.taxLabel,taxRatePct:p.taxPct,locale:p.locale}));};
   const saveMt=()=>{setMarkupTable(mt);persist(K.mt,mt);const nb={...biz,markupBuffer:Number(buffer)||0,quoteRounding:Number(rounding)||0};setBiz(nb);persist(K.biz,nb);setMarkupBuffer(Number(buffer)||0);setQuoteRounding(Number(rounding)||0);showToast("Markup table saved");};
   // Calendar subscription feed — a private token stored in biz settings; the calendar-feed edge fn serves the .ics.
   const browserTz=(()=>{try{return Intl.DateTimeFormat().resolvedOptions().timeZone||"";}catch(e){return "";}})();
@@ -7867,6 +7894,21 @@ function Settings({biz,setBiz,markupTable,setMarkupTable,naturalStoneMarkup,setN
         </div>
       </div>
       <div style={{display:"flex",justifyContent:"flex-end"}}><Btn onClick={saveBiz}>Save business details</Btn></div>
+    </Card>
+
+    <Card>
+      <div style={{fontWeight:700,fontSize:15,color:INK,marginBottom:4}}>Region &amp; currency</div>
+      <div style={{fontSize:13,color:WG,marginBottom:16}}>Sets the currency and tax shown on your quotes, proposals and invoices. Pick a region to fill the defaults, then fine-tune if needed.</div>
+      <Input label="Region preset" value={bForm.region||"AU"} onChange={applyPreset} as="select" options={Object.entries(REGION_PRESETS).map(([k,p])=>({value:k,label:p.label}))}/>
+      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr 1fr",gap:"0 16px"}}>
+        <Input label="Currency symbol" value={bForm.currencySymbol??"$"} onChange={setBF("currencySymbol")} placeholder="$"/>
+        <Input label="Currency code" value={bForm.currencyCode??"AUD"} onChange={setBF("currencyCode")} placeholder="AUD"/>
+        <Input label="Tax label" value={bForm.taxLabel??"GST"} onChange={setBF("taxLabel")} placeholder="GST"/>
+        <Input label="Tax rate (%)" value={String(bForm.taxRatePct??10)} onChange={v=>setBF("taxRatePct")(v===""?"":Number(v))} type="number" min="0" step="0.1" placeholder="10"/>
+      </div>
+      <div style={{fontSize:12,color:WG,marginTop:2,lineHeight:1.6}}>Preview: a {Number(bForm.taxRatePct??10)}% {bForm.taxLabel||"GST"} total of <strong style={{color:INK}}>{bForm.currencySymbol||"$"}1,234.50 {bForm.currencyCode||"AUD"}</strong>. Set the tax rate to <strong>0</strong> if you don't charge sales tax.</div>
+      <div style={{background:GOLD_L,border:`1px solid ${GOLD}55`,borderRadius:4,padding:"10px 14px",marginTop:12,fontSize:11.5,color:GOLD_D,lineHeight:1.5}}>Prices are tax-<strong>inclusive</strong> — the tax is shown as a component of the total (the way AU, UK, NZ and EU retail work). US-style sales tax added on top at checkout isn't supported yet.</div>
+      <div style={{display:"flex",justifyContent:"flex-end",marginTop:14}}><Btn onClick={saveBiz}>Save region &amp; currency</Btn></div>
     </Card>
 
     {/* Calendar subscription feed */}
@@ -8152,7 +8194,7 @@ function DataSafetyCard({backupNow,loadSnapshots,restoreSnapshot}){
   const[msg,setMsg]=useState("");
   const refresh=async()=>{try{setSnaps(await loadSnapshots());}catch(e){setSnaps([]);}};
   useEffect(()=>{refresh();},[]);   // eslint-disable-line
-  const fmtWhen=ts=>{try{return new Date(ts).toLocaleString("en-AU",{day:"numeric",month:"short",hour:"numeric",minute:"2-digit"});}catch(e){return String(ts||"");}};
+  const fmtWhen=ts=>{try{return new Date(ts).toLocaleString(LOCALE,{day:"numeric",month:"short",hour:"numeric",minute:"2-digit"});}catch(e){return String(ts||"");}};
   const reasonLabel=r=>r==="manual"?"Manual backup":r==="before restore"?"Before a restore":r==="session start"?"Session start":"Auto";
   const doBackup=async()=>{setBusy(true);setMsg("");try{const ts=await backupNow();await refresh();setMsg(ts?"✓ Backed up just now.":"Couldn't back up — check you're online.");}catch(e){setMsg("Couldn't back up.");}setBusy(false);};
   const doRestore=async(entry)=>{
@@ -8390,7 +8432,7 @@ function Appointments({appointments,setAppointments,clients,setClients,jobs=[],s
         {days.map(d=>{
           const isT=d===tISO;const list=byDay[d]||[];
           return <div key={d} onClick={()=>setModal({prefillDate:d})} style={{background:WHITE,border:`1px solid ${isT?GOLD:BD_SOFT}`,borderRadius:5,minHeight:160,padding:"10px 9px",cursor:"pointer"}}>
-            <div style={{fontSize:11,fontWeight:700,textTransform:"uppercase",letterSpacing:"0.04em",color:isT?GOLD:WG,marginBottom:8}}>{parseISO(d).toLocaleDateString("en-AU",{weekday:"short"})} {parseISO(d).getDate()}</div>
+            <div style={{fontSize:11,fontWeight:700,textTransform:"uppercase",letterSpacing:"0.04em",color:isT?GOLD:WG,marginBottom:8}}>{parseISO(d).toLocaleDateString(LOCALE,{weekday:"short"})} {parseISO(d).getDate()}</div>
             {list.map(a=><ApptChip key={a.id} a={a} clients={clients} onClick={()=>setModal(a)}/>)}
           </div>;
         })}
@@ -8719,7 +8761,7 @@ function TodoBoard({todos,setTodos,jobs=[],clients=[],setView,setSelJob}){
   const dueChip=due=>{
     if(!due)return null;
     const overdue=due<tISO,isToday=due===tISO,soon=!overdue&&!isToday&&due<=addDays(tISO,2);
-    const compact=parseISO(due).toLocaleDateString("en-AU",{day:"numeric",month:"short"});
+    const compact=parseISO(due).toLocaleDateString(LOCALE,{day:"numeric",month:"short"});
     return{overdue,
       color:overdue?DANGER:(isToday||soon)?GOLD_D:WG,
       bg:overdue?"#FBEBE9":(isToday||soon)?GOLD_L:PARCH,
@@ -9844,6 +9886,7 @@ export default function App(){
     return view;
   },[view]);
 
+  applyRegion(biz);   // keep currency/tax/locale current before any child renders money via fmt
   const billing=billingState(subscription);
   useEffect(()=>{setCanEdit(billing.canEdit);},[billing.canEdit]);   // gate edits when lapsed
   // After returning from Stripe Checkout (?billing=success) the webhook can take a second to land —
