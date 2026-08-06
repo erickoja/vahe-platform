@@ -3373,26 +3373,26 @@ function RepairIntakeCard({job,setJobs,biz,clients,markupTable,pricing=[],invoic
             <button onClick={()=>removeItem(it.id)} style={{background:"none",border:"none",cursor:"pointer",color:DANGER,fontSize:12,fontWeight:700,fontFamily:"inherit"}}>× Remove</button>
           </div>}
         </div>
-        <div style={{display:"grid",gridTemplateColumns:"1fr 220px",gap:12,marginBottom:12}}>
+        <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"1fr 220px",gap:12,marginBottom:12}}>
           <div>
-            <div style={SS.lbl}>Item type</div>
-            <input style={SS.inp} value={it.itemType} placeholder="e.g. Gold ring, silver bracelet…" onChange={e=>setItemField(it.id,"itemType",e.target.value)} onBlur={commit}/>
+            <div style={{...SS.lbl,height:isMobile?"auto":26,display:"flex",alignItems:"center",marginBottom:4}}>Item type</div>
+            <input style={{...SS.inp,marginTop:0}} value={it.itemType} placeholder="e.g. Gold ring, silver bracelet…" onChange={e=>setItemField(it.id,"itemType",e.target.value)} onBlur={commit}/>
           </div>
           <div>
-            <div style={{display:"flex",gap:4,marginBottom:4}}>
+            <div style={{display:"flex",gap:4,marginBottom:4,height:26}}>
               {/* Trade accounts price repairs from set prices only — the cost+markup mode is hidden
                   so the trade GST rule (price + 10%) is never confused with a stacked markup. */}
               {(trade?[["set","Set price"]]:[["set","Set price"],["cost","Cost + markup"]]).map(([m,lbl])=>{
                 const on=trade?m==="set":it.priceMode===m;
                 return <button key={m} onClick={()=>{setItemField(it.id,"priceMode",m);setTimeout(commit,0);}}
-                  style={{flex:1,padding:"5px 6px",borderRadius:6,border:`1px solid ${on?INK:BD}`,background:on?INK:"transparent",color:on?WHITE:WG,fontSize:10,fontWeight:700,cursor:"pointer",fontFamily:"inherit"}}>{lbl}</button>;
+                  style={{flex:1,padding:"0 6px",borderRadius:6,border:`1px solid ${on?INK:BD}`,background:on?INK:"transparent",color:on?WHITE:WG,fontSize:10,fontWeight:700,cursor:"pointer",fontFamily:"inherit",display:"flex",alignItems:"center",justifyContent:"center"}}>{lbl}</button>;
               })}
               <button onClick={()=>{setPricingFor(it.id);setRpSearch("");}}
-                style={{padding:"5px 8px",borderRadius:6,border:`1px solid ${BD}`,background:"transparent",color:WG,fontSize:10,fontWeight:700,cursor:"pointer",fontFamily:"inherit",whiteSpace:"nowrap"}} title="Look up repair price">📋</button>
+                style={{padding:"0 8px",borderRadius:6,border:`1px solid ${BD}`,background:"transparent",color:WG,fontSize:10,fontWeight:700,cursor:"pointer",fontFamily:"inherit",whiteSpace:"nowrap",display:"flex",alignItems:"center",justifyContent:"center"}} title="Look up repair price">📋</button>
             </div>
             <div style={{position:"relative"}}>
               <span style={{position:"absolute",left:10,top:"50%",transform:"translateY(-50%)",fontSize:13,color:WG,pointerEvents:"none"}}>$</span>
-              <input type="number" min="0" step="0.01" style={{...SS.inp,marginTop:0,padding:"9px 10px 9px 22px",textAlign:"right",fontWeight:Number(it.price)>0?700:400}} value={it.price} placeholder={(!trade&&it.priceMode==="cost")?"Trade cost":"0.00"} onChange={e=>setItemField(it.id,"price",e.target.value)} onBlur={commit}/>
+              <input type="number" min="0" step="0.01" style={{...SS.inp,marginTop:0,padding:"11px 10px 11px 22px",textAlign:"right",fontWeight:Number(it.price)>0?700:400}} value={it.price} placeholder={(!trade&&it.priceMode==="cost")?"Trade cost":"0.00"} onChange={e=>setItemField(it.id,"price",e.target.value)} onBlur={commit}/>
             </div>
             <div style={{fontSize:10,color:WG,marginTop:4,textAlign:"right",lineHeight:1.4}}>
               {(!trade&&it.priceMode==="cost")
@@ -3423,7 +3423,7 @@ function RepairIntakeCard({job,setJobs,biz,clients,markupTable,pricing=[],invoic
         <div style={SS.lbl}>{`Gold trade-in credit (${CUR_SYM})`}</div>
         <div style={{position:"relative"}}>
           <span style={{position:"absolute",left:10,top:"50%",transform:"translateY(-50%)",fontSize:13,color:WG,pointerEvents:"none"}}>$</span>
-          <input type="number" min="0" step="0.01" style={{...SS.inp,marginTop:0,padding:"9px 10px 9px 22px",textAlign:"right",fontWeight:Number(tradeIn)>0?700:400}} value={tradeIn} placeholder="0.00" onChange={e=>setTradeIn(e.target.value)} onBlur={commitTradeIn}/>
+          <input type="number" min="0" step="0.01" style={{...SS.inp,marginTop:0,padding:"11px 10px 11px 22px",textAlign:"right",fontWeight:Number(tradeIn)>0?700:400}} value={tradeIn} placeholder="0.00" onChange={e=>setTradeIn(e.target.value)} onBlur={commitTradeIn}/>
         </div>
       </div>
       <div>
@@ -4700,7 +4700,7 @@ function QuoteBuilder({jobId:jobIdProp,editQuoteId,stockId,stock,setStock,jobs,c
                 <input value={manLabel} onChange={e=>setManLabel(e.target.value)} placeholder="Label" onKeyDown={e=>{if(e.key==="Enter")addManual();}} style={{...SS.inp,marginTop:0,flex:1,minWidth:200}}/>
                 <div style={{position:"relative",width:120,flexShrink:0}}>
                   <span style={{position:"absolute",left:10,top:"50%",transform:"translateY(-50%)",fontSize:13,color:WG,pointerEvents:"none"}}>$</span>
-                  <input type="number" value={manAmt} onChange={e=>setManAmt(e.target.value)} min="0" step="0.01" placeholder="0.00" onKeyDown={e=>{if(e.key==="Enter")addManual();}} style={{...SS.inp,marginTop:0,padding:"9px 10px 9px 22px",textAlign:"right",width:"100%"}}/>
+                  <input type="number" value={manAmt} onChange={e=>setManAmt(e.target.value)} min="0" step="0.01" placeholder="0.00" onKeyDown={e=>{if(e.key==="Enter")addManual();}} style={{...SS.inp,marginTop:0,padding:"11px 10px 11px 22px",textAlign:"right",width:"100%"}}/>
                 </div>
                 <Btn sm onClick={addManual}>Add to quote</Btn>
               </div>
