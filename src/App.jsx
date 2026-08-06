@@ -2015,14 +2015,17 @@ function SectionHeader({eyebrow,title,subtitle,action}){
     {action}
   </div>;
 }
-function Stat({label,value,accent,sub,onClick,tint,icon}){
+function Stat({label,value,accent,sub,onClick,tint,icon,trend}){
   const[h,setH]=useState(false);
   const isMobile=useIsMobile();
   const t=tint?TINTS[tint]:null;
   return <div onClick={onClick} onMouseEnter={()=>setH(true)} onMouseLeave={()=>setH(false)}
     style={{background:t?t.bg:WHITE,border:`1px solid ${t?"transparent":(accent?GOLD+"66":BD_SOFT)}`,borderRadius:RADIUS,padding:isMobile?"14px 14px":"18px 20px",cursor:onClick?"pointer":"default",transition:"all 0.18s",boxShadow:h?SHADOW_HV:SHADOW,transform:onClick&&h?"translateY(-2px)":"none",minWidth:0}}>
     {icon&&<div style={{width:isMobile?32:40,height:isMobile?32:40,borderRadius:isMobile?10:13,background:t?t.ring:GOLD_L,display:"flex",alignItems:"center",justifyContent:"center",fontSize:isMobile?16:19,marginBottom:isMobile?9:14,color:t?t.fg:GOLD_D}}>{icon}</div>}
-    <div style={{fontSize:isMobile?20:27,fontWeight:800,color:t?t.fg:(accent?GOLD:INK),letterSpacing:"-0.02em",lineHeight:1.1,overflowWrap:"anywhere"}}>{value}</div>
+    <div style={{display:"flex",alignItems:"baseline",gap:7,flexWrap:"wrap"}}>
+      <div style={{fontSize:isMobile?20:27,fontWeight:800,color:t?t.fg:(accent?GOLD:INK),letterSpacing:"-0.02em",lineHeight:1.1,overflowWrap:"anywhere"}}>{value}</div>
+      {trend}
+    </div>
     <div style={{fontSize:11,color:t?t.fg:WG,opacity:t?0.85:1,fontWeight:700,marginTop:5,textTransform:"uppercase",letterSpacing:"0.06em"}}>{label}</div>
     {sub&&<div style={{fontSize:11,color:t?t.fg:WG,opacity:t?0.7:1,marginTop:2}}>{sub}</div>}
   </div>;
@@ -2496,6 +2499,68 @@ function DashRow({onClick,last,children,col}){
     {children}
   </div>;
 }
+// ── Dashboard: revenue trend (single series → one hue), pipeline (grouped phases),
+//    and a "needs attention" action panel. Built on data already in memory. ──
+function RevenueTrend({series}){
+  const max=Math.max(1,...series.map(s=>s.value));
+  const H=110;
+  return <Card style={{marginBottom:0}}>
+    <div style={{display:"flex",justifyContent:"space-between",alignItems:"baseline",marginBottom:14}}>
+      <span style={{fontWeight:700,fontSize:15,color:INK}}>Money received</span>
+      <span style={{fontSize:11,color:WG,fontWeight:600}}>last 6 months</span>
+    </div>
+    <div style={{display:"flex",alignItems:"flex-end",gap:8,height:H}}>
+      {series.map((s,i)=>{
+        const cur=i===series.length-1;
+        const h=Math.max(3,Math.round((s.value/max)*(H-18)));
+        return <div key={s.mk} title={`${s.label}: ${fmt(s.value)}`} style={{flex:1,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"flex-end",height:"100%",gap:5,cursor:"default"}}>
+          <div style={{fontSize:10,fontWeight:700,color:cur?OK:WG,whiteSpace:"nowrap",opacity:s.value>0?1:0}}>{fmtR(s.value)}</div>
+          <div style={{width:"100%",maxWidth:40,height:h,background:cur?OK:OK+"4D",borderRadius:"5px 5px 2px 2px"}}/>
+        </div>;
+      })}
+    </div>
+    <div style={{display:"flex",gap:8,marginTop:6}}>
+      {series.map(s=><div key={s.mk} style={{flex:1,textAlign:"center",fontSize:10.5,color:WG,fontWeight:600}}>{s.label}</div>)}
+    </div>
+  </Card>;
+}
+function PipelineBar({phases,totalValue,jobCount,setView}){
+  const total=phases.reduce((s,p)=>s+p.count,0);
+  return <Card style={{marginBottom:0}}>
+    <div style={{display:"flex",justifyContent:"space-between",alignItems:"baseline",marginBottom:4}}>
+      <span style={{fontWeight:700,fontSize:15,color:INK}}>Production pipeline</span>
+      <span style={{fontSize:11,color:WG,fontWeight:600}}>{jobCount} active</span>
+    </div>
+    <div style={{fontSize:22,fontWeight:800,color:INK,letterSpacing:"-0.02em",marginBottom:14}}>{fmt(totalValue)} <span style={{fontSize:12,fontWeight:600,color:WG}}>in the pipeline</span></div>
+    {total===0?<div style={{fontSize:13,color:WG}}>No active jobs.</div>
+     :<><div style={{display:"flex",gap:2,height:14,marginBottom:14}}>
+        {phases.filter(p=>p.count>0).map(p=><div key={p.key} onClick={()=>setView("jobs")} title={`${p.key}: ${p.count}`} style={{flex:p.count,background:p.color,borderRadius:4,cursor:"pointer",minWidth:6}}/>)}
+      </div>
+      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"7px 16px"}}>
+        {phases.map(p=><div key={p.key} style={{display:"flex",alignItems:"center",gap:8,fontSize:12}}>
+          <span style={{width:9,height:9,borderRadius:3,background:p.color,flexShrink:0}}/>
+          <span style={{color:WG,flex:1,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{p.key}</span>
+          <span style={{fontWeight:800,color:INK}}>{p.count}</span>
+        </div>)}
+      </div></>}
+  </Card>;
+}
+function NeedsAttention({items}){
+  if(!items.length)return null;
+  return <Card style={{marginBottom:24}}>
+    <div style={{fontWeight:700,fontSize:15,color:INK,marginBottom:12}}>Needs your attention</div>
+    <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(220px,1fr))",gap:10}}>
+      {items.map(it=><div key={it.key} onClick={it.onClick} style={{display:"flex",alignItems:"center",gap:12,padding:"12px 14px",border:`1px solid ${it.color}44`,background:it.color+"12",borderRadius:10,cursor:"pointer"}}>
+        <div style={{fontSize:20,lineHeight:1,flexShrink:0}}>{it.icon}</div>
+        <div style={{flex:1,minWidth:0}}>
+          <div style={{fontSize:15,fontWeight:800,color:it.color}}>{it.headline}</div>
+          <div style={{fontSize:12,color:WG,marginTop:1}}>{it.sub}</div>
+        </div>
+        <span style={{color:it.color,fontSize:16,fontWeight:700,flexShrink:0}}>→</span>
+      </div>)}
+    </div>
+  </Card>;
+}
 function Dashboard({clients,jobs,quotes,payments,invoices,appointments=[],proposals=[],markProposalSeen,markRepairSeen,markupTable,setView,setSelClient}){
   const isMobile=useIsMobile();
   const stackCols=useIsMobile(1000);   // stack the two-column bottom section on tablets too, not just phones
@@ -2561,6 +2626,33 @@ function Dashboard({clients,jobs,quotes,payments,invoices,appointments=[],propos
   // Outstanding = total still owed across approved jobs (quote total − payments received)
   const outstanding=balanceOwing.reduce((s,b)=>s+b.balance,0);
 
+  // ── Revenue trend (6 months) + month-over-month comparison ──
+  const receivedForMonth=mk=>payments.filter(p=>p.status==="Received"&&p.date?.startsWith(mk)).reduce((s,p)=>s+Number(p.amount),0)
+    +quotes.filter(q=>q.status==="Approved"&&(Number(q.tradeInCredit)||0)>0&&String(q.updatedAt||q.createdAt||"").slice(0,7)===mk).reduce((s,q)=>s+Number(q.tradeInCredit),0);
+  const revSeries=[...Array(6)].map((_,i)=>{const d=new Date();d.setDate(1);d.setMonth(d.getMonth()-(5-i));const mk=d.toISOString().slice(0,7);return {mk,label:new Date(mk+"-01").toLocaleDateString(LOCALE,{month:"short"}),value:receivedForMonth(mk)};});
+  const lastMonthReceived=revSeries.length>1?revSeries[revSeries.length-2].value:0;
+  const monthTrend=lastMonthReceived>0?{pct:Math.round(((monthReceived-lastMonthReceived)/lastMonthReceived)*100),up:monthReceived>=lastMonthReceived}:null;
+  // ── Production pipeline — active jobs grouped into a few phases (not 12 colours) + total value ──
+  const pipePhases=[
+    {key:"Quoting",       stages:["Enquiry","Consultation","Quoted"], color:"#A0845C"},
+    {key:"Approved",      stages:["Approved"],                        color:"#4E8B6A"},
+    {key:"In production", stages:PROD_STAGES,                         color:"#3E8E8E"},
+    {key:"Ready",         stages:["Ready for collection"],            color:"#2D7A4F"},
+  ].map(p=>({...p,count:active.filter(j=>p.stages.includes(j.stage)).length}));
+  // Potential pipeline value: the approved total where a price is confirmed, else the job's best
+  // quote figure — so it reflects work you've got on AND quoted, not just approved jobs.
+  const jobPipelineValue=j=>jobHasCharge(j,quotes)?jobChargeTotal(j,quotes,markupTable,invoices):quotes.filter(q=>q.jobId===j.id).reduce((m,q)=>Math.max(m,quoteGrandTotal(q,markupTable)),0);
+  const pipelineValue=active.reduce((s,j)=>s+jobPipelineValue(j),0);
+  // ── "Needs your attention" — the actionable items, only when non-zero ──
+  const chaseCount=activeRanked.filter(r=>r.awaiting&&r.sentProp?.createdAt&&Math.round((Date.now()-parseISO(r.sentProp.createdAt).getTime())/86400000)>=7).length;
+  const attention=[
+    overdue.length&&{key:"overdue",icon:"⏰",color:DANGER,headline:`${overdue.length} overdue`,sub:"past their due date",onClick:()=>setView("jobs")},
+    chaseCount>0&&{key:"chase",icon:"📨",color:GOLD_D,headline:`${chaseCount} quote${chaseCount>1?"s":""} to chase`,sub:"sent 7+ days ago, no reply",onClick:()=>setView("jobs")},
+    ready.length&&{key:"ready",icon:"✓",color:OK,headline:`${ready.length} ready to collect`,sub:"waiting on pickup",onClick:()=>setView("jobs")},
+    balanceOwing.length&&{key:"owing",icon:"$",color:WARN,headline:`${fmt(outstanding)} owing`,sub:`across ${balanceOwing.length} job${balanceOwing.length>1?"s":""}`,onClick:()=>setView("invoices")},
+  ].filter(Boolean);
+  const trendChip=monthTrend?<span style={{fontSize:11,fontWeight:800,color:monthTrend.up?OK:DANGER,whiteSpace:"nowrap"}}>{monthTrend.up?"▲":"▼"} {Math.abs(monthTrend.pct)}%</span>:null;
+
   return <div>
     {/* Accepted-proposal alerts */}
     {acceptedUnseen.map(p=>{
@@ -2594,17 +2686,22 @@ function Dashboard({clients,jobs,quotes,payments,invoices,appointments=[],propos
     <div style={{marginBottom:28}}>
       <div style={{fontSize:11,fontWeight:700,color:WG,letterSpacing:"0.14em",textTransform:"uppercase",marginBottom:5}}>Workshop overview</div>
       <h1 style={{margin:0,fontSize:32,fontWeight:700,color:INK,letterSpacing:"-0.02em",fontFamily:"'Poppins',sans-serif"}}>{(()=>{const h=new Date().getHours();return h<12?"Good morning":h<17?"Good afternoon":"Good evening";})()}</h1>
-      <div style={{color:INK,fontSize:15,marginTop:6,lineHeight:1.5}}>Here's everything happening in your workshop today.</div>
+      <div style={{color:INK,fontSize:15,marginTop:6,lineHeight:1.5}}>{[todaysAppts.length>0&&`${todaysAppts.length} appointment${todaysAppts.length>1?"s":""} today`,`${active.length} active job${active.length!==1?"s":""}`,overdue.length>0&&`${overdue.length} overdue`,ready.length>0&&`${ready.length} ready to collect`].filter(Boolean).join(" · ")||"Here's everything happening in your workshop today."}</div>
       <div style={{color:WG,fontSize:12.5,marginTop:3}}>{fmtDate(today())}</div>
     </div>
     <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(176px,1fr))",gap:14,marginBottom:24}}>
       <Stat label="Today's appts" value={todaysAppts.length} sub={todaysAppts.length>0?fmtTime(todaysAppts.slice().sort((a,b)=>String(a.time||"").localeCompare(String(b.time||"")))[0].time)+" first":"none today"} tint="slate" icon="◷" onClick={()=>setView("appointments")}/>
       <Stat label="Clients" value={clients.length} tint="slate" icon="♦" onClick={()=>setView("clients")}/>
       <Stat label="Active jobs" value={active.length} tint="slate" icon="✦" onClick={()=>setView("jobs")}/>
-      <Stat label="This month" value={fmt(monthReceived)} sub="received (incl. trade-ins)" tint="mint" icon="↑"/>
+      <Stat label="This month" value={fmt(monthReceived)} sub={monthTrend?`vs ${fmt(lastMonthReceived)} last month`:"received (incl. trade-ins)"} tint="mint" icon="↑" trend={trendChip}/>
       <Stat label="Outstanding" value={fmt(outstanding)} sub="balance owed" tint={outstanding>0?"peach":"mint"} icon="$"/>
       <Stat label="Ready to collect" value={ready.length} tint="slate" icon="✓" onClick={()=>setView("jobs")}/>
       <Stat label="Overdue" value={overdue.length} tint={overdue.length>0?"rose":"mint"} icon="!" onClick={()=>setView("jobs")}/>
+    </div>
+    <NeedsAttention items={attention}/>
+    <div style={{display:"grid",gridTemplateColumns:stackCols?"1fr":"1fr 1fr",gap:16,marginBottom:24,alignItems:"start"}}>
+      <RevenueTrend series={revSeries}/>
+      <PipelineBar phases={pipePhases} totalValue={pipelineValue} jobCount={active.length} setView={setView}/>
     </div>
     <div style={{display:"grid",gridTemplateColumns:stackCols?"1fr":"minmax(0,1.6fr) minmax(0,1fr)",gap:16,alignItems:"start"}}>
       <Card style={{marginBottom:0}}>
