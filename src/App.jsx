@@ -2639,9 +2639,14 @@ function Dashboard({clients,jobs,quotes,payments,invoices,appointments=[],propos
     {key:"In production", stages:PROD_STAGES,                         color:"#3E8E8E"},
     {key:"Ready",         stages:["Ready for collection"],            color:"#2D7A4F"},
   ].map(p=>({...p,count:active.filter(j=>p.stages.includes(j.stage)).length}));
-  // Potential pipeline value: the approved total where a price is confirmed, else the job's best
-  // quote figure — so it reflects work you've got on AND quoted, not just approved jobs.
-  const jobPipelineValue=j=>jobHasCharge(j,quotes)?jobChargeTotal(j,quotes,markupTable,invoices):quotes.filter(q=>q.jobId===j.id).reduce((m,q)=>Math.max(m,quoteGrandTotal(q,markupTable)),0);
+  // Potential pipeline value: the approved total where a price is confirmed, else the AVERAGE of the
+  // job's quotes — sending a client 3 material options for one piece counts once as a middle estimate
+  // (not the priciest), so multi-option jobs don't inflate the figure.
+  const jobPipelineValue=j=>{
+    if(jobHasCharge(j,quotes))return jobChargeTotal(j,quotes,markupTable,invoices);
+    const qs=quotes.filter(q=>q.jobId===j.id);
+    return qs.length?qs.reduce((s,q)=>s+quoteGrandTotal(q,markupTable),0)/qs.length:0;
+  };
   const pipelineValue=active.reduce((s,j)=>s+jobPipelineValue(j),0);
   // ── "Needs your attention" — the actionable items, only when non-zero ──
   const chaseCount=activeRanked.filter(r=>r.awaiting&&r.sentProp?.createdAt&&Math.round((Date.now()-parseISO(r.sentProp.createdAt).getTime())/86400000)>=7).length;
