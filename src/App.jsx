@@ -2561,14 +2561,29 @@ function NeedsAttention({items}){
     </div>
   </Card>;
 }
-function Dashboard({clients,jobs,quotes,payments,invoices,appointments=[],proposals=[],markProposalSeen,markRepairSeen,markupTable,setView,setSelClient}){
+function Dashboard({clients,jobs,quotes,payments,invoices,appointments=[],proposals=[],markProposalSeen,markRepairSeen,markupTable,biz,setView,setSelClient}){
   const isMobile=useIsMobile();
   const stackCols=useIsMobile(1000);   // stack the two-column bottom section on tablets too, not just phones
+  // A quote the client ignored past its "valid until" date is "frozen": the public link expires AND
+  // it drops out of active tracking here. Frozen = a sent proposal, no acceptance, no approved quote,
+  // no money in, and every sent proposal past expiry (createdAt + the studio's quote-validity window).
+  const validityDays=biz?.quoteValidityDays||30;
+  const propExpired=p=>p?.createdAt?addDays(String(p.createdAt).slice(0,10),validityDays)<today():false;
+  const isFrozen=j=>{
+    const jp=proposals.filter(p=>p.jobId===j.id);
+    const sent=jp.filter(p=>p.status==="sent");
+    if(!sent.length||jp.some(p=>p.status==="accepted"))return false;
+    if(quotes.some(q=>q.jobId===j.id&&q.status==="Approved"))return false;
+    const cash=payments.filter(p=>p.jobId===j.id&&p.status==="Received").reduce((s,p)=>s+Number(p.amount),0);
+    if(cash>0||jobTradeInCredit(j,quotes)>0)return false;
+    return sent.every(propExpired);
+  };
   // Proposals a client accepted that haven't been acknowledged yet → dashboard alert
   const acceptedUnseen=proposals.filter(p=>p.status==="accepted"&&p.seen===false);
   // Repair links a client accepted/declined that haven't been acknowledged yet
   const repairUnseen=jobs.filter(j=>j.repairResponse&&j.repairResponse.seen===false);
-  const active=jobs.filter(j=>j.stage!=="Collected"&&!j.parked);   // parked = "awaiting client" → dropped from active tracking
+  const active=jobs.filter(j=>j.stage!=="Collected"&&!j.parked&&!isFrozen(j));   // parked/frozen → dropped from active tracking
+  const frozenCount=jobs.filter(j=>j.stage!=="Collected"&&!j.parked&&isFrozen(j)).length;   // expired, ignored quotes
   // Rank active jobs by momentum so the ones that matter (money in, a proposal out awaiting a reply,
   // approved/in production, overdue) surface first — a stale sent-quote with no engagement sinks and
   // is dimmed. Each row also carries the signals we show (paid, owing, proposal status).
@@ -2738,6 +2753,7 @@ function Dashboard({clients,jobs,quotes,payments,invoices,appointments=[],propos
             </div>
           </DashRow>;
         })}
+        {frozenCount>0&&<div onClick={()=>setView("jobs")} style={{marginTop:12,fontSize:12,color:WG,cursor:"pointer"}}>❄ {frozenCount} expired quote{frozenCount>1?"s":""} hidden — <span style={{color:GOLD,fontWeight:700}}>view in Jobs</span></div>}
       </Card>
       <div style={{display:"flex",flexDirection:"column",gap:16}}>
         <Card style={{marginBottom:0}}>
@@ -5433,6 +5449,9 @@ function PublicProposalPage({token}){
         if(!row){setState("notfound");return;}
         setSnap(row.data);
         if(row.status==="accepted"){setAcceptedOption(row.accepted_option||"");setAcceptedName(row.accepted_name||"");setState("accepted");}
+        // Freeze an ignored quote once it's past its "valid until" date — the client can no longer
+        // accept stale pricing (invoices never expire this way).
+        else if(row.data?.kind!=="invoice"&&row.data?.validUntil&&String(row.data.validUntil)<today()){setState("expired");}
         else{const opts=row.data?.options||[];const isMulti=row.data?.selectMode==="multi";
           if(isMulti)setPicks([]);   // multi: nothing pre-ticked
           else{const rec=opts.find(o=>o.recommended);setPicks(rec?[rec.id]:(opts[0]?.id?[opts[0].id]:[]));}
@@ -5465,6 +5484,7 @@ function PublicProposalPage({token}){
   if(state==="loading")return wrap(<div style={{textAlign:"center",color:WG,fontSize:14,marginTop:80}}>Loading your proposal…</div>);
   if(state==="error")return wrap(<div style={{maxWidth:440,margin:"80px auto 0",textAlign:"center",background:WHITE,border:`1px solid ${BD}`,borderRadius:RADIUS,padding:"32px 28px",boxShadow:SHADOW}}><div style={{fontSize:30,marginBottom:10}}>⚠️</div><div style={{fontSize:16,fontWeight:800,color:INK,marginBottom:6}}>Couldn't load this proposal</div><div style={{fontSize:13,color:WG,lineHeight:1.6}}>Please check the link, or get in touch with the studio.</div></div>);
   if(state==="notfound")return wrap(<div style={{maxWidth:440,margin:"80px auto 0",textAlign:"center",background:WHITE,border:`1px solid ${BD}`,borderRadius:RADIUS,padding:"32px 28px",boxShadow:SHADOW}}><div style={{fontSize:30,marginBottom:10}}>🔍</div><div style={{fontSize:16,fontWeight:800,color:INK,marginBottom:6}}>Proposal not found</div><div style={{fontSize:13,color:WG,lineHeight:1.6}}>This link may have expired or been withdrawn. Please contact the studio for an up-to-date quote.</div></div>);
+  if(state==="expired")return wrap(<div style={{maxWidth:440,margin:"80px auto 0",textAlign:"center",background:WHITE,border:`1px solid ${BD}`,borderRadius:RADIUS,padding:"32px 28px",boxShadow:SHADOW}}><div style={{fontSize:30,marginBottom:10}}>⏳</div><div style={{fontSize:16,fontWeight:800,color:INK,marginBottom:6}}>This quote has expired</div><div style={{fontSize:13,color:WG,lineHeight:1.6}}>Prices may have changed since it was sent. Please get in touch with the studio for an up-to-date quote — we'd be glad to help.</div></div>);
 
   // Invoices ride on the same public table/link — render the invoice layout instead.
   if(snap.kind==="invoice")return wrap(<PublicInvoiceBody snap={snap}/>);
@@ -10014,7 +10034,7 @@ export default function App(){
     return()=>{stop=true;};
   },[studioId]);
   const render=()=>{
-    if(view==="dashboard")return <Dashboard clients={clients} jobs={jobs} quotes={quotes} payments={payments} invoices={invoices} appointments={appointments} proposals={proposals} markProposalSeen={markProposalSeen} markRepairSeen={markRepairSeen} markupTable={markupTable} setView={setView} setSelClient={setSelClient}/>;
+    if(view==="dashboard")return <Dashboard clients={clients} jobs={jobs} quotes={quotes} payments={payments} invoices={invoices} appointments={appointments} proposals={proposals} markProposalSeen={markProposalSeen} markRepairSeen={markRepairSeen} markupTable={markupTable} biz={biz} setView={setView} setSelClient={setSelClient}/>;
     if(view==="todo")return <TodoBoard todos={todos} setTodos={setTodos} jobs={jobs} clients={clients} setView={setView} setSelJob={setSelJob}/>;
     if(view==="appointments")return <Appointments appointments={appointments} setAppointments={setAppointments} clients={clients} setClients={setClients} jobs={jobs} setJobs={setJobs} setView={setView} setSelClient={setSelClient} setSelJob={setSelJob}/>;
     if(view==="clients")return <Clients clients={clients} setClients={setClients} jobs={jobs} payments={payments} setView={setView} setSelClient={setSelClient} quotes={quotes}/>;
