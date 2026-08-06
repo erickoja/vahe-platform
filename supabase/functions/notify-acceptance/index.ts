@@ -21,7 +21,22 @@ const FALLBACK_EMAIL = Deno.env.get("NOTIFY_EMAIL")   ?? "";
 const SUPABASE_URL   = Deno.env.get("SUPABASE_URL")   ?? "";
 const SERVICE_KEY    = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
 
-const money = (n: number) => "$" + Math.round(n).toLocaleString("en-AU");
+const BIZ_KEY = "jlr4_biz";
+
+// The studio's currency/tax settings live in its saved business settings (studio_state jlr4_biz),
+// so the alert email shows the right symbol + tax label (£/VAT, $/GST, etc.) per studio.
+async function getBiz(studioId: string): Promise<any> {
+  if (!studioId || !SUPABASE_URL || !SERVICE_KEY) return {};
+  try {
+    const r = await fetch(
+      `${SUPABASE_URL}/rest/v1/studio_state?studio_id=eq.${studioId}&key=eq.${BIZ_KEY}&select=value`,
+      { headers: { apikey: SERVICE_KEY, Authorization: `Bearer ${SERVICE_KEY}` } },
+    );
+    if (!r.ok) return {};
+    const rows = await r.json();
+    return (Array.isArray(rows) && rows[0]?.value) || {};
+  } catch { return {}; }
+}
 
 async function getStudio(studioId: string): Promise<{ name?: string; notify_email?: string } | null> {
   if (!studioId || !SUPABASE_URL || !SERVICE_KEY) return null;
@@ -62,9 +77,15 @@ Deno.serve(async (req) => {
       return new Response("no recipient for studio " + (record.studio_id ?? "?"), { status: 200 });
     }
 
+    const biz = await getBiz(record.studio_id);
+    const sym = biz.currencySymbol || "$";
+    const taxLabel = biz.taxLabel || "GST";
+    const locale = biz.locale || "en-AU";
+    const money = (n: number) => sym + Math.round(n).toLocaleString(locale);
+
     const data = record.data ?? {};
     const opt  = (data.options ?? []).find((o: any) => o.id === record.accepted_option);
-    const price = opt && opt.price != null ? `${money(opt.price)} inc GST` : "—";
+    const price = opt && opt.price != null ? `${money(opt.price)} inc ${taxLabel}` : "—";
     const subject = `✅ Proposal accepted — ${data.clientName || "Client"} (${data.jobType || "job"})`;
     const html = `
       <div style="font-family:Arial,Helvetica,sans-serif;color:#0A0A0A;max-width:520px">

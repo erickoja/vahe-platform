@@ -242,12 +242,13 @@ let STONE_TAX_INCLUSIVE=false;  // false → tax added on top of the marked-up s
 let CUR_SYM="$";        // currency symbol shown before amounts
 let CUR_CODE="AUD";     // ISO code shown on documents + used to fetch metal prices
 let LOCALE="en-AU";     // number/date locale
+let TAX_ID_LABEL="ABN"; // business/tax-number label (ABN / NZBN / Company No. / VAT No. / Tax ID)
 const REGION_PRESETS={
-  AU:   {label:"Australia (GST 10%, AUD)",      sym:"$", code:"AUD", taxPct:10, taxLabel:"GST", locale:"en-AU"},
-  NZ:   {label:"New Zealand (GST 15%, NZD)",    sym:"$", code:"NZD", taxPct:15, taxLabel:"GST", locale:"en-NZ"},
-  GB:   {label:"United Kingdom (VAT 20%, GBP)", sym:"£", code:"GBP", taxPct:20, taxLabel:"VAT", locale:"en-GB"},
-  IE:   {label:"Ireland (VAT 23%, EUR)",        sym:"€", code:"EUR", taxPct:23, taxLabel:"VAT", locale:"en-IE"},
-  OTHER:{label:"Other / custom",                sym:"$", code:"",    taxPct:0,  taxLabel:"Tax", locale:"en-AU"},
+  AU:   {label:"Australia (GST 10%, AUD)",      sym:"$", code:"AUD", taxPct:10, taxLabel:"GST", locale:"en-AU", taxId:"ABN"},
+  NZ:   {label:"New Zealand (GST 15%, NZD)",    sym:"$", code:"NZD", taxPct:15, taxLabel:"GST", locale:"en-NZ", taxId:"NZBN"},
+  GB:   {label:"United Kingdom (VAT 20%, GBP)", sym:"£", code:"GBP", taxPct:20, taxLabel:"VAT", locale:"en-GB", taxId:"Company No."},
+  IE:   {label:"Ireland (VAT 23%, EUR)",        sym:"€", code:"EUR", taxPct:23, taxLabel:"VAT", locale:"en-IE", taxId:"VAT No."},
+  OTHER:{label:"Other / custom",                sym:"$", code:"",    taxPct:0,  taxLabel:"Tax", locale:"en-AU", taxId:"Tax ID"},
 };
 // Push a studio's saved region settings into the module-level values above. Missing fields fall
 // back to Australia, so a studio created before this feature keeps AUD + 10% GST unchanged.
@@ -257,6 +258,7 @@ function applyRegion(b){
   CUR_CODE = b.currencyCode   || "AUD";
   TAX_LABEL= b.taxLabel       || "GST";
   LOCALE   = b.locale         || "en-AU";
+  TAX_ID_LABEL = b.taxIdLabel || "ABN";
   GST_RATE = (b.taxRatePct!=null && b.taxRatePct!=="") ? Number(b.taxRatePct)/100 : 0.10;
   STONE_TAX_INCLUSIVE = !!b.stoneTaxInclusive;   // default off → tax on top of marked-up stones (unchanged for existing studios)
 }
@@ -1617,10 +1619,10 @@ function printStatement(biz,client,{opening,period,closing,aging,from,to}){
 .terms-line{font-size:11px;color:#6B6560;margin-bottom:24px}
 </style></head><body>
 <div class="hdr">
-  <div>${biz?.logo?`<img src="${esc(biz.logo)}" alt="${bizName}" style="max-width:180px;max-height:64px;object-fit:contain;display:block;margin-bottom:6px"/>`:`<div class="bname">${bizName}</div>`}<div class="bsub">${[biz?.email,biz?.phone,biz?.abn?"ABN "+biz.abn:""].filter(Boolean).map(esc).join(" · ")}</div></div>
+  <div>${biz?.logo?`<img src="${esc(biz.logo)}" alt="${bizName}" style="max-width:180px;max-height:64px;object-fit:contain;display:block;margin-bottom:6px"/>`:`<div class="bname">${bizName}</div>`}<div class="bsub">${[biz?.email,biz?.phone,biz?.abn?TAX_ID_LABEL+" "+biz.abn:""].filter(Boolean).map(esc).join(" · ")}</div></div>
   <div><div class="qlbl">Statement of Account</div><div style="font-size:13px;color:#6B6560;text-align:right;margin-top:6px">${fmtDate(today())}</div></div>
 </div>
-<div class="to"><div class="tolbl">Account</div><div class="toname">${clientName}</div>${contact?`<div class="todet">${contact}</div>`:""}${client?.abn?`<div class="todet">ABN ${esc(client.abn)}</div>`:""}${client?.terms?`<div class="todet">Terms: ${esc(client.terms)}</div>`:""}</div>
+<div class="to"><div class="tolbl">Account</div><div class="toname">${clientName}</div>${contact?`<div class="todet">${contact}</div>`:""}${client?.abn?`<div class="todet">${TAX_ID_LABEL} ${esc(client.abn)}</div>`:""}${client?.terms?`<div class="todet">Terms: ${esc(client.terms)}</div>`:""}</div>
 <div class="terms-line">Statement period: <strong>${periodLbl}</strong></div>
 <div class="balrow"><span class="bl-l">Opening balance</span><span class="bl-v">${fmt(opening)}</span></div>
 <table class="stbl">
@@ -1631,7 +1633,7 @@ function printStatement(biz,client,{opening,period,closing,aging,from,to}){
 <div class="cs-lbl" style="margin-bottom:8px">Aged receivables (as at ${fmtDate(today())})</div>
 <div class="cost-summary aging">${agingCells}</div>
 ${biz?.paymentLink?`<div class="terms-line" style="margin-top:22px">Pay online: <strong>${esc(biz.paymentLink)}</strong></div>`:""}
-<div class="footer">${bizName}${biz?.abn?" · ABN "+esc(biz.abn):""} — this statement supersedes any individual invoices for the period shown.</div>
+<div class="footer">${bizName}${biz?.abn?" · "+TAX_ID_LABEL+" "+esc(biz.abn):""} — this statement supersedes any individual invoices for the period shown.</div>
 </body></html>`);
   win.document.close();setTimeout(()=>win.print(),400);
 }
@@ -2111,7 +2113,7 @@ ${q.validUntil?`<div class="valid">This quote is valid until ${fmtDate(q.validUn
   <div class="apbody">By signing below, I confirm I have reviewed and approve this quote and understand that a deposit is required to proceed with production.</div>
   <div class="sigrow"><div><div class="sigline"></div><div class="siglbl">Client signature</div></div><div><div class="sigline"></div><div class="siglbl">Date</div></div></div>
 </div>
-<div class="footer">${biz.name||"Your Jewellery Studio"}${biz.abn?" · ABN "+biz.abn:""}</div>
+<div class="footer">${biz.name||"Your Jewellery Studio"}${biz.abn?" · "+TAX_ID_LABEL+" "+biz.abn:""}</div>
 </body></html>`);
   win.document.close();setTimeout(()=>win.print(),400);
 }
@@ -2340,7 +2342,7 @@ ${intake.instructions?`<div class="instr"><b>Client instructions</b>${ml(intake.
   <div><div class="sigline"></div><div class="siglbl">Client signature — I have read and accept the above terms</div></div>
   <div><div class="sigline"></div><div class="siglbl">Date</div></div>
 </div>
-<div class="footer">${esc(biz.name||"Your Jewellery Studio")}${biz.abn?" · ABN "+esc(biz.abn):""}</div>
+<div class="footer">${esc(biz.name||"Your Jewellery Studio")}${biz.abn?" · "+TAX_ID_LABEL+" "+esc(biz.abn):""}</div>
 </body></html>`);
   win.document.close();setTimeout(()=>win.print(),400);
 }
@@ -2449,7 +2451,7 @@ ${r.reason?`<div class="instr"><b>Reason held / instructions</b>${ml(r.reason)}<
   <div><div class="sigline"></div><div class="siglbl">Collected by client — I confirm the item(s) were returned to me in good order</div></div>
   <div><div class="sigline"></div><div class="siglbl">Date returned</div></div>
 </div>
-<div class="footer">${bizName}${biz.abn?" · ABN "+esc(biz.abn):""}</div>
+<div class="footer">${bizName}${biz.abn?" · "+TAX_ID_LABEL+" "+esc(biz.abn):""}</div>
 </body></html>`);
   win.document.close();setTimeout(()=>win.print(),400);
 }
@@ -2478,7 +2480,7 @@ ${job?.description?`<div class="desc-box"><strong>${job.type}</strong><br>${job.
 ${inv.notes?`<div class="notes">${inv.notes}</div>`:""}
 ${biz.paymentLink?`<div style="text-align:center;margin:20px 0 6px"><a href="${biz.paymentLink}" style="display:inline-block;background:#1A1714;color:#fff;text-decoration:none;padding:11px 28px;border-radius:5px;font-size:13px;font-weight:700">Pay online</a><div style="font-size:11px;color:#6B6560;margin-top:6px">${biz.paymentLink}</div></div>`:""}
 <div class="valid">Payment due within 7 days. Thank you for your business.</div>
-<div class="footer">${biz.name||"Your Jewellery Studio"}${biz.abn?" · ABN "+biz.abn:""}</div>
+<div class="footer">${biz.name||"Your Jewellery Studio"}${biz.abn?" · "+TAX_ID_LABEL+" "+biz.abn:""}</div>
 </body></html>`);
   win.document.close();setTimeout(()=>win.print(),400);
 }
@@ -2705,7 +2707,7 @@ function ClientForm({initial={},onSave,onCancel}){
       <div style={{borderTop:`1px solid ${BD}`,margin:"6px 0 14px"}}/>
       <div style={{fontSize:10,fontWeight:700,color:WG,letterSpacing:"0.08em",textTransform:"uppercase",marginBottom:10}}>Trade account</div>
       <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"0 16px"}}>
-        <Input label="ABN" value={f.abn||""} onChange={set("abn")} placeholder="12 345 678 901"/>
+        <Input label={TAX_ID_LABEL} value={f.abn||""} onChange={set("abn")} placeholder="12 345 678 901"/>
         <Input label="Account terms" value={f.terms||""} onChange={set("terms")} as="select" options={[{value:"",label:"— Select —"},"COD","Net 7","Net 14","Net 30","EOM (end of month)"]}/>
         <Input label={`Credit limit (${CUR_SYM}) — optional`} value={f.creditLimit||""} onChange={set("creditLimit")} type="number" min="0" step="1" placeholder="e.g. 5000"/>
       </div>
@@ -2834,7 +2836,7 @@ function ClientDetail({clientId,clients,setClients,jobs,setJobs,quotes,payments,
         {c.accountType==="trade"?<>
           {[
           ["Contact person",c.contactName],
-          ["ABN",c.abn],
+          [TAX_ID_LABEL,c.abn],
           ["Terms",c.terms],
           ["Credit limit",c.creditLimit?fmt(Number(c.creditLimit)):""],
           ["PO required",c.poRequired?"Yes":"No"],
@@ -5112,7 +5114,7 @@ function PublicRepairBody({snap,responded,decision,responderName,onRespond}){
         <div style={{marginTop:14,fontSize:12,color:"rgba(255,255,255,0.5)",lineHeight:1.8}}>
           {b.address&&<div>{b.address}</div>}
           {(b.phone||b.email)&&<div>{[b.phone,b.email].filter(Boolean).join("  ·  ")}</div>}
-          {b.abn&&<div style={{color:"rgba(255,255,255,0.32)"}}>ABN {b.abn}</div>}
+          {b.abn&&<div style={{color:"rgba(255,255,255,0.32)"}}>{TAX_ID_LABEL} {b.abn}</div>}
         </div>
       </div>
       <div style={{textAlign:"right"}}>
@@ -5240,7 +5242,7 @@ function PublicInvoiceBody({snap}){
         <div style={{marginTop:12,fontSize:12,color:"rgba(255,255,255,0.5)",lineHeight:1.7}}>
           {b.address&&<div>{b.address}</div>}
           {(b.phone||b.email)&&<div>{[b.phone,b.email].filter(Boolean).join("  ·  ")}</div>}
-          {b.abn&&<div style={{color:"rgba(255,255,255,0.32)"}}>ABN {b.abn}</div>}
+          {b.abn&&<div style={{color:"rgba(255,255,255,0.32)"}}>{TAX_ID_LABEL} {b.abn}</div>}
         </div>
       </div>
       <div style={{textAlign:"right"}}>
@@ -5386,7 +5388,7 @@ function PublicProposalPage({token}){
       <div style={{marginTop:12,fontSize:12,color:"rgba(255,255,255,0.5)",lineHeight:1.7}}>
         {b.address&&<div>{b.address}</div>}
         {(b.phone||b.email)&&<div>{[b.phone,b.email].filter(Boolean).join("  ·  ")}</div>}
-        {b.abn&&<div style={{color:"rgba(255,255,255,0.32)"}}>ABN {b.abn}</div>}
+        {b.abn&&<div style={{color:"rgba(255,255,255,0.32)"}}>{TAX_ID_LABEL} {b.abn}</div>}
       </div>
     </div>
 
@@ -5618,7 +5620,7 @@ function ProposalPreview({quote,job,clients=[],biz,calc,payments=[],reconcilePay
             <div style={{marginTop:12,display:"flex",flexDirection:"column",gap:3}}>
               {biz.address&&<div style={{fontSize:11,color:"rgba(255,255,255,0.45)",fontFamily:"'Poppins',sans-serif"}}>{biz.address}</div>}
               {(biz.phone||biz.email)&&<div style={{fontSize:11,color:"rgba(255,255,255,0.45)",fontFamily:"'Poppins',sans-serif"}}>{[biz.phone,biz.email].filter(Boolean).join("  ·  ")}</div>}
-              {biz.abn&&<div style={{fontSize:10,color:"rgba(255,255,255,0.28)",fontFamily:"'Poppins',sans-serif",marginTop:2}}>ABN {biz.abn}</div>}
+              {biz.abn&&<div style={{fontSize:10,color:"rgba(255,255,255,0.28)",fontFamily:"'Poppins',sans-serif",marginTop:2}}>{TAX_ID_LABEL} {biz.abn}</div>}
             </div>
           </div>
           <div style={{textAlign:"right",flexShrink:0}}>
@@ -6182,7 +6184,7 @@ function InvoicePrintView({inv,job,client,biz,payments,onClose}){
                   <div style={{fontSize:30,fontWeight:900,color:WHITE,letterSpacing:"0.12em",lineHeight:1}}>{biz.name||"VAHÉ"}</div>
                   <div style={{fontSize:8,fontWeight:400,color:"rgba(255,255,255,0.8)",letterSpacing:"0.3em",textAlign:"center",marginTop:3}}>JEWELLERY</div>
                 </div>}
-            {biz.abn&&<div style={{fontSize:10,color:WG,letterSpacing:"0.04em",marginTop:12}}>ABN {biz.abn}</div>}
+            {biz.abn&&<div style={{fontSize:10,color:WG,letterSpacing:"0.04em",marginTop:12}}>{TAX_ID_LABEL} {biz.abn}</div>}
             {(biz.email||biz.phone)&&<div style={{fontSize:11,color:WG,marginTop:3}}>{[biz.phone,biz.email].filter(Boolean).join("  ·  ")}</div>}
           </div>
           <div style={{textAlign:"right"}}>
@@ -6782,7 +6784,7 @@ function StatementDetail({clientId,clients,jobs,invoices,payments,biz,setView}){
   const doPrint=()=>printStatement(biz,c,{...st,aging,from,to});
   const doCsv=()=>{const span=from||to?`${from||"start"}_to_${to||"today"}`:"all";downloadStatementCsv(c,st.opening,st.period,st.closing,`statement-${(clientDisplayName(c)||"account").replace(/[^\w-]+/g,"-")}-${span}.csv`);};
   const presets=[["This month","month"],["Last month","lastmonth"],["This quarter","quarter"],["Financial year","fy"],["All","all"]];
-  const info=[["Contact",c.contactName],["Email",c.email],["Phone",c.phone],["ABN",c.abn],["Terms",c.terms],["Credit limit",c.creditLimit?fmt(Number(c.creditLimit)):""]].filter(([,v])=>v);
+  const info=[["Contact",c.contactName],["Email",c.email],["Phone",c.phone],[TAX_ID_LABEL,c.abn],["Terms",c.terms],["Credit limit",c.creditLimit?fmt(Number(c.creditLimit)):""]].filter(([,v])=>v);
   return <div>
     <Btn ghost sm onClick={()=>setView("statements")}>← Statements</Btn>
     <div style={{height:12}}/>
@@ -7825,7 +7827,7 @@ function Settings({biz,setBiz,markupTable,setMarkupTable,naturalStoneMarkup,setN
     showToast("Business details saved");
   };
   // Region & currency: choosing a preset fills the currency + tax fields (still editable after).
-  const applyPreset=key=>{const p=REGION_PRESETS[key];if(!p)return;setBForm(f=>({...f,region:key,currencySymbol:p.sym,currencyCode:p.code,taxLabel:p.taxLabel,taxRatePct:p.taxPct,locale:p.locale}));};
+  const applyPreset=key=>{const p=REGION_PRESETS[key];if(!p)return;setBForm(f=>({...f,region:key,currencySymbol:p.sym,currencyCode:p.code,taxLabel:p.taxLabel,taxRatePct:p.taxPct,locale:p.locale,taxIdLabel:p.taxId}));};
   const saveMt=()=>{setMarkupTable(mt);persist(K.mt,mt);const nb={...biz,markupBuffer:Number(buffer)||0,quoteRounding:Number(rounding)||0};setBiz(nb);persist(K.biz,nb);setMarkupBuffer(Number(buffer)||0);setQuoteRounding(Number(rounding)||0);showToast("Markup table saved");};
   // Calendar subscription feed — a private token stored in biz settings; the calendar-feed edge fn serves the .ics.
   const browserTz=(()=>{try{return Intl.DateTimeFormat().resolvedOptions().timeZone||"";}catch(e){return "";}})();
@@ -7873,7 +7875,7 @@ function Settings({biz,setBiz,markupTable,setMarkupTable,naturalStoneMarkup,setN
       <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"0 16px"}}>
         <Input label="Email" value={bForm.email} onChange={setBF("email")} placeholder="hello@studio.com.au"/>
         <Input label="Phone" value={bForm.phone} onChange={setBF("phone")} placeholder="(03) 9123 4567"/>
-        <Input label="ABN" value={bForm.abn} onChange={setBF("abn")} placeholder="12 345 678 901"/>
+        <Input label={TAX_ID_LABEL} value={bForm.abn} onChange={setBF("abn")} placeholder="12 345 678 901"/>
       </div>
       <Input label="Address" value={bForm.address} onChange={setBF("address")} placeholder="123 Collins St, Melbourne VIC 3000"/>
       <div style={{margin:"6px 0 4px",padding:"12px 14px",background:PARCH,border:`1px solid ${BD}`,borderRadius:5}}>
@@ -7911,6 +7913,7 @@ function Settings({biz,setBiz,markupTable,setMarkupTable,naturalStoneMarkup,setN
         <Input label="Tax label" value={bForm.taxLabel??"GST"} onChange={setBF("taxLabel")} placeholder="GST"/>
         <Input label="Tax rate (%)" value={String(bForm.taxRatePct??10)} onChange={v=>setBF("taxRatePct")(v===""?"":Number(v))} type="number" min="0" step="0.1" placeholder="10"/>
       </div>
+      <Input label="Business / tax number label (shown on invoices &amp; proposals)" value={bForm.taxIdLabel??"ABN"} onChange={setBF("taxIdLabel")} placeholder="ABN"/>
       <div style={{fontSize:12,color:WG,marginTop:2,lineHeight:1.6}}>Preview: your prices will show as <strong style={{color:INK}}>{bForm.currencySymbol||"$"}1,234.50 {bForm.currencyCode||"AUD"}</strong>, with {Number(bForm.taxRatePct??10)}% {bForm.taxLabel||"GST"} included in the total. Set the tax rate to <strong>0</strong> if you don't charge sales tax.</div>
       <label style={{display:"flex",alignItems:"flex-start",gap:9,fontSize:13,color:INK,cursor:"pointer",margin:"14px 0 2px"}}>
         <input type="checkbox" checked={!!bForm.stoneTaxInclusive} onChange={e=>setBF("stoneTaxInclusive")(e.target.checked)} style={{width:16,height:16,accentColor:GOLD,cursor:"pointer",marginTop:2,flexShrink:0}}/>
