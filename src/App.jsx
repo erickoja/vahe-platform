@@ -2699,7 +2699,7 @@ function Dashboard({clients,jobs,quotes,payments,invoices,appointments=[],propos
       <Stat label="Overdue" value={overdue.length} tint={overdue.length>0?"rose":"mint"} icon="!" onClick={()=>setView("jobs")}/>
     </div>
     <NeedsAttention items={attention}/>
-    <div style={{display:"grid",gridTemplateColumns:stackCols?"1fr":"1fr 1fr",gap:16,marginBottom:24,alignItems:"start"}}>
+    <div style={{display:"grid",gridTemplateColumns:stackCols?"1fr":"1fr 1fr",gap:16,marginBottom:24,alignItems:"stretch"}}>
       <RevenueTrend series={revSeries}/>
       <PipelineBar phases={pipePhases} totalValue={pipelineValue} jobCount={active.length} setView={setView}/>
     </div>
