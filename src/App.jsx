@@ -2524,8 +2524,9 @@ function RevenueTrend({series}){
     </div>
   </Card>;
 }
-function PipelineBar({phases,totalValue,jobCount,setView}){
+function PipelineBar({phases,totalValue,jobCount,setView,breakdown=[]}){
   const total=phases.reduce((s,p)=>s+p.count,0);
+  const[showBreak,setShowBreak]=useState(false);
   return <Card style={{marginBottom:0}}>
     <div style={{display:"flex",justifyContent:"space-between",alignItems:"baseline",marginBottom:4}}>
       <span style={{fontWeight:700,fontSize:15,color:INK}}>Production pipeline</span>
@@ -2542,7 +2543,21 @@ function PipelineBar({phases,totalValue,jobCount,setView}){
           <span style={{color:WG,flex:1,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{p.key}</span>
           <span style={{fontWeight:800,color:INK}}>{p.count}</span>
         </div>)}
-      </div></>}
+      </div>
+      {breakdown.length>0&&<>
+        <button onClick={()=>setShowBreak(v=>!v)} style={{marginTop:14,background:"none",border:"none",padding:0,cursor:"pointer",color:GOLD,fontSize:12,fontWeight:700,fontFamily:"inherit"}}>{showBreak?"▾ Hide breakdown":"▸ See how this is calculated"}</button>
+        {showBreak&&<div style={{marginTop:10,borderTop:`1px solid ${BD}`,paddingTop:8}}>
+          {breakdown.map(b=><div key={b.id} onClick={()=>setView("jobDetail_"+b.id)} style={{display:"flex",justifyContent:"space-between",gap:10,padding:"5px 0",cursor:"pointer",fontSize:12}}>
+            <span style={{color:INK,minWidth:0,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{b.name} <span style={{color:WG}}>· {b.detail}</span></span>
+            <span style={{fontWeight:700,color:INK,whiteSpace:"nowrap"}}>{fmt(b.amt)}</span>
+          </div>)}
+          <div style={{display:"flex",justifyContent:"space-between",borderTop:`1px solid ${BD}`,marginTop:6,paddingTop:8,fontSize:13}}>
+            <span style={{fontWeight:800,color:INK}}>Total</span>
+            <span style={{fontWeight:800,color:INK}}>{fmt(totalValue)}</span>
+          </div>
+        </div>}
+      </>}
+      </>}
   </Card>;
 }
 function NeedsAttention({items}){
@@ -2664,6 +2679,14 @@ function Dashboard({clients,jobs,quotes,payments,invoices,appointments=[],propos
     return qs.length?qs.reduce((s,q)=>s+quoteGrandTotal(q,markupTable),0)/qs.length:0;
   };
   const pipelineValue=active.reduce((s,j)=>s+jobPipelineValue(j),0);
+  // Line-by-line breakdown so the pipeline total is auditable.
+  const pipelineBreakdown=active.map(j=>{
+    const amt=jobPipelineValue(j);
+    const c=clients.find(x=>x.id===j.clientId);
+    const sentQs=quotes.filter(q=>q.jobId===j.id&&q.status==="Sent"&&(!q.validUntil||String(q.validUntil)>=today()));
+    const detail=jobHasCharge(j,quotes)?"approved total":sentQs.length>1?`avg of ${sentQs.length} sent quotes`:sentQs.length===1?"1 sent quote":"—";
+    return {id:j.id,name:`${j.type} · ${clientDisplayName(c)}`,amt,detail};
+  }).filter(x=>x.amt>0).sort((a,b)=>b.amt-a.amt);
   // ── "Needs your attention" — the actionable items, only when non-zero ──
   const chaseCount=activeRanked.filter(r=>r.awaiting&&r.sentProp?.createdAt&&Math.round((Date.now()-parseISO(r.sentProp.createdAt).getTime())/86400000)>=7).length;
   const attention=[
@@ -2722,7 +2745,7 @@ function Dashboard({clients,jobs,quotes,payments,invoices,appointments=[],propos
     <NeedsAttention items={attention}/>
     <div style={{display:"grid",gridTemplateColumns:stackCols?"1fr":"1fr 1fr",gap:16,marginBottom:24,alignItems:"stretch"}}>
       <RevenueTrend series={revSeries}/>
-      <PipelineBar phases={pipePhases} totalValue={pipelineValue} jobCount={active.length} setView={setView}/>
+      <PipelineBar phases={pipePhases} totalValue={pipelineValue} jobCount={active.length} setView={setView} breakdown={pipelineBreakdown}/>
     </div>
     <div style={{display:"grid",gridTemplateColumns:stackCols?"1fr":"minmax(0,1.6fr) minmax(0,1fr)",gap:16,alignItems:"start"}}>
       <Card style={{marginBottom:0}}>
