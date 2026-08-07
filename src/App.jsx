@@ -2503,19 +2503,22 @@ function DashRow({onClick,last,children,col}){
 //    and a "needs attention" action panel. Built on data already in memory. ──
 function RevenueTrend({series}){
   const max=Math.max(1,...series.map(s=>s.value));
-  const H=110;
-  return <Card style={{marginBottom:0}}>
+  return <Card style={{marginBottom:0,height:"100%",display:"flex",flexDirection:"column"}}>
     <div style={{display:"flex",justifyContent:"space-between",alignItems:"baseline",marginBottom:14}}>
       <span style={{fontWeight:700,fontSize:15,color:INK}}>Money received</span>
       <span style={{fontSize:11,color:WG,fontWeight:600}}>last 6 months</span>
     </div>
-    <div style={{display:"flex",alignItems:"flex-end",gap:8,height:H}}>
+    {/* flex:1 chart area so the bars grow to fill the card — keeps this card level with the
+        Production pipeline card whether its breakdown is collapsed or expanded. */}
+    <div style={{flex:1,display:"flex",alignItems:"stretch",gap:8,minHeight:120}}>
       {series.map((s,i)=>{
         const cur=i===series.length-1;
-        const h=Math.max(3,Math.round((s.value/max)*(H-18)));
-        return <div key={s.mk} title={`${s.label}: ${fmt(s.value)}`} style={{flex:1,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"flex-end",height:"100%",gap:5,cursor:"default"}}>
+        const pct=Math.max(2,Math.round((s.value/max)*100));
+        return <div key={s.mk} title={`${s.label}: ${fmt(s.value)}`} style={{flex:1,display:"flex",flexDirection:"column",alignItems:"center",gap:4}}>
           <div style={{fontSize:10,fontWeight:700,color:cur?OK:WG,whiteSpace:"nowrap",opacity:s.value>0?1:0}}>{fmtR(s.value)}</div>
-          <div style={{width:"100%",maxWidth:40,height:h,background:cur?OK:OK+"4D",borderRadius:"5px 5px 2px 2px"}}/>
+          <div style={{flex:1,width:"100%",display:"flex",alignItems:"flex-end",justifyContent:"center"}}>
+            <div style={{width:"100%",maxWidth:40,height:`${pct}%`,background:cur?OK:OK+"4D",borderRadius:"5px 5px 2px 2px"}}/>
+          </div>
         </div>;
       })}
     </div>
