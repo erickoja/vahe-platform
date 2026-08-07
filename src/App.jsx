@@ -2548,9 +2548,12 @@ function PipelineBar({phases,totalValue,jobCount,setView,breakdown=[]}){
       {breakdown.length>0&&<>
         <button onClick={()=>setShowBreak(v=>!v)} style={{marginTop:14,background:"none",border:"none",padding:0,cursor:"pointer",color:GOLD,fontSize:12,fontWeight:700,fontFamily:"inherit"}}>{showBreak?"▾ Hide breakdown":"▸ See how this is calculated"}</button>
         {showBreak&&<div style={{marginTop:10,borderTop:`1px solid ${BD}`,paddingTop:8}}>
-          {breakdown.map(b=><div key={b.id} onClick={()=>setView("jobDetail_"+b.id)} style={{display:"flex",justifyContent:"space-between",gap:10,padding:"5px 0",cursor:"pointer",fontSize:12}}>
-            <span style={{color:INK,minWidth:0,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{b.name} <span style={{color:WG}}>· {b.detail}</span>{b.approved&&b.paid>0?<span style={{color:OK}}> · {fmt(b.paid)} paid</span>:null}</span>
-            <span style={{fontWeight:700,color:INK,whiteSpace:"nowrap"}}>{fmt(b.amt)}</span>
+          {breakdown.map(b=><div key={b.id} onClick={()=>setView("jobDetail_"+b.id)} style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:12,padding:"7px 0",cursor:"pointer",fontSize:12}}>
+            <span style={{color:INK,fontWeight:600,flex:1,minWidth:0,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{b.name}</span>
+            <div style={{textAlign:"right",flexShrink:0}}>
+              <div style={{fontWeight:700,color:INK,whiteSpace:"nowrap"}}>{fmt(b.amt)}</div>
+              <div style={{fontSize:10.5,color:WG,marginTop:1,whiteSpace:"nowrap"}}>{b.detail}{b.approved&&b.paid>0?<> · <span style={{color:OK,fontWeight:700}}>{fmt(b.paid)} paid</span></>:null}</div>
+            </div>
           </div>)}
           <div style={{display:"flex",justifyContent:"space-between",borderTop:`1px solid ${BD}`,marginTop:6,paddingTop:8,fontSize:13}}>
             <span style={{fontWeight:800,color:INK}}>Total</span>
