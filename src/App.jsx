@@ -2584,7 +2584,8 @@ function NeedsAttention({items}){
     </div>
   </Card>;
 }
-function Dashboard({clients,jobs,quotes,payments,invoices,appointments=[],proposals=[],markProposalSeen,markRepairSeen,markupTable,biz,setView,setSelClient}){
+function Dashboard({clients,jobs,quotes,payments,invoices,appointments=[],proposals=[],markProposalSeen,markRepairSeen,markupTable,biz,setView,setSelClient,openJobs}){
+  const go=openJobs||(()=>setView("jobs"));
   const isMobile=useIsMobile();
   const stackCols=useIsMobile(1000);   // stack the two-column bottom section on tablets too, not just phones
   // A quote the client ignored past its "valid until" date is "frozen": the public link expires AND
@@ -2700,10 +2701,10 @@ function Dashboard({clients,jobs,quotes,payments,invoices,appointments=[],propos
   // ── "Needs your attention" — the actionable items, only when non-zero ──
   const chaseCount=activeRanked.filter(r=>r.awaiting&&r.sentProp?.createdAt&&Math.round((Date.now()-parseISO(r.sentProp.createdAt).getTime())/86400000)>=7).length;
   const attention=[
-    overdue.length&&{key:"overdue",icon:"⏰",color:DANGER,headline:`${overdue.length} overdue`,sub:"past their due date",onClick:()=>setView("jobs")},
+    overdue.length&&{key:"overdue",icon:"⏰",color:DANGER,headline:`${overdue.length} overdue`,sub:"past their due date",onClick:()=>go("overdue")},
     chaseCount>0&&{key:"chase",icon:"📨",color:GOLD_D,headline:`${chaseCount} quote${chaseCount>1?"s":""} to chase`,sub:"sent 7+ days ago, no reply",onClick:()=>setView("jobs")},
-    ready.length&&{key:"ready",icon:"✓",color:OK,headline:`${ready.length} ready to collect`,sub:"waiting on pickup",onClick:()=>setView("jobs")},
-    balanceOwing.length&&{key:"owing",icon:"$",color:WARN,headline:`${fmt(outstanding)} owing`,sub:`across ${balanceOwing.length} job${balanceOwing.length>1?"s":""}`,onClick:()=>setView("invoices")},
+    ready.length&&{key:"ready",icon:"✓",color:OK,headline:`${ready.length} ready to collect`,sub:"waiting on pickup",onClick:()=>go("ready")},
+    balanceOwing.length&&{key:"owing",icon:"$",color:WARN,headline:`${fmt(outstanding)} owing`,sub:`across ${balanceOwing.length} job${balanceOwing.length>1?"s":""}`,onClick:()=>go("owing")},
   ].filter(Boolean);
   const trendChip=monthTrend?<span style={{fontSize:11,fontWeight:800,color:monthTrend.up?OK:DANGER,whiteSpace:"nowrap"}}>{monthTrend.up?"▲":"▼"} {Math.abs(monthTrend.pct)}%</span>:null;
 
@@ -2749,8 +2750,8 @@ function Dashboard({clients,jobs,quotes,payments,invoices,appointments=[],propos
       <Stat label="Active jobs" value={active.length} tint="slate" icon="✦" onClick={()=>setView("jobs")}/>
       <Stat label="This month" value={fmt(monthReceived)} sub={monthTrend?`vs ${fmt(lastMonthReceived)} last month`:"received (incl. trade-ins)"} tint="mint" icon="↑" trend={trendChip}/>
       <Stat label="Outstanding" value={fmt(outstanding)} sub="balance owed" tint={outstanding>0?"peach":"mint"} icon="$"/>
-      <Stat label="Ready to collect" value={ready.length} tint="slate" icon="✓" onClick={()=>setView("jobs")}/>
-      <Stat label="Overdue" value={overdue.length} tint={overdue.length>0?"rose":"mint"} icon="!" onClick={()=>setView("jobs")}/>
+      <Stat label="Ready to collect" value={ready.length} tint="slate" icon="✓" onClick={()=>go("ready")}/>
+      <Stat label="Overdue" value={overdue.length} tint={overdue.length>0?"rose":"mint"} icon="!" onClick={()=>go("overdue")}/>
     </div>
     <NeedsAttention items={attention}/>
     <div style={{display:"grid",gridTemplateColumns:stackCols?"1fr":"1fr 1fr",gap:16,marginBottom:24,alignItems:"stretch"}}>
@@ -3065,12 +3066,24 @@ function JobForm({clients,initial={},onSave,onCancel}){
   </div>;
 }
 
-function Jobs({clients,jobs,setJobs,quotes,setQuotes,payments,setPayments,notes,setNotes,invoices,setInvoices,markupTable,setView,setSelJob}){
+function Jobs({clients,jobs,setJobs,quotes,setQuotes,payments,setPayments,notes,setNotes,invoices,setInvoices,markupTable,setView,setSelJob,preset,onPresetDone}){
   const[modal,setModal]=useState(null);
   const[sf,setSf]=useState("All");
   const[tf,setTf]=useState("All");
   const[search,setSearch]=useState("");
   const[awaitOnly,setAwaitOnly]=useState(false);   // filter to only "awaiting client" (parked) jobs
+  const[owingOnly,setOwingOnly]=useState(false);    // filter to jobs with a balance owing
+  const[overdueOnly,setOverdueOnly]=useState(false);// filter to overdue jobs
+  // Apply a one-off filter sent from the dashboard tiles (ready / owing / overdue / a stage name),
+  // resetting the others, then clear it in the parent so it doesn't re-fire on the next visit.
+  useEffect(()=>{
+    if(!preset)return;
+    setSearch("");setTf("All");setAwaitOnly(false);
+    setOwingOnly(preset==="owing");
+    setOverdueOnly(preset==="overdue");
+    setSf(preset==="ready"?"Ready for collection":(preset==="owing"||preset==="overdue")?"All":preset);
+    onPresetDone&&onPresetDone();
+  },[preset]);   // eslint-disable-line
   const[mode,setMode]=useState("list");        // list | board (production board)
   const isMobile=useIsMobile();
   // The board is drag-and-drop, which isn't practical on touch — force List on mobile
@@ -3084,6 +3097,8 @@ function Jobs({clients,jobs,setJobs,quotes,setQuotes,payments,setPayments,notes,
   const q=search.trim().toLowerCase();
   const filtered=jobs.filter(j=>{
     if(awaitOnly&&!j.parked)return false;
+    if(overdueOnly&&!(j.deadline&&j.deadline<today()&&!jobIsDone(j)))return false;
+    if(owingOnly){const total=jobHasCharge(j,quotes)?jobChargeTotal(j,quotes,markupTable,invoices):0;const paid=payments.filter(p=>p.jobId===j.id&&p.status==="Received").reduce((s,p)=>s+Number(p.amount),0)+jobTradeInCredit(j,quotes);if(total-paid<=0.5)return false;}
     if(sf!=="All"&&j.stage!==sf)return false;
     if(tf!=="All"&&j.type!==tf)return false;
     if(q){
@@ -3142,10 +3157,12 @@ function Jobs({clients,jobs,setJobs,quotes,setQuotes,payments,setPayments,notes,
     {vMode==="list"&&<div style={{display:"flex",gap:6,flexWrap:"wrap",marginBottom:14}}>
       {["All",...JOB_STAGES].map(s=><button key={s} onClick={()=>setSf(s)} style={{padding:"4px 11px",borderRadius:3,border:`1px solid ${sf===s?GOLD:BD}`,background:sf===s?GOLD:"transparent",color:sf===s?WHITE:WG,fontSize:11,fontWeight:700,cursor:"pointer",fontFamily:"inherit"}}>{s}</button>)}
     </div>}
-    {vMode==="list"&&parkedCount>0&&<div style={{marginBottom:14}}>
-      <button onClick={()=>setAwaitOnly(v=>!v)} style={{padding:"4px 11px",borderRadius:3,border:`1px solid ${awaitOnly?WARN:BD}`,background:awaitOnly?WARN:"transparent",color:awaitOnly?WHITE:WG,fontSize:11,fontWeight:700,cursor:"pointer",fontFamily:"inherit"}}>⏸ Awaiting client ({parkedCount})</button>
+    {vMode==="list"&&<div style={{marginBottom:14,display:"flex",gap:6,flexWrap:"wrap"}}>
+      <button onClick={()=>setOverdueOnly(v=>!v)} style={{padding:"4px 11px",borderRadius:3,border:`1px solid ${overdueOnly?DANGER:BD}`,background:overdueOnly?DANGER:"transparent",color:overdueOnly?WHITE:WG,fontSize:11,fontWeight:700,cursor:"pointer",fontFamily:"inherit"}}>⏰ Overdue</button>
+      <button onClick={()=>setOwingOnly(v=>!v)} style={{padding:"4px 11px",borderRadius:3,border:`1px solid ${owingOnly?WARN:BD}`,background:owingOnly?WARN:"transparent",color:owingOnly?WHITE:WG,fontSize:11,fontWeight:700,cursor:"pointer",fontFamily:"inherit"}}>$ Owing</button>
+      {parkedCount>0&&<button onClick={()=>setAwaitOnly(v=>!v)} style={{padding:"4px 11px",borderRadius:3,border:`1px solid ${awaitOnly?WARN:BD}`,background:awaitOnly?WARN:"transparent",color:awaitOnly?WHITE:WG,fontSize:11,fontWeight:700,cursor:"pointer",fontFamily:"inherit"}}>⏸ Awaiting client ({parkedCount})</button>}
     </div>}
-    {vMode==="list"&&(q||tf!=="All"||sf!=="All"||awaitOnly)&&<div style={{fontSize:12,color:WG,marginBottom:12}}>Showing <b style={{color:INK}}>{filtered.length}</b> of {jobs.length} job{jobs.length!==1?"s":""}{tf!=="All"?` · ${tf}`:""}{sf!=="All"?` · ${sf}`:""}{awaitOnly?" · Awaiting client":""}{q?` · “${search.trim()}”`:""}<button onClick={()=>{setSearch("");setTf("All");setSf("All");setAwaitOnly(false);}} style={{background:"none",border:"none",color:GOLD,fontWeight:700,fontSize:12,cursor:"pointer",fontFamily:"inherit",marginLeft:8,padding:0}}>Clear</button></div>}
+    {vMode==="list"&&(q||tf!=="All"||sf!=="All"||awaitOnly||owingOnly||overdueOnly)&&<div style={{fontSize:12,color:WG,marginBottom:12}}>Showing <b style={{color:INK}}>{filtered.length}</b> of {jobs.length} job{jobs.length!==1?"s":""}{tf!=="All"?` · ${tf}`:""}{sf!=="All"?` · ${sf}`:""}{awaitOnly?" · Awaiting client":""}{overdueOnly?" · Overdue":""}{owingOnly?" · Owing":""}{q?` · “${search.trim()}”`:""}<button onClick={()=>{setSearch("");setTf("All");setSf("All");setAwaitOnly(false);setOwingOnly(false);setOverdueOnly(false);}} style={{background:"none",border:"none",color:GOLD,fontWeight:700,fontSize:12,cursor:"pointer",fontFamily:"inherit",marginLeft:8,padding:0}}>Clear</button></div>}
 
     {/* ── Production board ── */}
     {vMode==="board"&&(()=>{
@@ -9921,6 +9938,9 @@ export default function App(){
     setHistLen(histRef.current.length);
     if(prev)applyView(prev);
   },[applyView]);
+  // Open the Jobs list pre-filtered from a dashboard tile (e.g. "ready", "owing", "overdue").
+  const[jobsPreset,setJobsPreset]=useState(null);
+  const openJobs=useCallback(p=>{setJobsPreset(p);setView("jobs");},[setView]);
 
   // ── Data-safety snapshots (Stage 1) ──
   // A full copy of every data slice at this moment (references only — cheap to build).
@@ -10068,12 +10088,12 @@ export default function App(){
     return()=>{stop=true;};
   },[studioId]);
   const render=()=>{
-    if(view==="dashboard")return <Dashboard clients={clients} jobs={jobs} quotes={quotes} payments={payments} invoices={invoices} appointments={appointments} proposals={proposals} markProposalSeen={markProposalSeen} markRepairSeen={markRepairSeen} markupTable={markupTable} biz={biz} setView={setView} setSelClient={setSelClient}/>;
+    if(view==="dashboard")return <Dashboard clients={clients} jobs={jobs} quotes={quotes} payments={payments} invoices={invoices} appointments={appointments} proposals={proposals} markProposalSeen={markProposalSeen} markRepairSeen={markRepairSeen} markupTable={markupTable} biz={biz} setView={setView} setSelClient={setSelClient} openJobs={openJobs}/>;
     if(view==="todo")return <TodoBoard todos={todos} setTodos={setTodos} jobs={jobs} clients={clients} setView={setView} setSelJob={setSelJob}/>;
     if(view==="appointments")return <Appointments appointments={appointments} setAppointments={setAppointments} clients={clients} setClients={setClients} jobs={jobs} setJobs={setJobs} setView={setView} setSelClient={setSelClient} setSelJob={setSelJob}/>;
     if(view==="clients")return <Clients clients={clients} setClients={setClients} jobs={jobs} payments={payments} setView={setView} setSelClient={setSelClient} quotes={quotes}/>;
     if(view==="clientDetail")return <ClientDetail clientId={selClient} clients={clients} setClients={setClients} jobs={jobs} setJobs={setJobs} quotes={quotes} payments={payments} invoices={invoices} markupTable={markupTable} setView={setView} setSelJob={setSelJob}/>;
-    if(view==="jobs")return <Jobs clients={clients} jobs={jobs} setJobs={setJobs} quotes={quotes} setQuotes={setQuotes} payments={payments} setPayments={setPayments} notes={notes} setNotes={setNotes} invoices={invoices} setInvoices={setInvoices} markupTable={markupTable} setView={setView} setSelJob={setSelJob}/>;
+    if(view==="jobs")return <Jobs clients={clients} jobs={jobs} setJobs={setJobs} quotes={quotes} setQuotes={setQuotes} payments={payments} setPayments={setPayments} notes={notes} setNotes={setNotes} invoices={invoices} setInvoices={setInvoices} markupTable={markupTable} setView={setView} setSelJob={setSelJob} preset={jobsPreset} onPresetDone={()=>setJobsPreset(null)}/>;
     if(view==="jobDetail")return <JobDetail jobId={selJob} jobs={jobs} setJobs={setJobs} clients={clients} quotes={quotes} setQuotes={setQuotes} payments={payments} setPayments={setPayments} notes={notes} setNotes={setNotes} invoices={invoices} setInvoices={setInvoices} proposals={proposals} setProposals={setProposals} biz={biz} markupTable={markupTable} pricing={pricing} setView={setView}/>;
     if(view==="quotes")return <QuotesList quotes={quotes} jobs={jobs} clients={clients} markupTable={markupTable} biz={biz} setView={setView}/>;
     if(view.startsWith("quoteDetail_"))return <QuoteDetail quoteId={view.split("_")[1]} quotes={quotes} setQuotes={setQuotes} jobs={jobs} clients={clients} biz={biz} markupTable={markupTable} naturalStoneMarkup={naturalStoneMarkup} labStoneMarkup={labStoneMarkup} tradeNatStoneMarkup={tradeNatStoneMarkup} tradeLabStoneMarkup={tradeLabStoneMarkup} payments={payments} invoices={invoices} setView={setView}/>;
