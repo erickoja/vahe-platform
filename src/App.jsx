@@ -2659,7 +2659,8 @@ function Dashboard({clients,jobs,quotes,payments,invoices,appointments=[],propos
   // (not the priciest), so multi-option jobs don't inflate the figure.
   const jobPipelineValue=j=>{
     if(jobHasCharge(j,quotes))return jobChargeTotal(j,quotes,markupTable,invoices);
-    const qs=quotes.filter(q=>q.jobId===j.id);
+    // Only still-valid quotes count toward the pipeline — an expired quote (past its valid-until date) is dropped.
+    const qs=quotes.filter(q=>q.jobId===j.id&&(!q.validUntil||String(q.validUntil)>=today()));
     return qs.length?qs.reduce((s,q)=>s+quoteGrandTotal(q,markupTable),0)/qs.length:0;
   };
   const pipelineValue=active.reduce((s,j)=>s+jobPipelineValue(j),0);
