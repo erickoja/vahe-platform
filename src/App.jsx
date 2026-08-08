@@ -6333,9 +6333,9 @@ function InvoicePrintView({inv,job,client,biz,payments,onClose}){
     navigator.clipboard?.writeText(txt).catch(()=>{});
     setCopied(true);setTimeout(()=>setCopied(false),2000);
   };
-  return <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.85)",zIndex:500,display:"flex",flexDirection:"column",backdropFilter:"blur(4px)"}}>
+  return <div id="invoice-print-modal" style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.85)",zIndex:500,display:"flex",flexDirection:"column",backdropFilter:"blur(4px)"}}>
     {/* toolbar */}
-    <div style={{background:"#000",padding:"12px 24px",display:"flex",alignItems:"center",justifyContent:"space-between",flexShrink:0,borderBottom:"1px solid rgba(255,255,255,0.1)"}}>
+    <div id="invoice-toolbar" style={{background:"#000",padding:"12px 24px",display:"flex",alignItems:"center",justifyContent:"space-between",flexShrink:0,borderBottom:"1px solid rgba(255,255,255,0.1)"}}>
       <div style={{display:"flex",alignItems:"center",gap:16}}>
         <button onClick={onClose} style={{background:"none",border:"1px solid rgba(255,255,255,0.2)",borderRadius:2,padding:"6px 14px",color:"rgba(255,255,255,0.7)",fontSize:11,fontWeight:700,cursor:"pointer",fontFamily:"inherit",letterSpacing:"0.08em",textTransform:"uppercase"}}>← Back</button>
         <div style={{fontSize:11,fontWeight:700,color:"rgba(255,255,255,0.85)",letterSpacing:"0.1em",textTransform:"uppercase"}}>Tax Invoice — {inv.number}</div>
@@ -6460,15 +6460,20 @@ function InvoicePrintView({inv,job,client,biz,payments,onClose}){
 
     <style>{`
       @media print {
-        @page { margin: 12mm; }
-        html, body { background: #fff !important; }
+        @page { size: A4; margin: 12mm; }
+        html, body { background: #fff !important; height: auto !important; }
         body * { visibility: hidden !important; }
+        /* Take the modal out of fixed positioning and drop its chrome so the document prints in
+           normal flow from the top — a fixed overlay + forced min-height was spilling onto extra pages. */
+        #invoice-print-modal { position: static !important; display: block !important; background: none !important; backdrop-filter: none !important; height: auto !important; }
+        #invoice-toolbar { display: none !important; }
+        #invoice-scroll { position: static !important; display: block !important; overflow: visible !important; padding: 0 !important; background: #fff !important; }
         #invoice-document, #invoice-document * { visibility: visible !important; }
-        #invoice-scroll { position: static !important; overflow: visible !important; padding: 0 !important; background: #fff !important; }
         #invoice-document {
-          position: absolute !important; left: 0 !important; top: 0 !important;
-          width: 100% !important; max-width: 100% !important; box-shadow: none !important; margin: 0 !important;
+          position: static !important; width: 100% !important; max-width: 100% !important;
+          min-height: 0 !important; box-shadow: none !important; margin: 0 !important;
         }
+        #invoice-document table, #invoice-document tr { page-break-inside: avoid; }
         * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
       }
     `}</style>
