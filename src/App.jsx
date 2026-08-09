@@ -2499,13 +2499,53 @@ function DashRow({onClick,last,children,col}){
     {children}
   </div>;
 }
+// A small ⓘ help icon that reveals a plain-English explanation on hover/click. Reusable anywhere.
+function InfoDot({text}){
+  const[open,setOpen]=useState(false);
+  return <span style={{position:"relative",display:"inline-flex",verticalAlign:"middle"}}>
+    <button onClick={e=>{e.stopPropagation();setOpen(o=>!o);}} onMouseEnter={()=>setOpen(true)} onMouseLeave={()=>setOpen(false)} aria-label="More info"
+      style={{width:16,height:16,borderRadius:"50%",border:`1px solid ${WG}`,background:"transparent",color:WG,fontSize:10,fontWeight:800,cursor:"pointer",fontFamily:"'Poppins',serif",fontStyle:"italic",lineHeight:1,display:"inline-flex",alignItems:"center",justifyContent:"center",marginLeft:6,flexShrink:0}}>i</button>
+    {open&&<span onClick={e=>e.stopPropagation()} style={{position:"absolute",top:"150%",left:0,zIndex:60,width:240,maxWidth:"70vw",background:INK,color:WHITE,fontSize:12,fontWeight:400,lineHeight:1.5,padding:"10px 12px",borderRadius:8,boxShadow:"0 8px 24px rgba(0,0,0,0.25)",textTransform:"none",letterSpacing:0,whiteSpace:"normal"}}>{text}</span>}
+  </span>;
+}
+// First-run getting-started checklist for a new studio. Auto-ticks steps as they're done, hides
+// once all four are complete, and can be dismissed. Dismissal is stored on biz (per studio).
+function GettingStarted({biz,clients,quotes,proposals,setView,onDismiss}){
+  const steps=[
+    {done:!!(biz?.name||"").trim(),label:"Add your business details",sub:"name, logo, tax number, payment info",go:()=>setView("settings")},
+    {done:(clients||[]).length>0,label:"Add your first client",sub:"or import them later",go:()=>setView("clients")},
+    {done:(quotes||[]).length>0,label:"Create a quote",sub:"open a job, then build a quote",go:()=>setView("jobs")},
+    {done:(proposals||[]).length>0,label:"Send an online proposal",sub:"a link your client can accept",go:()=>setView("jobs")},
+  ];
+  const doneCount=steps.filter(s=>s.done).length;
+  if(doneCount===steps.length)return null;
+  return <Card style={{marginBottom:24,background:GOLD_L,border:`1px solid ${GOLD}55`}}>
+    <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:12,gap:12}}>
+      <div>
+        <div style={{fontWeight:800,fontSize:16,color:INK}}>Welcome — let's get you set up 👋</div>
+        <div style={{fontSize:13,color:GOLD_D,marginTop:2}}>{doneCount} of {steps.length} done. Tap a step to jump straight there.</div>
+      </div>
+      <button onClick={onDismiss} title="Dismiss" style={{background:"none",border:"none",cursor:"pointer",color:WG,fontSize:20,padding:0,lineHeight:1,flexShrink:0}}>×</button>
+    </div>
+    <div style={{display:"grid",gap:8}}>
+      {steps.map((s,i)=><div key={i} onClick={s.done?undefined:s.go} style={{display:"flex",alignItems:"center",gap:12,padding:"10px 13px",background:WHITE,border:`1px solid ${BD}`,borderRadius:8,cursor:s.done?"default":"pointer",opacity:s.done?0.6:1}}>
+        <span style={{width:22,height:22,borderRadius:"50%",flexShrink:0,display:"flex",alignItems:"center",justifyContent:"center",fontSize:12,fontWeight:800,background:s.done?OK:GOLD_L,color:s.done?WHITE:GOLD_D,border:s.done?"none":`1px solid ${GOLD}`}}>{s.done?"✓":i+1}</span>
+        <div style={{flex:1,minWidth:0}}>
+          <div style={{fontSize:14,fontWeight:700,color:INK,textDecoration:s.done?"line-through":"none"}}>{s.label}</div>
+          <div style={{fontSize:12,color:WG,marginTop:1}}>{s.sub}</div>
+        </div>
+        {!s.done&&<span style={{color:GOLD_D,fontSize:16,fontWeight:700,flexShrink:0}}>→</span>}
+      </div>)}
+    </div>
+  </Card>;
+}
 // ── Dashboard: revenue trend (single series → one hue), pipeline (grouped phases),
 //    and a "needs attention" action panel. Built on data already in memory. ──
 function RevenueTrend({series}){
   const max=Math.max(1,...series.map(s=>s.value));
   return <Card style={{marginBottom:0,height:"100%",display:"flex",flexDirection:"column"}}>
     <div style={{display:"flex",justifyContent:"space-between",alignItems:"baseline",marginBottom:14}}>
-      <span style={{fontWeight:700,fontSize:15,color:INK}}>Money received</span>
+      <span style={{fontWeight:700,fontSize:15,color:INK,display:"inline-flex",alignItems:"center"}}>Money received<InfoDot text="Payments and gold trade-ins you've received each month over the last 6 months — a quick read on your momentum."/></span>
       <span style={{fontSize:11,color:WG,fontWeight:600}}>last 6 months</span>
     </div>
     {/* flex:1 chart area so the bars grow to fill the card — keeps this card level with the
@@ -2533,7 +2573,7 @@ function PipelineBar({phases,totalValue,jobCount,setView,breakdown=[]}){
   const totalPaid=breakdown.reduce((s,b)=>s+(b.paid||0),0);
   return <Card style={{marginBottom:0}}>
     <div style={{display:"flex",justifyContent:"space-between",alignItems:"baseline",marginBottom:4}}>
-      <span style={{fontWeight:700,fontSize:15,color:INK}}>Production pipeline</span>
+      <span style={{fontWeight:700,fontSize:15,color:INK,display:"inline-flex",alignItems:"center"}}>Production pipeline<InfoDot text="The value of active work you've got on: approved job totals, plus the average of quotes you've sent that are still live. Draft, declined and expired quotes aren't counted. Tap 'See how this is calculated' for the breakdown."/></span>
       <span style={{fontSize:11,color:WG,fontWeight:600}}>{jobCount} active</span>
     </div>
     <div style={{fontSize:22,fontWeight:800,color:INK,letterSpacing:"-0.02em",marginBottom:14}}>{fmt(totalValue)} <span style={{fontSize:12,fontWeight:600,color:WG}}>in the pipeline</span></div>
@@ -2571,7 +2611,7 @@ function PipelineBar({phases,totalValue,jobCount,setView,breakdown=[]}){
 function NeedsAttention({items}){
   if(!items.length)return null;
   return <Card style={{marginBottom:24}}>
-    <div style={{fontWeight:700,fontSize:15,color:INK,marginBottom:12}}>Needs your attention</div>
+    <div style={{fontWeight:700,fontSize:15,color:INK,marginBottom:12,display:"flex",alignItems:"center"}}>Needs your attention<InfoDot text="Your most time-sensitive items — overdue jobs, quotes to chase (sent 7+ days, no reply), pieces ready for pickup, and balances owed. Tap any tile to jump to exactly those jobs."/></div>
     <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(220px,1fr))",gap:10}}>
       {items.map(it=><div key={it.key} onClick={it.onClick} style={{display:"flex",alignItems:"center",gap:12,padding:"12px 14px",border:`1px solid ${it.color}44`,background:it.color+"12",borderRadius:10,cursor:"pointer"}}>
         <div style={{fontSize:20,lineHeight:1,flexShrink:0}}>{it.icon}</div>
@@ -2584,8 +2624,9 @@ function NeedsAttention({items}){
     </div>
   </Card>;
 }
-function Dashboard({clients,jobs,quotes,payments,invoices,appointments=[],proposals=[],markProposalSeen,markRepairSeen,markupTable,biz,setView,setSelClient,openJobs}){
+function Dashboard({clients,jobs,quotes,payments,invoices,appointments=[],proposals=[],markProposalSeen,markRepairSeen,markupTable,biz,setBiz,setView,setSelClient,openJobs}){
   const go=openJobs||(()=>setView("jobs"));
+  const dismissGS=()=>{if(!setBiz)return;const nb={...biz,gsDismissed:true};setBiz(nb);persist(K.biz,nb);};
   const isMobile=useIsMobile();
   const stackCols=useIsMobile(1000);   // stack the two-column bottom section on tablets too, not just phones
   // A quote the client ignored past its "valid until" date is "frozen": the public link expires AND
@@ -2744,6 +2785,7 @@ function Dashboard({clients,jobs,quotes,payments,invoices,appointments=[],propos
       <div style={{color:INK,fontSize:15,marginTop:6,lineHeight:1.5}}>{[todaysAppts.length>0&&`${todaysAppts.length} appointment${todaysAppts.length>1?"s":""} today`,`${active.length} active job${active.length!==1?"s":""}`,overdue.length>0&&`${overdue.length} overdue`,ready.length>0&&`${ready.length} ready to collect`].filter(Boolean).join(" · ")||"Here's everything happening in your workshop today."}</div>
       <div style={{color:WG,fontSize:12.5,marginTop:3}}>{fmtDate(today())}</div>
     </div>
+    {!biz?.gsDismissed&&<GettingStarted biz={biz} clients={clients} quotes={quotes} proposals={proposals} setView={setView} onDismiss={dismissGS}/>}
     <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(176px,1fr))",gap:14,marginBottom:24}}>
       <Stat label="Today's appts" value={todaysAppts.length} sub={todaysAppts.length>0?fmtTime(todaysAppts.slice().sort((a,b)=>String(a.time||"").localeCompare(String(b.time||"")))[0].time)+" first":"none today"} tint="slate" icon="◷" onClick={()=>setView("appointments")}/>
       <Stat label="Clients" value={clients.length} tint="slate" icon="♦" onClick={()=>setView("clients")}/>
@@ -2761,7 +2803,7 @@ function Dashboard({clients,jobs,quotes,payments,invoices,appointments=[],propos
     <div style={{display:"grid",gridTemplateColumns:stackCols?"1fr":"minmax(0,1.6fr) minmax(0,1fr)",gap:16,alignItems:"start"}}>
       <Card style={{marginBottom:0}}>
         <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:14}}>
-          <span style={{fontWeight:700,fontSize:15,color:INK}}>Active jobs</span>
+          <span style={{fontWeight:700,fontSize:15,color:INK,display:"inline-flex",alignItems:"center"}}>Active jobs<InfoDot text="Your live jobs, ranked by momentum — money in, approved or in production first; a fresh proposal awaiting a reply next. Quotes ignored past their expiry drop off automatically."/></span>
           <Btn sm ghost onClick={()=>setView("jobs")}>View all</Btn>
         </div>
         {active.length===0&&<div style={{color:WG,fontSize:14}}>No active jobs.</div>}
@@ -10131,7 +10173,7 @@ export default function App(){
     return()=>{stop=true;};
   },[studioId]);
   const render=()=>{
-    if(view==="dashboard")return <Dashboard clients={clients} jobs={jobs} quotes={quotes} payments={payments} invoices={invoices} appointments={appointments} proposals={proposals} markProposalSeen={markProposalSeen} markRepairSeen={markRepairSeen} markupTable={markupTable} biz={biz} setView={setView} setSelClient={setSelClient} openJobs={openJobs}/>;
+    if(view==="dashboard")return <Dashboard clients={clients} jobs={jobs} quotes={quotes} payments={payments} invoices={invoices} appointments={appointments} proposals={proposals} markProposalSeen={markProposalSeen} markRepairSeen={markRepairSeen} markupTable={markupTable} biz={biz} setBiz={setBiz} setView={setView} setSelClient={setSelClient} openJobs={openJobs}/>;
     if(view==="todo")return <TodoBoard todos={todos} setTodos={setTodos} jobs={jobs} clients={clients} setView={setView} setSelJob={setSelJob}/>;
     if(view==="appointments")return <Appointments appointments={appointments} setAppointments={setAppointments} clients={clients} setClients={setClients} jobs={jobs} setJobs={setJobs} setView={setView} setSelClient={setSelClient} setSelJob={setSelJob}/>;
     if(view==="clients")return <Clients clients={clients} setClients={setClients} jobs={jobs} payments={payments} setView={setView} setSelClient={setSelClient} quotes={quotes}/>;
