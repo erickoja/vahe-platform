@@ -4987,6 +4987,7 @@ function QuoteBuilder({jobId:jobIdProp,editQuoteId,stockId,stock,setStock,jobs,c
 function JobProposals({job,client,quotes,proposals,setProposals,setQuotes,biz,markupTable,payments=[],invoices=[]}){
   const jobProposals=(proposals||[]).filter(p=>p.jobId===job?.id).slice().reverse();
   const [builder,setBuilder]=useState(false);
+  const [editingId,setEditingId]=useState(null);   // proposal being edited (null = creating a new one)
   const [sel,setSel]=useState([]);            // chosen option quote ids
   const [recommended,setRecommended]=useState("");
   const [intro,setIntro]=useState("");
@@ -5034,7 +5035,10 @@ function JobProposals({job,client,quotes,proposals,setProposals,setQuotes,biz,ma
   },[selectMode,selectedTotal,depositPct,dueNowTouched]);
   // optPhotos[qid] is an array of chosen image paths — tap toggles a photo in/out of the option.
   const pickPhoto=(qid,path)=>setOptPhotos(p=>{const cur=p[qid]||[];return{...p,[qid]:cur.includes(path)?cur.filter(x=>x!==path):[...cur,path]};});
-  const openBuilder=()=>{setSel([]);setRecommended("");setIntro("");setSelectMode("single");setOptPhotos({});setOptVideos({});setBulkVideos("");setShowBulk(false);setDueNow("");setDueNowTouched(false);setPayNote("");setBuilder(true);};
+  const openBuilder=()=>{setEditingId(null);setSel([]);setRecommended("");setIntro("");setSelectMode("single");setOptPhotos({});setOptVideos({});setBulkVideos("");setShowBulk(false);setDueNow("");setDueNowTouched(false);setPayNote("");setBuilder(true);};
+  // Reopen the composer pre-filled with an existing proposal so it can be edited (add/remove options,
+  // add images or videos, change the intro/deposit) and re-published to the SAME client link.
+  const openEditor=p=>{setEditingId(p.id);setSel(p.optionIds||[]);setRecommended(p.recommendedId||"");setIntro(p.intro===defaultIntro?"":(p.intro||""));setSelectMode(p.selectMode==="multi"?"multi":"single");setOptPhotos(p.optionPhotos||{});setOptVideos(p.optionVideos||{});setBulkVideos("");setShowBulk(false);setDueNow(p.dueNow!=null?String(p.dueNow):"");setDueNowTouched(p.dueNow!=null);setPayNote(p.paymentNote||"");setBuilder(true);};
   // Assign pasted links (one per line) to the ticked options, in display order.
   const applyBulkVideos=()=>{
     const links=bulkVideos.split(/[\r\n]+/).map(s=>s.trim()).filter(Boolean);
@@ -5049,12 +5053,27 @@ function JobProposals({job,client,quotes,proposals,setProposals,setQuotes,biz,ma
     if(!sel.length)return alert("Pick at least one quote to include as an option.");
     if(!supabaseEnabled)return alert("Online proposals need the cloud — you appear to be in local-only mode.");
     setBusy(true);
-    const id=uid(),token=proposalToken();
     const orderedIds=optionable.filter(q=>sel.includes(q.id)).map(q=>q.id);
     const optionPhotos={};orderedIds.forEach(qid=>{const arr=optPhotos[qid];if(arr&&arr.length)optionPhotos[qid]=arr;});
     const optionVideos={};orderedIds.forEach(qid=>{const v=(optVideos[qid]||"").trim();if(v)optionVideos[qid]=v;});
-    const proposal={id,jobId:job.id,token,optionIds:orderedIds,optionPhotos,optionVideos,recommendedId:selectMode==="multi"?"":(recommended||""),selectMode,intro:intro.trim()||defaultIntro,dueNow:Number(dueNow)>0?+(+dueNow).toFixed(2):null,paymentNote:payNote.trim(),createdAt:today(),status:"sent",acceptedQuoteId:null,acceptedName:"",acceptedAt:null};
+    const fields={optionIds:orderedIds,optionPhotos,optionVideos,recommendedId:selectMode==="multi"?"":(recommended||""),selectMode,intro:intro.trim()||defaultIntro,dueNow:Number(dueNow)>0?+(+dueNow).toFixed(2):null,paymentNote:payNote.trim()};
     const photoMap=await jobImageMap(job);
+    if(editingId){
+      // Edit an existing proposal: keep its id/token/status, update the fields, re-publish to the same link.
+      const existing=proposals.find(x=>x.id===editingId);
+      if(!existing){setBusy(false);setEditingId(null);setBuilder(false);return;}
+      const proposal={...existing,...fields};
+      const snapshot=buildProposalSnapshot({proposal,job,client,biz,quotes,markupTable,payments,photoMap});
+      const{error}=await supabase.from(PUBLIC_PROPOSALS_TABLE).update({data:snapshot}).eq("token",proposal.token);
+      setBusy(false);
+      if(error){alert("Couldn't update the proposal: "+error.message);return;}
+      save(proposals.map(x=>x.id===editingId?proposal:x));
+      setBuilder(false);setEditingId(null);
+      copyLink(proposal);
+      return;
+    }
+    const id=uid(),token=proposalToken();
+    const proposal={id,jobId:job.id,token,...fields,createdAt:today(),status:"sent",acceptedQuoteId:null,acceptedName:"",acceptedAt:null};
     const snapshot=buildProposalSnapshot({proposal,job,client,biz,quotes,markupTable,payments,photoMap});
     const{error}=await supabase.from(PUBLIC_PROPOSALS_TABLE).insert({token,studio_id:_studioId,data:snapshot,status:"sent",created_at:new Date().toISOString()});
     setBusy(false);
@@ -5148,6 +5167,7 @@ function JobProposals({job,client,quotes,proposals,setProposals,setQuotes,biz,ma
             <EmailClientButton to={client?.email} clientName={clientDisplayName(client)} biz={biz} linkUrl={linkFor(p)} docType="proposal" defaultSubject={`Your proposal from ${biz?.name||"us"}`} defaultMessage={`Thank you for considering ${biz?.name||"us"} for your piece. Please review your proposal using the button below — you can accept your preferred option online.`}/>
             <button onClick={()=>window.open(linkFor(p),"_blank")} style={{background:"none",border:`1px solid ${BD}`,borderRadius:6,padding:"5px 12px",fontSize:12,fontWeight:700,color:WG,cursor:"pointer",fontFamily:"inherit"}}>Preview</button>
             <button onClick={()=>resendProposal(p)} title="Refresh the client's link from the current quote & payments" style={{background:resent===p.id?OK:"none",border:`1px solid ${resent===p.id?OK:BD}`,borderRadius:6,padding:"5px 12px",fontSize:12,fontWeight:700,color:resent===p.id?WHITE:WG,cursor:"pointer",fontFamily:"inherit"}}>{resent===p.id?"✓ Updated":"↻ Update from quote"}</button>
+            {!accepted&&<button onClick={()=>openEditor(p)} title="Edit this proposal — add options, images or change the intro; keeps the same link" style={{background:"none",border:`1px solid ${GOLD}`,borderRadius:6,padding:"5px 12px",fontSize:12,fontWeight:700,color:GOLD_D,cursor:"pointer",fontFamily:"inherit"}}>✎ Edit</button>}
             {!accepted&&<button onClick={()=>checkAcceptance(p,false)} style={{background:"none",border:`1px solid ${BD}`,borderRadius:6,padding:"5px 12px",fontSize:12,fontWeight:700,color:WG,cursor:"pointer",fontFamily:"inherit"}}>{checking===p.id?"Checking…":"Check for acceptance"}</button>}
             <button onClick={()=>delProposal(p)} style={{background:"none",border:"none",cursor:"pointer",color:DANGER,fontSize:17,padding:0,lineHeight:1}}>×</button>
           </div>
@@ -5155,7 +5175,7 @@ function JobProposals({job,client,quotes,proposals,setProposals,setQuotes,biz,ma
       </div>;
     })}
 
-    {builder&&<Modal title="New proposal" onClose={()=>setBuilder(false)} wide>
+    {builder&&<Modal title={editingId?"Edit proposal":"New proposal"} onClose={()=>{setBuilder(false);setEditingId(null);}} wide>
       <div style={{fontSize:13,color:WG,marginBottom:14,lineHeight:1.6}}>Pick the quote(s) to offer as options, then choose how the client selects.</div>
       {/* How the client chooses */}
       <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:18}}>
@@ -5236,8 +5256,8 @@ function JobProposals({job,client,quotes,proposals,setProposals,setQuotes,biz,ma
       </div>
       <div style={{display:"flex",gap:10,justifyContent:"flex-end",marginTop:18,alignItems:"center"}}>
         <span style={{fontSize:12,color:WG,marginRight:"auto"}}>{sel.length} option{sel.length!==1?"s":""} selected</span>
-        <Btn ghost onClick={()=>setBuilder(false)}>Cancel</Btn>
-        <Btn onClick={createAndShare} disabled={busy||!sel.length}>{busy?"Publishing…":"Publish & copy link"}</Btn>
+        <Btn ghost onClick={()=>{setBuilder(false);setEditingId(null);}}>Cancel</Btn>
+        <Btn onClick={createAndShare} disabled={busy||!sel.length}>{busy?(editingId?"Updating…":"Publishing…"):(editingId?"Update proposal":"Publish & copy link")}</Btn>
       </div>
     </Modal>}
     {preview&&<div onClick={()=>setPreview(null)} style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.85)",zIndex:700,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",gap:12,padding:"30px 16px",cursor:"zoom-out"}}>
