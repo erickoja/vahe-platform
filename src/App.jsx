@@ -4577,7 +4577,7 @@ function QuoteBuilder({jobId:jobIdProp,editQuoteId,stockId,stock,setStock,jobs,c
         : <div style={{marginBottom:20}}>
             <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"1fr 200px",gap:"0 24px",marginBottom:16}}>
               <Input label="Quote title / label" value={title} onChange={setTitle} placeholder="e.g. Engagement ring, Diamond upgrade, Repair…"/>
-              <Input label="Quote expiry date" value={validUntil} onChange={setValidUntil} type="date"/>
+              <Input label={<>Quote expiry date<InfoDot text="After this date the quote counts as expired — the client can no longer accept it online and it drops out of your dashboard pipeline. Edit this date or re-send the proposal to keep it live."/></>} value={validUntil} onChange={setValidUntil} type="date"/>
             </div>
             <div style={{marginBottom:16}}>
               <Input label="Piece name on documents (optional)" value={pieceTitle} onChange={setPieceTitle} placeholder={`Heading for the piece — blank uses the job type${job?.type?` (“${job.type}”)`:""}. e.g. Solitaire engagement ring`}/>
@@ -4595,7 +4595,7 @@ function QuoteBuilder({jobId:jobIdProp,editQuoteId,stockId,stock,setStock,jobs,c
       <div style={{borderTop:`1px solid ${BD}`,margin:"0 0 20px"}}/>
 
       {/* ── Setting & manufacturing line items ── */}
-      <div style={{fontSize:11,fontWeight:700,color:WG,textTransform:"uppercase",letterSpacing:"0.08em",marginBottom:12}}>Jewellery costs</div>
+      <div style={{fontSize:11,fontWeight:700,color:WG,textTransform:"uppercase",letterSpacing:"0.08em",marginBottom:12,display:"flex",alignItems:"center"}}>Jewellery costs<InfoDot text="Your true costs for the piece — metal, labour, CAD, setting and so on. Your markup is applied on top to reach the client price; the summary shows cost → markup → price incl. tax."/></div>
       <div style={{background:GOLD_L+"55",border:`1px solid ${GOLD}55`,borderRadius:4,padding:"11px 14px",marginBottom:14,fontSize:12.5,color:INK,lineHeight:1.65}}>
         <strong>The pricing database is just a starting point.</strong> It holds the simple, most commonly-used items for quoting everyday jewellery — but every studio works with different suppliers and materials. Feel free to add your own <strong>manual costings</strong> any time with <strong>+ Add item</strong>; they mark up and total exactly the same way.
         <div style={{color:WG,marginTop:6}}>For example, making a wedding ring with 15 × 2mm blue sapphires? Call your supplier for your real cost, then add it here as a manual entry — that way your quote always reflects your actual pricing.</div>
@@ -4680,7 +4680,7 @@ function QuoteBuilder({jobId:jobIdProp,editQuoteId,stockId,stock,setStock,jobs,c
       </div>
       <div style={{fontSize:11,color:WG,margin:"8px 0 20px",lineHeight:1.5}}>Custom coloured or fancy-cut stones aren't in the pricing DB — add them with <strong style={{color:"#4E8B6A"}}>+ Accent, feature or fancy stone</strong>. They default to manufacturing markup and join the costs above; switch a pricey one to <strong>Natural</strong>/<strong>Lab</strong> stone markup to price it separately below.</div>
       {!stockMode&&<div style={{display:"flex",alignItems:"center",gap:12,flexWrap:"wrap",background:tradePricing?"#EDF5EF":PARCH,border:`1px solid ${tradePricing?"#A6CBB4":BD}`,borderRadius:8,padding:"10px 14px",marginBottom:20}}>
-        <span style={{fontSize:12,fontWeight:700,color:INK}}>Pricing</span>
+        <span style={{fontSize:12,fontWeight:700,color:INK,display:"inline-flex",alignItems:"center"}}>Pricing<InfoDot text="Retail prices through your standard markups. Trade uses your lower wholesale markups (Settings → Trade markups) and adds tax on top. Trade-account clients default to Trade."/></span>
         <div style={{display:"flex",border:`1px solid ${BD}`,borderRadius:8,overflow:"hidden"}}>
           {[["retail","Retail"],["trade","Trade"]].map(([v,t])=>(
             <button key={v} type="button" onClick={()=>setPricingMode(v)} style={{border:"none",cursor:"pointer",fontFamily:"inherit",fontSize:12,fontWeight:700,padding:"7px 16px",background:pricingMode===v?(v==="trade"?"#4E8B6A":GOLD):WHITE,color:pricingMode===v?WHITE:WG}}>{t}</button>
@@ -4695,7 +4695,7 @@ function QuoteBuilder({jobId:jobIdProp,editQuoteId,stockId,stock,setStock,jobs,c
         <MarkupSummary {...calc} large/>
         {/* Manual markup override */}
         <div style={{display:"flex",alignItems:"center",gap:12,marginTop:12,flexWrap:"wrap"}}>
-          <span style={{fontSize:12,fontWeight:700,color:WG}}>Markup multiplier</span>
+          <span style={{fontSize:12,fontWeight:700,color:WG,display:"inline-flex",alignItems:"center"}}>Markup multiplier<InfoDot text="Override the automatic markup for this quote only. Leave it on auto to use your markup table based on the cost bracket."/></span>
           <div style={{position:"relative",width:120}}>
             <input type="number" value={markupOverride} onChange={e=>setMarkupOverride(e.target.value)} placeholder={`${calc.autoMult} auto`} min="0" step="0.05"
               style={{...SS.inp,marginTop:0,fontSize:13,padding:"7px 22px 7px 10px",textAlign:"right",fontWeight:markupOverride?700:400,borderColor:markupOverride?GOLD:BD}}/>
@@ -4710,7 +4710,7 @@ function QuoteBuilder({jobId:jobIdProp,editQuoteId,stockId,stock,setStock,jobs,c
 
       {/* ── Accent stones priced on the stone markup (natural / lab) ── */}
       {stoneAccents.length>0&&<div style={{borderTop:`1px solid ${BD}`,margin:"8px 0 20px",paddingTop:20}}>
-        <div style={{fontSize:11,fontWeight:700,color:"#96627C",textTransform:"uppercase",letterSpacing:"0.08em"}}>Accent stones on stone markup</div>
+        <div style={{fontSize:11,fontWeight:700,color:"#96627C",textTransform:"uppercase",letterSpacing:"0.08em",display:"flex",alignItems:"center"}}>Accent stones on stone markup<InfoDot text="Small / melee stones priced on your stone markup (cost × tier + tax), like the centre stone — separate from the jewellery markup. Switch one to 'Mfg markup' to fold it into the jewellery costs instead."/></div>
         <div style={{fontSize:11,color:WG,margin:"3px 0 12px",lineHeight:1.55}}>These are priced like the centre stone — your cost × the natural/lab stone tier + {TAX_LABEL} — not the jewellery markup. Switch one back to <strong>Mfg markup</strong> to fold it into the jewellery costs above.</div>
         <div style={{display:"grid",gridTemplateColumns:"1.3fr 1fr 150px 110px 36px",gap:8,marginBottom:6,padding:"0 2px"}}>
           {["Stone","Notes / detail","Markup","Your cost",""].map(h=><div key={h} style={{fontSize:10,fontWeight:700,color:WG,textTransform:"uppercase",letterSpacing:"0.04em"}}>{h}</div>)}
@@ -4741,7 +4741,7 @@ function QuoteBuilder({jobId:jobIdProp,editQuoteId,stockId,stock,setStock,jobs,c
 
       {/* ── Centre / feature stone divider ── */}
       <div style={{display:"flex",alignItems:"center",gap:14,margin:"4px 0 20px"}}>
-        <div style={{fontSize:12,fontWeight:700,color:INK,whiteSpace:"nowrap"}}>Centre / feature stone?</div>
+        <div style={{fontSize:12,fontWeight:700,color:INK,whiteSpace:"nowrap",display:"flex",alignItems:"center"}}>Centre / feature stone?<InfoDot text="Price the main stone on your natural/lab stone markup by carat weight, rather than folding it into the jewellery costs."/></div>
         <div style={{flex:1,height:1,background:BD}}/>
       </div>
 
