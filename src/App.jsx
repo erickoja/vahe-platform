@@ -8444,8 +8444,8 @@ const apptVEvent=(a,clients)=>{
 };
 const apptIcs=(a,clients)=>["BEGIN:VCALENDAR","VERSION:2.0","PRODID:-//Prong Studio//Appointments//EN","CALSCALE:GREGORIAN",apptVEvent(a,clients),"END:VCALENDAR"].join("\r\n");
 const downloadIcs=(filename,ics)=>{const url=URL.createObjectURL(new Blob([ics],{type:"text/calendar;charset=utf-8"}));const el=document.createElement("a");el.href=url;el.download=filename;document.body.appendChild(el);el.click();el.remove();URL.revokeObjectURL(url);};
-function MiniBtn({label,color,onClick}){
-  return <button onClick={e=>{e.stopPropagation();onClick();}} style={{background:color+"14",border:`1px solid ${color}44`,borderRadius:3,padding:"3px 10px",fontSize:11,fontWeight:700,color,cursor:"pointer",fontFamily:"inherit"}}>{label}</button>;
+function MiniBtn({label,color,onClick,filled}){
+  return <button onClick={e=>{e.stopPropagation();onClick();}} style={{background:filled?color:color+"14",border:`1px solid ${filled?color:color+"44"}`,borderRadius:3,padding:"3px 10px",fontSize:11,fontWeight:700,color:filled?WHITE:color,cursor:"pointer",fontFamily:"inherit"}}>{label}</button>;
 }
 function ApptLegend(){
   return <div style={{display:"flex",gap:14,flexWrap:"wrap",alignItems:"center",marginBottom:14}}>
@@ -8579,7 +8579,7 @@ function Appointments({appointments,setAppointments,clients,setClients,jobs=[],s
                 {a.notes&&<div style={{fontSize:13,color:WG,marginTop:4,lineHeight:1.5}}>{a.notes}</div>}
                 <div style={{display:"flex",gap:6,marginTop:8,flexWrap:"wrap"}}>
                   {isLiveAppt(a)&&<>
-                    <MiniBtn label="📅 Add to Google Calendar" color={GOLD_D} onClick={()=>window.open(googleCalUrl(a,clients),"_blank","noopener")}/>
+                    <MiniBtn label="📅 Add to Google Calendar" color={GOLD_D} filled onClick={()=>window.open(googleCalUrl(a,clients),"_blank","noopener")}/>
                     <MiniBtn label="⤓ Add to Apple / Outlook Calendar" color={WG} onClick={()=>downloadIcs(`appointment-${(a.id||"").slice(0,8)}.ics`,apptIcs(a,clients))}/>
                     <MiniBtn label="✓ Done" color={OK} onClick={()=>{if(confirm("Mark this appointment as done?"))setStatus(a.id,"Completed");}}/>
                     <MiniBtn label="No-show" color={DANGER} onClick={()=>{if(confirm("Mark this appointment as a no-show?"))setStatus(a.id,"No-show");}}/>
@@ -8656,6 +8656,10 @@ function Appointments({appointments,setAppointments,clients,setClients,jobs=[],s
 
   return <div>
     <SectionHeader eyebrow="Calendar" title="Appointments" subtitle="Your bookings — consultations, fittings, repairs and pickups." action={<Btn onClick={()=>setModal("add")}>+ New appointment</Btn>}/>
+    <div style={{display:"flex",alignItems:"flex-start",gap:10,background:GOLD_L,border:`1px solid ${GOLD}55`,borderRadius:8,padding:"10px 14px",marginBottom:16,fontSize:12.5,color:GOLD_D,lineHeight:1.5}}>
+      <span style={{fontSize:15,lineHeight:1}}>💡</span>
+      <span>A subscribed calendar — <strong>especially Google</strong> — can take a day or more to show a new booking (it refreshes on Google's schedule, nothing we can speed up). For one to appear <strong>right away</strong>, open the appointment and tap <strong>📅 Add to Google Calendar</strong> (or the Apple / Outlook option). Set up the one-time subscription in <span onClick={()=>setView("settings")} style={{textDecoration:"underline",cursor:"pointer",fontWeight:700}}>Settings</span> for hands-off syncing after that.</span>
+    </div>
     <div style={{display:"flex",gap:6,marginBottom:18}}>{pill("list","List")}{pill("week","Week")}{pill("month","Month")}</div>
     {mode==="list"?renderList():mode==="week"?renderWeek():renderMonth()}
     {modal&&<Modal title={isEdit?"Edit appointment":"New appointment"} onClose={()=>setModal(null)}>
