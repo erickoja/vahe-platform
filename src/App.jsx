@@ -9152,7 +9152,7 @@ function TodoBoard({todos,setTodos,jobs=[],clients=[],setView,setSelJob}){
       : <>
           {/* Summary tiles */}
           <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(176px,1fr))",gap:14,marginBottom:18}}>
-            <Stat label="People" value={people.length} tint="slate" icon="♦"/>
+            <Stat label="People" value={people.length} tint="slate" icon={<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round"><path d="m14.5 16.5l3.716 1.118a4.07 4.07 0 0 1 2.76 2.892c.136.536-.327.99-.882.99H3.906c-.555 0-1.018-.454-.882-.99a4.07 4.07 0 0 1 2.76-2.892L9.5 16.5v-1.938c-1.78-1.393-3-3.062-3-6.645c0-3.59 1.955-5.417 4.992-5.417c2.151 0 3.047 1 3.047 1c2.538 0 2.961 2.097 2.961 4.417c0 3.583-1.22 5.252-3 6.645z"/></svg>}/>
             <Stat label="To do" value={totalTodo} tint="slate" icon="○"/>
             <Stat label="In progress" value={totalDoing} tint="slate" icon="◐"/>
             <Stat label="High priority" value={totalHigh} tint={totalHigh>0?"rose":"slate"} icon="⚑"/>
