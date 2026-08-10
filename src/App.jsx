@@ -2547,6 +2547,8 @@ function GettingStarted({biz,clients,quotes,proposals,setView,onDismiss}){
 const ICON_LINK=<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" style={{verticalAlign:"-2px",marginRight:5,flexShrink:0}}><path d="M14.556 13.218a2.67 2.67 0 0 1-3.774-3.774l2.359-2.36a2.67 2.67 0 0 1 3.628-.135m-.325-3.167a2.669 2.669 0 1 1 3.774 3.774l-2.359 2.36a2.67 2.67 0 0 1-3.628.135"/><path d="M21 13c0 3.771 0 5.657-1.172 6.828S16.771 21 13 21h-2c-3.771 0-5.657 0-6.828-1.172S3 16.771 3 13v-2c0-3.771 0-5.657 1.172-6.828S7.229 3 11 3"/></svg>;
 // Printer icon, shared by the Preview & Print / Print buttons (inherits button text colour).
 const ICON_PRINT=<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" style={{verticalAlign:"-2px",marginRight:5,flexShrink:0}}><path d="M7.354 18c-2.123 0-3.185 0-3.94-.453a3.04 3.04 0 0 1-1.15-1.223c-.392-.77-.287-1.787-.075-3.822c.176-1.698.264-2.547.698-3.171c.285-.41.67-.745 1.121-.977C4.695 8 5.582 8 7.354 8h9.292c1.772 0 2.659 0 3.346.354c.451.232.836.567 1.121.977c.434.624.522 1.473.698 3.172c.212 2.034.317 3.052-.076 3.821a3.04 3.04 0 0 1-1.148 1.223C19.83 18 18.769 18 16.646 18M17 8V6c0-1.886 0-2.828-.586-3.414S14.886 2 13 2h-2c-1.886 0-2.828 0-3.414.586S7 4.114 7 6v2"/><path d="M13.989 16H10.01c-.685 0-1.028 0-1.32.109a1.87 1.87 0 0 0-.945.8c-.168.281-.251.642-.417 1.363c-.26 1.128-.39 1.691-.301 2.143c.117.602.484 1.112.995 1.382c.382.203.918.203 1.988.203h3.978c1.07 0 1.606 0 1.988-.203c.51-.27.878-.78.995-1.382c.089-.452-.041-1.015-.3-2.143c-.167-.72-.25-1.082-.418-1.362a1.87 1.87 0 0 0-.946-.801C15.017 16 14.674 16 13.988 16M18 12h.009"/></svg>;
+// CSV-file icon, shared by the CSV export buttons (inherits button text colour).
+const ICON_CSV=<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" style={{verticalAlign:"-2px",marginRight:5,flexShrink:0}}><path d="M10.294 14.016C10.248 13.024 9.571 13 8.651 13C7.235 13 7 13.338 7 14.667v1.666C7 17.662 7.235 18 8.651 18c.92 0 1.598-.024 1.643-1.016M21 13l-1.463 3.912c-.272.725-.407 1.088-.622 1.088s-.35-.363-.622-1.088L16.83 13m-2.109 0h-.972c-.389 0-.583 0-.736.063c-.522.216-.515.724-.515 1.187s-.007.97.515 1.187c.153.063.347.063.736.063c.388 0 .583 0 .736.063c.522.216.515.724.515 1.187s.007.97-.515 1.187c-.153.063-.348.063-.736.063h-1.06"/><path d="M15 22h-4.273c-3.26 0-4.892 0-6.024-.798a4.1 4.1 0 0 1-.855-.805C3 19.331 3 17.797 3 14.727v-2.545c0-2.963 0-4.445.469-5.628c.754-1.903 2.348-3.403 4.37-4.113C9.095 2 10.668 2 13.818 2c1.798 0 2.698 0 3.416.252c1.155.406 2.066 1.263 2.497 2.35C20 5.278 20 6.125 20 7.818V10"/><path d="M3 12a3.333 3.333 0 0 1 3.333-3.333c.666 0 1.451.116 2.098-.057A1.67 1.67 0 0 0 9.61 7.43c.173-.647.057-1.432.057-2.098A3.333 3.333 0 0 1 13 2"/></svg>;
 // Briefcase-with-dollar icon, shared by the money tiles (This month / Outstanding).
 const ICON_MONEY=<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M2 14c0-3.507 0-5.26.908-6.44q.25-.325.554-.592C4.57 6 6.212 6 9.5 6h5c3.288 0 4.931 0 6.038.968q.304.268.554.592C22 8.74 22 10.493 22 14s0 5.26-.908 6.44a4 4 0 0 1-.554.591C19.43 22 17.788 22 14.5 22h-5c-3.287 0-4.931 0-6.038-.968a4 4 0 0 1-.554-.592C2 19.26 2 17.507 2 14m14-8c0-1.886 0-2.828-.586-3.414S13.886 2 12 2s-2.828 0-3.414.586S8 4.114 8 6"/><path d="M12 11c-1.105 0-2 .672-2 1.5s.895 1.5 2 1.5s2 .672 2 1.5s-.895 1.5-2 1.5m0-6c.87 0 1.612.417 1.886 1M12 11v-1m0 7c-.87 0-1.612-.417-1.886-1M12 17v1m-6-6H2m20 0h-4"/></svg>;
 function RevenueTrend({series}){
@@ -6710,7 +6712,7 @@ function InvoiceDetail({invoiceId,invoices,setInvoices,jobs,clients,payments,biz
         {inv.publicToken&&<Btn sm={!isMobile} xs={isMobile} ghost onClick={()=>window.open(invLink,"_blank")}>Preview</Btn>}
         {canResync&&<Btn sm={!isMobile} xs={isMobile} ghost onClick={updateFromQuote}>{resynced?"✓ Updated":"↻ Update from quote"}</Btn>}
         <Btn sm={!isMobile} xs={isMobile} onClick={()=>setShowPrint(true)}>{ICON_PRINT}Preview &amp; Print</Btn>
-        <Btn sm={!isMobile} xs={isMobile} ghost onClick={exportOne}>⬇ CSV</Btn>
+        <Btn sm={!isMobile} xs={isMobile} ghost onClick={exportOne}>{ICON_CSV}CSV</Btn>
         <Btn sm={!isMobile} xs={isMobile} danger onClick={del}>Delete</Btn>
       </div>
     </div>
@@ -6897,7 +6899,7 @@ function InvoicesList({invoices,jobs,clients,quotes,setQuotes,payments,setInvoic
     downloadInvoiceCsv(rows,`invoices-${span}.csv`);
   };
   return <div>
-    <SectionHeader eyebrow="Billing" title="Invoices" subtitle="Send, track and reconcile every invoice — paid, outstanding and overdue." action={<div style={{display:"flex",gap:8,alignItems:"center",flexWrap:"wrap"}}>{invoices.length>0&&<Btn ghost onClick={()=>setExportOpen(true)}>⬇ Export CSV</Btn>}<Btn onClick={openModal}>+ New Invoice</Btn></div>}/>
+    <SectionHeader eyebrow="Billing" title="Invoices" subtitle="Send, track and reconcile every invoice — paid, outstanding and overdue." action={<div style={{display:"flex",gap:8,alignItems:"center",flexWrap:"wrap"}}>{invoices.length>0&&<Btn ghost onClick={()=>setExportOpen(true)}>{ICON_CSV}Export CSV</Btn>}<Btn onClick={openModal}>+ New Invoice</Btn></div>}/>
     {exportOpen&&<Modal title="Export invoices to CSV" onClose={()=>setExportOpen(false)}>
       <div style={{fontSize:13,color:WG,marginBottom:14,lineHeight:1.6}}>Pick a date range (by invoice date) for your bookkeeping, or leave both blank to export everything.</div>
       <div style={{display:"flex",gap:8,flexWrap:"wrap",marginBottom:16}}>
@@ -7141,7 +7143,7 @@ function StatementDetail({clientId,clients,jobs,invoices,payments,biz,setView}){
       <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:10,marginBottom:12}}>
         <div style={SS.lbl}>Statement period</div>
         <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
-          <Btn sm ghost onClick={doCsv}>⬇ Export CSV</Btn>
+          <Btn sm ghost onClick={doCsv}>{ICON_CSV}Export CSV</Btn>
           <Btn sm onClick={doPrint}>{ICON_PRINT}Print / Save PDF</Btn>
         </div>
       </div>
