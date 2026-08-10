@@ -2543,6 +2543,8 @@ function GettingStarted({biz,clients,quotes,proposals,setView,onDismiss}){
 }
 // ── Dashboard: revenue trend (single series → one hue), pipeline (grouped phases),
 //    and a "needs attention" action panel. Built on data already in memory. ──
+// Link/chain icon, shared by the "Create link" / "Copy link" buttons (inherits button text colour).
+const ICON_LINK=<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" style={{verticalAlign:"-2px",marginRight:5,flexShrink:0}}><path d="m9.143 10.691l.207-.207a5.067 5.067 0 1 1 7.166 7.166l-2.866 2.866a5.067 5.067 0 1 1-7.166-7.166l.464-.464"/><path d="m17.052 11.114l.464-.464a5.067 5.067 0 1 0-7.166-7.166L7.484 6.35a5.067 5.067 0 1 0 7.166 7.166l.207-.207"/></svg>;
 // Briefcase-with-dollar icon, shared by the money tiles (This month / Outstanding).
 const ICON_MONEY=<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M2 14c0-3.507 0-5.26.908-6.44q.25-.325.554-.592C4.57 6 6.212 6 9.5 6h5c3.288 0 4.931 0 6.038.968q.304.268.554.592C22 8.74 22 10.493 22 14s0 5.26-.908 6.44a4 4 0 0 1-.554.591C19.43 22 17.788 22 14.5 22h-5c-3.287 0-4.931 0-6.038-.968a4 4 0 0 1-.554-.592C2 19.26 2 17.507 2 14m14-8c0-1.886 0-2.828-.586-3.414S13.886 2 12 2s-2.828 0-3.414.586S8 4.114 8 6"/><path d="M12 11c-1.105 0-2 .672-2 1.5s.895 1.5 2 1.5s2 .672 2 1.5s-.895 1.5-2 1.5m0-6c.87 0 1.612.417 1.886 1M12 11v-1m0 7c-.87 0-1.612-.417-1.886-1M12 17v1m-6-6H2m20 0h-4"/></svg>;
 function RevenueTrend({series}){
@@ -3580,7 +3582,7 @@ function RepairIntakeCard({job,setJobs,biz,clients,markupTable,pricing=[],invoic
     <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:16}}>
       <div style={{fontWeight:700,fontSize:15,color:INK}}>Repair Intake {items.length>1&&<span style={{fontWeight:400,color:WG,fontSize:13}}>· {items.length} items</span>}</div>
       <div style={{display:"flex",gap:8,alignItems:"center"}}>
-        <Btn sm onClick={shareRepair}>{linkBusy?"Creating…":linkCopied?"✓ Link copied":job.repairToken?"🔗 Copy link":"🔗 Create link"}</Btn>
+        <Btn sm onClick={shareRepair}>{linkBusy?"Creating…":linkCopied?"✓ Link copied":<>{ICON_LINK}{job.repairToken?"Copy link":"Create link"}</>}</Btn>
         {job.repairToken&&<EmailClientButton to={c?.email} clientName={clientDisplayName(c)} biz={biz} linkUrl={repairLink} docType="receipt" defaultSubject={`Your receipt from ${biz?.name||"us"}`} defaultMessage={`Here is your receipt for the item(s) you've left with us. You can view it any time using the button below.`}/>}
         {job.repairToken&&<Btn sm ghost onClick={()=>window.open(repairLink,"_blank")}>Preview</Btn>}
         <Btn sm ghost onClick={()=>printRepairIntake(biz,c,{...job,dateIn:dIn,dateOut:dOut,intake:{items:items.map(it=>({...it,clientPrice:itemClient(it)})),instructions}})}>Print / Save PDF</Btn>
@@ -3588,7 +3590,7 @@ function RepairIntakeCard({job,setJobs,biz,clients,markupTable,pricing=[],invoic
     </div>
     {trade&&<div style={{background:"#4E8B6A14",border:"1px solid #4E8B6A55",borderRadius:4,padding:"9px 14px",marginBottom:16,fontSize:12.5,color:"#3B6E52",fontWeight:600}}>Trade account — <strong>{Math.round(GST_RATE*100)}% {TAX_LABEL} is added</strong> on top of repair prices.</div>}
     {job.repairToken&&<div style={{background:GOLD_L+"55",border:`1px solid ${GOLD}55`,borderRadius:4,padding:"9px 14px",marginBottom:16,display:"flex",alignItems:"center",gap:12,flexWrap:"wrap"}}>
-      <span style={{fontSize:12,fontWeight:700,color:GOLD_D,whiteSpace:"nowrap"}}>🔗 Client link</span>
+      <span style={{fontSize:12,fontWeight:700,color:GOLD_D,whiteSpace:"nowrap"}}>{ICON_LINK}Client link</span>
       <span style={{flex:1,minWidth:180,fontSize:12,color:WG,wordBreak:"break-all",fontFamily:"monospace"}}>{repairLink}</span>
       {!response&&<><span style={{fontSize:11,fontWeight:700,color:WG,whiteSpace:"nowrap"}}>⏳ Awaiting client response</span>
         <button onClick={()=>fetchResponse(false)} style={{background:"none",border:`1px solid ${BD}`,borderRadius:6,padding:"4px 10px",fontSize:11,fontWeight:700,color:WG,cursor:"pointer",fontFamily:"inherit"}}>{checking?"Checking…":"Check now"}</button></>}
@@ -6701,7 +6703,7 @@ function InvoiceDetail({invoiceId,invoices,setInvoices,jobs,clients,payments,biz
       </div>
       <div style={{display:"flex",gap:8,alignItems:"center",flexWrap:"wrap",flexShrink:0}}>
         <Badge label={es} color={es==="Paid"?OK:es==="Overdue"?DANGER:WARN} size="lg"/>
-        <Btn sm={!isMobile} xs={isMobile} onClick={shareInvoice}>{linkBusy?"Creating…":linkCopied?"✓ Link copied":inv.publicToken?"🔗 Copy link":"🔗 Create link"}</Btn>
+        <Btn sm={!isMobile} xs={isMobile} onClick={shareInvoice}>{linkBusy?"Creating…":linkCopied?"✓ Link copied":<>{ICON_LINK}{inv.publicToken?"Copy link":"Create link"}</>}</Btn>
         {inv.publicToken&&<EmailClientButton to={c?.email} clientName={clientDisplayName(c)} biz={biz} linkUrl={invLink} docType="invoice" defaultSubject={`Invoice ${inv.number} from ${biz?.name||"us"}`} defaultMessage={`Please find your invoice below. You can view the full details and payment information using the button.`}/>}
         {inv.publicToken&&<Btn sm={!isMobile} xs={isMobile} ghost onClick={()=>window.open(invLink,"_blank")}>Preview</Btn>}
         {canResync&&<Btn sm={!isMobile} xs={isMobile} ghost onClick={updateFromQuote}>{resynced?"✓ Updated":"↻ Update from quote"}</Btn>}
@@ -6711,7 +6713,7 @@ function InvoiceDetail({invoiceId,invoices,setInvoices,jobs,clients,payments,biz
       </div>
     </div>
     {inv.publicToken&&<div style={{background:GOLD_L+"55",border:`1px solid ${GOLD}55`,borderRadius:4,padding:"10px 14px",marginBottom:16,display:"flex",alignItems:"center",gap:12,flexWrap:"wrap"}}>
-      <span style={{fontSize:12,fontWeight:700,color:GOLD_D,whiteSpace:"nowrap"}}>🔗 Client link</span>
+      <span style={{fontSize:12,fontWeight:700,color:GOLD_D,whiteSpace:"nowrap"}}>{ICON_LINK}Client link</span>
       <span style={{flex:1,minWidth:200,fontSize:12,color:WG,wordBreak:"break-all",fontFamily:"monospace"}}>{invLink}</span>
       <span style={{fontSize:11,color:WG}}>Re-copy to refresh totals before sending.</span>
     </div>}
@@ -6732,7 +6734,7 @@ function InvoiceDetail({invoiceId,invoices,setInvoices,jobs,clients,payments,biz
           style={{...SS.inp,marginTop:0,padding:"9px 10px 9px 24px",textAlign:"right",fontWeight:staged?700:400,borderColor:staged?GOLD:BD}}/>
       </div>
       <div style={{fontSize:11,color:WG,marginTop:8,lineHeight:1.5}}>Set this to request a <strong>specific staged amount</strong> now (e.g. the diamond balance) instead of the full outstanding balance. The invoice and client link will show <strong>"Due now"</strong> with the remainder noted as payable later. Leave blank to request the full balance. {staged&&<button onClick={()=>setRequestAmount("")} style={{background:"none",border:`1px solid ${BD}`,borderRadius:6,padding:"2px 8px",fontSize:11,fontWeight:700,color:WG,cursor:"pointer",fontFamily:"inherit",marginLeft:4}}>Clear</button>}</div>
-      <div style={{fontSize:11,color:GOLD_D,marginTop:8}}>After changing this, click <strong>🔗 Copy link</strong> above to refresh what the client sees.</div>
+      <div style={{fontSize:11,color:GOLD_D,marginTop:8}}>After changing this, click <strong>{ICON_LINK}Copy link</strong> above to refresh what the client sees.</div>
     </Card>
     <Card>
       <label style={SS.lbl}>Discount <span style={{fontWeight:400,color:WG,textTransform:"none",letterSpacing:0}}>(optional)</span></label>
@@ -6748,7 +6750,7 @@ function InvoiceDetail({invoiceId,invoices,setInvoices,jobs,clients,payments,biz
       {discount>0
         ?<div style={{fontSize:12,color:WG,marginTop:8,lineHeight:1.6}}>Subtotal <strong style={{color:INK}}>{fmt(subtotalIncGST)}</strong> − {(inv.discountLabel||"Discount").toLowerCase()} <strong style={{color:INK}}>{fmt(discount)}</strong> = total <strong style={{color:OK}}>{fmt(inv.totalIncGST)}</strong> inc {TAX_LABEL} ({TAX_LABEL} {fmt(inv.gst)}). Shows as a line on the customer's invoice.</div>
         :<div style={{fontSize:11,color:WG,marginTop:8,lineHeight:1.5}}>Enter an amount to take off the total — it appears as its own line on the customer's invoice, and the total, {TAX_LABEL} and balance recalculate automatically.</div>}
-      {discount>0&&<div style={{fontSize:11,color:GOLD_D,marginTop:8}}>After changing this, click <strong>🔗 Copy link</strong> above to refresh what the client sees.</div>}
+      {discount>0&&<div style={{fontSize:11,color:GOLD_D,marginTop:8}}>After changing this, click <strong>{ICON_LINK}Copy link</strong> above to refresh what the client sees.</div>}
     </Card>
     <Card>
       {hasCustomerLines
