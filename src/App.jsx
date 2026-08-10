@@ -2748,7 +2748,7 @@ function Dashboard({clients,jobs,quotes,payments,invoices,appointments=[],propos
   const attention=[
     overdue.length&&{key:"overdue",icon:"⏰",color:DANGER,headline:`${overdue.length} overdue`,sub:"past their due date",onClick:()=>go("overdue")},
     chaseCount>0&&{key:"chase",icon:"📨",color:GOLD_D,headline:`${chaseCount} quote${chaseCount>1?"s":""} to chase`,sub:"sent 7+ days ago, no reply",onClick:()=>go("chase")},
-    ready.length&&{key:"ready",icon:"✓",color:OK,headline:`${ready.length} ready to collect`,sub:"waiting on pickup",onClick:()=>go("ready")},
+    ready.length&&{key:"ready",icon:<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke={OK} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M17 3.338A9.95 9.95 0 0 0 12 2C6.477 2 2 6.477 2 12s4.477 10 10 10s10-4.477 10-10q-.002-1.03-.2-2"/><path d="M8 12.5s1.5 0 3.5 3.5c0 0 5.559-9.167 10.5-11"/></svg>,color:OK,headline:`${ready.length} ready to collect`,sub:"waiting on pickup",onClick:()=>go("ready")},
     balanceOwing.length&&{key:"owing",icon:"$",color:WARN,headline:`${fmt(outstanding)} owing`,sub:`across ${balanceOwing.length} job${balanceOwing.length>1?"s":""}`,onClick:()=>go("owing")},
   ].filter(Boolean);
   const trendChip=monthTrend?<span style={{fontSize:11,fontWeight:800,color:monthTrend.up?OK:DANGER,whiteSpace:"nowrap"}}>{monthTrend.up?"▲":"▼"} {Math.abs(monthTrend.pct)}%</span>:null;
