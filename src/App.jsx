@@ -2832,7 +2832,7 @@ function Dashboard({clients,jobs,quotes,payments,invoices,appointments=[],propos
             </div>
           </DashRow>;
         })}
-        {frozenCount>0&&<div onClick={()=>setView("jobs")} style={{marginTop:12,fontSize:12,color:WG,cursor:"pointer"}}>❄ {frozenCount} expired quote{frozenCount>1?"s":""} hidden — <span style={{color:GOLD,fontWeight:700}}>view in Jobs</span></div>}
+        {frozenCount>0&&<div onClick={()=>go("frozen")} style={{marginTop:12,fontSize:12,color:WG,cursor:"pointer"}}>❄ {frozenCount} expired quote{frozenCount>1?"s":""} hidden — <span style={{color:GOLD,fontWeight:700}}>view in Jobs</span></div>}
       </Card>
       <div style={{display:"flex",flexDirection:"column",gap:16}}>
         <Card style={{marginBottom:0}}>
@@ -3110,7 +3110,7 @@ function JobForm({clients,initial={},onSave,onCancel}){
   </div>;
 }
 
-function Jobs({clients,jobs,setJobs,quotes,setQuotes,payments,setPayments,notes,setNotes,invoices,setInvoices,markupTable,setView,setSelJob,preset,onPresetDone,proposals=[]}){
+function Jobs({clients,jobs,setJobs,quotes,setQuotes,payments,setPayments,notes,setNotes,invoices,setInvoices,markupTable,setView,setSelJob,preset,onPresetDone,proposals=[],biz}){
   const[modal,setModal]=useState(null);
   const[sf,setSf]=useState("All");
   const[tf,setTf]=useState("All");
@@ -3129,6 +3129,20 @@ function Jobs({clients,jobs,setJobs,quotes,setQuotes,payments,setPayments,notes,
     if(!sent.length)return false;
     return Math.round((Date.now()-parseISO(sent[0].createdAt).getTime())/86400000)>=7;
   };
+  const[frozenOnly,setFrozenOnly]=useState(false);   // filter to expired/ignored ("frozen") quotes
+  // A "frozen" job — the same set the dashboard hides: a sent proposal past its expiry (createdAt +
+  // your quote-validity window), no acceptance, no approved quote and no money in.
+  const jobFrozen=j=>{
+    if(j.stage==="Collected"||j.parked)return false;
+    const jp=proposals.filter(p=>p.jobId===j.id);
+    const sent=jp.filter(p=>p.status==="sent");
+    if(!sent.length||jp.some(p=>p.status==="accepted"))return false;
+    if(quotes.some(q=>q.jobId===j.id&&q.status==="Approved"))return false;
+    const cash=payments.filter(p=>p.jobId===j.id&&p.status==="Received").reduce((s,p)=>s+Number(p.amount),0);
+    if(cash>0||jobTradeInCredit(j,quotes)>0)return false;
+    const vd=biz?.quoteValidityDays||30;
+    return sent.every(p=>p.createdAt&&addDays(String(p.createdAt).slice(0,10),vd)<today());
+  };
   // Apply a one-off filter sent from the dashboard tiles (ready / owing / overdue / a stage name),
   // resetting the others, then clear it in the parent so it doesn't re-fire on the next visit.
   useEffect(()=>{
@@ -3137,7 +3151,8 @@ function Jobs({clients,jobs,setJobs,quotes,setQuotes,payments,setPayments,notes,
     setOwingOnly(preset==="owing");
     setOverdueOnly(preset==="overdue");
     setChaseOnly(preset==="chase");
-    setSf(preset==="ready"?"Ready for collection":(preset==="owing"||preset==="overdue"||preset==="chase")?"All":preset);
+    setFrozenOnly(preset==="frozen");
+    setSf(preset==="ready"?"Ready for collection":(preset==="owing"||preset==="overdue"||preset==="chase"||preset==="frozen")?"All":preset);
     onPresetDone&&onPresetDone();
   },[preset]);   // eslint-disable-line
   const[mode,setMode]=useState("list");        // list | board (production board)
@@ -3155,6 +3170,7 @@ function Jobs({clients,jobs,setJobs,quotes,setQuotes,payments,setPayments,notes,
     if(awaitOnly&&!j.parked)return false;
     if(overdueOnly&&!(j.deadline&&j.deadline<today()&&!jobIsDone(j)))return false;
     if(chaseOnly&&!isChase(j))return false;
+    if(frozenOnly&&!jobFrozen(j))return false;
     if(owingOnly){const total=jobHasCharge(j,quotes)?jobChargeTotal(j,quotes,markupTable,invoices):0;const paid=payments.filter(p=>p.jobId===j.id&&p.status==="Received").reduce((s,p)=>s+Number(p.amount),0)+jobTradeInCredit(j,quotes);if(total-paid<=0.5)return false;}
     if(sf!=="All"&&j.stage!==sf)return false;
     if(tf!=="All"&&j.type!==tf)return false;
@@ -3220,7 +3236,7 @@ function Jobs({clients,jobs,setJobs,quotes,setQuotes,payments,setPayments,notes,
       <button onClick={()=>setChaseOnly(v=>!v)} style={{padding:"4px 11px",borderRadius:3,border:`1px solid ${chaseOnly?GOLD_D:BD}`,background:chaseOnly?GOLD_D:"transparent",color:chaseOnly?WHITE:WG,fontSize:11,fontWeight:700,cursor:"pointer",fontFamily:"inherit"}}>📨 To chase</button>
       {parkedCount>0&&<button onClick={()=>setAwaitOnly(v=>!v)} style={{padding:"4px 11px",borderRadius:3,border:`1px solid ${awaitOnly?WARN:BD}`,background:awaitOnly?WARN:"transparent",color:awaitOnly?WHITE:WG,fontSize:11,fontWeight:700,cursor:"pointer",fontFamily:"inherit"}}>⏸ Awaiting client ({parkedCount})</button>}
     </div>}
-    {vMode==="list"&&(q||tf!=="All"||sf!=="All"||awaitOnly||owingOnly||overdueOnly||chaseOnly)&&<div style={{fontSize:12,color:WG,marginBottom:12}}>Showing <b style={{color:INK}}>{filtered.length}</b> of {jobs.length} job{jobs.length!==1?"s":""}{tf!=="All"?` · ${tf}`:""}{sf!=="All"?` · ${sf}`:""}{awaitOnly?" · Awaiting client":""}{overdueOnly?" · Overdue":""}{owingOnly?" · Owing":""}{chaseOnly?" · To chase":""}{q?` · “${search.trim()}”`:""}<button onClick={()=>{setSearch("");setTf("All");setSf("All");setAwaitOnly(false);setOwingOnly(false);setOverdueOnly(false);setChaseOnly(false);}} style={{background:"none",border:"none",color:GOLD,fontWeight:700,fontSize:12,cursor:"pointer",fontFamily:"inherit",marginLeft:8,padding:0}}>Clear</button></div>}
+    {vMode==="list"&&(q||tf!=="All"||sf!=="All"||awaitOnly||owingOnly||overdueOnly||chaseOnly||frozenOnly)&&<div style={{fontSize:12,color:WG,marginBottom:12}}>Showing <b style={{color:INK}}>{filtered.length}</b> of {jobs.length} job{jobs.length!==1?"s":""}{tf!=="All"?` · ${tf}`:""}{sf!=="All"?` · ${sf}`:""}{awaitOnly?" · Awaiting client":""}{overdueOnly?" · Overdue":""}{owingOnly?" · Owing":""}{chaseOnly?" · To chase":""}{frozenOnly?" · Expired quotes":""}{q?` · “${search.trim()}”`:""}<button onClick={()=>{setSearch("");setTf("All");setSf("All");setAwaitOnly(false);setOwingOnly(false);setOverdueOnly(false);setChaseOnly(false);setFrozenOnly(false);}} style={{background:"none",border:"none",color:GOLD,fontWeight:700,fontSize:12,cursor:"pointer",fontFamily:"inherit",marginLeft:8,padding:0}}>Clear</button></div>}
 
     {/* ── Production board ── */}
     {vMode==="board"&&(()=>{
@@ -10181,7 +10197,7 @@ export default function App(){
     if(view==="appointments")return <Appointments appointments={appointments} setAppointments={setAppointments} clients={clients} setClients={setClients} jobs={jobs} setJobs={setJobs} setView={setView} setSelClient={setSelClient} setSelJob={setSelJob}/>;
     if(view==="clients")return <Clients clients={clients} setClients={setClients} jobs={jobs} payments={payments} setView={setView} setSelClient={setSelClient} quotes={quotes}/>;
     if(view==="clientDetail")return <ClientDetail clientId={selClient} clients={clients} setClients={setClients} jobs={jobs} setJobs={setJobs} quotes={quotes} payments={payments} invoices={invoices} markupTable={markupTable} setView={setView} setSelJob={setSelJob}/>;
-    if(view==="jobs")return <Jobs clients={clients} jobs={jobs} setJobs={setJobs} quotes={quotes} setQuotes={setQuotes} payments={payments} setPayments={setPayments} notes={notes} setNotes={setNotes} invoices={invoices} setInvoices={setInvoices} markupTable={markupTable} setView={setView} setSelJob={setSelJob} preset={jobsPreset} onPresetDone={()=>setJobsPreset(null)} proposals={proposals}/>;
+    if(view==="jobs")return <Jobs clients={clients} jobs={jobs} setJobs={setJobs} quotes={quotes} setQuotes={setQuotes} payments={payments} setPayments={setPayments} notes={notes} setNotes={setNotes} invoices={invoices} setInvoices={setInvoices} markupTable={markupTable} setView={setView} setSelJob={setSelJob} preset={jobsPreset} onPresetDone={()=>setJobsPreset(null)} proposals={proposals} biz={biz}/>;
     if(view==="jobDetail")return <JobDetail jobId={selJob} jobs={jobs} setJobs={setJobs} clients={clients} quotes={quotes} setQuotes={setQuotes} payments={payments} setPayments={setPayments} notes={notes} setNotes={setNotes} invoices={invoices} setInvoices={setInvoices} proposals={proposals} setProposals={setProposals} biz={biz} markupTable={markupTable} pricing={pricing} setView={setView}/>;
     if(view==="quotes")return <QuotesList quotes={quotes} jobs={jobs} clients={clients} markupTable={markupTable} biz={biz} setView={setView}/>;
     if(view.startsWith("quoteDetail_"))return <QuoteDetail quoteId={view.split("_")[1]} quotes={quotes} setQuotes={setQuotes} jobs={jobs} clients={clients} biz={biz} markupTable={markupTable} naturalStoneMarkup={naturalStoneMarkup} labStoneMarkup={labStoneMarkup} tradeNatStoneMarkup={tradeNatStoneMarkup} tradeLabStoneMarkup={tradeLabStoneMarkup} payments={payments} invoices={invoices} setView={setView}/>;
