@@ -2504,7 +2504,9 @@ function InfoDot({text}){
   const[open,setOpen]=useState(false);
   return <span style={{position:"relative",display:"inline-flex",verticalAlign:"middle"}}>
     <button onClick={e=>{e.stopPropagation();setOpen(o=>!o);}} onMouseEnter={()=>setOpen(true)} onMouseLeave={()=>setOpen(false)} aria-label="More info"
-      style={{width:16,height:16,borderRadius:"50%",border:`1px solid ${WG}`,background:"transparent",color:WG,fontSize:10,fontWeight:800,cursor:"pointer",fontFamily:"'Poppins',serif",fontStyle:"italic",lineHeight:1,display:"inline-flex",alignItems:"center",justifyContent:"center",marginLeft:6,flexShrink:0}}>i</button>
+      style={{width:15,height:15,padding:0,border:"none",background:"transparent",color:WG,cursor:"pointer",lineHeight:0,display:"inline-flex",alignItems:"center",justifyContent:"center",marginLeft:6,flexShrink:0}}>
+      <svg width="15" height="15" viewBox="0 0 32 32" fill="currentColor" aria-hidden="true"><path d="M17.978 7.993a1.978 1.978 0 1 1-3.956 0a1.978 1.978 0 0 1 3.956 0Zm-2.118 3.975c.967 0 1.75.783 1.75 1.75v10.59a1.75 1.75 0 1 1-3.5 0v-10.59c0-.967.784-1.75 1.75-1.75Z"/><path d="M6 1a5 5 0 0 0-5 5v20a5 5 0 0 0 5 5h20a5 5 0 0 0 5-5V6a5 5 0 0 0-5-5H6ZM3 6a3 3 0 0 1 3-3h20a3 3 0 0 1 3 3v20a3 3 0 0 1-3 3H6a3 3 0 0 1-3-3V6Z"/></svg>
+    </button>
     {open&&<span onClick={e=>e.stopPropagation()} style={{position:"absolute",top:"150%",left:0,zIndex:60,width:240,maxWidth:"70vw",background:INK,color:WHITE,fontSize:12,fontWeight:400,lineHeight:1.5,padding:"10px 12px",borderRadius:8,boxShadow:"0 8px 24px rgba(0,0,0,0.25)",textTransform:"none",letterSpacing:0,whiteSpace:"normal"}}>{text}</span>}
   </span>;
 }
