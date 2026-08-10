@@ -5243,7 +5243,7 @@ function JobProposals({job,client,quotes,proposals,setProposals,setQuotes,biz,ma
         ))}
       </div>
       <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:10,marginBottom:8,flexWrap:"wrap"}}>
-        <div style={{fontSize:10,fontWeight:700,color:WG,textTransform:"uppercase",letterSpacing:"0.06em"}}>Options</div>
+        <div style={{fontSize:10,fontWeight:700,color:WG,textTransform:"uppercase",letterSpacing:"0.06em",display:"inline-flex",alignItems:"center"}}>Options<InfoDot text="Tick the quotes to offer the client. In 'Choose one' mode you can mark one as ★ Recommended. Each ticked option can carry its own photos and a video link."/></div>
         {!showBulk&&<button onClick={()=>setShowBulk(true)} style={{background:"none",border:"none",cursor:"pointer",color:GOLD_D,fontSize:12,fontWeight:700,fontFamily:"inherit",padding:0}}>＋ Paste multiple video links</button>}
       </div>
       {showBulk&&<div style={{border:`1px solid ${BD}`,borderRadius:4,padding:"12px 14px",background:PARCH,marginBottom:10}}>
@@ -5306,7 +5306,7 @@ function JobProposals({job,client,quotes,proposals,setProposals,setQuotes,biz,ma
         <label style={{...SS.lbl,marginBottom:6}}>Payment terms <span style={{fontWeight:400,color:WG,textTransform:"none",letterSpacing:0}}>(optional)</span></label>
         <div style={{fontSize:11,color:WG,lineHeight:1.5,marginBottom:10}}>Bundled options (multi-select) prefill at your {depositPct}% deposit of the combined total — edit it to any amount, or clear it to ask for the full balance. The rest is shown as due on completion. Single-option proposals ask for the {depositPct}% deposit automatically.</div>
         <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"0 16px"}}>
-          <Input label={`Amount due now (${CUR_SYM})`} value={dueNow} onChange={v=>{setDueNowTouched(true);setDueNow(v);}} type="number" min="0" step="0.01" placeholder="Leave blank for full balance"/>
+          <Input label={<>Amount due now ({CUR_SYM})<InfoDot text="The deposit to request up front. For a bundle it defaults to your deposit % (Settings); leave blank to ask for the full balance. In 'Choose one' mode the client's page works out the deposit for whichever option they pick."/></>} value={dueNow} onChange={v=>{setDueNowTouched(true);setDueNow(v);}} type="number" min="0" step="0.01" placeholder="Leave blank for full balance"/>
           <Input label="Payment note" value={payNote} onChange={setPayNote} placeholder="e.g. Remaining 50% of the centre diamond"/>
         </div>
       </div>
@@ -6977,6 +6977,7 @@ function StatementsList({clients,jobs,invoices,payments,biz,setView}){
                 <Btn onClick={()=>setView("invoices")}>Go to Invoices</Btn></>}
         </div></Card>
       : <>
+        <div style={{...SS.lbl,marginBottom:10,display:"flex",alignItems:"center"}}>Aged receivables — all trade accounts<InfoDot text="How much your trade accounts owe, split by how overdue it is — Current (not yet due) through 90+ days. The older a bucket, the more urgent to chase. Click any account below for its full statement and ledger."/></div>
         <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(122px,1fr))",gap:10,marginBottom:18}}>
           {[["Total owing",totals.total,totals.total>0?WARN:OK],...AGE_BUCKETS.map(([k,l])=>[l,totals[k],bucketColor(k)])].map(([l,v,col],i)=>(
             <div key={l} style={{background:WHITE,border:`1px solid ${BD}`,borderRadius:8,padding:"13px 14px"}}>
@@ -7128,7 +7129,7 @@ function StatementDetail({clientId,clients,jobs,invoices,payments,biz,setView}){
     </Card>
 
     <Card>
-      <div style={{...SS.lbl,marginBottom:12}}>Aged receivables <span style={{fontWeight:400,textTransform:"none",letterSpacing:0}}>(as at {fmtDate(asOf)})</span></div>
+      <div style={{...SS.lbl,marginBottom:12,display:"flex",alignItems:"center"}}>Aged receivables <span style={{fontWeight:400,textTransform:"none",letterSpacing:0,marginLeft:5}}>(as at {fmtDate(asOf)})</span><InfoDot text="This account's outstanding balance split by age — Current (not yet due per the account's terms) through 90+ days overdue. Driven by each invoice's due date."/></div>
       <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(120px,1fr))",gap:10}}>
         {AGE_BUCKETS.map(([k,l])=>(
           <div key={k} style={{background:PARCH,border:`1px solid ${BD}`,borderRadius:8,padding:"12px 13px"}}>
@@ -7877,7 +7878,7 @@ function SpotPriceUpdater({spotPrices,setSpotPrices,pricing,setPricing,onClose})
     </div>
     {/* Casting-house premium — the % your supplier charges above spot for casted metal */}
     <div style={{background:PARCH,border:`1px solid ${BD}`,borderRadius:4,padding:"12px 16px",marginBottom:14}}>
-      <div style={{fontSize:11,fontWeight:800,color:INK,textTransform:"uppercase",letterSpacing:"0.06em",marginBottom:2}}>Casting house premium <span style={{color:GOLD,fontWeight:700}}>· cast metal</span></div>
+      <div style={{fontSize:11,fontWeight:800,color:INK,textTransform:"uppercase",letterSpacing:"0.06em",marginBottom:2,display:"flex",alignItems:"center"}}>Casting house premium <span style={{color:GOLD,fontWeight:700,marginLeft:5}}>· cast metal</span><InfoDot text="Your landed cost per gram = spot price × (1 + this %) × purity. It's what your caster charges above market to cast the metal — set once, and every manual or live price update applies it automatically."/></div>
       <div style={{fontSize:12,color:WG,marginBottom:12,lineHeight:1.5}}>What your casting house charges <strong style={{color:INK}}>above spot</strong> to cast a piece in each metal — this is your <strong style={{color:INK}}>cast</strong> cost. Saved once; every price update (manual or live) applies it automatically.</div>
       <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"0 16px"}}>
         <Input label="Gold — yellow / rose (%)" value={pmG} onChange={setPmG} type="number" min="0" step="0.5" placeholder="0"/>
@@ -8137,8 +8138,8 @@ function Settings({biz,setBiz,markupTable,setMarkupTable,naturalStoneMarkup,setN
         <div style={{fontSize:11,color:WG,marginTop:2,lineHeight:1.5}}>We'll email this address the moment a client accepts one of your online proposals — so you know even with the app closed. Leave blank to use your business email above.</div>
       </div>
       <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"0 16px"}}>
-        <Input label="Deposit required (%)" value={String(bForm.depositPercent)} onChange={v=>setBF("depositPercent")(Number(v)||50)} type="number" placeholder="50"/>
-        <Input label="Quote validity (days)" value={String(bForm.quoteValidityDays)} onChange={v=>setBF("quoteValidityDays")(Number(v)||30)} type="number" placeholder="30"/>
+        <Input label={<>Deposit required (%)<InfoDot text="The default deposit you ask for up front. On a bundle proposal it pre-fills 'Amount due now'; on single-option proposals the client's page works out this % of whichever option they pick."/></>} value={String(bForm.depositPercent)} onChange={v=>setBF("depositPercent")(Number(v)||50)} type="number" placeholder="50"/>
+        <Input label={<>Quote validity (days)<InfoDot text="How long a sent quote/proposal stays valid. After this many days the client's link expires (so they can't accept stale pricing) and the quote drops out of your dashboard pipeline."/></>} value={String(bForm.quoteValidityDays)} onChange={v=>setBF("quoteValidityDays")(Number(v)||30)} type="number" placeholder="30"/>
       </div>
       <Input label="Terms & conditions (shown on quote proposals)" value={bForm.quoteTerms} onChange={setBF("quoteTerms")} as="textarea" rows={5} placeholder="All custom jewellery requires a deposit before work commences..."/>
       <div style={{marginTop:16,paddingTop:16,borderTop:`1px solid ${BD}`}}>
@@ -8195,7 +8196,7 @@ function Settings({biz,setBiz,markupTable,setMarkupTable,naturalStoneMarkup,setN
 
     {/* Markup table editor */}
     <Card>
-      <div style={{fontWeight:700,fontSize:15,color:INK,marginBottom:4}}>Markup table</div>
+      <div style={{fontWeight:700,fontSize:15,color:INK,marginBottom:4,display:"flex",alignItems:"center"}}>Markup table<InfoDot text="Retail price = your cost × the multiplier for its cost bracket, then rounded. This table sets those tiers; the quote builder picks the right one automatically. Bigger jobs usually carry a lower multiplier."/></div>
       <div style={{fontSize:13,color:WG,marginBottom:16,lineHeight:1.6}}>Your tiered multiplier table. The quote builder uses this to find the right bracket and calculate your final price automatically. Adjust any row and save.</div>
       <div style={{background:WHITE,borderRadius:5,border:`1px solid ${BD}`,overflow:"hidden",marginBottom:16}}>
         <div style={{display:"grid",gridTemplateColumns:isMobile?"repeat(2,1fr) auto":"1fr 1fr 120px",columnGap:isMobile?7:0,padding:"9px 16px",background:PARCH,borderBottom:`1px solid ${BD}`}}>
