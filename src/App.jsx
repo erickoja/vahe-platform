@@ -10171,6 +10171,15 @@ export default function App(){
   // Auto-dismiss the live toast
   useEffect(()=>{if(!acceptToast)return;const t=setTimeout(()=>setAcceptToast(null),9000);return()=>clearTimeout(t);},[acceptToast]);
 
+  // Stop the mouse wheel from silently changing focused number inputs (e.g. a $80
+  // price ticking to 79.98 when you scroll toward a button). Blurring on wheel means
+  // the field keeps its typed value and the page just scrolls. Applies app-wide.
+  useEffect(()=>{
+    const onWheel=e=>{const el=document.activeElement;if(el&&el.tagName==="INPUT"&&el.type==="number"&&el===e.target)el.blur();};
+    document.addEventListener("wheel",onWheel,{passive:true});
+    return()=>document.removeEventListener("wheel",onWheel);
+  },[]);
+
   // On load (once data is ready) batch-check every sent proposal AND every repair link for a
   // cloud response, and subscribe to realtime so responses pop instantly while the app is open.
   useEffect(()=>{
