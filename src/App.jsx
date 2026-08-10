@@ -2543,6 +2543,8 @@ function GettingStarted({biz,clients,quotes,proposals,setView,onDismiss}){
 }
 // ── Dashboard: revenue trend (single series → one hue), pipeline (grouped phases),
 //    and a "needs attention" action panel. Built on data already in memory. ──
+// Briefcase-with-dollar icon, shared by the money tiles (This month / Outstanding).
+const ICON_MONEY=<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M2 14c0-3.507 0-5.26.908-6.44q.25-.325.554-.592C4.57 6 6.212 6 9.5 6h5c3.288 0 4.931 0 6.038.968q.304.268.554.592C22 8.74 22 10.493 22 14s0 5.26-.908 6.44a4 4 0 0 1-.554.591C19.43 22 17.788 22 14.5 22h-5c-3.287 0-4.931 0-6.038-.968a4 4 0 0 1-.554-.592C2 19.26 2 17.507 2 14m14-8c0-1.886 0-2.828-.586-3.414S13.886 2 12 2s-2.828 0-3.414.586S8 4.114 8 6"/><path d="M12 11c-1.105 0-2 .672-2 1.5s.895 1.5 2 1.5s2 .672 2 1.5s-.895 1.5-2 1.5m0-6c.87 0 1.612.417 1.886 1M12 11v-1m0 7c-.87 0-1.612-.417-1.886-1M12 17v1m-6-6H2m20 0h-4"/></svg>;
 function RevenueTrend({series}){
   const max=Math.max(1,...series.map(s=>s.value));
   return <Card style={{marginBottom:0,height:"100%",display:"flex",flexDirection:"column"}}>
@@ -2792,8 +2794,8 @@ function Dashboard({clients,jobs,quotes,payments,invoices,appointments=[],propos
       <Stat label="Today's appts" value={todaysAppts.length} sub={todaysAppts.length>0?fmtTime(todaysAppts.slice().sort((a,b)=>String(a.time||"").localeCompare(String(b.time||"")))[0].time)+" first":"none today"} tint="slate" icon={<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M16 2v4M8 2v4m13 7v-1c0-3.771 0-5.657-1.172-6.828S16.771 4 13 4h-2C7.229 4 5.343 4 4.172 5.172S3 8.229 3 12v2c0 3.771 0 5.657 1.172 6.828S7.229 22 11 22M3 10h18"/><path d="M13 19.5s1.348.507 2 2.5c0 0 3.177-5 6-6"/></svg>} onClick={()=>setView("appointments")}/>
       <Stat label="Clients" value={clients.length} tint="slate" icon={<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round"><path d="m14.5 16.5l3.716 1.118a4.07 4.07 0 0 1 2.76 2.892c.136.536-.327.99-.882.99H3.906c-.555 0-1.018-.454-.882-.99a4.07 4.07 0 0 1 2.76-2.892L9.5 16.5v-1.938c-1.78-1.393-3-3.062-3-6.645c0-3.59 1.955-5.417 4.992-5.417c2.151 0 3.047 1 3.047 1c2.538 0 2.961 2.097 2.961 4.417c0 3.583-1.22 5.252-3 6.645z"/></svg>} onClick={()=>setView("clients")}/>
       <Stat label="Active jobs" value={active.length} tint="slate" icon="✦" onClick={()=>setView("jobs")}/>
-      <Stat label="This month" value={fmt(monthReceived)} sub={monthTrend?`vs ${fmt(lastMonthReceived)} last month`:"received (incl. trade-ins)"} tint="mint" icon="↑" trend={trendChip}/>
-      <Stat label="Outstanding" value={fmt(outstanding)} sub="balance owed" tint={outstanding>0?"peach":"mint"} icon="$"/>
+      <Stat label="This month" value={fmt(monthReceived)} sub={monthTrend?`vs ${fmt(lastMonthReceived)} last month`:"received (incl. trade-ins)"} tint="mint" icon={ICON_MONEY} trend={trendChip}/>
+      <Stat label="Outstanding" value={fmt(outstanding)} sub="balance owed" tint={outstanding>0?"peach":"mint"} icon={ICON_MONEY}/>
       <Stat label="Ready to collect" value={ready.length} tint="slate" icon="✓" onClick={()=>go("ready")}/>
       <Stat label="Overdue" value={overdue.length} tint={overdue.length>0?"rose":"mint"} icon="!" onClick={()=>go("overdue")}/>
     </div>
