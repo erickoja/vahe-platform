@@ -1,4 +1,4 @@
-import { useState, useCallback, useMemo, useEffect, useRef } from "react";
+import { useState, useCallback, useMemo, useEffect, useRef, Component } from "react";
 import { supabase, supabaseEnabled, STATE_TABLE } from "./supabaseClient";
 // Iframe-safe overrides
 // Only suppress alert/confirm inside Claude artifact iframes, not standalone
@@ -6576,6 +6576,39 @@ function InvoicePrintView({inv,job,client,biz,payments,onClose}){
   </div>;
 }
 
+// ── Error boundary ────────────────────────────────────────────────────────
+// A render error in any single view used to unmount the whole React tree → blank
+// white screen → forced app reload. This catches it, keeps the sidebar/nav alive,
+// and shows a recoverable panel with the error text so the failure is diagnosable
+// (and never destroys the user's saved data, which is persisted before render).
+class ErrorBoundary extends Component{
+  constructor(props){super(props);this.state={err:null};}
+  static getDerivedStateFromError(err){return{err};}
+  componentDidCatch(err,info){try{console.error("App render error:",err,info?.componentStack);}catch(e){}}
+  reset(){this.setState({err:null});}
+  render(){
+    if(!this.state.err)return this.props.children;
+    const msg=String(this.state.err?.message||this.state.err||"Unknown error");
+    const stack=String(this.state.err?.stack||"");
+    return <div style={{display:"flex",alignItems:"center",justifyContent:"center",padding:"40px 16px"}}>
+      <div style={{maxWidth:520,width:"100%",background:WHITE,border:`1px solid ${DANGER}44`,borderRadius:RADIUS,padding:"30px 28px",boxShadow:SHADOW}}>
+        <div style={{fontSize:30,marginBottom:10}}>⚠️</div>
+        <div style={{fontSize:17,fontWeight:800,color:INK,marginBottom:8}}>Something went wrong on this screen</div>
+        <div style={{fontSize:13,color:WG,lineHeight:1.6,marginBottom:16}}>Your data is safe — this only affected what's shown here. Use the menu to go to another screen, or reload the app. If it keeps happening, copy the details below and send them over so it can be fixed.</div>
+        <div style={{display:"flex",gap:10,flexWrap:"wrap",marginBottom:16}}>
+          <Btn sm onClick={()=>this.reset()}>Try again</Btn>
+          <Btn sm ghost onClick={()=>{this.reset();this.props.onHome&&this.props.onHome();}}>Go to dashboard</Btn>
+          <Btn sm ghost onClick={()=>window.location.reload()}>Reload app</Btn>
+        </div>
+        <details style={{fontSize:12,color:WG}}>
+          <summary style={{cursor:"pointer",fontWeight:700,color:INK}}>Error details</summary>
+          <pre style={{whiteSpace:"pre-wrap",wordBreak:"break-word",marginTop:8,padding:12,background:CREAM,border:`1px solid ${BD}`,borderRadius:6,fontSize:11,lineHeight:1.5,maxHeight:220,overflow:"auto"}}>{msg}{stack?"\n\n"+stack:""}</pre>
+        </details>
+      </div>
+    </div>;
+  }
+}
+
 // ── Invoice detail ────────────────────────────────────────────────────────
 function InvoiceDetail({invoiceId,invoices,setInvoices,jobs,clients,payments,biz,setView,quotes=[],markupTable}){
   const isMobile=useIsMobile();
@@ -10317,7 +10350,7 @@ export default function App(){
         ?<div style={{display:"flex",alignItems:"center",justifyContent:"center",height:300,flexDirection:"column",gap:12}}>
             <div style={{fontSize:13,color:WG}}>Loading your data…</div>
           </div>
-        :render()}
+        :<ErrorBoundary key={view} onHome={()=>setView("dashboard")}>{render()}</ErrorBoundary>}
     </div>
     {/* Live response pop-up — proposals & repairs (any view) */}
     {acceptToast&&<div onClick={()=>{const j=acceptToast.jobId;setAcceptToast(null);if(j)setView("jobDetail_"+j);}}
