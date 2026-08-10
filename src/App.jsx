@@ -2796,7 +2796,7 @@ function Dashboard({clients,jobs,quotes,payments,invoices,appointments=[],propos
       <Stat label="Active jobs" value={active.length} tint="slate" icon="✦" onClick={()=>setView("jobs")}/>
       <Stat label="This month" value={fmt(monthReceived)} sub={monthTrend?`vs ${fmt(lastMonthReceived)} last month`:"received (incl. trade-ins)"} tint="mint" icon={ICON_MONEY} trend={trendChip}/>
       <Stat label="Outstanding" value={fmt(outstanding)} sub="balance owed" tint={outstanding>0?"peach":"mint"} icon={ICON_MONEY}/>
-      <Stat label="Ready to collect" value={ready.length} tint="slate" icon="✓" onClick={()=>go("ready")}/>
+      <Stat label="Ready to collect" value={ready.length} tint="slate" icon={<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M13.5 20s1 0 2 2c0 0 3.177-5 6-6M7 16h4m-4-5h8M6.5 3.5c-1.556.047-2.483.22-3.125.862c-.879.88-.879 2.295-.879 5.126v6.506c0 2.832 0 4.247.879 5.127C4.253 22 5.668 22 8.496 22h2.5m4.496-18.5c1.556.047 2.484.22 3.125.862c.88.88.88 2.295.88 5.126V13.5"/><path d="M6.496 3.75c0-.966.784-1.75 1.75-1.75h5.5a1.75 1.75 0 1 1 0 3.5h-5.5a1.75 1.75 0 0 1-1.75-1.75"/></svg>} onClick={()=>go("ready")}/>
       <Stat label="Overdue" value={overdue.length} tint={overdue.length>0?"rose":"mint"} icon="!" onClick={()=>go("overdue")}/>
     </div>
     <NeedsAttention items={attention}/>
