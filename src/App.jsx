@@ -8890,6 +8890,27 @@ function NavIcon({name,size=17}){
 }
 
 // ── Login screen ──────────────────────────────────────────────────────────
+// ── Signup abuse controls (basic, client-side) ─────────────────────────────
+// These raise the bar against casual/scripted signup abuse and junk accounts through the UI. They are
+// bypassable by anyone hitting the Supabase auth endpoint directly, so the real backstop is Supabase's
+// built-in auth rate-limiting (on by default) + CAPTCHA enabled in the Auth dashboard. Kept deliberately
+// lightweight so legit jewellers are never blocked.
+const _EMAIL_RE=/^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+// Common throwaway / temp-mail domains — reject so signups use a real, reachable inbox.
+const DISPOSABLE_EMAIL_DOMAINS=new Set(["mailinator.com","guerrillamail.com","guerrillamailblock.com","sharklasers.com","10minutemail.com","10minutemail.net","tempmail.com","temp-mail.org","throwawaymail.com","yopmail.com","getnada.com","nada.email","trashmail.com","maildrop.cc","dispostable.com","fakeinbox.com","mintemail.com","mohmal.com","emailondeck.com","spamgourmet.com","mailcatch.com","tempinbox.com","moakt.com","tempr.email","discard.email","mailnesia.com","33mail.com","spam4.me","mytemp.email","fakemail.net"]);
+const _SIGNUP_MAX_PER_HOUR=5;          // per-browser cap on signup attempts in a rolling hour
+const _SIGNUP_MIN_GAP_MS=8000;         // minimum spacing between attempts (stops rapid-fire)
+const _SIGNUP_ATTEMPTS_KEY="ps_signup_attempts";
+const _signupAttempts=()=>{try{const now=Date.now();return JSON.parse(localStorage.getItem(_SIGNUP_ATTEMPTS_KEY)||"[]").filter(t=>now-t<3600000);}catch(e){return [];}};
+// Returns a user-facing message if the attempt should be blocked, else null.
+const signupRateCheck=()=>{
+  const arr=_signupAttempts(),now=Date.now();
+  if(arr.length>=_SIGNUP_MAX_PER_HOUR)return "Too many sign-up attempts from this device. Please try again later.";
+  if(arr.length&&now-arr[arr.length-1]<_SIGNUP_MIN_GAP_MS)return "Please wait a few seconds before trying again.";
+  return null;
+};
+const recordSignupAttempt=()=>{try{const arr=_signupAttempts();arr.push(Date.now());localStorage.setItem(_SIGNUP_ATTEMPTS_KEY,JSON.stringify(arr));}catch(e){}};
+
 function Login(){
   // "in" = sign in · "up" = create account. The landing's "Start free trial" links to ?signup so
   // new visitors open straight on the create-account view instead of the sign-in wall.
@@ -8903,6 +8924,7 @@ function Login(){
   const[busy,setBusy]=useState(false);
   const[err,setErr]=useState("");
   const[sentTo,setSentTo]=useState("");   // set after a successful sign-up → "check your email" state
+  const[hp,setHp]=useState("");           // honeypot: hidden from humans, bots fill it → we silently no-op
   // Public sign-up is opt-in per deployment (VITE_ALLOW_SIGNUP="true"). Off by default, so the
   // single-tenant business deployment keeps an admin-only login; the tester deployment turns it on.
   const allowSignup=import.meta.env.VITE_ALLOW_SIGNUP==="true";
@@ -8915,8 +8937,19 @@ function Login(){
     if(!email.trim()||!password)return setErr("Enter your email and password.");
     if(signUp&&!invited&&!studioName.trim())return setErr("Enter your studio / business name.");
     if(signUp&&password.length<6)return setErr("Choose a password of at least 6 characters.");
+    if(signUp){
+      // Honeypot tripped → almost certainly a bot. Show the normal "check your email" state so it
+      // moves on, but do nothing (no account created, attempt not even recorded).
+      if(hp.trim()){setSentTo(email.trim());return;}
+      const em=email.trim().toLowerCase();
+      if(!_EMAIL_RE.test(em))return setErr("Enter a valid email address.");
+      if(DISPOSABLE_EMAIL_DOMAINS.has(em.split("@")[1]||""))return setErr("Please sign up with a permanent email address, not a temporary one.");
+      const blocked=signupRateCheck();
+      if(blocked)return setErr(blocked);
+    }
     setBusy(true);setErr("");
     if(signUp){
+      recordSignupAttempt();
       // Studio name rides in user_metadata so it survives the email-confirmation gap and
       // pre-fills the "create your studio" step on first sign-in.
       const{data,error}=await supabase.auth.signUp({email:email.trim(),password,options:{data:{studio_name:studioName.trim()}}});
@@ -8946,6 +8979,7 @@ function Login(){
         </div>
         :<>
           {signUp&&invited&&<div style={{background:"rgba(184,146,42,0.12)",border:`1px solid ${GOLD}55`,borderRadius:8,padding:"11px 13px",marginBottom:16,fontSize:12.5,color:"rgba(255,255,255,0.75)",lineHeight:1.5}}>You've been invited to join a studio. Create your account below to join the team.</div>}
+          {signUp&&<input type="text" name="company" tabIndex={-1} autoComplete="off" aria-hidden="true" value={hp} onChange={e=>setHp(e.target.value)} style={{position:"absolute",left:"-9999px",width:1,height:1,opacity:0,pointerEvents:"none"}}/>}
           {signUp&&!invited&&<>
             <label style={{...SS.lbl,color:"rgba(255,255,255,0.5)"}}>Studio / business name</label>
             <input value={studioName} onChange={e=>setStudioName(e.target.value)} autoFocus placeholder="e.g. Aurora Fine Jewellery" style={darkInp}/>
