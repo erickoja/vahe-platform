@@ -6615,7 +6615,13 @@ function InvoicePrintView({inv,job,client,biz,payments,onClose}){
         #invoice-document {
           position: static !important; width: 100% !important; max-width: 100% !important;
           min-height: 0 !important; box-shadow: none !important; margin: 0 !important;
+          /* Print in normal block flow, NOT flex. A flex column whose footer is pinned with
+             margin-top:auto makes Chrome's print engine expand that auto margin across page
+             breaks → blank trailing pages. Block flow lets the content end where it ends. */
+          display: block !important;
         }
+        /* Kill the footer's margin-top:auto so it sits directly after the content in print. */
+        #invoice-document > div:last-child { margin-top: 0 !important; }
         #invoice-document table, #invoice-document tr { page-break-inside: avoid; }
         * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
       }
