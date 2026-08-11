@@ -1,4 +1,5 @@
 import { useState, useCallback, useMemo, useEffect, useRef, Component } from "react";
+import { createPortal } from "react-dom";
 import { supabase, supabaseEnabled, STATE_TABLE } from "./supabaseClient";
 // Iframe-safe overrides
 // Only suppress alert/confirm inside Claude artifact iframes, not standalone
@@ -6476,7 +6477,10 @@ function InvoicePrintView({inv,job,client,biz,payments,onClose}){
     navigator.clipboard?.writeText(txt).catch(()=>{});
     setCopied(true);setTimeout(()=>setCopied(false),2000);
   };
-  return <div id="invoice-print-modal" style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.85)",zIndex:500,display:"flex",flexDirection:"column",backdropFilter:"blur(4px)"}}>
+  // Rendered via a portal to document.body (OUTSIDE #root) so that during print we can simply
+  // hide the whole app (#root) — the InvoiceDetail page behind this modal used to stay in the
+  // print layout (visibility:hidden keeps an element's box), spilling blank pages after the invoice.
+  return createPortal(<div id="invoice-print-modal" style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.85)",zIndex:500,display:"flex",flexDirection:"column",backdropFilter:"blur(4px)"}}>
     {/* toolbar */}
     <div id="invoice-toolbar" style={{background:"#000",padding:"12px 24px",display:"flex",alignItems:"center",justifyContent:"space-between",flexShrink:0,borderBottom:"1px solid rgba(255,255,255,0.1)"}}>
       <div style={{display:"flex",alignItems:"center",gap:16}}>
@@ -6605,28 +6609,23 @@ function InvoicePrintView({inv,job,client,biz,payments,onClose}){
       @media print {
         @page { size: A4; margin: 12mm; }
         html, body { background: #fff !important; height: auto !important; }
-        body * { visibility: hidden !important; }
-        /* Take the modal out of fixed positioning and drop its chrome so the document prints in
-           normal flow from the top — a fixed overlay + forced min-height was spilling onto extra pages. */
+        /* The modal is portaled to <body>, OUTSIDE #root — hide the whole app so ONLY the invoice
+           prints. (Previously body *{visibility:hidden} left the app's boxes in the print layout,
+           which pushed blank pages after the invoice.) */
+        #root { display: none !important; }
+        /* Drop the overlay chrome so the document prints in normal flow from the top-left. */
         #invoice-print-modal { position: static !important; display: block !important; background: none !important; backdrop-filter: none !important; height: auto !important; }
         #invoice-toolbar { display: none !important; }
         #invoice-scroll { position: static !important; display: block !important; overflow: visible !important; padding: 0 !important; background: #fff !important; }
-        #invoice-document, #invoice-document * { visibility: visible !important; }
         #invoice-document {
           position: static !important; width: 100% !important; max-width: 100% !important;
-          min-height: 0 !important; box-shadow: none !important; margin: 0 !important;
-          /* Print in normal block flow, NOT flex. A flex column whose footer is pinned with
-             margin-top:auto makes Chrome's print engine expand that auto margin across page
-             breaks → blank trailing pages. Block flow lets the content end where it ends. */
-          display: block !important;
+          min-height: 0 !important; box-shadow: none !important; margin: 0 auto !important;
         }
-        /* Kill the footer's margin-top:auto so it sits directly after the content in print. */
-        #invoice-document > div:last-child { margin-top: 0 !important; }
         #invoice-document table, #invoice-document tr { page-break-inside: avoid; }
         * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
       }
     `}</style>
-  </div>;
+  </div>, document.body);
 }
 
 // ── Error boundary ────────────────────────────────────────────────────────
