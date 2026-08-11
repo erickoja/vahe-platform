@@ -9428,7 +9428,6 @@ function GemCustody({custody,setCustody,clients,biz}){
 
     {custody.length===0
       ? <Card style={{marginTop:4}}><div style={{color:WG,fontSize:14,textAlign:"center",padding:"46px 0"}}>
-          <div style={{fontSize:38,marginBottom:12}}>💎</div>
           <div style={{fontWeight:700,fontSize:16,color:INK,marginBottom:6}}>Nothing in safekeeping yet</div>
           <div style={{maxWidth:400,margin:"0 auto 18px",lineHeight:1.55}}>When a client leaves a stone or a piece of jewellery with you, record it here and print a signed receipt so they have proof you're holding it.</div>
           <Btn onClick={openNew}>+ Create your first receipt</Btn>
@@ -9436,7 +9435,7 @@ function GemCustody({custody,setCustody,clients,biz}){
       : <>
           {/* Summary */}
           <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(180px,1fr))",gap:14,marginBottom:22}}>
-            <Stat label="Currently holding" value={holding.length} tint="slate" icon="💎"/>
+            <Stat label="Currently holding" value={holding.length} tint="slate"/>
             <Stat label="Declared value held" value={fmtR(totalHeldValue)} sub="client-declared, for reference"/>
             <Stat label="Returned" value={custody.length-holding.length}/>
           </div>
