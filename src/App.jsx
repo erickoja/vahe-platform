@@ -1788,16 +1788,46 @@ const merge3=(base,local,remote)=>{
   return out;
 };
 const _cloudUpsert=(k,v)=>{const ts=new Date().toISOString();_lastWriteAt[k]=ts;return supabase.from(STATE_TABLE).upsert({studio_id:_studioId,key:k,value:v,updated_at:ts},{onConflict:"studio_id,key"});};
-// Serialized read-merge-write for a merge key. base is read at run time (after prior writes settle).
+// Serialized read-merge-write for a merge key, with OPTIMISTIC CONCURRENCY (Gap #1) so two clients
+// saving the same key at almost the same instant can't silently lose an update. Each attempt reads
+// {value,updated_at}, 3-way merges our change onto the latest cloud value, then writes CONDITIONALLY
+// on updated_at being unchanged. If the row moved under us (another client committed in the gap), the
+// conditional update touches 0 rows → we re-read and re-merge onto their value and retry. base = this
+// session's last synced value (_known[k]); after a commit, base becomes the value we just wrote.
+const _MERGE_RETRIES=4;
 const _mergedWrite=(k,v)=>{
   const run=async()=>{
-    let toWrite=v;
+    for(let attempt=0;attempt<_MERGE_RETRIES;attempt++){
+      try{
+        const{data:row,error:readErr}=await supabase.from(STATE_TABLE).select("value,updated_at").eq("studio_id",_studioId).eq("key",k).maybeSingle();
+        if(readErr)throw readErr;
+        const ts=new Date().toISOString();
+        if(!row){
+          // First write for this key: insert. A concurrent insert trips the (studio_id,key) PK → retry as an update.
+          const{error:insErr}=await supabase.from(STATE_TABLE).insert({studio_id:_studioId,key:k,value:v,updated_at:ts});
+          if(insErr){if(insErr.code==="23505")continue;throw insErr;}
+          _lastWriteAt[k]=ts;_known[k]=v;return;
+        }
+        const toWrite=(Array.isArray(row.value)&&Array.isArray(v))?merge3(Array.isArray(_known[k])?_known[k]:[],v,row.value):v;
+        // Compare-and-set: only lands if updated_at still matches what we just read. .select() lets us
+        // see how many rows were actually updated (0 = lost the race → loop and re-merge).
+        const{data:upd,error:updErr}=await supabase.from(STATE_TABLE).update({value:toWrite,updated_at:ts}).eq("studio_id",_studioId).eq("key",k).eq("updated_at",row.updated_at).select("key");
+        if(updErr)throw updErr;
+        if(upd&&upd.length){_lastWriteAt[k]=ts;_known[k]=v;return;}   // won: our write landed
+        // else 0 rows → someone wrote in the gap → loop, re-read, re-merge onto their value
+      }catch(e){
+        // Read/write failed (offline or transient) → best-effort blind upsert so the change isn't dropped; Stage-1 snapshots backstop.
+        try{const{error}=await _cloudUpsert(k,v);if(error)console.warn("Cloud save failed for",k,error.message);}catch(_){}
+        _known[k]=v;return;
+      }
+    }
+    // Exhausted retries under sustained contention → last-resort merged upsert (still merges, just not conditional).
     try{
-      const{data:row,error}=await supabase.from(STATE_TABLE).select("value").eq("studio_id",_studioId).eq("key",k).maybeSingle();
-      if(!error&&row&&Array.isArray(row.value)&&Array.isArray(v))toWrite=merge3(Array.isArray(_known[k])?_known[k]:[],v,row.value);
-    }catch(e){/* offline / read failed → best-effort: write our own value */}
-    try{const{error}=await _cloudUpsert(k,toWrite);if(error)console.warn("Cloud save failed for",k,error.message);}catch(e){}
-    _known[k]=v;   // base for the NEXT write = the local value we just committed
+      const{data:row}=await supabase.from(STATE_TABLE).select("value").eq("studio_id",_studioId).eq("key",k).maybeSingle();
+      const toWrite=(row&&Array.isArray(row.value)&&Array.isArray(v))?merge3(Array.isArray(_known[k])?_known[k]:[],v,row.value):v;
+      const{error}=await _cloudUpsert(k,toWrite);if(error)console.warn("Cloud save failed for",k,error.message);
+    }catch(e){}
+    _known[k]=v;
   };
   _writeChain[k]=(_writeChain[k]||Promise.resolve()).then(run,run);
   return _writeChain[k];
