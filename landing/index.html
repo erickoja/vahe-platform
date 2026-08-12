@@ -223,12 +223,7 @@
   /* full-width product showcase — real app screenshots shown large enough to read */
   .showcase{background:var(--surface-2);border-top:1px solid var(--line);border-bottom:1px solid var(--line)}
   .showcase .stage{max-width:1220px;margin:44px auto 0;padding:0 28px}
-  .showcase .window{border-radius:16px;overflow:hidden;border:1px solid var(--line);box-shadow:var(--shadow);background:var(--surface)}
-  .showcase .window .bar{display:flex;align-items:center;gap:7px;padding:11px 16px;border-bottom:1px solid var(--line);background:var(--surface)}
-  .showcase .window .bar i{width:11px;height:11px;border-radius:50%;display:inline-block;background:var(--line)}
-  .showcase .window .bar i:nth-child(1){background:#E0877E} .showcase .window .bar i:nth-child(2){background:#E1C05A} .showcase .window .bar i:nth-child(3){background:#7FBE93}
-  .showcase .window .bar .u{margin-left:12px;font-size:.72rem;color:var(--muted);font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-  .showcase .window img{display:block;width:100%;height:auto}
+  .showcase img.shot{overflow:hidden}
   .showcase .cap{text-align:center;color:var(--muted);font-size:.88rem;margin:16px auto 0;max-width:64ch;padding:0 20px}
 
   /* why */
@@ -575,10 +570,7 @@
         </div>
       </div>
       <div class="stage reveal">
-        <div class="window">
-          <div class="bar"><i></i><i></i><i></i><span class="u">Prong Studio · Quote · Cost breakdown</span></div>
-          <img src="shots/quote-cost-breakdown.png" width="1690" height="898" loading="lazy" decoding="async" alt="Prong Studio quote cost breakdown — materials, labour and stones itemised, with base cost, markup multiplier and profit margin.">
-        </div>
+        <img class="shot" src="shots/quote-cost-breakdown.png" width="1642" height="930" loading="lazy" decoding="async" alt="Prong Studio quote cost breakdown — materials, labour and stones itemised, with base cost, markup multiplier and profit margin.">
         <p class="cap">A quote cost breakdown in Prong Studio — itemised materials, labour and stones, with live margin on the job.</p>
       </div>
     </section>
