@@ -8916,6 +8916,29 @@ const signupRateCheck=()=>{
 };
 const recordSignupAttempt=()=>{try{const arr=_signupAttempts();arr.push(Date.now());localStorage.setItem(_SIGNUP_ATTEMPTS_KEY,JSON.stringify(arr));}catch(e){}};
 
+// ── CAPTCHA (Cloudflare Turnstile) ─────────────────────────────────────────
+// Only active where a site key is configured (VITE_TURNSTILE_SITE_KEY) — so the owner's own
+// single-tenant deployment and local dev, which don't set it, are unaffected. When active it's
+// required for BOTH sign-up and sign-in, because enabling CAPTCHA in the Supabase Auth dashboard
+// enforces a token on both endpoints. Pair the site key here with the matching secret key in
+// Supabase → Authentication → Settings → Enable Captcha protection (provider: Turnstile).
+const TURNSTILE_SITE_KEY=import.meta.env.VITE_TURNSTILE_SITE_KEY||"";
+let _turnstilePromise=null;
+const loadTurnstile=()=>{
+  if(typeof window==="undefined")return Promise.reject(new Error("no window"));
+  if(window.turnstile)return Promise.resolve();
+  if(_turnstilePromise)return _turnstilePromise;
+  _turnstilePromise=new Promise((resolve,reject)=>{
+    const s=document.createElement("script");
+    s.src="https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit";
+    s.async=true;s.defer=true;
+    s.onload=()=>resolve();
+    s.onerror=()=>{_turnstilePromise=null;reject(new Error("turnstile load failed"));};
+    document.head.appendChild(s);
+  });
+  return _turnstilePromise;
+};
+
 function Login(){
   // "in" = sign in · "up" = create account. The landing's "Start free trial" links to ?signup so
   // new visitors open straight on the create-account view instead of the sign-in wall.
@@ -8930,6 +8953,29 @@ function Login(){
   const[err,setErr]=useState("");
   const[sentTo,setSentTo]=useState("");   // set after a successful sign-up → "check your email" state
   const[hp,setHp]=useState("");           // honeypot: hidden from humans, bots fill it → we silently no-op
+  const captchaOn=!!TURNSTILE_SITE_KEY;   // CAPTCHA required only where a site key is configured (this deployment)
+  const[captchaToken,setCaptchaToken]=useState("");
+  const[captchaFailed,setCaptchaFailed]=useState(false);
+  const captchaRef=useRef(null);
+  const widgetIdRef=useRef(null);
+  const resetCaptcha=()=>{if(!captchaOn)return;setCaptchaToken("");try{if(widgetIdRef.current!=null&&window.turnstile)window.turnstile.reset(widgetIdRef.current);}catch(e){}};
+  // Load + render the Turnstile widget once (skipped on the "check your email" screen).
+  useEffect(()=>{
+    if(!captchaOn||sentTo)return;
+    let cancelled=false;
+    loadTurnstile().then(()=>{
+      if(cancelled||!captchaRef.current||!window.turnstile||widgetIdRef.current!=null)return;
+      try{
+        widgetIdRef.current=window.turnstile.render(captchaRef.current,{
+          sitekey:TURNSTILE_SITE_KEY,theme:"dark",size:"flexible",
+          callback:(t)=>{setCaptchaToken(t);setCaptchaFailed(false);},
+          "error-callback":()=>setCaptchaToken(""),
+          "expired-callback":()=>setCaptchaToken(""),
+        });
+      }catch(e){setCaptchaFailed(true);}
+    }).catch(()=>{if(!cancelled)setCaptchaFailed(true);});
+    return()=>{cancelled=true;try{if(widgetIdRef.current!=null&&window.turnstile)window.turnstile.remove(widgetIdRef.current);}catch(e){}widgetIdRef.current=null;};
+  },[captchaOn,sentTo]);
   // Public sign-up is opt-in per deployment (VITE_ALLOW_SIGNUP="true"). Off by default, so the
   // single-tenant business deployment keeps an admin-only login; the tester deployment turns it on.
   const allowSignup=import.meta.env.VITE_ALLOW_SIGNUP==="true";
@@ -8952,23 +8998,27 @@ function Login(){
       const blocked=signupRateCheck();
       if(blocked)return setErr(blocked);
     }
+    // CAPTCHA gate (both sign-up and sign-in, when active) — Supabase enforces it server-side too.
+    if(captchaOn&&!captchaToken)return setErr("Please complete the verification check below.");
     setBusy(true);setErr("");
     if(signUp){
       recordSignupAttempt();
       // Studio name rides in user_metadata so it survives the email-confirmation gap and
       // pre-fills the "create your studio" step on first sign-in.
-      const{data,error}=await supabase.auth.signUp({email:email.trim(),password,options:{data:{studio_name:studioName.trim()}}});
+      const{data,error}=await supabase.auth.signUp({email:email.trim(),password,options:{data:{studio_name:studioName.trim()},captchaToken:captchaToken||undefined}});
       setBusy(false);
+      resetCaptcha();   // Turnstile tokens are single-use → refresh for any retry
       if(error)return setErr(error.message||"Sign up failed.");
       // Confirmation required → no active session yet; tell them to check their inbox.
       if(!data.session)setSentTo(email.trim());
     }else{
-      const{error}=await supabase.auth.signInWithPassword({email:email.trim(),password});
+      const{error}=await supabase.auth.signInWithPassword({email:email.trim(),password,options:{captchaToken:captchaToken||undefined}});
       setBusy(false);
+      resetCaptcha();
       if(error)setErr(error.message||"Sign in failed.");
     }
   };
-  const switchMode=to=>{setMode(to);setErr("");setSentTo("");};
+  const switchMode=to=>{setMode(to);setErr("");setSentTo("");resetCaptcha();};
   const darkInp={...SS.inp,marginTop:4,marginBottom:14,background:"#161616",border:"1px solid rgba(255,255,255,0.12)",color:WHITE};
   return <div style={{minHeight:"100vh",display:"flex",alignItems:"center",justifyContent:"center",background:"#000000",fontFamily:"'Poppins',sans-serif",padding:20}}>
     <form onSubmit={submit} style={{width:"100%",maxWidth:360,background:"#0E0E0E",border:"1px solid rgba(255,255,255,0.08)",borderRadius:16,padding:"36px 32px"}}>
@@ -8993,6 +9043,10 @@ function Login(){
           <input type="email" value={email} onChange={e=>setEmail(e.target.value)} autoFocus={!signUp} placeholder="you@studio.com" style={darkInp}/>
           <label style={{...SS.lbl,color:"rgba(255,255,255,0.5)"}}>Password</label>
           <input type="password" value={password} onChange={e=>setPassword(e.target.value)} placeholder={signUp?"At least 6 characters":"••••••••"} style={{...darkInp,marginBottom:18}}/>
+          {captchaOn&&<div style={{marginBottom:14}}>
+            <div ref={captchaRef}/>
+            {captchaFailed&&<div style={{fontSize:11,color:"#FF9B91",marginTop:6,lineHeight:1.5}}>Couldn't load the verification check. Refresh the page and try again.</div>}
+          </div>}
           {err&&<div style={{background:DANGER+"22",border:`1px solid ${DANGER}55`,color:"#FF9B91",fontSize:12,padding:"9px 12px",borderRadius:4,marginBottom:14}}>{err}</div>}
           <button type="submit" disabled={busy} style={{width:"100%",background:busy?"#7A5F0F":GOLD,color:WHITE,border:"none",borderRadius:4,padding:"11px",fontSize:14,fontWeight:700,cursor:busy?"default":"pointer",fontFamily:"inherit",letterSpacing:"0.04em"}}>
             {busy?(signUp?"Creating account…":"Signing in…"):(signUp?(invited?"Create account & join":"Create account"):"Sign in")}
