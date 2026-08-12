@@ -249,6 +249,9 @@
   /* "real look inside" — a native, responsive rebuild of the app's quote engine (not an image) */
   .showcase{background:var(--surface-2);border-top:1px solid var(--line);border-bottom:1px solid var(--line)}
   .appcard{max-width:860px;margin:44px auto 0;background:var(--surface);border:1px solid var(--line);border-radius:var(--rc);box-shadow:var(--shadow);overflow:hidden;font-variant-numeric:tabular-nums}
+  /* same card, reused inside a feature row's visual column */
+  .visual .appcard{margin:0;max-width:none}
+  .visual .cbcosts{grid-template-columns:1fr 1fr}
   .appcard-h{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:15px 22px;font-weight:700;color:var(--strong);border-bottom:1px solid var(--line);font-size:.95rem}
   .appcard-h .tag{font-size:.64rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
   .cbtable{padding:2px 22px}
@@ -519,21 +522,21 @@
           </ul>
         </div>
         <div class="visual">
-          <div class="quote">
-            <div class="quote-head"><span class="t">Cost breakdown · Custom pendant</span><span class="n">#T214</span></div>
-            <div class="quote-body">
-              <div class="qline"><span class="d">9ct yellow gold<small>1g × $88.85/g · cast<span class="live"><span class="pip"></span>live</span></small></span><span class="v">$88.85</span></div>
-              <div class="qline"><span class="d">Natural diamonds G-H SI1<small>1 stone × $12.50/stone</small></span><span class="v">$12.50</span></div>
-              <div class="qline"><span class="d">V-claw / Talon setting<small>0.67ct · V-claw / Talon</small></span><span class="v">$67.00</span></div>
-              <div class="qline"><span class="d">Bench Labour<small>1 hr × $70.00/hr</small></span><span class="v">$70.00</span></div>
+          <div class="appcard">
+            <div class="appcard-h"><span>Cost breakdown</span><span class="tag">Custom pendant</span></div>
+            <div class="cbtable">
+              <div class="cbrow"><div class="cbi"><b>9ct yellow gold</b><span>1g × $88.85/g · cast</span></div><div class="cbc">$88.85</div></div>
+              <div class="cbrow"><div class="cbi"><b>Natural diamonds G-H SI1</b><span>1 stone × $12.50/stone</span></div><div class="cbc">$12.50</div></div>
+              <div class="cbrow"><div class="cbi"><b>V-claw / Talon setting</b><span>0.67ct · V-claw / Talon</span></div><div class="cbc">$67.00</div></div>
+              <div class="cbrow"><div class="cbi"><b>Bench Labour</b><span>1 hr × $70.00/hr</span></div><div class="cbc">$70.00</div></div>
             </div>
-            <div class="costbar">
-              <div class="cell"><div class="k">Base cost</div><div class="v">$582.35</div></div>
-              <div class="cell"><div class="k">Bracket</div><div class="v">$500–$1k</div></div>
-              <div class="cell"><div class="k">Multiplier</div><div class="v mult">2.5×</div></div>
-              <div class="cell"><div class="k">Markup total</div><div class="v mk">$1,456</div></div>
+            <div class="cbcosts">
+              <div><span class="k">Base cost</span><span class="v">$582.35</span></div>
+              <div><span class="k">Bracket</span><span class="v">$500–$1k</span></div>
+              <div><span class="k">Multiplier</span><span class="v mult">2.5×</span></div>
+              <div><span class="k">Markup total</span><span class="v mk">$1,456</span></div>
             </div>
-            <div class="profitbar"><span class="l">Your profit · excl GST</span><span class="r">$741.17 · 56% margin</span></div>
+            <div class="cbprofit"><span class="l">Your profit · excl GST</span><span class="r">$741.17 · 56% margin</span></div>
           </div>
         </div>
       </div>
