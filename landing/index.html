@@ -217,6 +217,27 @@
   .stat .s{font-size:.72rem;color:var(--ok);font-weight:700;margin-top:2px}
   .stat .s.mut{color:var(--muted)}
 
+  /* app-style invoice + job cards (feature visuals) — real data, responsive */
+  .badge{font-size:.6rem;font-weight:700;letter-spacing:.05em;text-transform:uppercase;padding:3px 9px;border-radius:999px;border:1px solid var(--line);color:var(--muted);white-space:nowrap}
+  .badge.ok{color:var(--ok);border-color:color-mix(in srgb,var(--ok) 40%,transparent);background:color-mix(in srgb,var(--ok) 12%,transparent)}
+  .badge.warn{color:var(--sun);border-color:color-mix(in srgb,var(--sun) 45%,transparent);background:color-mix(in srgb,var(--sun) 14%,transparent)}
+  .ilines,.jqlist{display:flex;flex-direction:column;font-variant-numeric:tabular-nums}
+  .iline{display:grid;grid-template-columns:1fr auto;gap:4px 12px;align-items:baseline;padding:10px 0;border-bottom:1px solid var(--line)}
+  .iline:last-child{border-bottom:none}
+  .iline .d,.jqrow .d{font-size:.85rem;color:var(--strong);font-weight:600;min-width:0}
+  .iline .d small,.jqrow .d small{display:block;font-size:.71rem;color:var(--muted);font-weight:400;margin-top:2px}
+  .iline .v,.jqrow .v{font-size:.88rem;font-weight:700;color:var(--strong);white-space:nowrap}
+  .itot{display:flex;justify-content:space-between;align-items:baseline;padding-top:10px;font-size:.84rem;color:var(--muted);font-variant-numeric:tabular-nums}
+  .itot b{color:var(--strong);font-weight:700}
+  .itot.grand{margin-top:8px;padding-top:12px;border-top:2px solid var(--strong)}
+  .itot.grand span{font-weight:800;color:var(--strong);font-size:.95rem} .itot.grand b{font-size:1.15rem;font-weight:800}
+  .jqrow{display:grid;grid-template-columns:1fr auto auto;gap:10px;align-items:center;padding:11px 0;border-bottom:1px solid var(--line)}
+  .jqrow:last-child{border-bottom:none}
+  .jpay{display:flex;gap:20px;flex-wrap:wrap;padding-top:13px;font-size:.82rem;color:var(--muted)}
+  .jpay b{color:var(--strong);font-weight:700}
+  .cmeta{font-size:.82rem;color:var(--muted);margin:-4px 0 14px;padding-bottom:14px;border-bottom:1px solid var(--line)}
+  .cmeta b{color:var(--strong);font-weight:700}
+
   /* "real look inside" — a native, responsive rebuild of the app's quote engine (not an image) */
   .showcase{background:var(--surface-2);border-top:1px solid var(--line);border-bottom:1px solid var(--line)}
   .appcard{max-width:860px;margin:44px auto 0;background:var(--surface);border:1px solid var(--line);border-radius:var(--rc);box-shadow:var(--shadow);overflow:hidden;font-variant-numeric:tabular-nums}
@@ -540,21 +561,22 @@
           <h3>Know exactly where every job is.</h3>
           <p>Accepted proposals become tracked jobs automatically — visible across every stage of the bench, so nothing slips between the tweezers.</p>
           <ul class="checks">
-            <li><span class="ck"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="m5 12 5 5L20 6"/></svg></span> A drag-and-drop board across your own stages</li>
-            <li><span class="ck"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="m5 12 5 5L20 6"/></svg></span> Due dates, list &amp; board views</li>
+            <li><span class="ck"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="m5 12 5 5L20 6"/></svg></span> Every option, payment and stage on one job page</li>
+            <li><span class="ck"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="m5 12 5 5L20 6"/></svg></span> Drag-and-drop board, due dates, list &amp; board views</li>
             <li><span class="ck"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="m5 12 5 5L20 6"/></svg></span> Repairs &amp; safekeeping tracked alongside</li>
             <li><span class="ck"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="m5 12 5 5L20 6"/></svg></span> No more "where's my ring?" guesswork</li>
           </ul>
         </div>
         <div class="visual">
           <div class="panel">
-            <div class="panel-head"><span class="t">Production board</span><span class="b">Drag to move stage</span></div>
-            <div class="board">
-              <div class="col"><div class="ch">Enquiry <b>3</b></div><div class="jcard"><div class="jn">Engagement ring</div><div class="jc">A. Rossi</div><div class="jd">Due Mon</div></div></div>
-              <div class="col"><div class="ch">Design / CAD <b>2</b></div><div class="jcard"><div class="jn">Wedding band</div><div class="jc">M. Ellis</div><div class="jd">Due Fri</div></div></div>
-              <div class="col"><div class="ch">Manufacturing <b>3</b></div><div class="jcard"><div class="jn">Dress ring</div><div class="jc">R. Okafor</div><div class="jd">Due Wed</div></div></div>
-              <div class="col"><div class="ch">QC check <b>1</b></div><div class="jcard"><div class="jn">Eternity ring</div><div class="jc">T. Nguyen</div><div class="jd">Ready</div></div></div>
+            <div class="panel-head"><span class="t">Job · Wedding band</span><span class="badge ok">Ready for collection</span></div>
+            <div class="cmeta"><b>Ava &amp; Daniel Hartley</b> · taken in 13 June</div>
+            <div class="jqlist">
+              <div class="jqrow"><span class="d">Platinum Wedding ring M107 6mm<small>Base $895 → 2.5×</small></span><span class="badge ok">Approved</span><span class="v">$2,250</span></div>
+              <div class="jqrow"><span class="d">5 × 4mm marquise · 18ct yellow gold<small>Base $1,265 → 2.45×</small></span><span class="badge ok">Approved</span><span class="v">$3,100</span></div>
+              <div class="jqrow"><span class="d">Lab-Grown Marquise · 9ct yellow gold<small>Base $815 → 2.8×</small></span><span class="badge">Draft</span><span class="v">$2,300</span></div>
             </div>
+            <div class="jpay"><span>Received <b>$2,675</b></span><span>Outstanding <b>$2,675</b></span></div>
           </div>
         </div>
       </div>
@@ -573,14 +595,16 @@
         </div>
         <div class="visual">
           <div class="panel">
-            <div class="panel-head"><span class="t">Reports</span><span class="b">At a glance</span></div>
-            <div class="stats">
-              <div class="stat"><div class="k">Total sales</div><div class="v">$52,400</div><div class="s mut">agreed charges</div></div>
-              <div class="stat"><div class="k">Total received</div><div class="v">$47,900</div><div class="s">cash + trade-ins</div></div>
-              <div class="stat"><div class="k">Outstanding</div><div class="v">$4,500</div><div class="s mut">balance owed</div></div>
-              <div class="stat"><div class="k">Quote conversion</div><div class="v">72%</div><div class="s mut">21 of 29 decided</div></div>
+            <div class="panel-head"><span class="t">Tax invoice · 00001025</span><span class="badge warn">Unpaid</span></div>
+            <div class="cmeta"><b>Claire Whitfield</b> · engagement ring · 11 Aug 2026</div>
+            <div class="ilines">
+              <div class="iline"><span class="d">Platinum 950<small>5g × $143.34/g · cast · GST</small></span><span class="v">$716.68</span></div>
+              <div class="iline"><span class="d">Bench Labour (Casting Assembly)<small>3 hr × $70.00/hr · GST</small></span><span class="v">$210.00</span></div>
+              <div class="iline"><span class="d">IGI Lab-Grown Emerald 1.5ct<small>D VVS2 · Cert LG821626079 · GST</small></span><span class="v">$1,100.00</span></div>
+              <div class="iline"><span class="d">Prong / Claw setting · platinum<small>18 stones × 0.9mm · +20% · GST</small></span><span class="v">$87.48</span></div>
             </div>
-            <p class="fig-note" style="margin-top:12px">Illustrative figures.</p>
+            <div class="itot"><span>Includes GST</span><b>$677.27</b></div>
+            <div class="itot grand"><span>Total (incl. GST)</span><b>$7,450.00</b></div>
           </div>
         </div>
       </div>
@@ -595,7 +619,7 @@
           <p>The jewellery runs on your labour-and-metal markup; the centre stone on its own tier with GST — then Prong Studio combines them into a single quoted total. Real figures, rebuilt to read on any screen.</p>
         </div>
         <div class="appcard reveal">
-          <div class="appcard-h"><span>Cost breakdown</span><span class="tag">Custom pendant</span></div>
+          <div class="appcard-h"><span>Cost breakdown · Nadia Costa</span><span class="tag">Custom pendant</span></div>
           <div class="cbtable">
             <div class="cbrow"><div class="cbi"><b>9ct Yellow Gold Diamond Cut Oblong Trace</b><span>1 piece</span></div><div class="cbc">$250.00</div></div>
             <div class="cbrow"><div class="cbi"><b>9ct yellow gold</b><span>1g × $88.85/g · cast</span></div><div class="cbc">$88.85</div></div>
