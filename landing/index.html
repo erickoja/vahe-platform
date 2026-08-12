@@ -188,9 +188,6 @@
   .checks li .ck{width:22px;height:22px;flex-shrink:0;border-radius:7px;background:color-mix(in srgb,var(--accent) 15%,transparent);display:grid;place-items:center;margin-top:1px}
   .checks li .ck svg{width:13px;height:13px;color:var(--accent)}
 
-  /* real app screenshots — framed to sit like the mockup cards */
-  .shot{display:block;width:100%;height:auto;border:1px solid var(--line);border-radius:var(--rc);box-shadow:var(--shadow);background:var(--surface)}
-
   .panel{background:var(--surface);border:1px solid var(--line);border-radius:var(--rc);box-shadow:var(--shadow);padding:20px}
   .panel-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px}
   .panel-head .t{font-size:.72rem;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--muted)}
@@ -220,11 +217,30 @@
   .stat .s{font-size:.72rem;color:var(--ok);font-weight:700;margin-top:2px}
   .stat .s.mut{color:var(--muted)}
 
-  /* full-width product showcase — real app screenshots shown large enough to read */
+  /* "real look inside" — a native, responsive rebuild of the app's quote engine (not an image) */
   .showcase{background:var(--surface-2);border-top:1px solid var(--line);border-bottom:1px solid var(--line)}
-  .showcase .stage{max-width:1220px;margin:44px auto 0;padding:0 28px}
-  .showcase img.shot{overflow:hidden}
-  .showcase .cap{text-align:center;color:var(--muted);font-size:.88rem;margin:16px auto 0;max-width:64ch;padding:0 20px}
+  .appcard{max-width:860px;margin:44px auto 0;background:var(--surface);border:1px solid var(--line);border-radius:var(--rc);box-shadow:var(--shadow);overflow:hidden;font-variant-numeric:tabular-nums}
+  .appcard-h{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:15px 22px;font-weight:700;color:var(--strong);border-bottom:1px solid var(--line);font-size:.95rem}
+  .appcard-h .tag{font-size:.64rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+  .cbtable{padding:2px 22px}
+  .cbrow{display:flex;align-items:baseline;justify-content:space-between;gap:14px;padding:11px 0;border-bottom:1px solid var(--line)}
+  .cbrow:last-child{border-bottom:none}
+  .cbi{min-width:0}
+  .cbi b{display:block;font-size:.9rem;font-weight:600;color:var(--strong);line-height:1.35}
+  .cbi span{display:block;font-size:.75rem;color:var(--muted);margin-top:2px}
+  .cbc{font-weight:700;color:var(--strong);white-space:nowrap;font-size:.92rem}
+  .cbcosts{display:grid;grid-template-columns:repeat(4,1fr);gap:1px;background:var(--line);border-top:1px solid var(--line)}
+  .cbcosts>div{background:var(--surface-2);padding:12px 16px;display:flex;flex-direction:column;gap:3px}
+  .cbcosts .k{font-size:.58rem;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
+  .cbcosts .v{font-size:.95rem;font-weight:700;color:var(--strong)}
+  .cbcosts .v.mult{color:var(--accent)} .cbcosts .v.mk{color:var(--ok)}
+  .cbprofit{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:14px 22px;background:color-mix(in srgb,var(--ok) 12%,var(--surface));border-top:1px solid var(--line);font-size:.85rem}
+  .cbprofit .l{color:var(--text);font-weight:600} .cbprofit .r{font-weight:700;color:var(--ok);white-space:nowrap}
+  @media (max-width:560px){
+    .appcard-h,.cbtable{padding-left:16px;padding-right:16px}
+    .cbcosts{grid-template-columns:1fr 1fr}
+    .cbprofit{flex-direction:column;align-items:flex-start;gap:4px;padding:12px 16px}
+  }
 
   /* why */
   .why{background:var(--surface-2);border-top:1px solid var(--line);border-bottom:1px solid var(--line)}
@@ -566,12 +582,28 @@
         <div class="sec-head reveal">
           <p class="eyebrow">A real look inside</p>
           <h2>The actual app — not a rendering.</h2>
-          <p>Every quote breaks down to the metal, stones and labour, with your markup and true margin on each job — before you ever send a price.</p>
+          <p>Every quote breaks down to the metal, stones and labour, with your markup and true margin worked out before you send a price.</p>
         </div>
-      </div>
-      <div class="stage reveal">
-        <img class="shot" src="shots/quote-cost-breakdown.png" width="1628" height="934" loading="lazy" decoding="async" alt="Prong Studio quote cost breakdown — materials, labour and stones itemised, with base cost, markup multiplier and profit margin.">
-        <p class="cap">A quote cost breakdown in Prong Studio — itemised materials, labour and stones, with live margin on the job.</p>
+        <div class="appcard reveal">
+          <div class="appcard-h"><span>Cost breakdown</span><span class="tag">Custom pendant</span></div>
+          <div class="cbtable">
+            <div class="cbrow"><div class="cbi"><b>9ct Yellow Gold Diamond Cut Oblong Trace</b><span>1 piece</span></div><div class="cbc">$250.00</div></div>
+            <div class="cbrow"><div class="cbi"><b>9ct yellow gold</b><span>1g × $88.85/g · cast</span></div><div class="cbc">$88.85</div></div>
+            <div class="cbrow"><div class="cbi"><b>Natural diamonds G-H SI1 1.8mm</b><span>1 stone × $12.50/stone</span></div><div class="cbc">$12.50</div></div>
+            <div class="cbrow"><div class="cbi"><b>Prong / Claw setting</b><span>1 stone × 1.8mm</span></div><div class="cbc">$9.00</div></div>
+            <div class="cbrow"><div class="cbi"><b>V-claw / Talon setting</b><span>0.67ct · V-claw / Talon</span></div><div class="cbc">$67.00</div></div>
+            <div class="cbrow"><div class="cbi"><b>3D print fee</b><span>1 piece × $75.00/piece</span></div><div class="cbc">$75.00</div></div>
+            <div class="cbrow"><div class="cbi"><b>Casting fee</b><span>1 piece × $10.00/piece</span></div><div class="cbc">$10.00</div></div>
+            <div class="cbrow"><div class="cbi"><b>Bench Labour (Casting Assembly)</b><span>1 hr × $70.00/hr</span></div><div class="cbc">$70.00</div></div>
+          </div>
+          <div class="cbcosts">
+            <div><span class="k">Base cost</span><span class="v">$582.35</span></div>
+            <div><span class="k">Bracket</span><span class="v">$500–$1,000</span></div>
+            <div><span class="k">Multiplier</span><span class="v mult">2.5×</span></div>
+            <div><span class="k">Markup total</span><span class="v mk">$1,456</span></div>
+          </div>
+          <div class="cbprofit"><span class="l">Your profit on the jewellery · excl GST</span><span class="r">$741.17 · 56% margin</span></div>
+        </div>
       </div>
     </section>
 
