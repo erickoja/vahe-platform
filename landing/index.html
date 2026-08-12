@@ -179,6 +179,9 @@
 
   /* feature rows */
   .frow{display:grid;grid-template-columns:1fr 1fr;gap:54px;align-items:center;max-width:var(--edge);margin:0 auto;padding:58px 28px}
+  /* let each grid cell shrink to its fr share so wide, scrollable content (the jobs board)
+     can't blow the track out and squish the text column */
+  .frow>*{min-width:0}
   .frow + .frow{border-top:1px solid var(--line)}
   .frow.rev .ftxt{order:2}
   .ftxt h3{font-size:clamp(1.5rem,3.1vw,2rem);line-height:1.12;margin:12px 0 0}
