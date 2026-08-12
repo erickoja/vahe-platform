@@ -202,13 +202,18 @@
   .opt .acc{font-size:.64rem;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--ok);display:flex;align-items:center;gap:4px;margin-top:3px}
   .opt-btn{margin-top:12px;width:100%;text-align:center;background:var(--accent);color:#fff;border:none;border-radius:11px;padding:12px;font-family:var(--sans);font-size:.9rem;font-weight:700;cursor:default}
 
-  .board{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}
-  .col .ch{display:flex;align-items:center;justify-content:space-between;font-size:.62rem;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);margin-bottom:8px}
-  .col .ch b{background:color-mix(in srgb,var(--peri) 18%,transparent);border-radius:999px;padding:1px 7px;color:var(--peri-ink)}
-  .jcard{background:var(--surface-2);border:1px solid var(--line);border-radius:9px;padding:9px 10px;margin-bottom:8px}
+  /* jobs board — horizontally scrollable columns, real stage colours via --cc */
+  .board{display:flex;gap:12px;overflow-x:auto;padding-bottom:8px;-webkit-overflow-scrolling:touch}
+  .board .col{flex:0 0 152px;min-width:152px}
+  .col .ch{display:flex;align-items:center;justify-content:space-between;gap:6px;font-size:.6rem;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--strong);padding:7px 2px 9px;border-top:2px solid var(--cc,var(--line));margin-bottom:9px}
+  .col .ch b{background:color-mix(in srgb,var(--cc,var(--peri)) 16%,transparent);color:var(--cc,var(--peri-ink));border-radius:999px;padding:1px 7px;font-size:.62rem}
+  .jcard{background:var(--surface);border:1px solid var(--line);border-left:3px solid var(--cc,var(--line));border-radius:9px;padding:9px 11px;margin-bottom:8px;box-shadow:var(--shadow-sm)}
   .jcard .jn{font-size:.76rem;font-weight:700;color:var(--strong)}
   .jcard .jc{font-size:.68rem;color:var(--muted);margin-top:2px}
-  .jcard .jd{font-size:.62rem;color:var(--accent);font-weight:700;margin-top:5px}
+  .jcard .jd{font-size:.62rem;color:var(--muted);font-weight:600;margin-top:6px}
+  .jcard .jd.over{color:var(--accent)}
+  .jcard .await{display:inline-flex;align-items:center;gap:4px;font-size:.6rem;font-weight:700;color:var(--sun);margin-top:6px}
+  .jcard .await svg{width:9px;height:9px;flex:none}
 
   .stats{display:grid;grid-template-columns:1fr 1fr;gap:10px}
   .stat{border:1px solid var(--line);border-radius:12px;padding:14px 15px;background:var(--surface-2)}
@@ -561,22 +566,40 @@
           <h3>Know exactly where every job is.</h3>
           <p>Accepted proposals become tracked jobs automatically — visible across every stage of the bench, so nothing slips between the tweezers.</p>
           <ul class="checks">
-            <li><span class="ck"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="m5 12 5 5L20 6"/></svg></span> Every option, payment and stage on one job page</li>
-            <li><span class="ck"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="m5 12 5 5L20 6"/></svg></span> Drag-and-drop board, due dates, list &amp; board views</li>
+            <li><span class="ck"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="m5 12 5 5L20 6"/></svg></span> A drag-and-drop board across your own stages</li>
+            <li><span class="ck"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="m5 12 5 5L20 6"/></svg></span> Due dates, list &amp; board views</li>
             <li><span class="ck"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="m5 12 5 5L20 6"/></svg></span> Repairs &amp; safekeeping tracked alongside</li>
             <li><span class="ck"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="m5 12 5 5L20 6"/></svg></span> No more "where's my ring?" guesswork</li>
           </ul>
         </div>
         <div class="visual">
           <div class="panel">
-            <div class="panel-head"><span class="t">Job · Wedding band</span><span class="badge ok">Ready for collection</span></div>
-            <div class="cmeta"><b>Ava &amp; Daniel Hartley</b> · taken in 13 June</div>
-            <div class="jqlist">
-              <div class="jqrow"><span class="d">Platinum Wedding ring M107 6mm<small>Base $895 → 2.5×</small></span><span class="badge ok">Approved</span><span class="v">$2,250</span></div>
-              <div class="jqrow"><span class="d">5 × 4mm marquise · 18ct yellow gold<small>Base $1,265 → 2.45×</small></span><span class="badge ok">Approved</span><span class="v">$3,100</span></div>
-              <div class="jqrow"><span class="d">Lab-Grown Marquise · 9ct yellow gold<small>Base $815 → 2.8×</small></span><span class="badge">Draft</span><span class="v">$2,300</span></div>
+            <div class="panel-head"><span class="t">Jobs · Board</span><span class="b">Drag a card to move stage</span></div>
+            <div class="board">
+              <div class="col" style="--cc:#A0845C">
+                <div class="ch"><span>Enquiry</span> <b>11</b></div>
+                <div class="jcard"><div class="jn">Engagement ring</div><div class="jc">Ava Sinclair</div><div class="jd over">Due 9 Aug · Overdue</div></div>
+                <div class="jcard"><div class="jn">Necklace</div><div class="jc">Thomas Reed</div></div>
+              </div>
+              <div class="col" style="--cc:#7A6C5D">
+                <div class="ch"><span>Consultation</span> <b>2</b></div>
+                <div class="jcard"><div class="jn">Wedding band</div><div class="jc">Harper Nolan</div><div class="await"><svg viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="5" width="4" height="14" rx="1"/><rect x="14" y="5" width="4" height="14" rx="1"/></svg> Awaiting client</div></div>
+              </div>
+              <div class="col" style="--cc:#5E9078">
+                <div class="ch"><span>Quoted</span> <b>4</b></div>
+                <div class="jcard"><div class="jn">Dress ring</div><div class="jc">Kelly Rowe</div><div class="await"><svg viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="5" width="4" height="14" rx="1"/><rect x="14" y="5" width="4" height="14" rx="1"/></svg> Awaiting client</div></div>
+                <div class="jcard"><div class="jn">Necklace</div><div class="jc">Laura Bianchi</div></div>
+              </div>
+              <div class="col" style="--cc:#3E8E8E">
+                <div class="ch"><span>On the bench</span> <b>1</b></div>
+                <div class="jcard"><div class="jn">Wedding band</div><div class="jc">Krystle Barnes</div><div class="jd">Due 4 Sept</div></div>
+              </div>
+              <div class="col" style="--cc:#96627C">
+                <div class="ch"><span>Design / CAD</span> <b>3</b></div>
+                <div class="jcard"><div class="jn">Engagement ring</div><div class="jc">Mason Hale</div></div>
+                <div class="jcard"><div class="jn">Engagement ring</div><div class="jc">Noah Pratt</div></div>
+              </div>
             </div>
-            <div class="jpay"><span>Received <b>$2,675</b></span><span>Outstanding <b>$2,675</b></span></div>
           </div>
         </div>
       </div>
