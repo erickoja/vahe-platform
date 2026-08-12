@@ -236,10 +236,20 @@
   .cbcosts .v.mult{color:var(--accent)} .cbcosts .v.mk{color:var(--ok)}
   .cbprofit{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:14px 22px;background:color-mix(in srgb,var(--ok) 12%,var(--surface));border-top:1px solid var(--line);font-size:.85rem}
   .cbprofit .l{color:var(--text);font-weight:600} .cbprofit .r{font-weight:700;color:var(--ok);white-space:nowrap}
+  /* centre stone — priced on its own tier, then combined */
+  .cbsec{display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:16px 22px 4px;border-top:1px solid var(--line);font-weight:700;color:var(--strong);font-size:.9rem}
+  .gpill{font-size:.56rem;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--ok);background:color-mix(in srgb,var(--ok) 14%,transparent);border:1px solid color-mix(in srgb,var(--ok) 32%,transparent);border-radius:999px;padding:3px 9px}
+  .cbcosts.five{grid-template-columns:repeat(5,1fr)}
+  .cbcombined{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;background:#181310;color:#fff;padding:17px 22px}
+  .cbcombined .k{display:block;font-size:.56rem;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:rgba(255,255,255,.55)}
+  .cbcombined .v{display:block;font-size:1.2rem;font-weight:700;margin-top:5px}
+  .cbcombined .jp .v{color:#E68A7E} .cbcombined .st .v{color:#F2ECE6} .cbcombined .ct .v{color:#7FC698}
   @media (max-width:560px){
-    .appcard-h,.cbtable{padding-left:16px;padding-right:16px}
-    .cbcosts{grid-template-columns:1fr 1fr}
+    .appcard-h,.cbtable,.cbsec{padding-left:16px;padding-right:16px}
+    .cbcosts,.cbcosts.five{grid-template-columns:1fr 1fr}
     .cbprofit{flex-direction:column;align-items:flex-start;gap:4px;padding:12px 16px}
+    .cbcombined{padding-left:16px;padding-right:16px;gap:8px}
+    .cbcombined .v{font-size:1.02rem}
   }
 
   /* why */
@@ -581,8 +591,8 @@
       <div class="wrap">
         <div class="sec-head reveal">
           <p class="eyebrow">A real look inside</p>
-          <h2>The actual app — not a rendering.</h2>
-          <p>Every quote breaks down to the metal, stones and labour, with your markup and true margin worked out before you send a price.</p>
+          <h2>Price the piece and the centre stone separately — quote them as one.</h2>
+          <p>The jewellery runs on your labour-and-metal markup; the centre stone on its own tier with GST — then Prong Studio combines them into a single quoted total. Real figures, rebuilt to read on any screen.</p>
         </div>
         <div class="appcard reveal">
           <div class="appcard-h"><span>Cost breakdown</span><span class="tag">Custom pendant</span></div>
@@ -603,6 +613,23 @@
             <div><span class="k">Markup total</span><span class="v mk">$1,456</span></div>
           </div>
           <div class="cbprofit"><span class="l">Your profit on the jewellery · excl GST</span><span class="r">$741.17 · 56% margin</span></div>
+          <div class="cbsec"><span class="gpill">Natural diamond / gemstone</span> Centre / feature stone</div>
+          <div class="cbtable">
+            <div class="cbrow"><div class="cbi"><b>Natural Emerald 0.67ct Blue Sapphire</b><span>6mm × 4mm</span></div><div class="cbc">Your cost $225.00</div></div>
+          </div>
+          <div class="cbcosts five">
+            <div><span class="k">Your cost</span><span class="v">$225.00</span></div>
+            <div><span class="k">Bracket</span><span class="v">$0–$500</span></div>
+            <div><span class="k">Markup</span><span class="v mult">3×</span></div>
+            <div><span class="k">Marked up</span><span class="v">$681.82</span></div>
+            <div><span class="k">+ GST — client</span><span class="v mk">$750</span></div>
+          </div>
+          <div class="cbprofit"><span class="l">Your profit on this stone · excl GST</span><span class="r">$456.82 · 67% margin</span></div>
+          <div class="cbcombined">
+            <div class="jp"><span class="k">Jewellery piece</span><span class="v">$1,450</span></div>
+            <div class="st"><span class="k">Stone</span><span class="v">$750</span></div>
+            <div class="ct"><span class="k">Combined total</span><span class="v">$2,200</span></div>
+          </div>
         </div>
       </div>
     </section>
