@@ -284,6 +284,24 @@
     .cbcombined .v{font-size:1.02rem}
   }
 
+  /* stock gallery — responsive product-card grid */
+  .stockgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:18px;margin:44px auto 0}
+  .scard{background:var(--surface);border:1px solid var(--line);border-radius:14px;overflow:hidden;box-shadow:var(--shadow-sm);transition:transform .18s ease,box-shadow .18s ease}
+  .scard:hover{transform:translateY(-3px);box-shadow:var(--shadow)}
+  .sphoto{position:relative;aspect-ratio:5/4;background:linear-gradient(160deg,#F4EEE7,#E6DACE)}
+  .sphoto img{width:100%;height:100%;object-fit:cover;display:block}
+  .sphoto .ph{position:absolute;inset:0;display:grid;place-items:center;color:var(--muted);opacity:.22}
+  .sphoto .ph svg{width:48px;height:48px}
+  .savail{position:absolute;top:9px;left:9px;font-size:.6rem;font-weight:700;color:var(--ok);background:color-mix(in srgb,var(--ok) 16%,#fff);border:1px solid color-mix(in srgb,var(--ok) 30%,transparent);border-radius:6px;padding:3px 8px}
+  .sbody{padding:13px 14px 15px}
+  .stitle{font-size:.86rem;font-weight:700;color:var(--strong);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .ssku{font-size:.72rem;color:var(--muted);margin-top:3px}
+  .smade{display:inline-block;font-size:.63rem;font-weight:600;color:var(--accent-ink);background:color-mix(in srgb,var(--accent) 12%,transparent);border:1px solid color-mix(in srgb,var(--accent) 24%,transparent);border-radius:6px;padding:3px 8px;margin-top:11px}
+  .sfoot{display:flex;align-items:baseline;justify-content:space-between;gap:8px;margin-top:12px}
+  .sprice{font-size:1.05rem;font-weight:800;color:var(--strong)}
+  .smargin{font-size:.74rem;font-weight:700;color:var(--ok)}
+  @media (max-width:520px){.stockgrid{grid-template-columns:1fr 1fr;gap:12px}}
+
   /* why */
   .why{background:var(--surface-2);border-top:1px solid var(--line);border-bottom:1px solid var(--line)}
   .why .grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:20px;margin:46px 0 0}
@@ -683,6 +701,27 @@
             <div class="st"><span class="k">Stone</span><span class="v">$750</span></div>
             <div class="ct"><span class="k">Combined total</span><span class="v">$2,200</span></div>
           </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- STOCK -->
+    <section class="section">
+      <div class="wrap">
+        <div class="sec-head reveal">
+          <p class="eyebrow">Stock &amp; display</p>
+          <h2>Your ready-to-sell pieces, at a glance.</h2>
+          <p>Every display and stock piece with its photo, SKU, price and your margin — kept separate from custom jobs, always to hand.</p>
+        </div>
+        <div class="stockgrid reveal">
+          <div class="scard"><div class="sphoto"><span class="ph"><svg aria-hidden="true"><use href="#prong"/></svg></span><span class="savail">Available</span></div><div class="sbody"><div class="stitle">White Natural Princess Diamond Engagement</div><div class="ssku">V-78 · Ring</div><span class="smade">Cast &amp; assembly made</span><div class="sfoot"><span class="sprice">$6,250</span><span class="smargin">56% margin</span></div></div></div>
+          <div class="scard"><div class="sphoto"><span class="ph"><svg aria-hidden="true"><use href="#prong"/></svg></span><span class="savail">Available</span></div><div class="sbody"><div class="stitle">White Natural GIA Certified Marquise</div><div class="ssku">V-59 · Ring</div><span class="smade">Cast &amp; assembly made</span><div class="sfoot"><span class="sprice">$5,200</span><span class="smargin">59% margin</span></div></div></div>
+          <div class="scard"><div class="sphoto"><span class="ph"><svg aria-hidden="true"><use href="#prong"/></svg></span><span class="savail">Available</span></div><div class="sbody"><div class="stitle">White Natural Marquise Certified Halo</div><div class="ssku">V-158 · Ring</div><span class="smade">Cast &amp; assembly made</span><div class="sfoot"><span class="sprice">$29,950</span><span class="smargin">27% margin</span></div></div></div>
+          <div class="scard"><div class="sphoto"><span class="ph"><svg aria-hidden="true"><use href="#prong"/></svg></span><span class="savail">Available</span></div><div class="sbody"><div class="stitle">White Natural Diamond 3-Stone</div><div class="ssku">V0-55 · Ring</div><span class="smade">Overseas made</span><div class="sfoot"><span class="sprice">$3,850</span><span class="smargin">50% margin</span></div></div></div>
+          <div class="scard"><div class="sphoto"><span class="ph"><svg aria-hidden="true"><use href="#prong"/></svg></span><span class="savail">Available</span></div><div class="sbody"><div class="stitle">White Natural Diamond Studs</div><div class="ssku">V-148 · Earrings</div><span class="smade">Cast &amp; assembly made</span><div class="sfoot"><span class="sprice">$3,600</span><span class="smargin">50% margin</span></div></div></div>
+          <div class="scard"><div class="sphoto"><span class="ph"><svg aria-hidden="true"><use href="#prong"/></svg></span><span class="savail">Available</span></div><div class="sbody"><div class="stitle">White Natural Diamond Tennis Bracelet</div><div class="ssku">V0-10 · Bracelet</div><span class="smade">Overseas made</span><div class="sfoot"><span class="sprice">$26,700</span><span class="smargin">45% margin</span></div></div></div>
+          <div class="scard"><div class="sphoto"><span class="ph"><svg aria-hidden="true"><use href="#prong"/></svg></span><span class="savail">Available</span></div><div class="sbody"><div class="stitle">White Diamond &amp; Sapphire Trilogy</div><div class="ssku">V-143 · Ring</div><span class="smade">Cast &amp; assembly made</span><div class="sfoot"><span class="sprice">$5,150</span><span class="smargin">44% margin</span></div></div></div>
+          <div class="scard"><div class="sphoto"><span class="ph"><svg aria-hidden="true"><use href="#prong"/></svg></span><span class="savail">Available</span></div><div class="sbody"><div class="stitle">Radiant Cut Natural Emerald</div><div class="ssku">V-142 · Ring</div><span class="smade">Handmade</span><div class="sfoot"><span class="sprice">$6,800</span><span class="smargin">49% margin</span></div></div></div>
         </div>
       </div>
     </section>
