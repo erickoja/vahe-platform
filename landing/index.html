@@ -169,8 +169,9 @@
       radial-gradient(90% 120% at 10% 10%,color-mix(in srgb,var(--peri) 26%,transparent),transparent 55%),
       radial-gradient(90% 120% at 95% 90%,color-mix(in srgb,var(--accent) 16%,transparent),transparent 55%),
       var(--surface-2);border-top:1px solid var(--line);border-bottom:1px solid var(--line)}
-  .story .wrap{padding:70px 28px;position:relative;z-index:2;max-width:840px}
-  .story .mark-wm{color:var(--peri);position:absolute;right:-30px;top:50%;transform:translateY(-50%);width:280px;height:280px;opacity:.16;z-index:1}
+  .story .wrap{padding:70px 28px;position:relative;z-index:2;max-width:var(--edge);display:grid;grid-template-columns:1.05fr .95fr;gap:52px;align-items:center}
+  .story-media{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+  .story-media img{width:100%;height:auto;display:block;border-radius:12px;border:1px solid var(--line);box-shadow:var(--shadow);background:var(--surface)}
   .story h2{font-size:clamp(1.7rem,3.6vw,2.4rem);line-height:1.14;margin:14px 0 0;max-width:24ch}
   .story h2 em{font-style:normal;color:var(--accent)}
   .story p{color:var(--text);font-size:1.06rem;line-height:1.66;margin:18px 0 0;max-width:60ch}
@@ -379,11 +380,10 @@
   a:focus-visible,.btn:focus-visible,summary:focus-visible{outline:2px solid var(--accent);outline-offset:3px;border-radius:6px}
 
   @media (max-width:860px){
-    .hero .wrap,.frow{grid-template-columns:1fr;gap:40px}
+    .hero .wrap,.frow,.story .wrap{grid-template-columns:1fr;gap:40px}
     .hero{padding:52px 0}
     .frow.rev .ftxt{order:0}
     .why .grid3{grid-template-columns:1fr}
-    .story .mark-wm{opacity:.1;right:-90px}
   }
   @media (prefers-reduced-motion:reduce){
     .reveal{opacity:1;transform:none;transition:none}
@@ -507,14 +507,21 @@
 
     <!-- STORY -->
     <section class="story">
-      <svg class="mark mark-wm" aria-hidden="true"><use href="#prong"/></svg>
       <div class="wrap reveal">
-        <p class="eyebrow">Behind Prong Studio</p>
-        <h2>Built by a Jeweller, <em>for Jewellers</em>.</h2>
-        <p>I'm Eric Kojadelian, the owner of VAHÉ Jewellery. I've spent the past seven years running the business and working directly with the public, but at heart, I'm a manufacturing jeweller with a background in trade work.</p>
-        <p>I'm hands-on across nearly every stage of production, including CAD design, 3D printing, casting, assembly and diamond setting.</p>
-        <p>I built Prong Studio to make jewellers' lives easier, particularly when it comes to quoting, organisation and managing jobs. It isn't about automating everything. It's a practical tool built by a jeweller who understands the day-to-day challenges of running a jewellery business.</p>
-        <p class="sig">— <b>Eric Kojadelian</b> · VAHÉ Jewellery</p>
+        <div class="story-copy">
+          <p class="eyebrow">Behind Prong Studio</p>
+          <h2>Built by a Jeweller, <em>for Jewellers</em>.</h2>
+          <p>I'm Eric Kojadelian, the owner of VAHÉ Jewellery. I've spent the past seven years running the business and working directly with the public, but at heart, I'm a manufacturing jeweller with a background in trade work.</p>
+          <p>I'm hands-on across nearly every stage of production, including CAD design, 3D printing, casting, assembly and diamond setting.</p>
+          <p>I built Prong Studio to make jewellers' lives easier, particularly when it comes to quoting, organisation and managing jobs. It isn't about automating everything. It's a practical tool built by a jeweller who understands the day-to-day challenges of running a jewellery business.</p>
+          <p class="sig">— <b>Eric Kojadelian</b> · VAHÉ Jewellery</p>
+        </div>
+        <div class="story-media">
+          <img src="shots/stock/v158.png" width="250" height="232" loading="lazy" decoding="async" alt="White natural marquise diamond halo ring">
+          <img src="shots/stock/v142.png" width="250" height="232" loading="lazy" decoding="async" alt="Radiant-cut natural emerald ring">
+          <img src="shots/stock/v010.png" width="250" height="232" loading="lazy" decoding="async" alt="White natural diamond tennis bracelet">
+          <img src="shots/stock/v148.png" width="250" height="232" loading="lazy" decoding="async" alt="White natural diamond stud earrings">
+        </div>
       </div>
     </section>
 
