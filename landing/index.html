@@ -286,6 +286,7 @@
   }
 
   /* stock gallery — responsive product-card grid */
+  .stock-sec .sec-head{max-width:74ch}
   .stockgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:18px;margin:44px auto 0}
   .scard{background:var(--surface);border:1px solid var(--line);border-radius:14px;overflow:hidden;box-shadow:var(--shadow-sm);transition:transform .18s ease,box-shadow .18s ease}
   .scard:hover{transform:translateY(-3px);box-shadow:var(--shadow)}
@@ -705,7 +706,7 @@
     </section>
 
     <!-- STOCK -->
-    <section class="section">
+    <section class="section stock-sec">
       <div class="wrap">
         <div class="sec-head reveal">
           <p class="eyebrow">Stock &amp; display</p>
