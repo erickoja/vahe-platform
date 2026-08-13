@@ -5780,7 +5780,10 @@ function PublicProposalPage({token}){
           {note&&<div style={{fontSize:12,color:WG,marginTop:6,fontStyle:"italic"}}>{note}</div>}
         </div>;
         const fullDue=Math.max(0,comboPrice-paid-tradeIn);
-        const dueNowAmt=custom>0.005?Math.min(custom,fullDue):fullDue;   // never ask for more than is owed
+        // The deposit target (custom) is a slice of the TOTAL — credit payments + trade-in already
+        // received against it, so the amount due now = deposit less what's already been paid
+        // (deposit = % of total, minus payments). No staged amount → ask for the full balance.
+        const dueNowAmt=custom>0.005?Math.max(0,Math.min(custom-paid-tradeIn,fullDue)):fullDue;
         const remaining=Math.max(0,comboPrice-paid-tradeIn-dueNowAmt);
         const dueLabel=custom>0.005?"Amount due now":(dueNowAmt<=0.005?"Paid in full":"Balance now due");
         return <div style={{marginTop:16,background:PARCH,border:`1px solid ${BD}`,borderRadius:4,padding:"14px 16px"}}>
