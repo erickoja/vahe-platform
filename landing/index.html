@@ -246,6 +246,16 @@
   .jpay b{color:var(--strong);font-weight:700}
   .cmeta{font-size:.82rem;color:var(--muted);margin:-4px 0 14px;padding-bottom:14px;border-bottom:1px solid var(--line)}
   .cmeta b{color:var(--strong);font-weight:700}
+  /* client email preview (feature visual) */
+  .emailrow{display:flex;gap:10px;align-items:baseline;padding:8px 0;border-bottom:1px solid var(--line);font-size:.84rem}
+  .emailrow>span{color:var(--muted);min-width:56px}
+  .emailrow b{color:var(--strong);font-weight:600}
+  .emailbody{color:var(--text);font-size:.88rem;line-height:1.6;margin:12px 0 0}
+  .revchip{display:inline-flex;align-items:center;gap:8px;margin-top:14px;font-size:.8rem;font-weight:700;color:var(--sun);background:color-mix(in srgb,var(--sun) 12%,transparent);border:1px solid color-mix(in srgb,var(--sun) 32%,transparent);border-radius:9px;padding:8px 12px}
+  .revchip svg{width:15px;height:15px;flex:none}
+  .revchip .soon{font-size:.58rem;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);background:var(--surface-2);border:1px solid var(--line);border-radius:999px;padding:2px 7px}
+  .emailsend{display:flex;gap:8px;flex-wrap:wrap;margin-top:16px}
+  .emailsend span{font-size:.72rem;font-weight:700;color:#fff;background:var(--accent);border-radius:8px;padding:8px 12px;white-space:nowrap}
 
   /* "real look inside" — a native, responsive rebuild of the app's quote engine (not an image) */
   .showcase{background:var(--surface-2);border-top:1px solid var(--line);border-bottom:1px solid var(--line)}
@@ -648,6 +658,30 @@
             </div>
             <div class="itot"><span>Includes GST</span><b>$677.27</b></div>
             <div class="itot grand"><span>Total (incl. GST)</span><b>$7,450.00</b></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="frow reveal">
+        <div class="ftxt">
+          <p class="eyebrow">Client emails</p>
+          <h3>Send it all with one click.</h3>
+          <p>Email proposals and invoices straight to your client under your own studio name, without leaving the app. When a piece is finished, one button sends a ready for collection email as well.</p>
+          <ul class="checks">
+            <li><span class="ck"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="m5 12 5 5L20 6"/></svg></span> Email a proposal to your client in one click</li>
+            <li><span class="ck"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="m5 12 5 5L20 6"/></svg></span> Email invoices under your studio name</li>
+            <li><span class="ck"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="m5 12 5 5L20 6"/></svg></span> One button ready for collection email</li>
+            <li><span class="ck"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="m5 12 5 5L20 6"/></svg></span> Google review link on completion, coming soon</li>
+          </ul>
+        </div>
+        <div class="visual">
+          <div class="panel">
+            <div class="panel-head"><span class="t">Client email</span><span class="badge ok">Ready for collection</span></div>
+            <div class="emailrow"><span>To</span><b>Ava &amp; Daniel Hartley</b></div>
+            <div class="emailrow"><span>Subject</span><b>Your wedding rings are ready to collect</b></div>
+            <p class="emailbody">Hi Ava, wonderful news. Your pieces are finished and ready for collection at the studio whenever suits you.</p>
+            <a class="revchip"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l2.9 6.3 6.9.6-5.2 4.5 1.6 6.7L12 17l-6.2 3.6 1.6-6.7L2.2 9.9l6.9-.6z"/></svg> Review us on Google <span class="soon">Soon</span></a>
+            <div class="emailsend"><span>Send proposal</span><span>Send invoice</span><span>Send ready email</span></div>
           </div>
         </div>
       </div>
