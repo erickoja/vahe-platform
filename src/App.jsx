@@ -953,7 +953,7 @@ const calFeedUrl=(token)=>token?`${(import.meta.env.VITE_SUPABASE_URL||"").repla
 const _emlEsc=(s)=>String(s==null?"":s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
 // Branded, email-safe HTML: studio wordmark, greeting, message, a CTA button + raw link, footer.
 // Deliberately no <img>/data-URI logo — many mail clients block data URIs and show a broken image.
-function buildClientEmailHtml({biz,clientName,message,ctaLabel,linkUrl}){
+function buildClientEmailHtml({biz,clientName,message,ctaLabel,linkUrl,reviewUrl}){
   const name=_emlEsc(biz?.name||"Your jeweller");
   const contact=[biz?.email,biz?.phone].filter(Boolean).map(_emlEsc).join(" · ");
   const greeting=clientName?`Hi ${_emlEsc(clientName)},`:"Hello,";
@@ -965,11 +965,17 @@ function buildClientEmailHtml({biz,clientName,message,ctaLabel,linkUrl}){
     ?`<a href="${url}" style="display:inline-block;background:#1a1a1a;color:#ffffff;text-decoration:none;padding:12px 26px;border-radius:6px;font-size:15px;font-weight:700">${_emlEsc(ctaLabel)}</a>`
       +`<p style="font-size:13px;color:#888888;line-height:1.6;margin:26px 0 0">Or open this link in your browser:<br><a href="${url}" style="color:#666666">${url}</a></p>`
     :"";
+  // Optional "Review us on Google" CTA — only passed by the ready-for-collection email.
+  const revUrl=_emlEsc((reviewUrl||"").trim());
+  const review=revUrl
+    ?`<div style="margin-top:28px;text-align:center"><p style="font-size:14px;color:#555555;line-height:1.6;margin:0 0 12px">Happy with your piece? A quick Google review means the world to a small studio.</p><a href="${revUrl}" style="display:inline-block;background:#2D7A4F;color:#ffffff;text-decoration:none;padding:11px 24px;border-radius:6px;font-size:14px;font-weight:700">&#9733; Review us on Google</a></div>`
+    :"";
   return `<div style="font-family:Arial,Helvetica,sans-serif;max-width:520px;margin:0 auto;color:#1a1a1a;padding:8px">`
     +`<div style="border-bottom:2px solid #eeeeee;padding-bottom:14px;margin-bottom:20px"><div style="font-size:20px;font-weight:700;letter-spacing:0.02em">${name}</div></div>`
     +`<p style="font-size:15px;margin:0 0 14px">${greeting}</p>`
     +`<p style="font-size:15px;line-height:1.6;margin:0 0 22px">${body}</p>`
     +cta
+    +review
     +`<div style="border-top:1px solid #eeeeee;margin-top:26px;padding-top:14px;font-size:12px;color:#999999">${name}${contact?` &middot; ${contact}`:""}</div>`
     +`</div>`;
 }
@@ -1092,7 +1098,7 @@ function ReadyForCollectionCard({job,client,biz,setJobs}){
     if(!email.trim()){setErr("Enter an email address.");return;}
     setBusy(true);setErr("");
     try{
-      const html=buildClientEmailHtml({biz,clientName:who,message});
+      const html=buildClientEmailHtml({biz,clientName:who,message,reviewUrl:(biz?.googleReviewUrl||"").trim()});
       await sendClientEmail({to:email.trim(),replyTo:biz?.email||"",fromName:biz?.name||"Your jeweller",subject:subject.trim()||defSubject,html});
       setJobs(p=>{const n=p.map(j=>j.id===job.id?{...j,readyNotifiedAt:today(),readyNotifiedTo:email.trim()}:j);persist(K.jo,n);return n;});
       setSent(true);setTimeout(()=>setOpen(false),1400);
@@ -1121,7 +1127,7 @@ function ReadyForCollectionCard({job,client,biz,setJobs}){
           <Input label="To" value={email} onChange={setEmail} placeholder="client@example.com"/>
           <Input label="Subject" value={subject} onChange={setSubject}/>
           <Input label="Message" value={message} onChange={setMessage} as="textarea" rows={5}/>
-          <div style={{fontSize:12,color:WG,margin:"4px 0 14px",lineHeight:1.5}}>A plain notification — no attachment or link. Sent from <strong style={{color:INK}}>{biz?.name||"your studio"}</strong>{biz?.email?`; replies go to ${biz.email}`:""}.</div>
+          <div style={{fontSize:12,color:WG,margin:"4px 0 14px",lineHeight:1.5}}>Sent from <strong style={{color:INK}}>{biz?.name||"your studio"}</strong>{biz?.email?`, replies go to ${biz.email}`:""}.{(biz?.googleReviewUrl||"").trim()?<> Your <strong style={{color:INK}}>Review us on Google</strong> button is included.</>:<> Add a Google review link in Settings to include a review button.</>}</div>
           {err&&<div style={{fontSize:13,color:DANGER,marginBottom:12,lineHeight:1.5}}>{err}</div>}
           <div style={{display:"flex",justifyContent:"flex-end",gap:10}}>
             <Btn sm ghost onClick={()=>setOpen(false)}>Cancel</Btn>
@@ -8262,6 +8268,11 @@ function Settings({biz,setBiz,markupTable,setMarkupTable,naturalStoneMarkup,setN
           <Input label="Online payment link (optional)" value={bForm.paymentLink||""} onChange={setBF("paymentLink")} placeholder="https://buy.stripe.com/…  or  https://paypal.me/…"/>
           <div style={{fontSize:11,color:WG,marginTop:2,lineHeight:1.5}}>Paste your own Stripe, PayPal or bank "pay" link. A <strong style={{color:INK}}>Pay online</strong> button appears on the invoice you send clients, taking them straight to it — no integration needed. Create a "customer chooses amount" link so it works for any invoice. Leave blank to only show bank-transfer details.</div>
         </div>
+      </div>
+      <div style={{marginTop:16,paddingTop:16,borderTop:`1px solid ${BD}`}}>
+        <div style={{fontSize:10,fontWeight:700,color:WG,letterSpacing:"0.1em",textTransform:"uppercase",marginBottom:14}}>Client emails</div>
+        <Input label="Google review link (optional)" value={bForm.googleReviewUrl||""} onChange={setBF("googleReviewUrl")} placeholder="https://g.page/r/…  or your Google review short link"/>
+        <div style={{fontSize:11,color:WG,marginTop:2,lineHeight:1.5}}>When set, a <strong style={{color:INK}}>Review us on Google</strong> button is added to the "ready for collection" email you send clients. You'll find the link in your Google Business Profile under "Ask for reviews".</div>
       </div>
       <div style={{display:"flex",justifyContent:"flex-end"}}><Btn onClick={saveBiz}>Save business details</Btn></div>
     </Card>
