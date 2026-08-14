@@ -314,6 +314,8 @@
   .why .card:nth-child(1){--cc:var(--accent)} .why .card:nth-child(2){--cc:var(--peri)} .why .card:nth-child(3){--cc:var(--sun)}
   .why .card h3{font-size:1.18rem;margin:0;color:var(--strong)}
   .why .card p{color:var(--muted);font-size:.96rem;line-height:1.6;margin:10px 0 0}
+  .why .card .tick{display:flex;align-items:center;gap:8px;margin-top:16px;padding-top:14px;border-top:1px solid var(--line);font-size:.85rem;font-weight:600;color:var(--strong)}
+  .why .card .tick svg{width:16px;height:16px;flex:none;color:var(--cc,var(--accent))}
 
   /* extras grid — supporting features */
   .extras{background:var(--surface-2);border-top:1px solid var(--line);border-bottom:1px solid var(--line)}
@@ -731,16 +733,19 @@
             <div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 3l7 3v6c0 4-3 7-7 9-4-2-7-5-7-9V6z"/><path d="m9 12 2 2 4-4"/></svg></div>
             <h3>No lock-in</h3>
             <p>Export your invoices to CSV any time. Your records are yours to take, with no hostage data and no exit fee.</p>
+            <div class="tick"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="m5 12 5 5L20 6"/></svg> Free CSV export, any time</div>
           </div>
           <div class="card reveal">
             <div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="6" width="18" height="12" rx="2"/><path d="M3 10h18"/></svg></div>
             <h3>Your own payment link</h3>
             <p>Use whatever you already have, whether that is Stripe, PayPal or your bank. No new merchant account, and no per transaction cut to us.</p>
+            <div class="tick"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="m5 12 5 5L20 6"/></svg> No per transaction fees to us</div>
           </div>
           <div class="card reveal">
             <div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 20V10l8-6 8 6v10"/><path d="M9 20v-6h6v6"/></svg></div>
             <h3>Your brand, not ours</h3>
             <p>Proposals and invoices go out under your studio's name and reply straight to you. Your clients never see the software behind it.</p>
+            <div class="tick"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="m5 12 5 5L20 6"/></svg> Goes out under your name</div>
           </div>
         </div>
       </div>
