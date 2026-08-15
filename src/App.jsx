@@ -1088,7 +1088,7 @@ function EmailClientButton({to,clientName,biz,linkUrl,docType,defaultSubject,def
 
 // Standalone "ask for a Google review" email — not tied to a job. Sends a short message with
 // just the review button (biz.googleReviewUrl). Disabled without a review link or a client email.
-function ReviewRequestButton({to,clientName,biz}){
+function ReviewRequestButton({to,clientName,biz,clientId,setClients}){
   const[open,setOpen]=useState(false);
   const[email,setEmail]=useState("");
   const[subject,setSubject]=useState("");
@@ -1107,6 +1107,7 @@ function ReviewRequestButton({to,clientName,biz}){
     try{
       const html=buildClientEmailHtml({biz,clientName,message,reviewUrl});
       await sendClientEmail({to:email.trim(),replyTo:biz?.email||"",fromName:biz?.name||"Your jeweller",subject:subject.trim()||defSubject,html});
+      if(setClients&&clientId)setClients(p=>{const n=p.map(c=>c.id===clientId?{...c,reviewRequestedAt:today()}:c);persist(K.cl,n);return n;});
       setSent(true);setTimeout(()=>setOpen(false),1400);
     }catch(e){setErr(e?.message||"Couldn't send the email.");}
     setBusy(false);
@@ -1223,7 +1224,7 @@ function BulkReviewButton({clients,jobs,payments,biz,setClients}){
 // "Ready for collection" banner + email notification. Shown on a job once its stage reaches
 // "Ready for collection"; emails the client (trade account or retail) a link-free "your piece is
 // ready" message via the same send-email edge function, and records readyNotifiedAt on the job.
-function ReadyForCollectionCard({job,client,biz,setJobs}){
+function ReadyForCollectionCard({job,client,biz,setJobs,setClients}){
   const[open,setOpen]=useState(false);
   const[email,setEmail]=useState("");
   const[subject,setSubject]=useState("");
@@ -1246,6 +1247,7 @@ function ReadyForCollectionCard({job,client,biz,setJobs}){
       const html=buildClientEmailHtml({biz,clientName:who,message,reviewUrl:(biz?.googleReviewUrl||"").trim()});
       await sendClientEmail({to:email.trim(),replyTo:biz?.email||"",fromName:biz?.name||"Your jeweller",subject:subject.trim()||defSubject,html});
       setJobs(p=>{const n=p.map(j=>j.id===job.id?{...j,readyNotifiedAt:today(),readyNotifiedTo:email.trim()}:j);persist(K.jo,n);return n;});
+      if((biz?.googleReviewUrl||"").trim()&&setClients&&client?.id)setClients(p=>{const n=p.map(c=>c.id===client.id?{...c,reviewRequestedAt:today()}:c);persist(K.cl,n);return n;});
       setSent(true);setTimeout(()=>setOpen(false),1400);
     }catch(e){setErr(e?.message||"Couldn't send the email.");}
     setBusy(false);
@@ -3207,7 +3209,7 @@ function ClientDetail({clientId,clients,setClients,jobs,setJobs,quotes,payments,
       <div style={{flex:1,minWidth:0}}><h1 style={{margin:0,fontSize:isMobile?19:24,fontWeight:800,color:INK,letterSpacing:"-0.02em",wordBreak:"break-word",display:"flex",alignItems:"center",gap:10,flexWrap:"wrap"}}>{clientDisplayName(c)}{c.accountType==="trade"&&<span style={{fontSize:10,fontWeight:800,letterSpacing:"0.08em",color:GOLD_D,background:GOLD_L,border:`1px solid ${GOLD}55`,borderRadius:999,padding:"3px 9px",textTransform:"uppercase"}}>Trade account</span>}</h1>
       <div style={{fontSize:13,color:WG}}>Since {fmtDate(c.createdAt)} · {fmt(spent+tradeIn)} received to date</div></div>
       <div style={{display:"flex",gap:8,flexShrink:0}}>
-        {(biz?.googleReviewUrl||"").trim()&&<ReviewRequestButton to={c?.email} clientName={clientDisplayName(c)} biz={biz}/>}
+        {(biz?.googleReviewUrl||"").trim()&&<ReviewRequestButton to={c?.email} clientName={clientDisplayName(c)} biz={biz} clientId={clientId} setClients={setClients}/>}
         <Btn sm={!isMobile} xs={isMobile} ghost onClick={()=>setEditModal(true)} >✎ Edit</Btn>
       </div>
     </div>
@@ -3954,7 +3956,7 @@ function RepairIntakeCard({job,setJobs,biz,clients,markupTable,pricing=[],invoic
   </Card>;
 }
 
-function JobDetail({jobId,jobs,setJobs,clients,quotes,setQuotes,payments,setPayments,notes,setNotes,invoices,setInvoices,proposals,setProposals,biz,markupTable,pricing=[],setView}){
+function JobDetail({jobId,jobs,setJobs,clients,setClients,quotes,setQuotes,payments,setPayments,notes,setNotes,invoices,setInvoices,proposals,setProposals,biz,markupTable,pricing=[],setView}){
   const isMobile=useIsMobile();
   const job=jobs.find(j=>j.id===jobId);
   if(!job)return null;
@@ -4064,7 +4066,7 @@ function JobDetail({jobId,jobs,setJobs,clients,quotes,setQuotes,payments,setPaym
         <Btn sm={!isMobile} xs={isMobile} danger onClick={delJob}>Delete job</Btn>
       </div>
     </div>
-    {job.stage==="Ready for collection"&&<ReadyForCollectionCard job={job} client={c} biz={biz} setJobs={setJobs}/>}
+    {job.stage==="Ready for collection"&&<ReadyForCollectionCard job={job} client={c} biz={biz} setJobs={setJobs} setClients={setClients}/>}
     {editStage&&<Card style={{background:PARCH}}>
       <div style={{...SS.lbl,marginBottom:10}}>Move to stage</div>
       <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
@@ -10543,7 +10545,7 @@ export default function App(){
     if(view==="clients")return <Clients clients={clients} setClients={setClients} jobs={jobs} payments={payments} setView={setView} setSelClient={setSelClient} quotes={quotes} biz={biz}/>;
     if(view==="clientDetail")return <ClientDetail clientId={selClient} clients={clients} setClients={setClients} jobs={jobs} setJobs={setJobs} quotes={quotes} payments={payments} invoices={invoices} markupTable={markupTable} setView={setView} setSelJob={setSelJob} biz={biz}/>;
     if(view==="jobs")return <Jobs clients={clients} jobs={jobs} setJobs={setJobs} quotes={quotes} setQuotes={setQuotes} payments={payments} setPayments={setPayments} notes={notes} setNotes={setNotes} invoices={invoices} setInvoices={setInvoices} markupTable={markupTable} setView={setView} setSelJob={setSelJob} preset={jobsPreset} onPresetDone={()=>setJobsPreset(null)} proposals={proposals} biz={biz}/>;
-    if(view==="jobDetail")return <JobDetail jobId={selJob} jobs={jobs} setJobs={setJobs} clients={clients} quotes={quotes} setQuotes={setQuotes} payments={payments} setPayments={setPayments} notes={notes} setNotes={setNotes} invoices={invoices} setInvoices={setInvoices} proposals={proposals} setProposals={setProposals} biz={biz} markupTable={markupTable} pricing={pricing} setView={setView}/>;
+    if(view==="jobDetail")return <JobDetail jobId={selJob} jobs={jobs} setJobs={setJobs} clients={clients} setClients={setClients} quotes={quotes} setQuotes={setQuotes} payments={payments} setPayments={setPayments} notes={notes} setNotes={setNotes} invoices={invoices} setInvoices={setInvoices} proposals={proposals} setProposals={setProposals} biz={biz} markupTable={markupTable} pricing={pricing} setView={setView}/>;
     if(view==="quotes")return <QuotesList quotes={quotes} jobs={jobs} clients={clients} markupTable={markupTable} biz={biz} setView={setView}/>;
     if(view.startsWith("quoteDetail_"))return <QuoteDetail quoteId={view.split("_")[1]} quotes={quotes} setQuotes={setQuotes} jobs={jobs} clients={clients} biz={biz} markupTable={markupTable} naturalStoneMarkup={naturalStoneMarkup} labStoneMarkup={labStoneMarkup} tradeNatStoneMarkup={tradeNatStoneMarkup} tradeLabStoneMarkup={tradeLabStoneMarkup} payments={payments} invoices={invoices} setView={setView}/>;
     if(view.startsWith("newQuote_"))return <QuoteBuilder jobId={view.split("_")[1]} jobs={jobs} clients={clients} quotes={quotes} setQuotes={setQuotes} pricing={pricing} setPricing={setPricing} markupTable={markupTable} naturalStoneMarkup={naturalStoneMarkup} labStoneMarkup={labStoneMarkup} tradeMarkupTable={tradeMarkupTable} tradeNatStoneMarkup={tradeNatStoneMarkup} tradeLabStoneMarkup={tradeLabStoneMarkup} centreRates={centreRates} setCentreRates={setCentreRates} setView={setView}/>;
