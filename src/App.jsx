@@ -1075,6 +1075,51 @@ function EmailClientButton({to,clientName,biz,linkUrl,docType,defaultSubject,def
     </Modal>}
   </>;
 }
+
+// Standalone "ask for a Google review" email — not tied to a job. Sends a short message with
+// just the review button (biz.googleReviewUrl). Disabled without a review link or a client email.
+function ReviewRequestButton({to,clientName,biz}){
+  const[open,setOpen]=useState(false);
+  const[email,setEmail]=useState("");
+  const[subject,setSubject]=useState("");
+  const[message,setMessage]=useState("");
+  const[busy,setBusy]=useState(false);
+  const[sent,setSent]=useState(false);
+  const[err,setErr]=useState("");
+  const reviewUrl=(biz?.googleReviewUrl||"").trim();
+  const defSubject=`Thank you from ${biz?.name||"us"}`;
+  const defMessage=`Thank you so much for choosing ${biz?.name||"us"}. If you have a moment, a quick Google review would mean the world to our small studio.`;
+  const openIt=()=>{setEmail(to||"");setSubject(defSubject);setMessage(defMessage);setErr("");setSent(false);setOpen(true);};
+  const send=async()=>{
+    if(!email.trim()){setErr("Enter the client's email address.");return;}
+    if(!reviewUrl){setErr("Add a Google review link in Settings first.");return;}
+    setBusy(true);setErr("");
+    try{
+      const html=buildClientEmailHtml({biz,clientName,message,reviewUrl});
+      await sendClientEmail({to:email.trim(),replyTo:biz?.email||"",fromName:biz?.name||"Your jeweller",subject:subject.trim()||defSubject,html});
+      setSent(true);setTimeout(()=>setOpen(false),1400);
+    }catch(e){setErr(e?.message||"Couldn't send the email.");}
+    setBusy(false);
+  };
+  return <>
+    <Btn sm ghost onClick={openIt} disabled={!reviewUrl||!to} title={!reviewUrl?"Add a Google review link in Settings":(!to?"Add an email to this client":"")}>★ Ask for a review</Btn>
+    {open&&<Modal title="Ask for a Google review" onClose={()=>setOpen(false)}>
+      {sent
+        ?<div style={{padding:"14px 2px",fontSize:14,color:OK,fontWeight:700}}>✓ Sent to {email}</div>
+        :<div>
+          <Input label="To" value={email} onChange={setEmail} placeholder="client@example.com"/>
+          <Input label="Subject" value={subject} onChange={setSubject}/>
+          <Input label="Message" value={message} onChange={setMessage} as="textarea" rows={4}/>
+          <div style={{fontSize:12,color:WG,margin:"4px 0 14px",lineHeight:1.5}}>A <strong style={{color:INK}}>Review us on Google</strong> button is added automatically. Sent from <strong style={{color:INK}}>{biz?.name||"your studio"}</strong>{biz?.email?`, replies go to ${biz.email}`:""}.</div>
+          {err&&<div style={{fontSize:13,color:DANGER,marginBottom:12,lineHeight:1.5}}>{err}</div>}
+          <div style={{display:"flex",justifyContent:"flex-end",gap:10}}>
+            <Btn sm ghost onClick={()=>setOpen(false)}>Cancel</Btn>
+            <Btn sm onClick={send} disabled={busy}>{busy?"Sending…":"Send review request"}</Btn>
+          </div>
+        </div>}
+    </Modal>}
+  </>;
+}
 // "Ready for collection" banner + email notification. Shown on a job once its stage reaches
 // "Ready for collection"; emails the client (trade account or retail) a link-free "your piece is
 // ready" message via the same send-email edge function, and records readyNotifiedAt on the job.
@@ -3043,7 +3088,7 @@ function Clients({clients,setClients,jobs,payments,setView,setSelClient,quotes=[
   </div>;
 }
 
-function ClientDetail({clientId,clients,setClients,jobs,setJobs,quotes,payments,invoices,markupTable,setView,setSelJob}){
+function ClientDetail({clientId,clients,setClients,jobs,setJobs,quotes,payments,invoices,markupTable,setView,setSelJob,biz}){
   const isMobile=useIsMobile();
   const c=clients.find(x=>x.id===clientId);
   const[jobModal,setJobModal]=useState(false);
@@ -3061,7 +3106,10 @@ function ClientDetail({clientId,clients,setClients,jobs,setJobs,quotes,payments,
       <div style={{width:isMobile?42:50,height:isMobile?42:50,borderRadius:"50%",background:GOLD_L,display:"flex",alignItems:"center",justifyContent:"center",fontSize:isMobile?17:20,fontWeight:800,color:GOLD_D,flexShrink:0}}>{c.name.charAt(0)}</div>
       <div style={{flex:1,minWidth:0}}><h1 style={{margin:0,fontSize:isMobile?19:24,fontWeight:800,color:INK,letterSpacing:"-0.02em",wordBreak:"break-word",display:"flex",alignItems:"center",gap:10,flexWrap:"wrap"}}>{clientDisplayName(c)}{c.accountType==="trade"&&<span style={{fontSize:10,fontWeight:800,letterSpacing:"0.08em",color:GOLD_D,background:GOLD_L,border:`1px solid ${GOLD}55`,borderRadius:999,padding:"3px 9px",textTransform:"uppercase"}}>Trade account</span>}</h1>
       <div style={{fontSize:13,color:WG}}>Since {fmtDate(c.createdAt)} · {fmt(spent+tradeIn)} received to date</div></div>
-      <Btn sm={!isMobile} xs={isMobile} ghost onClick={()=>setEditModal(true)} >✎ Edit</Btn>
+      <div style={{display:"flex",gap:8,flexShrink:0}}>
+        {(biz?.googleReviewUrl||"").trim()&&<ReviewRequestButton to={c?.email} clientName={clientDisplayName(c)} biz={biz}/>}
+        <Btn sm={!isMobile} xs={isMobile} ghost onClick={()=>setEditModal(true)} >✎ Edit</Btn>
+      </div>
     </div>
     {charged>0&&<div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:12,marginBottom:16}}>
       {[["Total charged",fmt(charged),INK],["Received",fmt(spent+tradeIn),OK],["Outstanding",fmt(owing),owing>0.5?WARN:OK]].map(([l,v,col])=>(
@@ -10393,7 +10441,7 @@ export default function App(){
     if(view==="todo")return <TodoBoard todos={todos} setTodos={setTodos} jobs={jobs} clients={clients} setView={setView} setSelJob={setSelJob}/>;
     if(view==="appointments")return <Appointments appointments={appointments} setAppointments={setAppointments} clients={clients} setClients={setClients} jobs={jobs} setJobs={setJobs} setView={setView} setSelClient={setSelClient} setSelJob={setSelJob}/>;
     if(view==="clients")return <Clients clients={clients} setClients={setClients} jobs={jobs} payments={payments} setView={setView} setSelClient={setSelClient} quotes={quotes}/>;
-    if(view==="clientDetail")return <ClientDetail clientId={selClient} clients={clients} setClients={setClients} jobs={jobs} setJobs={setJobs} quotes={quotes} payments={payments} invoices={invoices} markupTable={markupTable} setView={setView} setSelJob={setSelJob}/>;
+    if(view==="clientDetail")return <ClientDetail clientId={selClient} clients={clients} setClients={setClients} jobs={jobs} setJobs={setJobs} quotes={quotes} payments={payments} invoices={invoices} markupTable={markupTable} setView={setView} setSelJob={setSelJob} biz={biz}/>;
     if(view==="jobs")return <Jobs clients={clients} jobs={jobs} setJobs={setJobs} quotes={quotes} setQuotes={setQuotes} payments={payments} setPayments={setPayments} notes={notes} setNotes={setNotes} invoices={invoices} setInvoices={setInvoices} markupTable={markupTable} setView={setView} setSelJob={setSelJob} preset={jobsPreset} onPresetDone={()=>setJobsPreset(null)} proposals={proposals} biz={biz}/>;
     if(view==="jobDetail")return <JobDetail jobId={selJob} jobs={jobs} setJobs={setJobs} clients={clients} quotes={quotes} setQuotes={setQuotes} payments={payments} setPayments={setPayments} notes={notes} setNotes={setNotes} invoices={invoices} setInvoices={setInvoices} proposals={proposals} setProposals={setProposals} biz={biz} markupTable={markupTable} pricing={pricing} setView={setView}/>;
     if(view==="quotes")return <QuotesList quotes={quotes} jobs={jobs} clients={clients} markupTable={markupTable} biz={biz} setView={setView}/>;
