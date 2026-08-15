@@ -979,8 +979,11 @@ function buildClientEmailHtml({biz,clientName,message,ctaLabel,linkUrl,reviewUrl
     +`<div style="border-top:1px solid #eeeeee;margin-top:26px;padding-top:14px;font-size:12px;color:#999999">${name}${contact?` &middot; ${contact}`:""}</div>`
     +`</div>`;
 }
+const isEmail=x=>/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(x||"").trim());
 async function sendClientEmail({to,cc,replyTo,fromName,subject,html}){
   if(!supabaseEnabled||!supabase) throw new Error("Email needs the cloud — you're in local-only mode.");
+  const _bare=(String(to||"").trim().match(/<([^>]+)>/)||[,String(to||"").trim()])[1].trim();
+  if(!isEmail(_bare)) throw new Error(`That email address doesn't look valid: "${String(to||"").trim()||"(blank)"}". Check the client's email and try again.`);
   const{data,error}=await supabase.functions.invoke(SEND_EMAIL_FN,{body:{to,cc,replyTo,fromName,subject,html}});
   if(error){
     // invoke() only gives a generic "non-2xx" message; the function returns the real reason in its
@@ -1143,7 +1146,7 @@ function BulkReviewButton({clients,jobs,payments,biz,setClients}){
     const cutoff=Date.now()-NINETY;
     return clients.map(c=>{
       const email=(c.email||c.partnerEmail||"").trim();
-      if(!email)return null;
+      if(!isEmail(email))return null;
       const cj=jobs.filter(j=>j.clientId===c.id);
       const ds=[...payments.filter(p=>p.status==="Received"&&cj.some(j=>j.id===p.jobId)).map(p=>p.date),
                 ...cj.map(j=>j.readyNotifiedAt||j.createdAt)]
