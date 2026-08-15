@@ -1120,6 +1120,96 @@ function ReviewRequestButton({to,clientName,biz}){
     </Modal>}
   </>;
 }
+
+// Bulk "ask recent clients for a review" — lists clients active in the last 90 days (with an email),
+// lets you tick which to send to, emails each the review button, and stamps reviewRequestedAt on the
+// ones that send. Sequential with light pacing to stay under the email service's rate limits.
+function BulkReviewButton({clients,jobs,payments,biz,setClients}){
+  const NINETY=90*24*3600*1000;
+  const[open,setOpen]=useState(false);
+  const[sel,setSel]=useState(()=>new Set());
+  const[busy,setBusy]=useState(false);
+  const[prog,setProg]=useState(null);
+  const[done,setDone]=useState(null);
+  const reviewUrl=(biz?.googleReviewUrl||"").trim();
+  const recent=useMemo(()=>{
+    const cutoff=Date.now()-NINETY;
+    return clients.map(c=>{
+      const email=(c.email||c.partnerEmail||"").trim();
+      if(!email)return null;
+      const cj=jobs.filter(j=>j.clientId===c.id);
+      const ds=[...payments.filter(p=>p.status==="Received"&&cj.some(j=>j.id===p.jobId)).map(p=>p.date),
+                ...cj.map(j=>j.readyNotifiedAt||j.createdAt)]
+        .map(d=>new Date(d).getTime()).filter(t=>!isNaN(t));
+      if(!ds.length)return null;
+      const last=Math.max(...ds);
+      if(last<cutoff)return null;
+      return {id:c.id,name:clientDisplayName(c),email,last,askedAt:c.reviewRequestedAt||null};
+    }).filter(Boolean).sort((a,b)=>b.last-a.last);
+  },[clients,jobs,payments]);
+  const openIt=()=>{
+    const cutoff=Date.now()-NINETY;
+    setSel(new Set(recent.filter(r=>!r.askedAt||new Date(r.askedAt).getTime()<cutoff).map(r=>r.id)));
+    setDone(null);setProg(null);setOpen(true);
+  };
+  const toggle=id=>setSel(p=>{const n=new Set(p);n.has(id)?n.delete(id):n.add(id);return n;});
+  const run=async()=>{
+    const targets=recent.filter(r=>sel.has(r.id));
+    if(!targets.length)return;
+    setBusy(true);setDone(null);
+    const failed=[];const okIds=[];let sent=0;
+    const msg=`Thank you so much for choosing ${biz?.name||"us"}. If you have a moment, a quick Google review would mean the world to our small studio.`;
+    for(let i=0;i<targets.length;i++){
+      const t=targets[i];setProg({done:i,total:targets.length});
+      try{
+        const html=buildClientEmailHtml({biz,clientName:t.name,message:msg,reviewUrl});
+        await sendClientEmail({to:t.email,replyTo:biz?.email||"",fromName:biz?.name||"Your jeweller",subject:`Thank you from ${biz?.name||"us"}`,html});
+        sent++;okIds.push(t.id);
+      }catch(e){failed.push(t.name);}
+      await new Promise(r=>setTimeout(r,400));
+    }
+    if(okIds.length){const stamp=today();setClients(p=>{const n=p.map(c=>okIds.includes(c.id)?{...c,reviewRequestedAt:stamp}:c);persist(K.cl,n);return n;});}
+    setProg({done:targets.length,total:targets.length});setDone({sent,failed});setBusy(false);
+  };
+  return <>
+    <Btn sm ghost onClick={openIt}>★ Ask recent clients</Btn>
+    {open&&<Modal title="Ask recent clients for a review" onClose={busy?()=>{}:()=>setOpen(false)}>
+      {!reviewUrl
+        ?<div style={{fontSize:14,color:INK,lineHeight:1.6}}>Add a <strong>Google review link</strong> in Settings first, then you can email your recent clients for a review.</div>
+        :done
+          ?<div style={{fontSize:14,lineHeight:1.7}}>
+             <div style={{color:OK,fontWeight:700}}>✓ Sent {done.sent} review request{done.sent!==1?"s":""}.</div>
+             {done.failed.length>0&&<div style={{color:WARN,marginTop:8}}>Couldn't send to {done.failed.length}: {done.failed.join(", ")}</div>}
+             <div style={{display:"flex",justifyContent:"flex-end",marginTop:16}}><Btn sm onClick={()=>setOpen(false)}>Done</Btn></div>
+           </div>
+          :<div>
+             <div style={{fontSize:12.5,color:WG,lineHeight:1.55,marginBottom:12}}>Clients with activity in the last 90 days who have an email. Those asked recently start unticked. Each gets a short message with your <strong style={{color:INK}}>Review us on Google</strong> button.</div>
+             {recent.length===0
+               ?<div style={{color:WG,fontSize:14,padding:"10px 0"}}>No recent clients with an email address.</div>
+               :<div style={{maxHeight:320,overflowY:"auto",border:`1px solid ${BD}`,borderRadius:6}}>
+                  {recent.map((r,i)=>(
+                    <label key={r.id} style={{display:"flex",alignItems:"center",gap:10,padding:"9px 12px",borderBottom:i<recent.length-1?`1px solid ${BD}`:"none",cursor:"pointer"}}>
+                      <input type="checkbox" checked={sel.has(r.id)} onChange={()=>toggle(r.id)} style={{width:16,height:16,accentColor:GOLD,flexShrink:0}}/>
+                      <div style={{flex:1,minWidth:0}}>
+                        <div style={{fontSize:13.5,fontWeight:700,color:INK}}>{r.name}</div>
+                        <div style={{fontSize:11.5,color:WG,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{r.email} · last {fmtDate(new Date(r.last).toISOString().slice(0,10))}</div>
+                      </div>
+                      {r.askedAt&&<span style={{fontSize:10,fontWeight:700,color:WG,background:PARCH,border:`1px solid ${BD}`,borderRadius:999,padding:"2px 8px",flexShrink:0}}>asked {fmtDate(r.askedAt)}</span>}
+                    </label>
+                  ))}
+                </div>}
+             {busy&&prog&&<div style={{fontSize:12.5,color:WG,marginTop:10}}>Sending {prog.done} of {prog.total}…</div>}
+             <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",gap:10,marginTop:14}}>
+               <div style={{fontSize:12.5,color:WG}}>{sel.size} selected</div>
+               <div style={{display:"flex",gap:10}}>
+                 <Btn sm ghost onClick={()=>setOpen(false)} disabled={busy}>Cancel</Btn>
+                 <Btn sm onClick={run} disabled={busy||sel.size===0}>{busy?"Sending…":`Send to ${sel.size}`}</Btn>
+               </div>
+             </div>
+           </div>}
+    </Modal>}
+  </>;
+}
 // "Ready for collection" banner + email notification. Shown on a job once its stage reaches
 // "Ready for collection"; emails the client (trade account or retail) a link-free "your piece is
 // ready" message via the same send-email edge function, and records readyNotifiedAt on the job.
@@ -3039,7 +3129,7 @@ function ClientForm({initial={},onSave,onCancel}){
   </div>;
 }
 
-function Clients({clients,setClients,jobs,payments,setView,setSelClient,quotes=[]}){
+function Clients({clients,setClients,jobs,payments,setView,setSelClient,quotes=[],biz}){
   const isMobile=useIsMobile();
   const[modal,setModal]=useState(null);
   const[search,setSearch]=useState("");
@@ -3055,7 +3145,7 @@ function Clients({clients,setClients,jobs,payments,setView,setSelClient,quotes=[
     setClients(p=>{const n=p.filter(c=>c.id!==id);persist(K.cl,n);return n;});
   };
   return <div>
-    <SectionHeader eyebrow="Client book" title="Clients" subtitle="Everyone you work with — contacts, jobs and history in one place." action={<Btn onClick={()=>setModal("add")}>+ Add client</Btn>}/>
+    <SectionHeader eyebrow="Client book" title="Clients" subtitle="Everyone you work with — contacts, jobs and history in one place." action={<div style={{display:"flex",gap:8,flexWrap:"wrap"}}>{(biz?.googleReviewUrl||"").trim()&&<BulkReviewButton clients={clients} jobs={jobs} payments={payments} biz={biz} setClients={setClients}/>}<Btn onClick={()=>setModal("add")}>+ Add client</Btn></div>}/>
     <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Search by name, partner or email…" style={{...SS.inp,marginBottom:16,marginTop:0}}/>
     {filtered.length===0&&<Card><div style={{color:WG,fontSize:14,textAlign:"center",padding:"14px 0"}}>No clients found.</div></Card>}
     {filtered.map(c=>{
@@ -10440,7 +10530,7 @@ export default function App(){
     if(view==="dashboard")return <Dashboard clients={clients} jobs={jobs} quotes={quotes} payments={payments} invoices={invoices} appointments={appointments} proposals={proposals} markProposalSeen={markProposalSeen} markRepairSeen={markRepairSeen} markupTable={markupTable} biz={biz} setBiz={setBiz} setView={setView} setSelClient={setSelClient} openJobs={openJobs}/>;
     if(view==="todo")return <TodoBoard todos={todos} setTodos={setTodos} jobs={jobs} clients={clients} setView={setView} setSelJob={setSelJob}/>;
     if(view==="appointments")return <Appointments appointments={appointments} setAppointments={setAppointments} clients={clients} setClients={setClients} jobs={jobs} setJobs={setJobs} setView={setView} setSelClient={setSelClient} setSelJob={setSelJob}/>;
-    if(view==="clients")return <Clients clients={clients} setClients={setClients} jobs={jobs} payments={payments} setView={setView} setSelClient={setSelClient} quotes={quotes}/>;
+    if(view==="clients")return <Clients clients={clients} setClients={setClients} jobs={jobs} payments={payments} setView={setView} setSelClient={setSelClient} quotes={quotes} biz={biz}/>;
     if(view==="clientDetail")return <ClientDetail clientId={selClient} clients={clients} setClients={setClients} jobs={jobs} setJobs={setJobs} quotes={quotes} payments={payments} invoices={invoices} markupTable={markupTable} setView={setView} setSelJob={setSelJob} biz={biz}/>;
     if(view==="jobs")return <Jobs clients={clients} jobs={jobs} setJobs={setJobs} quotes={quotes} setQuotes={setQuotes} payments={payments} setPayments={setPayments} notes={notes} setNotes={setNotes} invoices={invoices} setInvoices={setInvoices} markupTable={markupTable} setView={setView} setSelJob={setSelJob} preset={jobsPreset} onPresetDone={()=>setJobsPreset(null)} proposals={proposals} biz={biz}/>;
     if(view==="jobDetail")return <JobDetail jobId={selJob} jobs={jobs} setJobs={setJobs} clients={clients} quotes={quotes} setQuotes={setQuotes} payments={payments} setPayments={setPayments} notes={notes} setNotes={setNotes} invoices={invoices} setInvoices={setInvoices} proposals={proposals} setProposals={setProposals} biz={biz} markupTable={markupTable} pricing={pricing} setView={setView}/>;
