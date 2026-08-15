@@ -982,7 +982,14 @@ function buildClientEmailHtml({biz,clientName,message,ctaLabel,linkUrl,reviewUrl
 async function sendClientEmail({to,cc,replyTo,fromName,subject,html}){
   if(!supabaseEnabled||!supabase) throw new Error("Email needs the cloud — you're in local-only mode.");
   const{data,error}=await supabase.functions.invoke(SEND_EMAIL_FN,{body:{to,cc,replyTo,fromName,subject,html}});
-  if(error) throw new Error(error.message||"Couldn't reach the email service — is the send-email function deployed?");
+  if(error){
+    // invoke() only gives a generic "non-2xx" message; the function returns the real reason in its
+    // JSON body ({error:"…"}), so read it from the error's response context and surface that.
+    let detail="";
+    try{const b=await error?.context?.json?.();detail=b?.error||b?.message||"";}catch(_){}
+    if(!detail){try{detail=(await error?.context?.text?.())||"";}catch(_){}}
+    throw new Error(detail||error.message||"Couldn't reach the email service — is the send-email function deployed?");
+  }
   if(data&&data.error) throw new Error(data.error);
   return data;
 }
