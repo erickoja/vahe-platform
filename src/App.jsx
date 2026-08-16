@@ -1149,8 +1149,10 @@ function BulkReviewButton({clients,jobs,payments,biz,setClients}){
       const email=(c.email||c.partnerEmail||"").trim();
       if(!isEmail(email))return null;
       const cj=jobs.filter(j=>j.clientId===c.id);
-      const ds=[...payments.filter(p=>p.status==="Received"&&cj.some(j=>j.id===p.jobId)).map(p=>p.date),
-                ...cj.map(j=>j.readyNotifiedAt||j.createdAt)]
+      const doneJobs=cj.filter(j=>DONE_STAGES.includes(j.stage));
+      if(!doneJobs.length)return null;   // only clients who have completed work with us
+      const ds=[...doneJobs.map(j=>j.readyNotifiedAt||j.createdAt),
+                ...payments.filter(p=>p.status==="Received"&&cj.some(j=>j.id===p.jobId)).map(p=>p.date)]
         .map(d=>new Date(d).getTime()).filter(t=>!isNaN(t));
       if(!ds.length)return null;
       const last=Math.max(...ds);
@@ -1194,9 +1196,9 @@ function BulkReviewButton({clients,jobs,payments,biz,setClients}){
              <div style={{display:"flex",justifyContent:"flex-end",marginTop:16}}><Btn sm onClick={()=>setOpen(false)}>Done</Btn></div>
            </div>
           :<div>
-             <div style={{fontSize:12.5,color:WG,lineHeight:1.55,marginBottom:12}}>Clients with activity in the last 90 days who have an email. Those asked recently start unticked. Each gets a short message with your <strong style={{color:INK}}>Review us on Google</strong> button.</div>
+             <div style={{fontSize:12.5,color:WG,lineHeight:1.55,marginBottom:12}}>Clients who have completed work with you in the last 90 days and have an email. Those asked recently start unticked. Each gets a short message with your <strong style={{color:INK}}>Review us on Google</strong> button.</div>
              {recent.length===0
-               ?<div style={{color:WG,fontSize:14,padding:"10px 0"}}>No recent clients with an email address.</div>
+               ?<div style={{color:WG,fontSize:14,padding:"10px 0"}}>No clients with completed work in the last 90 days.</div>
                :<div style={{maxHeight:320,overflowY:"auto",border:`1px solid ${BD}`,borderRadius:6}}>
                   {recent.map((r,i)=>(
                     <label key={r.id} style={{display:"flex",alignItems:"center",gap:10,padding:"9px 12px",borderBottom:i<recent.length-1?`1px solid ${BD}`:"none",cursor:"pointer"}}>
