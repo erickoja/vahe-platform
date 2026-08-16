@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://prongstudio.app/sitemap.xml
