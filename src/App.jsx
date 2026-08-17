@@ -2371,7 +2371,8 @@ function jobPieces(job,quotes){
       sub:[it.damage,it.condition].filter(Boolean).join(" · "),
     }));
   }
-  return (quotes||[]).filter(q=>q.jobId===job?.id).map((q,i)=>({
+  // Declined quotes are dead options, not pieces — skip them so they don't get a label/code.
+  return (quotes||[]).filter(q=>q.jobId===job?.id&&q.status!=="Declined").map((q,i)=>({
     code:pieceCode(ref,i),
     title:(q.pieceTitle||q.title||"").trim()||quoteLabel(q),
     sub:(q.clientDescription||"").trim(),
@@ -2490,7 +2491,7 @@ function printJobLabels(biz,c,job,quotes){
   const who=esc((trade&&c?.contactName)?c.contactName:(clientDisplayName(c)||"—"));
   const meta=[job.po?`PO ${esc(job.po)}`:"",job.deadline?`Due ${fmtDate(job.deadline)}`:""].filter(Boolean).join(" · ");
   const cells=pieces.map(p=>`<div class="lab">
-    <div class="lb-bc">${barcodeSvg(p.code,{h:26,mw:1.5,quiet:6})}</div>
+    <div class="lb-bc">${barcodeSvg(p.code,{h:30,mw:1.6,quiet:10})}</div>
     <div class="lb-code">${esc(p.code)}</div>
     <div class="lb-who">${who}</div>
     <div class="lb-title">${esc(p.title)}</div>
@@ -2502,10 +2503,10 @@ function printJobLabels(biz,c,job,quotes){
 html,body{background:#fff}
 body{font-family:'Poppins',sans-serif;color:#111}
 @page{size:A4;margin:0}
-.sheet{width:210mm;padding:13mm 6.5mm 0;box-sizing:border-box}
-.grid{display:grid;grid-template-columns:repeat(3,63.5mm);column-gap:2.5mm;row-gap:0}
+.sheet{width:210mm;padding:15.15mm 7.21mm 0;box-sizing:border-box}
+.grid{display:grid;grid-template-columns:repeat(3,63.5mm);column-gap:2.54mm;row-gap:0}
 .lab{width:63.5mm;height:38.1mm;padding:2.4mm 3mm;overflow:hidden;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;page-break-inside:avoid}
-.lb-bc{width:46mm;line-height:0}
+.lb-bc{width:52mm;line-height:0}
 .lb-bc svg{max-width:100%;height:auto}
 .lb-code{font-size:11px;font-weight:800;letter-spacing:.08em;margin-top:1mm}
 .lb-who{font-size:10px;font-weight:700;margin-top:.6mm;line-height:1.15;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
