@@ -3291,12 +3291,9 @@ function JobForm({clients,initial={},onSave,onCancel}){
   const set=k=>v=>setF(p=>({...p,[k]:v}));
   const selClient=clients.find(c=>c.id===f.clientId);
   const isTradeJob=selClient?.accountType==="trade";
-  // New trade jobs default to the "Trade / Wholesale" type. Only when the type is still the untouched
-  // default and we're not editing an existing job (initial.type present), so a manual choice is kept.
-  useEffect(()=>{
-    if(initial.type)return;
-    if(isTradeJob&&f.type===JOB_TYPES[0])setF(p=>({...p,type:"Trade / Wholesale"}));
-  },[isTradeJob]);   // eslint-disable-line
+  // Trade jobs are priced from the client's account type, not the job type, so leave the type free:
+  // a trade client's job can be a Repair (with its intake), an engagement ring, etc. "Trade / Wholesale"
+  // stays available in the list as a manual catch-all.
   return <div>
     <Input label="Client" value={f.clientId} onChange={set("clientId")} as="select" options={[{value:"",label:"— Select a client —"},...clients.map(c=>({value:c.id,label:c.accountType==="trade"?`${c.name} · Trade`:c.name}))]}/>
     {isTradeJob&&<Input label={`PO / reference${selClient?.poRequired?" (required)":""}`} value={f.po||""} onChange={set("po")} placeholder="Client's PO or job reference"/>}
