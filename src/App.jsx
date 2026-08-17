@@ -7337,7 +7337,7 @@ function StatementDetail({clientId,clients,jobs,invoices,payments,biz,setView}){
           ["Invoiced",fmtR(m.invoiced),`${m.invoiceCount} invoice${m.invoiceCount!==1?"s":""}`,INK],
           ["Collected",fmtR(m.collected),"received",OK],
           ["Outstanding",fmtR(m.outstanding),"owing",m.outstanding>0?WARN:OK],
-          ["Avg turnaround",m.avgTurnaround!=null?`${m.avgTurnaround}d`:"—",m.completedCount?`${m.completedCount} completed`:"in→out",INK],
+          ["Avg turnaround",m.avgTurnaround!=null?`${m.avgTurnaround}d`:"—",m.completedCount?`${m.completedCount} completed`:"no completed jobs",INK],
         ].map(([l,v,sub,col])=>(
           <div key={l} style={{background:PARCH,border:`1px solid ${BD}`,borderRadius:8,padding:"12px 13px"}}>
             <div style={{fontSize:9.5,color:WG,fontWeight:700,textTransform:"uppercase",letterSpacing:"0.06em"}}>{l}</div>
