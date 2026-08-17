@@ -35,9 +35,9 @@ try{
 // ── Tokens ────────────────────────────────────────────────────────────────
 const GOLD="#BA7067",GOLD_L="#F4E6E3",GOLD_D="#A65A50",INK="#17130F",PARCH="#F4EEE8",WG="#8B837C",BD="#ECE4DB",WHITE="#FFFFFF",OK="#2D7A4F",OK_BG="#EAF5EF",DANGER="#C0392B",WARN="#B06A10";
 // Monochrome (black & white) system
-const CREAM="#FBF9F8";          // app background (warm cream — matches prongstudio.app)
+const CREAM="#FBF9F8";          // app background (warm cream — matches workshoppilot.app)
 const BD_SOFT="#ECECEE";        // softer hairline border
-const RADIUS=12;                // card corner radius (soft — matches prongstudio.app)
+const RADIUS=12;                // card corner radius (soft — matches workshoppilot.app)
 const SHADOW="0 2px 6px rgba(72,60,84,0.05),0 18px 40px -22px rgba(72,60,84,0.20)";
 const SHADOW_HV="0 6px 18px rgba(20,20,22,0.10),0 16px 36px rgba(20,20,22,0.12)";
 // Stat-tile treatments — neutral by default; a couple carry a functional status hint
@@ -1003,7 +1003,7 @@ async function sendClientEmail({to,cc,replyTo,fromName,subject,html}){
 // Billing turns on for the customer-facing deploys — either via the env var, or by hostname (so
 // the tester/customer domains work without a build-time env var). The owner's business app
 // (vahe-platform.vercel.app) and local dev are deliberately NOT listed, so billing stays off there.
-const BILLING_HOSTS=["vahe-testers.vercel.app","prongstudio.app","www.prongstudio.app","app.prongstudio.app"];   // customer-facing domains
+const BILLING_HOSTS=["vahe-testers.vercel.app","prongstudio.app","www.prongstudio.app","app.prongstudio.app","workshoppilot.app","www.workshoppilot.app","app.workshoppilot.app"];   // customer-facing domains (old prongstudio.app kept live during the rename transition)
 const BILLING_ENABLED=import.meta.env.VITE_BILLING_ENABLED==="true"
   ||(typeof window!=="undefined"&&BILLING_HOSTS.includes(window.location.hostname));
 // Call the `billing` edge fn (checkout | portal) and send the browser to the Stripe URL it returns.
@@ -2171,7 +2171,7 @@ function Badge({label,color=WG,size="sm"}){
 }
 function Btn({onClick,children,sm,xs,danger,ghost,disabled}){
   const[h,setH]=useState(false);
-  // Soft-modern style: rounded, sentence-case, terracotta primary (matches prongstudio.app).
+  // Soft-modern style: rounded, sentence-case, terracotta primary (matches workshoppilot.app).
   let bg,fg,bc;
   if(disabled){bg="#E3DAD0";fg=WHITE;bc="#E3DAD0";}
   else if(danger){bg=h?"#9A2D22":DANGER;fg=WHITE;bc=bg;}
@@ -8678,7 +8678,7 @@ function Settings({biz,setBiz,markupTable,setMarkupTable,naturalStoneMarkup,setN
       <BracketEditor rows={tsl} setRows={setTsl} accent="#96627C"/>
       <div style={{display:"flex",justifyContent:"flex-end",marginTop:16}}><Btn onClick={saveTrade}>Save trade markups</Btn></div>
     </Card>
-    {billing&&billing.enabled&&<><SectionHeader eyebrow="Your studio" title="Subscription" subtitle="Your Prong Studio plan and billing."/><BillingCard billing={billing}/></>}
+    {billing&&billing.enabled&&<><SectionHeader eyebrow="Your studio" title="Subscription" subtitle="Your Workshop Pilot plan and billing."/><BillingCard billing={billing}/></>}
     {supabaseEnabled&&<><SectionHeader eyebrow="Your studio" title="Team" subtitle="Invite teammates into this studio — everyone shares the same jobs, clients and invoices."/><TeamCard/></>}
     <SectionHeader eyebrow="Your studio" title="Data safety" subtitle="Automatic backups you can restore from — so nothing gets lost for good."/>
     {dataSafety&&<DataSafetyCard {...dataSafety}/>}
@@ -8863,7 +8863,7 @@ const apptVEvent=(a,clients)=>{
   }
   return ["BEGIN:VEVENT",`UID:${a.id||uid()}@prongstudio.app`,`DTSTAMP:${new Date().toISOString().replace(/[-:]/g,"").replace(/\.\d+/,"")}`,dtStart,dtEnd,`SUMMARY:${_icsEsc(_apptCalTitle(a,clients))}`,...(a.notes?[`DESCRIPTION:${_icsEsc(a.notes)}`]:[]),"END:VEVENT"].join("\r\n");
 };
-const apptIcs=(a,clients)=>["BEGIN:VCALENDAR","VERSION:2.0","PRODID:-//Prong Studio//Appointments//EN","CALSCALE:GREGORIAN",apptVEvent(a,clients),"END:VCALENDAR"].join("\r\n");
+const apptIcs=(a,clients)=>["BEGIN:VCALENDAR","VERSION:2.0","PRODID:-//Workshop Pilot//Appointments//EN","CALSCALE:GREGORIAN",apptVEvent(a,clients),"END:VCALENDAR"].join("\r\n");
 const downloadIcs=(filename,ics)=>{const url=URL.createObjectURL(new Blob([ics],{type:"text/calendar;charset=utf-8"}));const el=document.createElement("a");el.href=url;el.download=filename;document.body.appendChild(el);el.click();el.remove();URL.revokeObjectURL(url);};
 function MiniBtn({label,color,onClick,filled}){
   return <button onClick={e=>{e.stopPropagation();onClick();}} style={{background:filled?color:color+"14",border:`1px solid ${filled?color:color+"44"}`,borderRadius:3,padding:"3px 10px",fontSize:11,fontWeight:700,color:filled?WHITE:color,cursor:"pointer",fontFamily:"inherit"}}>{label}</button>;
@@ -9262,7 +9262,7 @@ function Login(){
   return <div style={{minHeight:"100vh",display:"flex",alignItems:"center",justifyContent:"center",background:"#000000",fontFamily:"'Poppins',sans-serif",padding:20}}>
     <form onSubmit={submit} style={{width:"100%",maxWidth:360,background:"#0E0E0E",border:"1px solid rgba(255,255,255,0.08)",borderRadius:16,padding:"36px 32px"}}>
       <div style={{textAlign:"center",marginBottom:28}}>
-        <div style={{fontSize:22,fontWeight:700,color:WHITE,letterSpacing:"0.16em",textTransform:"uppercase",lineHeight:1}}>Prong Studio</div>
+        <div style={{fontSize:22,fontWeight:700,color:WHITE,letterSpacing:"0.16em",textTransform:"uppercase",lineHeight:1}}>Workshop Pilot</div>
       </div>
       {sentTo
         ?<div style={{textAlign:"center"}}>
@@ -10683,7 +10683,7 @@ export default function App(){
       <button onClick={()=>setDrawerOpen(true)} aria-label="Open menu" style={{background:"none",border:"none",cursor:"pointer",padding:6,display:"flex",flexDirection:"column",gap:4}}>
         {[0,1,2].map(i=><span key={i} style={{width:20,height:2,background:WHITE,display:"block",borderRadius:2}}/>)}
       </button>
-      <div style={{fontSize:14,fontWeight:700,color:WHITE,letterSpacing:"0.14em",textTransform:"uppercase"}}>Prong Studio</div>
+      <div style={{fontSize:14,fontWeight:700,color:WHITE,letterSpacing:"0.14em",textTransform:"uppercase"}}>Workshop Pilot</div>
     </div>}
     {/* Tap-away backdrop while the drawer is open */}
     {isMobile&&drawerOpen&&<div onClick={()=>setDrawerOpen(false)} style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.5)",zIndex:1001}}/>}
@@ -10691,7 +10691,7 @@ export default function App(){
       ?{width:250,maxWidth:"85vw",background:"#000000",display:"flex",flexDirection:"column",padding:"20px 0 28px",position:"fixed",top:0,left:0,height:"100vh",overflowY:"auto",zIndex:1002,transform:drawerOpen?"translateX(0)":"translateX(-100%)",transition:"transform 0.22s ease",boxShadow:drawerOpen?"2px 0 24px rgba(0,0,0,0.45)":"none"}
       :{width:210,background:"#000000",display:"flex",flexDirection:"column",padding:"40px 0 28px",flexShrink:0,position:"sticky",top:0,height:"100vh",overflowY:"auto"}}>
       <div style={{padding:"0 20px 28px",borderBottom:"1px solid rgba(255,255,255,0.06)",textAlign:"center",position:"relative"}}>
-        <div style={{fontSize:17,fontWeight:700,color:WHITE,letterSpacing:"0.16em",textTransform:"uppercase",lineHeight:1.15}}>Prong Studio</div>
+        <div style={{fontSize:17,fontWeight:700,color:WHITE,letterSpacing:"0.16em",textTransform:"uppercase",lineHeight:1.15}}>Workshop Pilot</div>
         {isMobile&&<button onClick={()=>setDrawerOpen(false)} aria-label="Close menu" style={{position:"absolute",top:-2,right:10,background:"none",border:"none",color:"rgba(255,255,255,0.55)",fontSize:26,lineHeight:1,cursor:"pointer",padding:4}}>×</button>}
       </div>
       <nav style={{padding:"16px 12px",flex:1}}>

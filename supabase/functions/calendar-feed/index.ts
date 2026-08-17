@@ -92,7 +92,7 @@ Deno.serve(async (req) => {
       .filter((a: any) => a && a.date && a.status !== "Cancelled")
       .map((a: any) => vevent(a, nameOf, tz));
 
-    const ics = ["BEGIN:VCALENDAR", "VERSION:2.0", "PRODID:-//Prong Studio//Appointments//EN", "CALSCALE:GREGORIAN", "METHOD:PUBLISH", "X-WR-CALNAME:Prong Studio — Appointments", `X-WR-TIMEZONE:${tz}`, ...events, "END:VCALENDAR"].join("\r\n");
+    const ics = ["BEGIN:VCALENDAR", "VERSION:2.0", "PRODID:-//Workshop Pilot//Appointments//EN", "CALSCALE:GREGORIAN", "METHOD:PUBLISH", "X-WR-CALNAME:Workshop Pilot — Appointments", `X-WR-TIMEZONE:${tz}`, ...events, "END:VCALENDAR"].join("\r\n");
 
     return new Response(ics, { headers: { "Content-Type": "text/calendar; charset=utf-8", "Cache-Control": "public, max-age=3600" } });
   } catch (e) {

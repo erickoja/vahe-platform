@@ -1,4 +1,4 @@
 User-agent: *
 Allow: /
 
-Sitemap: https://prongstudio.app/sitemap.xml
+Sitemap: https://workshoppilot.app/sitemap.xml

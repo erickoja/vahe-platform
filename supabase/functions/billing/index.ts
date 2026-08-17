@@ -1,6 +1,6 @@
 // ============================================================================
 //  Supabase Edge Function: billing
-//  Subscription billing for Prong Studio. Calls the Stripe REST API directly
+//  Subscription billing for Workshop Pilot. Calls the Stripe REST API directly
 //  with fetch (no Stripe SDK — avoids Deno/Edge HTTP-client issues).
 //  Actions (POST { action }): "checkout" (monthly|annual) | "portal".
 //  Secrets: STRIPE_SECRET_KEY, STRIPE_PRICE_MONTHLY, STRIPE_PRICE_ANNUAL,
