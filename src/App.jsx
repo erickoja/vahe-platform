@@ -7390,7 +7390,7 @@ function StatementDetail({clientId,clients,jobs,invoices,payments,biz,setView}){
           <div style={{fontSize:13,textAlign:"right",fontWeight:700,color:INK}}>{fmt(e.balance)}</div>
         </div>
       ))}
-      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"14px 2px 4px",marginTop:4,borderTop:`2px solid ${INK}`}}>
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"14px 2px 4px",marginTop:4,borderTop:st.period.length?`2px solid ${INK}`:`1px solid ${BD}`}}>
         <span style={{fontSize:12,fontWeight:800,color:INK,textTransform:"uppercase",letterSpacing:"0.06em"}}>Closing balance owing</span>
         <span style={{fontSize:20,fontWeight:800,color:st.closing>0?INK:OK}}>{fmt(st.closing)}</span>
       </div>
