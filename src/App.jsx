@@ -7268,7 +7268,9 @@ function StatementsList({clients,jobs,invoices,payments,biz,setView}){
                   <div style={{fontWeight:800,fontSize:17,color:aging.total>0?INK:OK}}>{fmt(aging.total)}</div>
                   <div style={{fontSize:11,color:WG}}>{aging.total>0?"owing":"settled"}</div>
                 </div>
-                <span style={{color:GOLD_D,fontWeight:700,fontSize:13}}>Statement →</span>
+                <span title="Open statement" aria-label="Open statement" style={{display:"inline-flex",alignItems:"center",justifyContent:"center",width:30,height:30,borderRadius:999,background:GOLD_L,border:`1px solid ${GOLD}55`,color:GOLD_D,flexShrink:0}}>
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round"><path d="M9 6l6 6-6 6"/></svg>
+                </span>
               </div>
             </div>
           </Card>;
