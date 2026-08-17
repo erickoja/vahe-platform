@@ -2358,15 +2358,35 @@ const barcodeSvg=(text,{h=46,mw=2,quiet=10}={})=>{
 };
 // Short, human-readable job reference (also what the barcode encodes).
 const jobRef=job=>(job?.id||"").slice(-6).toUpperCase();
+// Per-piece codes so a batch job can be labelled piece by piece: jobRef + a 2-digit index
+// (e.g. A1B2C3-01). Repairs → one per intake item; any other job → one per quote. Scanning any
+// piece still resolves to the parent job because they share the jobRef prefix.
+const pieceCode=(ref,i)=>`${ref}-${String(i+1).padStart(2,"0")}`;
+function jobPieces(job,quotes){
+  const ref=jobRef(job);
+  if(job?.type==="Repair"){
+    return intakeItems(job.intake||{}).map((it,i)=>({
+      code:pieceCode(ref,i),
+      title:(it.itemType||"").trim()||"Repair",
+      sub:[it.damage,it.condition].filter(Boolean).join(" · "),
+    }));
+  }
+  return (quotes||[]).filter(q=>q.jobId===job?.id).map((q,i)=>({
+    code:pieceCode(ref,i),
+    title:(q.pieceTitle||q.title||"").trim()||quoteLabel(q),
+    sub:(q.clientDescription||"").trim(),
+  }));
+}
 
 // Internal workshop docket for the physical job envelope: barcode + docket #, client/PO, dates,
 // instructions and a stage checklist. Never shows pricing — this rides with the job, not the client.
-function printJobDocket(biz,c,job){
+function printJobDocket(biz,c,job,quotes){
   const win=window.open("","_blank");
   if(!win){alert("Please allow pop-ups so the docket can open in a new tab.");return;}
   const esc=s=>String(s==null?"":s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
   const ml=s=>esc(s).replace(/\n/g,"<br>");
   const ref=jobRef(job);
+  const pieces=jobPieces(job,quotes);
   const trade=c?.accountType==="trade";
   const clientName=esc(clientDisplayName(c)||"—");
   const contact=[trade?c?.contactName:"",c?.phone,c?.email].filter(Boolean).map(esc).join(" · ");
@@ -2417,6 +2437,7 @@ function printJobDocket(biz,c,job){
 </div>
 ${job.description?`<div class="instr"><strong>Job:</strong> ${ml(job.description)}</div>`:""}
 ${instructions?`<div class="instr"><strong>Instructions:</strong>\n${ml(instructions)}</div>`:""}
+${pieces.length>1?`<div class="stlbl">Pieces (${pieces.length}) — one label per piece</div><div class="block" style="padding:4px 0;margin-bottom:16px">${pieces.map(p=>`<div class="idrow" style="padding:8px 16px"><span class="idl" style="padding-top:1px;letter-spacing:.06em">${esc(p.code)}</span><span class="idv" style="font-weight:600">${esc(p.title)}${p.sub?` <span style="color:#6B6560;font-weight:400">· ${esc(p.sub)}</span>`:""}</span></div>`).join("")}</div>`:""}
 <div class="stlbl">Progress</div>
 <div class="stgs">${stageBoxes}</div>
 <div class="sig"><div><div class="sigline"></div><div class="siglbl">Completed / checked by</div></div><div><div class="sigline"></div><div class="siglbl">Collected by · date</div></div></div>
@@ -2452,6 +2473,48 @@ body{font-family:'Poppins',sans-serif;color:#111;background:#fff;padding:14px}
 </div>
 </body></html>`);
   win.document.close();setTimeout(()=>win.print(),300);
+}
+
+// A4 sheet of per-piece sticker labels (one per piece), laid out for Avery L7160 / J8160 (21 per
+// sheet, 3 across, 63.5 x 38.1mm). Each label carries its own barcode + piece code, the client, and a
+// short description so every physical piece in a batch job can be identified and scanned individually.
+function printJobLabels(biz,c,job,quotes){
+  const pieces=jobPieces(job,quotes);
+  if(!pieces.length){alert(job?.type==="Repair"
+    ?"Add repair items to the intake first — each item gets its own label."
+    :"Add a quote for each piece first — each quote gets its own label.");return;}
+  const win=window.open("","_blank");
+  if(!win){alert("Please allow pop-ups so the labels can open in a new tab.");return;}
+  const esc=s=>String(s==null?"":s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
+  const trade=c?.accountType==="trade";
+  const who=esc((trade&&c?.contactName)?c.contactName:(clientDisplayName(c)||"—"));
+  const meta=[job.po?`PO ${esc(job.po)}`:"",job.deadline?`Due ${fmtDate(job.deadline)}`:""].filter(Boolean).join(" · ");
+  const cells=pieces.map(p=>`<div class="lab">
+    <div class="lb-bc">${barcodeSvg(p.code,{h:26,mw:1.5,quiet:6})}</div>
+    <div class="lb-code">${esc(p.code)}</div>
+    <div class="lb-who">${who}</div>
+    <div class="lb-title">${esc(p.title)}</div>
+    ${p.sub?`<div class="lb-sub">${esc(p.sub)}</div>`:(meta?`<div class="lb-sub">${meta}</div>`:"")}
+  </div>`).join("");
+  win.document.write(`<!DOCTYPE html><html><head><title>Labels — ${esc(jobRef(job))}</title><style>
+@import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700;800&display=swap');
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{background:#fff}
+body{font-family:'Poppins',sans-serif;color:#111}
+@page{size:A4;margin:0}
+.sheet{width:210mm;padding:13mm 6.5mm 0;box-sizing:border-box}
+.grid{display:grid;grid-template-columns:repeat(3,63.5mm);column-gap:2.5mm;row-gap:0}
+.lab{width:63.5mm;height:38.1mm;padding:2.4mm 3mm;overflow:hidden;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;page-break-inside:avoid}
+.lb-bc{width:46mm;line-height:0}
+.lb-bc svg{max-width:100%;height:auto}
+.lb-code{font-size:11px;font-weight:800;letter-spacing:.08em;margin-top:1mm}
+.lb-who{font-size:10px;font-weight:700;margin-top:.6mm;line-height:1.15;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.lb-title{font-size:9px;font-weight:600;color:#333;margin-top:.4mm;line-height:1.2;max-height:2.4em;overflow:hidden}
+.lb-sub{font-size:8px;color:#666;margin-top:.3mm;line-height:1.15;max-height:2.3em;overflow:hidden}
+</style></head><body>
+<div class="sheet"><div class="grid">${cells}</div></div>
+</body></html>`);
+  win.document.close();setTimeout(()=>win.print(),350);
 }
 
 async function printRepairIntake(biz,c,job){
@@ -4067,7 +4130,8 @@ function JobDetail({jobId,jobs,setJobs,clients,setClients,quotes,setQuotes,payme
         {job.parked&&<Badge label="Awaiting client" color={WARN} size="lg"/>}
         <Btn sm={!isMobile} xs={isMobile} ghost onClick={()=>setEditStage(v=>!v)}>Move stage</Btn>
         <Btn sm={!isMobile} xs={isMobile} ghost onClick={togglePark}>{job.parked?"↩ Reactivate":"⏸ Awaiting client"}</Btn>
-        <Btn sm={!isMobile} xs={isMobile} ghost onClick={()=>printJobDocket(biz,c,job)}>🏷 Docket</Btn>
+        <Btn sm={!isMobile} xs={isMobile} ghost onClick={()=>printJobDocket(biz,c,job,jq)}>🏷 Docket</Btn>
+        <Btn sm={!isMobile} xs={isMobile} ghost onClick={()=>printJobLabels(biz,c,job,jq)}>Labels</Btn>
         <Btn sm={!isMobile} xs={isMobile} ghost onClick={()=>printJobLabel(biz,c,job)}>Tag</Btn>
         <Btn sm={!isMobile} xs={isMobile} ghost onClick={()=>setEditJobModal(true)}>Edit job</Btn>
         <Btn sm={!isMobile} xs={isMobile} danger onClick={delJob}>Delete job</Btn>
