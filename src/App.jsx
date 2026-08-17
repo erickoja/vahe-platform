@@ -7368,18 +7368,18 @@ function StatementDetail({clientId,clients,jobs,invoices,payments,biz,setView}){
     </Card>
 
     <Card>
-      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"6px 2px 12px",borderBottom:`2px solid ${INK}`,marginBottom:4}}>
-        <span style={{fontSize:12,fontWeight:700,color:WG,textTransform:"uppercase",letterSpacing:"0.06em"}}>Opening balance</span>
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",gap:10,padding:"12px 14px",background:PARCH,border:`1px solid ${BD}`,borderRadius:9}}>
+        <span style={{fontSize:11,fontWeight:700,color:WG,textTransform:"uppercase",letterSpacing:"0.07em"}}>Opening balance</span>
         <span style={{fontSize:15,fontWeight:800,color:INK}}>{fmt(st.opening)}</span>
       </div>
-      {!isNarrow&&<div style={{display:"grid",gridTemplateColumns:"90px 1fr 110px 130px 120px",gap:8,padding:"8px 2px",fontSize:10,fontWeight:700,color:WG,textTransform:"uppercase",letterSpacing:"0.05em",borderBottom:`1px solid ${BD}`}}>
+      {!isNarrow&&<div style={{display:"grid",gridTemplateColumns:"90px 1fr 110px 130px 120px",gap:8,padding:"12px 14px 6px",fontSize:10,fontWeight:700,color:WG,textTransform:"uppercase",letterSpacing:"0.05em"}}>
         <div>Date</div><div>Description</div><div style={{textAlign:"right"}}>Charges</div><div style={{textAlign:"right"}}>Payments</div><div style={{textAlign:"right"}}>Balance</div>
       </div>}
-      {st.period.length===0&&<div style={{color:WG,fontSize:13,padding:"18px 2px",fontStyle:"italic"}}>No transactions in this period.</div>}
-      {st.period.map(e=>(
+      {st.period.length===0&&<div style={{color:WG,fontSize:13,padding:"20px 14px",fontStyle:"italic",textAlign:"center"}}>No transactions in this period.</div>}
+      {st.period.map((e,i)=>(
         <div key={e.id} style={isNarrow
-          ?{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:10,padding:"11px 2px",borderBottom:`1px solid ${BD}`}
-          :{display:"grid",gridTemplateColumns:"90px 1fr 110px 130px 120px",gap:8,padding:"11px 2px",borderBottom:`1px solid ${BD}`,alignItems:"center"}}>
+          ?{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:10,padding:"12px 14px",borderTop:i>0?`1px solid ${BD}`:"none"}
+          :{display:"grid",gridTemplateColumns:"90px 1fr 110px 130px 120px",gap:8,padding:"12px 14px",borderTop:`1px solid ${BD}`,alignItems:"center"}}>
           <div style={{fontSize:12,color:WG,whiteSpace:"nowrap"}}>{fmtDate(e.date)}</div>
           <div style={{minWidth:0,order:isNarrow?3:0,flexBasis:isNarrow?"100%":"auto"}}>
             <div style={{fontSize:13,color:INK,fontWeight:600}}>{e.desc}{e.ref&&<span style={{color:WG,fontWeight:400}}> · {e.ref}</span>}</div>
@@ -7390,10 +7390,11 @@ function StatementDetail({clientId,clients,jobs,invoices,payments,biz,setView}){
           <div style={{fontSize:13,textAlign:"right",fontWeight:700,color:INK}}>{fmt(e.balance)}</div>
         </div>
       ))}
-      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"14px 2px 4px",marginTop:4,borderTop:st.period.length?`2px solid ${INK}`:`1px solid ${BD}`}}>
-        <span style={{fontSize:12,fontWeight:800,color:INK,textTransform:"uppercase",letterSpacing:"0.06em"}}>Closing balance owing</span>
-        <span style={{fontSize:20,fontWeight:800,color:st.closing>0?INK:OK}}>{fmt(st.closing)}</span>
-      </div>
+      {(()=>{const settled=st.closing<=0.005;return(
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",gap:10,padding:"15px 16px",marginTop:10,background:settled?OK:INK,borderRadius:10}}>
+        <span style={{fontSize:11.5,fontWeight:800,color:"#fff",textTransform:"uppercase",letterSpacing:"0.07em"}}>{settled?"Balance settled":"Closing balance owing"}</span>
+        <span style={{fontSize:20,fontWeight:800,color:"#fff"}}>{fmt(st.closing)}</span>
+      </div>);})()}
     </Card>
 
     <Card>
