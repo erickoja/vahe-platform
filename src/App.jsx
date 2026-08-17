@@ -1767,7 +1767,7 @@ function printStatement(biz,client,{opening,period,closing,aging,from,to}){
   const rows=period.length
     ?period.map(e=>`<tr>
 <td class="muted" style="white-space:nowrap">${fmtDate(e.date)}</td>
-<td>${esc(e.desc)}${e.ref?`<span class="muted"> · ${esc(e.ref)}</span>`:""}${e.po?`<div class="muted" style="font-size:10px">PO ${esc(e.po)}</div>`:""}${e.kind==="invoice"&&e.due?`<div class="muted" style="font-size:10px">Due ${fmtDate(e.due)}</div>`:""}</td>
+<td class="desc">${esc(e.desc)}${e.ref?`<span class="muted"> · ${esc(e.ref)}</span>`:""}${e.po?`<div class="muted" style="font-size:10px">PO ${esc(e.po)}</div>`:""}${e.kind==="invoice"&&e.due?`<div class="muted" style="font-size:10px">Due ${fmtDate(e.due)}</div>`:""}</td>
 <td class="right">${e.charge?fmt(e.charge):""}</td>
 <td class="right" style="color:#2D7A4F">${e.credit?fmt(e.credit):""}</td>
 <td class="right" style="font-weight:700">${fmt(e.balance)}</td>
@@ -1775,9 +1775,16 @@ function printStatement(biz,client,{opening,period,closing,aging,from,to}){
     :`<tr><td colspan="5" style="color:#bbb;font-style:italic">No transactions in this period</td></tr>`;
   const agingCells=AGE_BUCKETS.map(([k,l])=>`<div class="cs-item"><div class="cs-lbl">${l}</div><div class="cs-val${k==="d90"&&aging.buckets[k]>0?" gold":""}">${fmt(aging.buckets[k])}</div></div>`).join("");
   win.document.write(`<!DOCTYPE html><html><head><title>Statement — ${clientName}</title><style>${PCSS}
-.stbl th.right,.stbl td.right{text-align:right;white-space:nowrap}
-.balrow{display:flex;justify-content:space-between;align-items:center;padding:11px 17px;background:#FAF7F2;border:1px solid #E8E2D9;border-radius:8px;margin-bottom:8px}
-.balrow.big{background:#1A1714;border-color:#1A1714;margin:14px 0 24px}
+.stbl{table-layout:fixed;margin:6px 0}
+.stbl col.c-date{width:82px}.stbl col.c-chg{width:88px}.stbl col.c-pay{width:104px}.stbl col.c-bal{width:96px}
+.stbl th,.stbl td{vertical-align:top;padding:10px 0 10px 14px}
+.stbl th:first-child,.stbl td:first-child{padding-left:0}
+.stbl th.right,.stbl td.right{text-align:right}
+.stbl td.right{white-space:nowrap}
+.stbl td.desc{line-height:1.5;word-break:break-word}
+.stbl td.desc .muted{font-size:11px}
+.balrow{display:flex;justify-content:space-between;align-items:center;padding:12px 18px;background:#FAF7F2;border:1px solid #E8E2D9;border-radius:9px;margin-bottom:0}
+.balrow.big{background:#1A1714;border-color:#1A1714;margin:14px 0 26px;padding:15px 18px}
 .balrow .bl-l{font-size:11px;font-weight:700;color:#6B6560;text-transform:uppercase;letter-spacing:.08em}
 .balrow.big .bl-l{color:#C9A84C}
 .balrow .bl-v{font-size:16px;font-weight:800;color:#1A1714}
@@ -1793,6 +1800,7 @@ function printStatement(biz,client,{opening,period,closing,aging,from,to}){
 <div class="terms-line">Statement period: <strong>${periodLbl}</strong></div>
 <div class="balrow"><span class="bl-l">Opening balance</span><span class="bl-v">${fmt(opening)}</span></div>
 <table class="stbl">
+  <colgroup><col class="c-date"><col><col class="c-chg"><col class="c-pay"><col class="c-bal"></colgroup>
   <thead><tr><th>Date</th><th>Description</th><th class="right">Charges</th><th class="right">Payments / credits</th><th class="right">Balance</th></tr></thead>
   <tbody>${rows}</tbody>
 </table>
