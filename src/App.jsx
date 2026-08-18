@@ -1003,7 +1003,7 @@ async function sendClientEmail({to,cc,replyTo,fromName,subject,html}){
 // Billing turns on for the customer-facing deploys — either via the env var, or by hostname (so
 // the tester/customer domains work without a build-time env var). The owner's business app
 // (vahe-platform.vercel.app) and local dev are deliberately NOT listed, so billing stays off there.
-const BILLING_HOSTS=["vahe-testers.vercel.app","prongstudio.app","www.prongstudio.app","app.prongstudio.app","workshoppilot.app","www.workshoppilot.app","app.workshoppilot.app"];   // customer-facing domains (old prongstudio.app kept live during the rename transition)
+const BILLING_HOSTS=["vahe-testers.vercel.app","prongstudio.app","www.prongstudio.app","app.prongstudio.app"];   // customer-facing domains (add app.workshoppilot.app here only when billing actually launches, and comp the owner's account first)
 const BILLING_ENABLED=import.meta.env.VITE_BILLING_ENABLED==="true"
   ||(typeof window!=="undefined"&&BILLING_HOSTS.includes(window.location.hostname));
 // Call the `billing` edge fn (checkout | portal) and send the browser to the Stripe URL it returns.
