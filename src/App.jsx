@@ -1084,6 +1084,9 @@ function EmailClientButton({to,clientName,biz,linkUrl,docType,defaultSubject,def
   </>;
 }
 
+// Google "G" logo (inline SVG, brand colours) — used on the review-request buttons so it's clear
+// these ask for a GOOGLE review. No external load (CSP-safe).
+const ICON_GOOGLE=<svg width="13" height="13" viewBox="0 0 48 48" aria-hidden="true" style={{verticalAlign:"-2px",marginRight:6,flexShrink:0}}><path fill="#4285F4" d="M45.12 24.5c0-1.56-.14-3.06-.4-4.5H24v8.51h11.84c-.51 2.75-2.06 5.08-4.39 6.64v5.52h7.11c4.16-3.83 6.56-9.47 6.56-16.17z"/><path fill="#34A853" d="M24 46c5.94 0 10.92-1.97 14.56-5.33l-7.11-5.52c-1.97 1.32-4.49 2.1-7.45 2.1-5.73 0-10.58-3.87-12.31-9.07H4.34v5.7C7.96 41.07 15.4 46 24 46z"/><path fill="#FBBC05" d="M11.69 28.18C11.25 26.86 11 25.45 11 24s.25-2.86.69-4.18v-5.7H4.34C2.85 17.09 2 20.45 2 24s.85 6.91 2.34 9.88l7.35-5.7z"/><path fill="#EA4335" d="M24 10.75c3.23 0 6.13 1.11 8.41 3.29l6.31-6.31C34.91 4.18 29.93 2 24 2 15.4 2 7.96 6.93 4.34 14.12l7.35 5.7c1.73-5.2 6.58-9.07 12.31-9.07z"/></svg>;
 // Standalone "ask for a Google review" email — not tied to a job. Sends a short message with
 // just the review button (biz.googleReviewUrl). Disabled without a review link or a client email.
 function ReviewRequestButton({to,clientName,biz,clientId,setClients}){
@@ -1111,7 +1114,7 @@ function ReviewRequestButton({to,clientName,biz,clientId,setClients}){
     setBusy(false);
   };
   return <>
-    <Btn sm ghost onClick={openIt} disabled={!reviewUrl||!to} title={!reviewUrl?"Add a Google review link in Settings":(!to?"Add an email to this client":"")}>★ Ask for a review</Btn>
+    <Btn sm ghost onClick={openIt} disabled={!reviewUrl||!to} title={!reviewUrl?"Add a Google review link in Settings":(!to?"Add an email to this client":"")}>{ICON_GOOGLE}Ask for a Google review</Btn>
     {open&&<Modal title="Ask for a Google review" onClose={()=>setOpen(false)}>
       {sent
         ?<div style={{padding:"14px 2px",fontSize:14,color:OK,fontWeight:700}}>✓ Sent to {email}</div>
@@ -1183,7 +1186,7 @@ function BulkReviewButton({clients,jobs,payments,biz,setClients}){
     setProg({done:targets.length,total:targets.length});setDone({sent,failed});setBusy(false);
   };
   return <>
-    <Btn sm ghost onClick={openIt}>★ Ask recent clients</Btn>
+    <Btn sm ghost onClick={openIt}>{ICON_GOOGLE}Ask for Google reviews</Btn>
     {open&&<Modal title="Ask recent clients for a review" onClose={busy?()=>{}:()=>setOpen(false)}>
       {!reviewUrl
         ?<div style={{fontSize:14,color:INK,lineHeight:1.6}}>Add a <strong>Google review link</strong> in Settings first, then you can email your recent clients for a review.</div>
