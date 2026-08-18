@@ -1,8 +1,8 @@
 # Turning on subscription billing (Stripe)
 
-Set this up on the **customer-facing / tester** stack only:
+Set this up on the **customer-facing / SaaS** stack only:
 - Supabase project: `ietkgxvmxzeqjhxmdddx`
-- Vercel deploy: `vahe-testers.vercel.app`
+- Vercel deploy: `app.workshoppilot.app`
 
 **Never enable billing on the live business app** (`ipbillmpehwgnlayyziz` / `vahe-platform.vercel.app`)
 — you'd put your own workshop behind a paywall. Billing stays OFF there.
@@ -15,12 +15,12 @@ Model (already built in the app): monthly + annual plans, 14-day trial, read-onl
 
 ## 1. Stripe (Test mode)
 1. Create/log into Stripe. Toggle **Test mode** (top right).
-2. **Products → + Add product** → "Prong Studio". Add two **recurring** prices:
+2. **Products → + Add product** → "Workshop Pilot". Add two **recurring** prices:
    - Monthly (e.g. $X/month) → copy its **Price ID** (`price_…`)
    - Yearly (e.g. $Y/year) → copy its **Price ID** (`price_…`)
 3. **Developers → API keys** → copy the **Secret key** (`sk_test_…`). Keep it safe — it only goes into Supabase secrets (never into the app or chat).
 
-## 2. Supabase (tester project `ietkgxvmxzeqjhxmdddx`)
+## 2. Supabase (customer project `ietkgxvmxzeqjhxmdddx`)
 4. **SQL Editor** → run `supabase/billing-setup.sql`.
 5. **Edge Functions** → deploy both (code in `supabase/functions/`):
    - `billing`  — the app calls it as **`billing`**, so the deployed **slug must be `billing`**. Prefer the CLI (`supabase functions deploy billing`) which preserves the name; if you use the dashboard editor and it renames the slug, tell Claude the real slug so the app's `invoke("billing")` can be updated.
@@ -39,7 +39,7 @@ Model (already built in the app): monthly + annual plans, 14-day trial, read-onl
    Copy the endpoint **Signing secret** (`whsec_…`) → add Supabase secret `STRIPE_WEBHOOK_SECRET`.
 
 ## 4. Turn it on
-9. Vercel (tester project) → env `VITE_BILLING_ENABLED=true` → redeploy with **build cache OFF**.
+9. Vercel (customer project) → env `VITE_BILLING_ENABLED=true` → redeploy with **build cache OFF**.
 
 ## 5. Test
 10. Sign up a fresh test studio → expect the trial banner + a **Subscription** card in Settings.
@@ -57,4 +57,4 @@ Repeat steps 1–3 & 6–8 with **live** keys, live price IDs, and a live webhoo
 | `STRIPE_PRICE_MONTHLY` | Supabase fn secrets | monthly `price_…` |
 | `STRIPE_PRICE_ANNUAL` | Supabase fn secrets | yearly `price_…` |
 | `STRIPE_WEBHOOK_SECRET` | Supabase fn secrets | `whsec_…` |
-| `VITE_BILLING_ENABLED` | Vercel (tester deploy) | `true` |
+| `VITE_BILLING_ENABLED` | Vercel (customer deploy) | `true` |

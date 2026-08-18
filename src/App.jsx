@@ -8861,7 +8861,7 @@ const apptVEvent=(a,clients)=>{
     const d0=(a.date||"").replace(/-/g,"");const nd=new Date(`${a.date}T00:00:00`);nd.setDate(nd.getDate()+1);
     dtStart=`DTSTART;VALUE=DATE:${d0}`;dtEnd=`DTEND;VALUE=DATE:${nd.getFullYear()}${_p2(nd.getMonth()+1)}${_p2(nd.getDate())}`;
   }
-  return ["BEGIN:VEVENT",`UID:${a.id||uid()}@prongstudio.app`,`DTSTAMP:${new Date().toISOString().replace(/[-:]/g,"").replace(/\.\d+/,"")}`,dtStart,dtEnd,`SUMMARY:${_icsEsc(_apptCalTitle(a,clients))}`,...(a.notes?[`DESCRIPTION:${_icsEsc(a.notes)}`]:[]),"END:VEVENT"].join("\r\n");
+  return ["BEGIN:VEVENT",`UID:${a.id||uid()}@workshoppilot.app`,`DTSTAMP:${new Date().toISOString().replace(/[-:]/g,"").replace(/\.\d+/,"")}`,dtStart,dtEnd,`SUMMARY:${_icsEsc(_apptCalTitle(a,clients))}`,...(a.notes?[`DESCRIPTION:${_icsEsc(a.notes)}`]:[]),"END:VEVENT"].join("\r\n");
 };
 const apptIcs=(a,clients)=>["BEGIN:VCALENDAR","VERSION:2.0","PRODID:-//Workshop Pilot//Appointments//EN","CALSCALE:GREGORIAN",apptVEvent(a,clients),"END:VCALENDAR"].join("\r\n");
 const downloadIcs=(filename,ics)=>{const url=URL.createObjectURL(new Blob([ics],{type:"text/calendar;charset=utf-8"}));const el=document.createElement("a");el.href=url;el.download=filename;document.body.appendChild(el);el.click();el.remove();URL.revokeObjectURL(url);};

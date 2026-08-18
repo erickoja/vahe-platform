@@ -5,7 +5,7 @@ This codebase (one GitHub repo, `erickoja/vahe-platform`) powers **two separate 
 | App | URL | Supabase project (ref) | What's in it |
 |---|---|---|---|
 | **Owner's own studio** | https://vahe-platform.vercel.app | `ipbillmpehwgnlayyziz` | The owner's real jewellery business — clients, jobs, quotes, invoices, photos. Private, single-user. |
-| **Customer SaaS** | https://app.prongstudio.app | `ietkgxvmxzeqjhxmdddx` | The multi-tenant product other jewellers sign up for. Separate DB so customers never touch the owner's data. Billing (Stripe) lives here. |
+| **Customer SaaS** | https://app.workshoppilot.app | `ietkgxvmxzeqjhxmdddx` | The multi-tenant product other jewellers sign up for. Separate DB so customers never touch the owner's data. Billing (Stripe) lives here. |
 
 Both auto-deploy from `main`: **edit code → commit → `git push origin main` → Vercel rebuilds and deploys within a minute or two.** There is no separate deploy step.
 
@@ -34,6 +34,6 @@ curl -s "https://vahe-platform.vercel.app$js" | grep -oE 'https://[a-z0-9]+\.sup
 Only these two projects are in use — **never delete either:**
 
 - `ipbillmpehwgnlayyziz` — owner's studio (vahe-platform.vercel.app). **Never delete.**
-- `ietkgxvmxzeqjhxmdddx` — customer SaaS (app.prongstudio.app). **Never delete.**
+- `ietkgxvmxzeqjhxmdddx` — customer SaaS (app.workshoppilot.app). **Never delete.**
 
 Always confirm a project's **Reference ID** (Project Settings → General) and check its Table Editor / Storage before removing anything. Deleting the wrong project means permanent loss of live data.

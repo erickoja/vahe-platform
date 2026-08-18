@@ -64,7 +64,7 @@ function vevent(a: any, nameOf: (a: any) => string, tz: string): string {
     dtEnd = `DTEND;VALUE=DATE:${nd.getUTCFullYear()}${p2(nd.getUTCMonth() + 1)}${p2(nd.getUTCDate())}`;
   }
   const stamp = new Date().toISOString().replace(/[-:]/g, "").replace(/\.\d+/, "");
-  return ["BEGIN:VEVENT", `UID:${a.id || Math.random().toString(36).slice(2)}@prongstudio.app`, `DTSTAMP:${stamp}`, dtStart, dtEnd, `SUMMARY:${esc(title)}`, ...(a.notes ? [`DESCRIPTION:${esc(a.notes)}`] : []), "END:VEVENT"].join("\r\n");
+  return ["BEGIN:VEVENT", `UID:${a.id || Math.random().toString(36).slice(2)}@workshoppilot.app`, `DTSTAMP:${stamp}`, dtStart, dtEnd, `SUMMARY:${esc(title)}`, ...(a.notes ? [`DESCRIPTION:${esc(a.notes)}`] : []), "END:VEVENT"].join("\r\n");
 }
 
 Deno.serve(async (req) => {

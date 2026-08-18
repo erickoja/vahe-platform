@@ -3,7 +3,7 @@
 --  studio_members already supports many users per studio; this adds a
 --  shareable-link invite flow:
 --    • create_studio_invite()  → mints a random token (owner/admin only)
---    • the invitee opens  app.prongstudio.app/?invite=<token>,  signs up
+--    • the invitee opens  app.workshoppilot.app/?invite=<token>,  signs up
 --    • accept_studio_invite(token) joins them to the studio on first sign-in
 --  All members get full access (studio_state RLS is by membership); only
 --  owner/admin can invite, remove members, or change studio settings.
