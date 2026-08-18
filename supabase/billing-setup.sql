@@ -1,5 +1,5 @@
 -- ============================================================================
---  Prong Studio — SaaS subscription billing (Stripe) schema
+--  Workshop Pilot — SaaS subscription billing (Stripe) schema
 --  Adds subscription fields to the studios table. Run once per Supabase project.
 --  Safe to re-run (IF NOT EXISTS / idempotent grandfather update).
 --
