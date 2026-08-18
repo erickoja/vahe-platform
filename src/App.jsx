@@ -371,11 +371,9 @@ const SEED_PRICING=[
   {id:"p7",category:"Metals",name:"Silver 925",unit:"g",baseCost:1.34,metalKey:"silver",purity:0.925},
   {id:"p8",category:"Labour",name:"Bench Labour (Casting Assembly)",unit:"hr",baseCost:70},
 
-  {id:"p19",category:FINDINGS_CAT,name:"Lobster clasp 18ct yellow",unit:"item",baseCost:22},
-  {id:"p20",category:FINDINGS_CAT,name:"Earring posts + butterflies",unit:"pair",baseCost:18},
-  // ── Purchased Components (sourced chains etc.) ────────────────────────────
-  {id:"p21",category:PURCHASED_CAT,name:"Box chain 18ct yellow 45cm",unit:"item",baseCost:145},
-  {id:"pc10",category:PURCHASED_CAT,name:"Cable chain 9ct yellow 50cm",unit:"item",baseCost:95},
+  // Findings & Purchased Components: intentionally NO seed items — these vary hugely per studio,
+  // so fresh studios start empty and add their own. Categories still appear (listed in PCAT) with
+  // their guidance blurbs. (Existing studios keep any items they already have — not retired here.)
   // ── 3D Printing & Casting ─────────────────────────────────────────────────
   {id:"pc1",category:"3D Print & Cast",name:"3D print fee",unit:"piece",baseCost:60},
   {id:"pc2",category:"3D Print & Cast",name:"Casting fee",unit:"piece",baseCost:15},
