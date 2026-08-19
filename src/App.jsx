@@ -7800,10 +7800,10 @@ function PricingDB({pricing,setPricing,spotPrices,setSpotPrices,markupTable,cent
   };
 
   const isDiamondView=DIAMOND_CATS.includes(cf);
-  const isPrintCastView=cf==="3D Print & Cast";
+  const isPrintCastView=false;   // 3D Print & Cast now renders as a normal category list (size tiers), replacing the old flat two-fee card
   const isSettingUnifiedView=cf===SETTING_CAT;
   const isAllView=cf==="All";
-  const specialCats=[...DIAMOND_CATS,"Basic Setting","Complex Setting","3D Print & Cast"];
+  const specialCats=[...DIAMOND_CATS,"Basic Setting","Complex Setting"];
   const regularItems=pricing.filter(p=>!specialCats.includes(p.category));
   const filteredRegular=isAllView?regularItems:(!isDiamondView&&!isPrintCastView&&!isSettingUnifiedView?regularItems.filter(p=>p.category===cf):[]);
   const filteredBase=isSettingUnifiedView?pricing.filter(p=>p.category==="Basic Setting").slice().sort((a,b)=>a.sizeMm-b.sizeMm):[];
@@ -8059,13 +8059,14 @@ function PricingDB({pricing,setPricing,spotPrices,setSpotPrices,markupTable,cent
         <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(220px,1fr))",gap:12}}>
           {/* 3D Print & Cast card */}
           {(()=>{
-            const pc=pricing.find(p=>p.name==="3D print fee");
-            const cc=pricing.find(p=>p.name==="Casting fee");
+            const its=pricing.filter(p=>p.category==="3D Print & Cast");
+            const costs=its.map(x=>Number(x.baseCost)||0).filter(n=>n>0);
+            const lo=costs.length?Math.min(...costs):0,hi=costs.length?Math.max(...costs):0;
             return <div onClick={()=>setCf("3D Print & Cast")} style={{background:WHITE,border:`1px solid ${BD}`,borderRadius:5,padding:"16px 18px",cursor:"pointer",transition:"border-color 0.15s"}}
               onMouseEnter={e=>e.currentTarget.style.borderColor=GOLD} onMouseLeave={e=>e.currentTarget.style.borderColor=BD}>
-              <div style={{fontSize:12,fontWeight:700,color:INK,marginBottom:6}}>3D Print & Cast</div>
-              <div style={{fontSize:11,color:WG,lineHeight:1.7}}>Print: <strong style={{color:INK}}>{fmt(pc?.baseCost||60)}/piece</strong> · Cast: <strong style={{color:INK}}>{fmt(cc?.baseCost||15)}/piece</strong><br/><span style={{color:WG}}>Rates editable · qty-based calculator</span></div>
-              <div style={{fontSize:11,color:GOLD_D,fontWeight:700,marginTop:8}}>View calculator →</div>
+              <div style={{fontSize:12,fontWeight:700,color:INK,marginBottom:6}}>3D Print &amp; Cast</div>
+              <div style={{fontSize:11,color:WG,lineHeight:1.7}}>Per-piece print &amp; cast fees<br/><strong style={{color:INK}}>{fmt(lo)} to {fmt(hi)}/piece</strong> · {its.length} rate{its.length!==1?"s":""}<br/><span style={{color:WG}}>Editable · added per piece at quote time</span></div>
+              <div style={{fontSize:11,color:GOLD_D,fontWeight:700,marginTop:8}}>View rates →</div>
             </div>;
           })()}
           {/* Basic Setting card */}
