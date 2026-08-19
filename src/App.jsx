@@ -7867,7 +7867,6 @@ function PricingDB({pricing,setPricing,spotPrices,setSpotPrices,markupTable,cent
   const cFinite=cBands.map(b=>b.upTo==null?null:Number(b.upTo)).filter(v=>v!=null&&v>0);
   const cExampleCt=cFinite.length?Math.max(...cFinite)+0.5:2;
   const cSegs=settingCaratSegments(cExampleCt,draft);
-  const cSegStr=cSegs.map(s=>`${fmt(s.cost)} (${s.span}ct × ${fmt(s.perCt)}/ct)`).join(" + ");
   const cTotal=cSegs.reduce((a,s)=>a+s.cost,0);
   // Volume tiers (#5) — per-stone % off once the count reaches a threshold.
   const setTiers=tiers=>patchDraft({volumeTiers:tiers});
@@ -7957,7 +7956,17 @@ function PricingDB({pricing,setPricing,spotPrices,setSpotPrices,markupTable,cent
       </div>
       {/* #3 Carat rate bands (centre / large stones) */}
       <div style={{fontSize:12,fontWeight:700,color:INK,marginBottom:2}}>Setting fee by carat weight <span style={{fontWeight:400,color:WG}}>(centre / feature stones)</span></div>
-      <div style={{fontSize:11,color:WG,marginBottom:6,lineHeight:1.6}}>What it costs to set a centre or feature stone, based on its carat weight. A bigger stone takes more time to set — but a 2ct isn't double the work of a 1ct — so you charge a bit less per carat as the stone gets heavier. Each row is a weight range with its own {CUR_SYM}/ct rate. <strong style={{color:INK}}>Example:</strong> with your rates below, a {cExampleCt}ct stone = {cSegStr} = <strong style={{color:INK}}>{fmt(cTotal)}</strong>. Leave the last row's <strong>“up to”</strong> blank so it covers everything heavier. Want one flat rate instead? Set every row to the same {CUR_SYM}/ct.<br/><span style={{color:INK,fontWeight:600}}>These are trade / wholesale cost prices</span> — your markup table is applied on top to reach the retail price the client sees.</div>
+      <div style={{fontSize:11,color:WG,marginBottom:8,lineHeight:1.6}}>What it costs to set a centre or feature stone, based on its carat weight. Bigger stones take more time but not proportionally (a 2ct isn't double the work of a 1ct), so the price per carat drops as the stone gets heavier. Each row below is a weight range with its own {CUR_SYM}/ct rate, and a stone is charged across whichever rows its weight spans.</div>
+      <div style={{background:PARCH,border:`1px solid ${BD}`,borderRadius:5,padding:"12px 14px",marginBottom:8}}>
+        <div style={{fontSize:11,fontWeight:700,color:INK,marginBottom:8}}>Worked example: a {cExampleCt}ct stone (using your rates below)</div>
+        {cSegs.map((s,i)=>(
+          <div key={i} style={{display:"flex",justifyContent:"space-between",fontSize:12,color:WG,padding:"3px 0"}}>
+            <span>{s.span}ct × {fmt(s.perCt)}/ct</span><span style={{fontWeight:600,color:INK}}>{fmt(s.cost)}</span>
+          </div>
+        ))}
+        <div style={{display:"flex",justifyContent:"space-between",fontSize:12.5,fontWeight:800,color:INK,borderTop:`1px solid ${BD}`,marginTop:6,paddingTop:6}}><span>Total setting cost</span><span>{fmt(cTotal)}</span></div>
+      </div>
+      <div style={{fontSize:11,color:WG,marginBottom:6,lineHeight:1.6}}>Leave the last row's <strong style={{color:INK}}>“up to”</strong> blank so it covers everything heavier. Prefer one flat rate? Set every row to the same {CUR_SYM}/ct. These are your trade / wholesale <strong style={{color:INK}}>cost prices</strong>; your markup table is applied on top to reach the retail price the client sees.</div>
       <div style={{background:WHITE,border:`1px solid ${BD}`,borderRadius:5,overflow:"hidden",marginBottom:16}}>
         <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 44px",gap:8,padding:"9px 16px",background:PARCH,borderBottom:`1px solid ${BD}`}}>
           {["Up to (ct)","$ per carat",""].map(h=><div key={h} style={{fontSize:10,fontWeight:700,color:WG,textTransform:"uppercase",letterSpacing:"0.05em"}}>{h}</div>)}
