@@ -7950,12 +7950,11 @@ function PricingDB({pricing,setPricing,spotPrices,setSpotPrices,markupTable,cent
         ))}
       </div>
       {/* Uplifts */}
-      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:"0 16px",marginBottom:6}}>
+      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:"0 16px",marginBottom:16}}>
         <Input label="Precious / High Value (Extra Care Needed) — uplift (%)" type="number" min="0" value={String(draft.carefulUpliftPct??0)} onChange={v=>patchDraft({carefulUpliftPct:Number(v)||0})}/>
-        <Input label="Platinum uplift (%)" type="number" min="0" value={String(draft.platinumUpliftPct??0)} onChange={v=>patchDraft({platinumUpliftPct:Number(v)||0})}/>
+        <Input label={<>Platinum uplift (%)<InfoDot text="Some setters charge more to set stones into platinum, as it's harder and slower to work than gold. Enter that surcharge as a %. It only applies when you tick Platinum on a setting line. Leave it at 0 if your setter doesn't charge extra for platinum."/></>} type="number" min="0" value={String(draft.platinumUpliftPct??0)} onChange={v=>patchDraft({platinumUpliftPct:Number(v)||0})}/>
         <div/>
       </div>
-      <div style={{fontSize:11,color:WG,marginBottom:16,lineHeight:1.6}}><strong style={{color:INK}}>Platinum uplift:</strong> some setters charge more to set stones into platinum, as it's harder and slower to work than gold. Enter that surcharge as a % — it only applies when you tick <strong>Platinum</strong> on a setting line. <strong style={{color:INK}}>Leave it at 0 if your setter doesn't charge extra for platinum.</strong></div>
       {/* #3 Carat rate bands (centre / large stones) */}
       <div style={{fontSize:12,fontWeight:700,color:INK,marginBottom:2}}>Setting fee by carat weight <span style={{fontWeight:400,color:WG}}>(centre / feature stones)</span></div>
       <div style={{fontSize:11,color:WG,marginBottom:6,lineHeight:1.6}}>What it costs to set a centre or feature stone, based on its carat weight. A bigger stone takes more time to set — but a 2ct isn't double the work of a 1ct — so you charge a bit less per carat as the stone gets heavier. Each row is a weight range with its own {CUR_SYM}/ct rate. <strong style={{color:INK}}>Example:</strong> with your rates below, a {cExampleCt}ct stone = {cSegStr} = <strong style={{color:INK}}>{fmt(cTotal)}</strong>. Leave the last row's <strong>“up to”</strong> blank so it covers everything heavier. Want one flat rate instead? Set every row to the same {CUR_SYM}/ct.<br/><span style={{color:INK,fontWeight:600}}>These are trade / wholesale cost prices</span> — your markup table is applied on top to reach the retail price the client sees.</div>
