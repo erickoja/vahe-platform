@@ -98,6 +98,21 @@ const SETTING_STYLES_SEED=[
   {id:"pave",   name:"French pavé",          mult:1.25},
   {id:"pear",   name:"Pear / Marquise claw", mult:1.5},
 ];
+// Split style lists: some styles (bezel, V-claw, pear) are really only centre-stone work, so the
+// accent/melee mode and the centre/feature mode each get their own editable list.
+const ACCENT_STYLES_SEED=[
+  {id:"prong",  name:"Prong / Claw", mult:1},
+  {id:"dclaw",  name:"Double-claw",  mult:1.25},
+  {id:"channel",name:"Channel",      mult:1.25},
+  {id:"pave",   name:"French pavé",  mult:1.25},
+];
+const CENTRE_STYLES_SEED=[
+  {id:"prong",  name:"Prong / Claw",         mult:1},
+  {id:"dclaw",  name:"Double-claw",          mult:1.25},
+  {id:"vclaw",  name:"V-claw / Talon",       mult:1.5},
+  {id:"bezel",  name:"Bezel / Rub-over",     mult:1.5},
+  {id:"pear",   name:"Pear / Marquise claw", mult:1.5},
+];
 // #3 — a sensible starting carat-band schedule scaled off the base $/ct: full rate up to 1ct,
 // then tapering (setting a big centre isn't a straight multiple of a small one). Fully editable.
 const defaultCaratBands=(base=50)=>{
@@ -120,7 +135,8 @@ const DEFAULT_SETTING_RATES={
   platinumUpliftPct:20,              // #4 — platinum is harder to set than gold (per-line toggle)
   caratBands:defaultCaratBands(50),  // #3 — marginal carat bands (tapered starting point)
   volumeTiers:defaultVolumeTiers(),  // #5 — per-stone volume discounts (tapered starting point)
-  styles:SETTING_STYLES_SEED,
+  accentStyles:ACCENT_STYLES_SEED,   // smaller / melee stone setting styles
+  centreStyles:CENTRE_STYLES_SEED,   // centre / feature stone setting styles
 };
 // Normalise whatever is stored under K.csr (old {basicPerCt,complexPerCt} OR new settingRates) into the new shape.
 const normalizeSettingRates=(raw)=>{
@@ -132,9 +148,12 @@ const normalizeSettingRates=(raw)=>{
     platinumUpliftPct:r.platinumUpliftPct!=null?(Number(r.platinumUpliftPct)||0):20,
     caratBands:Array.isArray(r.caratBands)&&r.caratBands.length?r.caratBands:defaultCaratBands(r.baseCaratRate),
     volumeTiers:Array.isArray(r.volumeTiers)?r.volumeTiers:defaultVolumeTiers(),
-    styles:r.styles,
+    // Split styles: keep new-shape lists if present; otherwise seed BOTH from the old single
+    // `styles` list (non-destructive migration — the user then trims each), else the seeds.
+    accentStyles:Array.isArray(r.accentStyles)?r.accentStyles:(Array.isArray(r.styles)?r.styles:ACCENT_STYLES_SEED),
+    centreStyles:Array.isArray(r.centreStyles)?r.centreStyles:(Array.isArray(r.styles)?r.styles:CENTRE_STYLES_SEED),
   });
-  if(raw&&Array.isArray(raw.styles))return withDefaults(raw);
+  if(raw&&(Array.isArray(raw.accentStyles)||Array.isArray(raw.centreStyles)||Array.isArray(raw.styles)))return withDefaults(raw);
   // migrate from legacy centre rates
   const basic=Number(raw?.basicPerCt)||50;
   const complex=Number(raw?.complexPerCt)||75;
@@ -4561,10 +4580,14 @@ function CentreStoneModal({stoneType,activeStoneMarkup,stoneOverride,onAdd,onClo
 // Unified stone-setting picker: style × (mm|carat) × careful uplift × count → a marked-up line item.
 function SettingPicker({onAdd,settingRates=DEFAULT_SETTING_RATES,pricing=[]}){
   const isMobile=useIsMobile();
-  const styles=settingRates.styles?.length?settingRates.styles:SETTING_STYLES_SEED;
+  const accentStyles=settingRates.accentStyles?.length?settingRates.accentStyles:ACCENT_STYLES_SEED;
+  const centreStyles=settingRates.centreStyles?.length?settingRates.centreStyles:CENTRE_STYLES_SEED;
   const mmSizes=[...new Set(pricing.filter(p=>p.category==="Basic Setting").map(p=>Number(p.sizeMm)).filter(n=>n>0))].sort((a,b)=>a-b);
-  const[styleId,setStyleId]=useState(styles[0]?.id||"prong");
+  const[styleId,setStyleId]=useState(accentStyles[0]?.id||"prong");
   const[mode,setMode]=useState("mm");
+  // Accent/melee (mm) uses the accent style list; centre/feature (carat) uses the centre list.
+  const styles=mode==="carat"?centreStyles:accentStyles;
+  useEffect(()=>{setStyleId(prev=>styles.some(s=>s.id===prev)?prev:(styles[0]?.id||""));},[mode]);   // eslint-disable-line react-hooks/exhaustive-deps
   const[sizeMm,setSizeMm]=useState(mmSizes.includes(1.5)?1.5:(mmSizes[Math.floor(mmSizes.length/2)]||1.5));
   const[carat,setCarat]=useState("");
   const[count,setCount]=useState("1");
@@ -7813,9 +7836,27 @@ function PricingDB({pricing,setPricing,spotPrices,setSpotPrices,markupTable,cent
   const[dirty,setDirty]=useState(false);
   useEffect(()=>{if(!dirty)setDraft(centreRates);},[centreRates]);   // eslint-disable-line react-hooks/exhaustive-deps
   const patchDraft=patch=>{setDraft(d=>({...d,...patch}));setDirty(true);};
-  const updateStyle=(id,patch)=>patchDraft({styles:(draft.styles||[]).map(s=>s.id===id?{...s,...patch}:s)});
-  const addStyle=()=>patchDraft({styles:[...(draft.styles||[]),{id:uid(),name:"New style",mult:1}]});
-  const removeStyle=id=>patchDraft({styles:(draft.styles||[]).filter(s=>s.id!==id)});
+  const updateStyle=(key,id,patch)=>patchDraft({[key]:(draft[key]||[]).map(s=>s.id===id?{...s,...patch}:s)});
+  const addStyle=key=>patchDraft({[key]:[...(draft[key]||[]),{id:uid(),name:"New style",mult:1}]});
+  const removeStyle=(key,id)=>patchDraft({[key]:(draft[key]||[]).filter(s=>s.id!==id)});
+  // One editable style table (accent or centre). Called inline (not <Comp/>) so its inputs keep focus.
+  const styleTable=(styleKey,title,sub,help)=><div>
+    <div style={{fontSize:12,fontWeight:700,color:INK,marginBottom:2}}>{title} <span style={{fontWeight:400,color:WG}}>{sub}</span></div>
+    <div style={{fontSize:11,color:WG,marginBottom:6,lineHeight:1.6}}>{help}</div>
+    <div style={{background:WHITE,border:`1px solid ${BD}`,borderRadius:5,overflow:"hidden",marginBottom:16}}>
+      <div style={{display:"grid",gridTemplateColumns:"1fr 110px 44px",gap:8,padding:"9px 16px",background:PARCH,borderBottom:`1px solid ${BD}`}}>
+        {["Setting style","Multiplier",""].map(h=><div key={h} style={{fontSize:10,fontWeight:700,color:WG,textTransform:"uppercase",letterSpacing:"0.05em"}}>{h}</div>)}
+      </div>
+      {(draft[styleKey]||[]).map((s,i,arr)=>(
+        <div key={s.id} style={{display:"grid",gridTemplateColumns:"1fr 110px 44px",columnGap:8,alignItems:"center",padding:"8px 16px",borderBottom:i<arr.length-1?`1px solid ${BD}`:"none"}}>
+          <input value={s.name} onChange={e=>updateStyle(styleKey,s.id,{name:e.target.value})} style={{...SS.inp,marginTop:0,fontSize:13,padding:"6px 9px"}}/>
+          <div style={{display:"flex",alignItems:"center",gap:6}}><span style={{fontSize:12,color:WG}}>×</span><input type="number" min="0" step="0.05" value={String(s.mult)} onChange={e=>updateStyle(styleKey,s.id,{mult:Number(e.target.value)||0})} style={{...SS.inp,marginTop:0,fontSize:13,padding:"6px 8px",width:80,fontWeight:700,color:GOLD_D}}/></div>
+          <button onClick={()=>removeStyle(styleKey,s.id)} title="Remove style" style={{background:"none",border:"none",cursor:"pointer",color:DANGER,fontSize:16,padding:0,justifySelf:"center"}}>×</button>
+        </div>
+      ))}
+      <div style={{padding:"10px 16px"}}><button onClick={()=>addStyle(styleKey)} style={{background:"none",border:`1px dashed ${GOLD}`,borderRadius:4,padding:"6px 14px",color:GOLD,fontSize:12,fontWeight:700,cursor:"pointer",fontFamily:"inherit"}}>+ Add style</button></div>
+    </div>
+  </div>;
   // Carat bands (#3) — marginal $/ct tiers for centre/large stones.
   const setBands=bands=>patchDraft({caratBands:bands});
   const addBand=()=>setBands([...(draft.caratBands||[]),{upTo:null,perCt:Number(draft.baseCaratRate)||50}]);
@@ -7926,22 +7967,9 @@ function PricingDB({pricing,setPricing,spotPrices,setSpotPrices,markupTable,cent
         ))}
         <div style={{padding:"10px 16px"}}><button onClick={addBand} style={{background:"none",border:`1px dashed ${GOLD}`,borderRadius:4,padding:"6px 14px",color:GOLD,fontSize:12,fontWeight:700,cursor:"pointer",fontFamily:"inherit"}}>+ Add band</button></div>
       </div>
-      {/* Style multipliers */}
-      <div style={{fontSize:12,fontWeight:700,color:INK,marginBottom:2}}>Setting styles <span style={{fontWeight:400,color:WG}}>(how much each style costs vs a plain claw)</span></div>
-      <div style={{fontSize:11,color:WG,marginBottom:6,lineHeight:1.6}}>Claw / prong is the base at <strong>×1</strong>. A style at <strong>×1.5</strong> costs 1½× the base rate to set. Rename a style, change its multiplier, add your own, or remove one you don't use — then hit <strong style={{color:INK}}>Save changes</strong> at the bottom.</div>
-      <div style={{background:WHITE,border:`1px solid ${BD}`,borderRadius:5,overflow:"hidden",marginBottom:16}}>
-        <div style={{display:"grid",gridTemplateColumns:"1fr 110px 44px",gap:8,padding:"9px 16px",background:PARCH,borderBottom:`1px solid ${BD}`}}>
-          {["Setting style","Multiplier",""].map(h=><div key={h} style={{fontSize:10,fontWeight:700,color:WG,textTransform:"uppercase",letterSpacing:"0.05em"}}>{h}</div>)}
-        </div>
-        {(draft.styles||[]).map((s,i)=>(
-          <div key={s.id} style={{display:"grid",gridTemplateColumns:"1fr 110px 44px",columnGap:8,alignItems:"center",padding:"8px 16px",borderBottom:i<(draft.styles.length-1)?`1px solid ${BD}`:"none"}}>
-            <input value={s.name} onChange={e=>updateStyle(s.id,{name:e.target.value})} style={{...SS.inp,marginTop:0,fontSize:13,padding:"6px 9px"}}/>
-            <div style={{display:"flex",alignItems:"center",gap:6}}><span style={{fontSize:12,color:WG}}>×</span><input type="number" min="0" step="0.05" value={String(s.mult)} onChange={e=>updateStyle(s.id,{mult:Number(e.target.value)||0})} style={{...SS.inp,marginTop:0,fontSize:13,padding:"6px 8px",width:80,fontWeight:700,color:GOLD_D}}/></div>
-            <button onClick={()=>removeStyle(s.id)} title="Remove style" style={{background:"none",border:"none",cursor:"pointer",color:DANGER,fontSize:16,padding:0,justifySelf:"center"}}>×</button>
-          </div>
-        ))}
-        <div style={{padding:"10px 16px"}}><button onClick={addStyle} style={{background:"none",border:`1px dashed ${GOLD}`,borderRadius:4,padding:"6px 14px",color:GOLD,fontSize:12,fontWeight:700,cursor:"pointer",fontFamily:"inherit"}}>+ Add style</button></div>
-      </div>
+      {/* Style multipliers — split into accent/melee vs centre/feature */}
+      {styleTable("accentStyles","Accent / melee setting styles","(smaller stones, priced per stone by mm)","Claw / prong is the base at ×1; a style at ×1.5 costs 1½× the base to set. These are the styles you use on small accent or melee work. Add, rename, re-multiply or remove, then hit Save changes at the bottom.")}
+      {styleTable("centreStyles","Centre / feature setting styles","(centre or feature stones, priced by carat)","The styles you use on a centre or feature stone (bezel, V-claw, pear, etc.). Claw / prong is the base at ×1. Add, rename, re-multiply or remove, then hit Save changes at the bottom.")}
       {/* Base per-stone rate table (mm) */}
       <div style={{fontSize:12,fontWeight:700,color:INK,marginBottom:6}}>Base per-stone rates <span style={{fontWeight:400,color:WG}}>(Prong/Claw is generally the baseline for most setters, every setting style multiplies from this)</span></div>
       <SettingTable items={filteredBase} onSavePrices={saveSettingPrices} label="Setting base rates"/>
