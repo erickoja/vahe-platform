@@ -7841,8 +7841,7 @@ function PricingDB({pricing,setPricing,spotPrices,setSpotPrices,markupTable,cent
   const removeStyle=(key,id)=>patchDraft({[key]:(draft[key]||[]).filter(s=>s.id!==id)});
   // One editable style table (accent or centre). Called inline (not <Comp/>) so its inputs keep focus.
   const styleTable=(styleKey,title,sub,help)=><div>
-    <div style={{fontSize:12,fontWeight:700,color:INK,marginBottom:2}}>{title} <span style={{fontWeight:400,color:WG}}>{sub}</span></div>
-    <div style={{fontSize:11,color:WG,marginBottom:6,lineHeight:1.6}}>{help}</div>
+    <div style={{fontSize:12,fontWeight:700,color:INK,marginBottom:8,display:"flex",alignItems:"center",flexWrap:"wrap"}}>{title} <span style={{fontWeight:400,color:WG,marginLeft:4}}>{sub}</span><InfoDot text={help}/></div>
     <div style={{background:WHITE,border:`1px solid ${BD}`,borderRadius:5,overflow:"hidden",marginBottom:16}}>
       <div style={{display:"grid",gridTemplateColumns:"1fr 110px 44px",gap:8,padding:"9px 16px",background:PARCH,borderBottom:`1px solid ${BD}`}}>
         {["Setting style","Multiplier",""].map(h=><div key={h} style={{fontSize:10,fontWeight:700,color:WG,textTransform:"uppercase",letterSpacing:"0.05em"}}>{h}</div>)}
