@@ -6056,7 +6056,7 @@ function PublicProposalPage({token}){
           style={{width:"100%",background:(!picks.length||!name.trim()||busy)?BD:INK,color:WHITE,border:"none",borderRadius:4,padding:"14px",fontSize:15,fontWeight:800,cursor:(!picks.length||!name.trim()||busy)?"not-allowed":"pointer",fontFamily:"inherit",letterSpacing:"0.02em"}}>
           {busy?"Submitting…":multi?`Accept ${picks.length} piece${picks.length!==1?"s":""}${comboPrice>0?` — ${fmtR(comboPrice)}`:""}`:`Accept${selectedOpts[0]?` — ${selectedOpts[0].label}`:""}`}
         </button>
-        <div style={{fontSize:11,color:WG,marginTop:10,lineHeight:1.5}}>By accepting you agree to the terms below. This records your selection and notifies the studio — it is not a payment.</div>
+        <div style={{fontSize:11,color:WG,marginTop:10,lineHeight:1.5}}>By accepting you agree to the terms below. This records your selection and notifies the studio. It is not a payment. The studio will then send you an invoice to arrange payment.</div>
       </div>}
 
       {/* Terms */}
