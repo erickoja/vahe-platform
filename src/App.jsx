@@ -3377,7 +3377,7 @@ function JobForm({clients,initial={},onSave,onCancel}){
   return <div>
     <Input label="Client" value={f.clientId} onChange={set("clientId")} as="select" options={[{value:"",label:"— Select a client —"},...clients.map(c=>({value:c.id,label:c.accountType==="trade"?`${c.name} · Trade`:c.name}))]}/>
     {isTradeJob&&<Input label={`PO / reference${selClient?.poRequired?" (required)":""}`} value={f.po||""} onChange={set("po")} placeholder="Client's PO or job reference"/>}
-    <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:"0 16px"}}>
+    <div style={{display:"grid",gridTemplateColumns:"1.4fr 1fr 1fr",gap:"0 16px"}}>
       <Input label="Job type" value={f.type} onChange={set("type")} as="select" options={JOB_TYPES}/>
       <Input label="Stage" value={f.stage} onChange={set("stage")} as="select" options={JOB_STAGES}/>
       <Input label="Due date (optional)" value={f.deadline} onChange={set("deadline")} type="date"/>
