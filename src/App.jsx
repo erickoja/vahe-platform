@@ -353,7 +353,7 @@ const premForMetal=(item,sp={})=>{
 };
 // Seed pricing ids that have been retired from the catalogue — stripped from saved data on load
 // so they don't linger (and aren't re-added by the missing-seed merge).
-const RETIRED_PRICING_IDS=new Set(["p10","cad0","cad1","cad2","cad3"]);   // cad0-3: old CAD design tiers, replaced by hourly rate (cad_hr)
+const RETIRED_PRICING_IDS=new Set(["p10","cad0","cad1","cad2","cad3","pc1","pc2"]);   // cad0-3: old CAD tiers → hourly (cad_hr); pc1/pc2: flat 3D-print/casting fees → size tiers
 // Built-in (seed) items the user has deleted. Loaded from storage at startup; the missing-seed
 // merge skips these so a deleted built-in item doesn't reappear. (SEED_PRICING_IDS defined after the seed array.)
 const _deletedSeedIds=new Set();
@@ -375,8 +375,12 @@ const SEED_PRICING=[
   // so fresh studios start empty and add their own. Categories still appear (listed in PCAT) with
   // their guidance blurbs. (Existing studios keep any items they already have — not retired here.)
   // ── 3D Printing & Casting ─────────────────────────────────────────────────
-  {id:"pc1",category:"3D Print & Cast",name:"3D print fee",unit:"piece",baseCost:60},
-  {id:"pc2",category:"3D Print & Cast",name:"Casting fee",unit:"piece",baseCost:15},
+  {id:"print_s",category:"3D Print & Cast",name:"Small 3D print (studs, small items)",unit:"piece",baseCost:30},
+  {id:"print_m",category:"3D Print & Cast",name:"Medium 3D print (ring shanks)",unit:"piece",baseCost:75},
+  {id:"print_l",category:"3D Print & Cast",name:"Large 3D print (bangles)",unit:"piece",baseCost:150},
+  {id:"cast_s",category:"3D Print & Cast",name:"Small casting",unit:"piece",baseCost:10},
+  {id:"cast_m",category:"3D Print & Cast",name:"Medium casting",unit:"piece",baseCost:20},
+  {id:"cast_l",category:"3D Print & Cast",name:"Large casting",unit:"piece",baseCost:30},
   // ── Design & CAD ──────────────────────────────────────────────────────────
   // Each design method is priced by the hour (set the rate here) or as a manual flat price at
   // quote time via the #/$ toggle. Add/rename/remove methods freely in the Pricing Database.
