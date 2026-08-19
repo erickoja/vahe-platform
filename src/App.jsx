@@ -7951,7 +7951,7 @@ function PricingDB({pricing,setPricing,spotPrices,setSpotPrices,markupTable,cent
       </div>
       {/* Uplifts */}
       <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:"0 16px",marginBottom:16}}>
-        <Input label="Precious / High Value (Extra Care Needed) — uplift (%)" type="number" min="0" value={String(draft.carefulUpliftPct??0)} onChange={v=>patchDraft({carefulUpliftPct:Number(v)||0})}/>
+        <Input label={<>Precious / High Value (Extra Care Needed) uplift (%)<InfoDot text="An extra percentage added when a stone needs careful setting because it's precious or fragile (emeralds, opals, tanzanite, or a high-value centre diamond). It only applies when you tick Precious / High Value on a setting line. Leave it at 0 if you don't charge more for delicate stones."/></>} type="number" min="0" value={String(draft.carefulUpliftPct??0)} onChange={v=>patchDraft({carefulUpliftPct:Number(v)||0})}/>
         <Input label={<>Platinum uplift (%)<InfoDot text="Some setters charge more to set stones into platinum, as it's harder and slower to work than gold. Enter that surcharge as a %. It only applies when you tick Platinum on a setting line. Leave it at 0 if your setter doesn't charge extra for platinum."/></>} type="number" min="0" value={String(draft.platinumUpliftPct??0)} onChange={v=>patchDraft({platinumUpliftPct:Number(v)||0})}/>
         <div/>
       </div>
