@@ -5622,9 +5622,9 @@ function JobProposals({job,client,quotes,proposals,setProposals,setQuotes,biz,ma
       </div>
       <div style={{marginTop:14,border:`1px solid ${BD}`,borderRadius:4,padding:"14px 16px",background:PARCH}}>
         <label style={{...SS.lbl,marginBottom:6}}>Payment terms <span style={{fontWeight:400,color:WG,textTransform:"none",letterSpacing:0}}>(optional)</span></label>
-        <div style={{fontSize:11,color:WG,lineHeight:1.5,marginBottom:10}}>Bundled options (multi-select) prefill at your {depositPct}% deposit of the combined total — edit it to any amount, or clear it to ask for the full balance. The rest is shown as due on completion. Single-option proposals ask for the {depositPct}% deposit automatically.</div>
+        <div style={{fontSize:11,color:WG,lineHeight:1.5,marginBottom:10}}>Bundled options (multi-select) prefill at your {depositPct}% deposit of the combined total. Edit it to any amount, or clear it to ask for the full balance. The rest is shown as due on completion. Single-option proposals ask for the {depositPct}% deposit of whichever option the client picks.</div>
         <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"0 16px"}}>
-          <Input label={<>Amount due now ({CUR_SYM})<InfoDot text="The deposit to request up front. For a bundle it defaults to your deposit % (Settings); leave blank to ask for the full balance. In 'Choose one' mode the client's page works out the deposit for whichever option they pick."/></>} value={dueNow} onChange={v=>{setDueNowTouched(true);setDueNow(v);}} type="number" min="0" step="0.01" placeholder="Leave blank for full balance"/>
+          <Input label={<>Amount due now ({CUR_SYM})<InfoDot text="The deposit to request up front. For a bundle it defaults to your deposit % (Settings); leave blank to ask for the full balance. In 'Choose one' mode the client's page works out the deposit for whichever option they pick."/></>} value={dueNow} onChange={v=>{setDueNowTouched(true);setDueNow(v);}} type="number" min="0" step="0.01" placeholder={selectMode==="multi"?"Leave blank for full balance":`Blank asks ${depositPct}% of the chosen option`}/>
           <Input label="Payment note" value={payNote} onChange={setPayNote} placeholder="e.g. Remaining 50% of the centre diamond"/>
         </div>
       </div>
