@@ -1414,6 +1414,21 @@ const invoiceEffectiveStatus=(inv,payments,invoices)=>{
 // Short reference for a quote: the user's title if set, otherwise the random #ID tag
 const quoteRef=q=>"#"+(q?.id||"").slice(-4).toUpperCase();
 const quoteLabel=q=>(q?.title&&q.title.trim())?q.title.trim():"Quote "+quoteRef(q);
+// After invoicing quote(s) for a job, offer to decline the job's OTHER approved-but-uninvoiced quotes
+// so leftover option copies (e.g. duplicated proposal options) don't keep inflating its outstanding
+// balance — jobChargeTotal sums every Approved quote. Prompted, NOT automatic, because a job can
+// legitimately have several approved quotes for separate pieces awaiting their own invoices.
+const declineOrphanApprovedQuotes=(jobId,invoicedIds,quotes,invoices,setQuotes,markupTable)=>{
+  if(!setQuotes||!jobId)return;
+  const done=new Set(invoicedIds);
+  const orphans=(quotes||[]).filter(q=>q.jobId===jobId&&q.status==="Approved"&&!done.has(q.id)&&!quoteHasInvoice(invoices,q.id));
+  if(!orphans.length)return;
+  const many=orphans.length>1;
+  const list=orphans.map(q=>`• ${quoteLabel(q)} — ${fmt(quoteGrandTotal(q,markupTable))}`).join("\n");
+  if(!confirm(`This job has ${orphans.length} other approved quote${many?"s":""} that ${many?"aren't":"isn't"} on any invoice:\n\n${list}\n\n${many?"They're":"It's"} still counted in the job's outstanding balance. Decline ${many?"them":"it"} so the balance matches what you've invoiced?\n\nOK = decline${many?" them":""} · Cancel = leave as is`))return;
+  const drop=new Set(orphans.map(q=>q.id));
+  setQuotes(p=>{const n=p.map(q=>drop.has(q.id)?{...q,status:"Declined"}:q);persist(K.qu,n);return n;});
+};
 // Copy of a quote as a fresh Draft — new id/date, "(copy)" appended to a set title, and
 // any approval/invoice-linking state dropped so it's safe to edit independently.
 const duplicateQuoteObj=q=>{
@@ -4103,6 +4118,7 @@ function JobDetail({jobId,jobs,setJobs,clients,setClients,quotes,setQuotes,payme
     const content=invoiceContentFromQuote(q,job,markupTable);
     const inv={id:uid(),jobId,quoteId:qid,quoteIds:[qid],number:nextInvoiceNumber(invoices),date:today(),status:"Unpaid",notes:q.notes||"",...content};
     setInvoices(p=>{const n=[...p,inv];persist(K.inv,n);return n;});
+    declineOrphanApprovedQuotes(jobId,[qid],quotes,invoices,setQuotes,markupTable);
     setView("invoiceDetail_"+inv.id);
   };
   // Quotes on this job that can be invoiced: approved (retail) or any not-yet-invoiced quote for a
@@ -4118,6 +4134,7 @@ function JobDetail({jobId,jobs,setJobs,clients,setClients,quotes,setQuotes,payme
     approveForInvoice(qs.map(q=>q.id));   // trade: promote to Approved so job/statement totals reconcile
     const inv=buildCombinedInvoice(qs,job,invoices,markupTable);
     setInvoices(p=>{const n=[...p,inv];persist(K.inv,n);return n;});
+    declineOrphanApprovedQuotes(jobId,qs.map(q=>q.id),quotes,invoices,setQuotes,markupTable);
     setCombineModal(false);
     setView("invoiceDetail_"+inv.id);
   };
@@ -7141,6 +7158,7 @@ function InvoicesList({invoices,jobs,clients,quotes,setQuotes,payments,setInvoic
     if(setQuotes){const s=new Set(qs.map(q=>q.id));setQuotes(p=>{const n=p.map(q=>s.has(q.id)&&q.status!=="Approved"?{...q,status:"Approved"}:q);persist(K.qu,n);return n;});}
     const inv=buildCombinedInvoice(qs,jb,invoices,markupTable);
     setInvoices(p=>{const n=[...p,inv];persist(K.inv,n);return n;});
+    declineOrphanApprovedQuotes(selJob,qs.map(q=>q.id),quotes,invoices,setQuotes,markupTable);
     setModal(false);
     setView("invoiceDetail_"+inv.id);
   };
