@@ -1558,8 +1558,8 @@ const invoiceFieldsFromQuotes=(qs,job,markupTable)=>{
 // Build one invoice from one or more approved quotes on a job. For 2+ quotes it itemises per
 // option (customerLines) so the client sees each piece and its price.
 // Shared by the Invoices tab and the job card so both produce identical combined invoices.
-const buildCombinedInvoice=(qs,job,invoices,markupTable)=>
-  ({id:uid(),jobId:job.id,quoteId:qs[0].id,quoteIds:qs.map(q=>q.id),number:nextInvoiceNumber(invoices),date:today(),status:"Unpaid",...invoiceFieldsFromQuotes(qs,job,markupTable)});
+const buildCombinedInvoice=(qs,job,invoices,markupTable,biz)=>
+  ({id:uid(),jobId:job.id,quoteId:qs[0].id,quoteIds:qs.map(q=>q.id),number:nextInvoiceNumber(invoices,biz),date:today(),status:"Unpaid",...invoiceFieldsFromQuotes(qs,job,markupTable)});
 // Re-derive an existing invoice's figures from its (just-edited) quotes. Keeps identity and
 // history — id, number, date, status — and re-applies any manual discount onto the fresh gross
 // (same net/GST model as setDiscount: subtotalIncGST = gross, totalIncGST = net of discount).
@@ -3838,7 +3838,7 @@ function RepairIntakeCard({job,setJobs,biz,clients,markupTable,pricing=[],invoic
     // persist them with the charge so the job balance and the invoice net the same trade-in.
     const tiCredit=Number(tradeIn)||0;   // gold trade-in nets the balance (not the GST/total)
     const tiNote=tradeInNote.trim();
-    const inv={id:uid(),jobId:job.id,quoteId:null,quoteIds:[],fromRepair:true,number:nextInvoiceNumber(invoices),date:today(),status:"Unpaid",exGST,gst,totalIncGST,subtotalIncGST:totalIncGST,discount:0,discountLabel:"Discount",tradeInCredit:tiCredit,tradeInNote:tiNote,lineItems,customerLines,notes:instructions||"",descriptionOverride:""};
+    const inv={id:uid(),jobId:job.id,quoteId:null,quoteIds:[],fromRepair:true,number:nextInvoiceNumber(invoices,biz),date:today(),status:"Unpaid",exGST,gst,totalIncGST,subtotalIncGST:totalIncGST,discount:0,discountLabel:"Discount",tradeInCredit:tiCredit,tradeInNote:tiNote,lineItems,customerLines,notes:instructions||"",descriptionOverride:""};
     persistJob({totalOverride:repairTotal,repairTradeIn:tiCredit,repairTradeInNote:tiNote});   // keep the job's amount owing in sync with the invoice
     setInvoices(p=>{const n=[...p,inv];persist(K.inv,n);return n;});
     if(setView)setView("invoiceDetail_"+inv.id);
@@ -4144,7 +4144,7 @@ function JobDetail({jobId,jobs,setJobs,clients,setClients,quotes,setQuotes,payme
     approveForInvoice([qid]);   // trade: skip the manual approve step; keeps invoiced quotes Approved
     // GST-inclusive model: the quoted price already includes GST (helper backs out the GST component).
     const content=invoiceContentFromQuote(q,job,markupTable);
-    const inv={id:uid(),jobId,quoteId:qid,quoteIds:[qid],number:nextInvoiceNumber(invoices),date:today(),status:"Unpaid",notes:q.notes||"",...content};
+    const inv={id:uid(),jobId,quoteId:qid,quoteIds:[qid],number:nextInvoiceNumber(invoices,biz),date:today(),status:"Unpaid",notes:q.notes||"",...content};
     setInvoices(p=>{const n=[...p,inv];persist(K.inv,n);return n;});
     declineOrphanApprovedQuotes(jobId,[qid],quotes,invoices,setQuotes,markupTable);
     setView("invoiceDetail_"+inv.id);
@@ -4160,7 +4160,7 @@ function JobDetail({jobId,jobs,setJobs,clients,setClients,quotes,setQuotes,payme
     const qs=combineSel.map(id=>jq.find(x=>x.id===id)).filter(Boolean);
     if(!qs.length)return;
     approveForInvoice(qs.map(q=>q.id));   // trade: promote to Approved so job/statement totals reconcile
-    const inv=buildCombinedInvoice(qs,job,invoices,markupTable);
+    const inv=buildCombinedInvoice(qs,job,invoices,markupTable,biz);
     setInvoices(p=>{const n=[...p,inv];persist(K.inv,n);return n;});
     declineOrphanApprovedQuotes(jobId,qs.map(q=>q.id),quotes,invoices,setQuotes,markupTable);
     setCombineModal(false);
@@ -4296,7 +4296,7 @@ function JobDetail({jobId,jobs,setJobs,clients,setClients,quotes,setQuotes,payme
         </label>;
       })}
       <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",borderTop:`1px solid ${BD}`,marginTop:6,paddingTop:12}}>
-        <span style={{fontSize:12,color:WG}}>Invoice {nextInvoiceNumber(invoices)} · {combineSel.length} quote{combineSel.length!==1?"s":""}{combineSel.length>1?" combined":""}</span>
+        <span style={{fontSize:12,color:WG}}>Invoice {nextInvoiceNumber(invoices,biz)} · {combineSel.length} quote{combineSel.length!==1?"s":""}{combineSel.length>1?" combined":""}</span>
         <span style={{fontSize:16,fontWeight:800,color:OK}}>{fmtR(combineTotal)} <span style={{fontSize:11,color:WG,fontWeight:400}}>inc {TAX_LABEL}</span></span>
       </div>
       <div style={{display:"flex",gap:10,justifyContent:"flex-end",marginTop:16}}>
@@ -6736,10 +6736,19 @@ function QuotesList({quotes,jobs,clients,markupTable,biz,setView}){
 }
 
 // ── Invoice number helper ─────────────────────────────────────────────────
-const nextInvoiceNumber=(invoices)=>{
-  const nums=invoices.map(i=>parseInt(i.number)||0).filter(n=>n>0);
-  const max=nums.length?Math.max(...nums):1000;
-  return String(max+1).padStart(8,'0');
+// Next invoice number. Respects an optional prefix + starting number from business settings so the
+// sequence can line up with the studio's Xero/MYOB numbering. `invoiceStart` acts as a floor (never
+// go backwards). Parses the trailing digits of existing numbers so a prefix doesn't break the count.
+const nextInvoiceNumber=(invoices,biz)=>{
+  const prefix=(biz?.invoicePrefix||"");
+  const startRaw=biz?.invoiceStart;
+  const hasStart=startRaw!==undefined&&startRaw!==null&&String(startRaw).trim()!=="";
+  const start=hasStart?(parseInt(String(startRaw).replace(/\D/g,""))||1):1001;
+  const nums=(invoices||[]).map(i=>{const m=String(i.number||"").match(/(\d+)\s*$/);return m?parseInt(m[1],10):0;}).filter(n=>n>0);
+  const maxExisting=nums.length?Math.max(...nums):0;
+  const next=Math.max(maxExisting+1,start);
+  const pad=hasStart?String(start).length:8;   // custom start → match its width; else 8-digit as before
+  return prefix+String(next).padStart(pad,"0");
 };
 
 // ── Invoice print view ───────────────────────────────────────────────────
@@ -6981,6 +6990,8 @@ function InvoiceDetail({invoiceId,invoices,setInvoices,jobs,clients,payments,biz
     setResynced(true);setTimeout(()=>setResynced(false),2500);
   };
   const setRequestAmount=v=>setInvoices(p=>{const n=p.map(x=>x.id===invoiceId?{...x,requestAmount:v}:x);persist(K.inv,n);return n;});
+  const setNumber=v=>setInvoices(p=>{const n=p.map(x=>x.id===invoiceId?{...x,number:v}:x);persist(K.inv,n);return n;});
+  const[editNum,setEditNum]=useState(null);   // inline edit of the invoice number (match Xero/MYOB)
   // Discount: subtotalIncGST is the gross baseline; totalIncGST/gst become the discounted (net)
   // figures so every existing consumer (balances, summaries, links) reflects the discount.
   const setDiscount=(amt,label)=>setInvoices(p=>{const n=p.map(x=>{
@@ -7029,7 +7040,13 @@ function InvoiceDetail({invoiceId,invoices,setInvoices,jobs,clients,payments,biz
     </div>
     <div style={{display:"flex",flexDirection:isMobile?"column":"row",justifyContent:"space-between",alignItems:isMobile?"stretch":"flex-start",gap:isMobile?14:10,marginBottom:20}}>
       <div style={{minWidth:0}}>
-        <h1 style={{margin:0,fontSize:isMobile?20:24,fontWeight:700,color:INK,wordBreak:"break-word"}}>{inv.number}</h1>
+        {editNum!==null
+          ?<div style={{display:"flex",alignItems:"center",gap:8,flexWrap:"wrap",marginBottom:2}}>
+              <input value={editNum} onChange={e=>setEditNum(e.target.value)} autoFocus style={{...SS.inp,marginTop:0,fontSize:isMobile?18:22,fontWeight:700,padding:"4px 10px",width:isMobile?"100%":240,color:INK,border:`1px solid ${GOLD}`}}/>
+              <Btn sm onClick={()=>{const v=(editNum||"").trim();if(!v){setEditNum(null);return;}if(invoices.some(x=>x.id!==invoiceId&&String(x.number)===v)&&!confirm(`Invoice number "${v}" is already used by another invoice. Use it anyway?`))return;setNumber(v);setEditNum(null);}}>Save</Btn>
+              <Btn sm ghost onClick={()=>setEditNum(null)}>Cancel</Btn>
+            </div>
+          :<h1 style={{margin:0,fontSize:isMobile?20:24,fontWeight:700,color:INK,wordBreak:"break-word",display:"flex",alignItems:"center",gap:10,flexWrap:"wrap"}}>{inv.number}<button onClick={()=>setEditNum(String(inv.number||""))} title="Edit invoice number to match your bookkeeping software" style={{background:"none",border:`1px solid ${BD}`,borderRadius:6,cursor:"pointer",color:WG,fontSize:12,fontWeight:700,padding:"3px 9px",fontFamily:"inherit"}}>✎ Edit</button></h1>}
         <div style={{color:WG,fontSize:13,marginTop:3}}>{job?.type} · {clientDisplayName(c)} · {fmtDate(inv.date)}</div>
       </div>
       <div style={{display:"flex",gap:8,alignItems:"center",flexWrap:"wrap",flexShrink:0}}>
@@ -7151,7 +7168,7 @@ function InvoiceDetail({invoiceId,invoices,setInvoices,jobs,clients,payments,biz
   </div>;
 }
 
-function InvoicesList({invoices,jobs,clients,quotes,setQuotes,payments,setInvoices,markupTable,setView}){
+function InvoicesList({invoices,jobs,clients,quotes,setQuotes,payments,setInvoices,markupTable,setView,biz}){
   const isMobile=useIsMobile();
   const[modal,setModal]=useState(false);
   const[exportOpen,setExportOpen]=useState(false);
@@ -7188,7 +7205,7 @@ function InvoicesList({invoices,jobs,clients,quotes,setQuotes,payments,setInvoic
     const jb=jobs.find(j=>j.id===selJob);
     // Trade: promote the billed quotes to Approved so the job/dashboard/statement totals reconcile.
     if(setQuotes){const s=new Set(qs.map(q=>q.id));setQuotes(p=>{const n=p.map(q=>s.has(q.id)&&q.status!=="Approved"?{...q,status:"Approved"}:q);persist(K.qu,n);return n;});}
-    const inv=buildCombinedInvoice(qs,jb,invoices,markupTable);
+    const inv=buildCombinedInvoice(qs,jb,invoices,markupTable,biz);
     setInvoices(p=>{const n=[...p,inv];persist(K.inv,n);return n;});
     declineOrphanApprovedQuotes(selJob,qs.map(q=>q.id),quotes,invoices,setQuotes,markupTable);
     setModal(false);
@@ -7312,7 +7329,7 @@ function InvoicesList({invoices,jobs,clients,quotes,setQuotes,payments,setInvoic
             </button>;
           })}
           {selQuotes.length>0&&<div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginTop:4,padding:"11px 14px",background:OK+"11",border:`1px solid ${OK}44`,borderRadius:4}}>
-            <span style={{fontSize:12,color:WG}}>Invoice <strong style={{color:INK}}>{nextInvoiceNumber(invoices)}</strong> · {selQuotes.length} quote{selQuotes.length!==1?"s":""}{selQuotes.length>1?" combined":""}</span>
+            <span style={{fontSize:12,color:WG}}>Invoice <strong style={{color:INK}}>{nextInvoiceNumber(invoices,biz)}</strong> · {selQuotes.length} quote{selQuotes.length!==1?"s":""}{selQuotes.length>1?" combined":""}</span>
             <span style={{fontSize:16,fontWeight:800,color:OK}}>{fmtR(combinedTotal)}<span style={{fontSize:11,color:WG,fontWeight:400}}> inc {TAX_LABEL}</span></span>
           </div>}
           {invoicedQuotes.length>0&&<div style={{marginTop:jobQuotes.length?8:2}}>
@@ -8545,6 +8562,14 @@ function Settings({biz,setBiz,markupTable,setMarkupTable,naturalStoneMarkup,setN
         <Input label={<>Quote validity (days)<InfoDot text="How long a sent quote/proposal stays valid. After this many days the client's link expires (so they can't accept stale pricing) and the quote drops out of your dashboard pipeline."/></>} value={String(bForm.quoteValidityDays)} onChange={v=>setBF("quoteValidityDays")(Number(v)||30)} type="number" placeholder="30"/>
       </div>
       <Input label="Terms & conditions (shown on quote proposals)" value={bForm.quoteTerms} onChange={setBF("quoteTerms")} as="textarea" rows={5} placeholder="All custom jewellery requires a deposit before work commences..."/>
+      <div style={{marginTop:16,paddingTop:16,borderTop:`1px solid ${BD}`}}>
+        <div style={{fontSize:10,fontWeight:700,color:WG,letterSpacing:"0.1em",textTransform:"uppercase",marginBottom:6}}>Invoice numbering</div>
+        <div style={{fontSize:11,color:WG,marginBottom:12,lineHeight:1.5}}>Optional. Set a prefix and a starting number so the app's invoice numbers line up with your Xero / MYOB sequence. You can also override the number on any individual invoice from that invoice. Leave both blank to keep the default 00001001 style.</div>
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"0 16px"}}>
+          <Input label="Invoice prefix (optional)" value={bForm.invoicePrefix||""} onChange={setBF("invoicePrefix")} placeholder="e.g. INV-"/>
+          <Input label="Start numbering from (optional)" value={bForm.invoiceStart||""} onChange={setBF("invoiceStart")} type="number" placeholder="e.g. 1042"/>
+        </div>
+      </div>
       <div style={{marginTop:16,paddingTop:16,borderTop:`1px solid ${BD}`}}>
         <div style={{fontSize:10,fontWeight:700,color:WG,letterSpacing:"0.1em",textTransform:"uppercase",marginBottom:14}}>Bank &amp; payment details <span style={{fontWeight:400,color:WG,textTransform:"none",letterSpacing:0}}>(shown on printed invoices)</span></div>
         <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"0 16px"}}>
@@ -10689,7 +10714,7 @@ export default function App(){
     if(view.startsWith("quoteDetail_"))return <QuoteDetail quoteId={view.split("_")[1]} quotes={quotes} setQuotes={setQuotes} jobs={jobs} clients={clients} biz={biz} markupTable={markupTable} naturalStoneMarkup={naturalStoneMarkup} labStoneMarkup={labStoneMarkup} tradeNatStoneMarkup={tradeNatStoneMarkup} tradeLabStoneMarkup={tradeLabStoneMarkup} payments={payments} invoices={invoices} setView={setView}/>;
     if(view.startsWith("newQuote_"))return <QuoteBuilder jobId={view.split("_")[1]} jobs={jobs} clients={clients} quotes={quotes} setQuotes={setQuotes} pricing={pricing} setPricing={setPricing} markupTable={markupTable} naturalStoneMarkup={naturalStoneMarkup} labStoneMarkup={labStoneMarkup} tradeMarkupTable={tradeMarkupTable} tradeNatStoneMarkup={tradeNatStoneMarkup} tradeLabStoneMarkup={tradeLabStoneMarkup} centreRates={centreRates} setCentreRates={setCentreRates} setView={setView}/>;
     if(view.startsWith("editQuote_"))return <QuoteBuilder editQuoteId={view.split("_")[1]} jobs={jobs} clients={clients} quotes={quotes} setQuotes={setQuotes} pricing={pricing} setPricing={setPricing} markupTable={markupTable} naturalStoneMarkup={naturalStoneMarkup} labStoneMarkup={labStoneMarkup} tradeMarkupTable={tradeMarkupTable} tradeNatStoneMarkup={tradeNatStoneMarkup} tradeLabStoneMarkup={tradeLabStoneMarkup} centreRates={centreRates} setCentreRates={setCentreRates} invoices={invoices} setInvoices={setInvoices} setView={setView}/>;
-    if(view==="invoices")return <InvoicesList invoices={invoices} jobs={jobs} clients={clients} quotes={quotes} setQuotes={setQuotes} payments={payments} setInvoices={setInvoices} markupTable={markupTable} setView={setView}/>;
+    if(view==="invoices")return <InvoicesList invoices={invoices} jobs={jobs} clients={clients} quotes={quotes} setQuotes={setQuotes} payments={payments} setInvoices={setInvoices} markupTable={markupTable} setView={setView} biz={biz}/>;
     if(view.startsWith("invoiceDetail_"))return <InvoiceDetail invoiceId={view.split("_")[1]} invoices={invoices} setInvoices={setInvoices} jobs={jobs} clients={clients} payments={payments} biz={biz} setView={setView} quotes={quotes} markupTable={markupTable}/>;
     if(view==="statements")return <StatementsList clients={clients} jobs={jobs} invoices={invoices} payments={payments} biz={biz} setView={setView}/>;
     if(view.startsWith("statementDetail_"))return <StatementDetail clientId={view.split("_")[1]} clients={clients} jobs={jobs} invoices={invoices} payments={payments} biz={biz} setView={setView}/>;
