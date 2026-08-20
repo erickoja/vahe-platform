@@ -2970,7 +2970,7 @@ function Dashboard({clients,jobs,quotes,payments,invoices,appointments=[],propos
   // Rank active jobs by momentum so the ones that matter (money in, a proposal out awaiting a reply,
   // approved/in production, overdue) surface first — a stale sent-quote with no engagement sinks and
   // is dimmed. Each row also carries the signals we show (paid, owing, proposal status).
-  const PROD_STAGES=["On the bench","Design / CAD","Manufacturing","Stone setting","Polishing / Finish","QC check"];
+  const PROD_STAGES=["Item ordered","On the bench","Design / CAD","3D printing","Manufacturing","Stone setting","Polishing / Finish","QC check"];
   const daysAgo=d=>{const n=Math.round((Date.now()-parseISO(d).getTime())/86400000);return n<=0?"today":n===1?"1 day ago":`${n} days ago`;};
   const activeRanked=active.map(j=>{
     const cash=payments.filter(p=>p.jobId===j.id&&p.status==="Received").reduce((s,p)=>s+Number(p.amount),0);
@@ -3035,7 +3035,7 @@ function Dashboard({clients,jobs,quotes,payments,invoices,appointments=[],propos
     {key:"Quoting",       stages:["Enquiry","Consultation","Quoted"], color:"#A0845C"},
     {key:"Approved",      stages:["Approved"],                        color:"#4E8B6A"},
     {key:"In production", stages:PROD_STAGES,                         color:"#3E8E8E"},
-    {key:"Ready",         stages:["Ready for collection"],            color:"#2D7A4F"},
+    {key:"Ready",         stages:["Ready for collection","In transit to customer"], color:"#2D7A4F"},
   ].map(p=>({...p,count:active.filter(j=>p.stages.includes(j.stage)).length}));
   // Potential pipeline value: the approved total where a price is confirmed, else the AVERAGE of the
   // job's quotes — sending a client 3 material options for one piece counts once as a middle estimate
