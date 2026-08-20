@@ -3482,13 +3482,14 @@ function Jobs({clients,jobs,setJobs,quotes,setQuotes,payments,setPayments,notes,
   const parkedCount=useMemo(()=>jobs.filter(j=>j.parked).length,[jobs]);
   const typesByCount=useMemo(()=>Object.keys(typeCounts).sort((a,b)=>typeCounts[b]-typeCounts[a]),[typeCounts]);
   const q=search.trim().toLowerCase();
-  const filtered=jobs.filter(j=>{
+  // Every filter EXCEPT the stage chip. Split out so we can count jobs per stage without letting
+  // the selected stage zero out the others.
+  const passesNonStage=j=>{
     if(awaitOnly&&!j.parked)return false;
     if(overdueOnly&&!(j.deadline&&j.deadline<today()&&!jobIsDone(j)))return false;
     if(chaseOnly&&!isChase(j))return false;
     if(frozenOnly&&!jobFrozen(j))return false;
     if(owingOnly){const total=jobHasCharge(j,quotes)?jobChargeTotal(j,quotes,markupTable,invoices):0;const paid=payments.filter(p=>p.jobId===j.id&&p.status==="Received").reduce((s,p)=>s+Number(p.amount),0)+jobTradeInCredit(j,quotes);if(total-paid<=0.5)return false;}
-    if(sf!=="All"&&j.stage!==sf)return false;
     if(tf!=="All"&&j.type!==tf)return false;
     if(q){
       const c=clients.find(x=>x.id===j.clientId);
@@ -3496,10 +3497,14 @@ function Jobs({clients,jobs,setJobs,quotes,setQuotes,payments,setPayments,notes,
       if(!hay.includes(q))return false;
     }
     return true;
+  };
+  // Count per stage under the current filters (minus the stage chip) — shown on the List chips.
+  const stageBase=jobs.filter(passesNonStage);
+  const stageCount=s=>s==="All"?stageBase.length:stageBase.filter(j=>j.stage===s).length;
   // Most urgent first: soonest (and overdue) deadlines on top, undated jobs next, and finished
   // jobs (ready for collection / collected) always at the very bottom regardless of due date.
   // Deadlines are ISO yyyy-mm-dd strings, so a plain string compare is chronological.
-  }).sort((a,b)=>{
+  const filtered=stageBase.filter(j=>sf==="All"||j.stage===sf).sort((a,b)=>{
     const ad_done=jobIsDone(a),bd_done=jobIsDone(b);
     if(ad_done!==bd_done)return ad_done?1:-1;
     const ad=a.deadline||"",bd=b.deadline||"";
@@ -3544,7 +3549,7 @@ function Jobs({clients,jobs,setJobs,quotes,setQuotes,payments,setPayments,notes,
       {mode==="board"&&<span style={{fontSize:11,color:WG,marginLeft:6}}>Drag a card to move it to another stage.</span>}
     </div>}
     {vMode==="list"&&<div style={{display:"flex",gap:6,flexWrap:"wrap",marginBottom:14}}>
-      {["All",...JOB_STAGES].map(s=><button key={s} onClick={()=>setSf(s)} style={{padding:"4px 11px",borderRadius:3,border:`1px solid ${sf===s?GOLD:BD}`,background:sf===s?GOLD:"transparent",color:sf===s?WHITE:WG,fontSize:11,fontWeight:700,cursor:"pointer",fontFamily:"inherit"}}>{s}</button>)}
+      {["All",...JOB_STAGES].map(s=>{const n=stageCount(s);return <button key={s} onClick={()=>setSf(s)} style={{padding:"4px 11px",borderRadius:3,border:`1px solid ${sf===s?GOLD:BD}`,background:sf===s?GOLD:"transparent",color:sf===s?WHITE:WG,fontSize:11,fontWeight:700,cursor:"pointer",fontFamily:"inherit"}}>{s}{n>0?<span style={{opacity:0.65,fontWeight:600}}> ({n})</span>:""}</button>;})}
     </div>}
     {vMode==="list"&&<div style={{marginBottom:14,display:"flex",gap:6,flexWrap:"wrap"}}>
       <button onClick={()=>setOverdueOnly(v=>!v)} style={{padding:"4px 11px",borderRadius:3,border:`1px solid ${overdueOnly?DANGER:BD}`,background:overdueOnly?DANGER:"transparent",color:overdueOnly?WHITE:WG,fontSize:11,fontWeight:700,cursor:"pointer",fontFamily:"inherit"}}>⏰ Overdue</button>
