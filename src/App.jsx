@@ -7542,18 +7542,23 @@ const DIAMOND_CAT_LABELS={
 function DiamondTable({items,onQtyChange,onSavePrices}){
   const[qtys,setQtys]=useState({});
   const[editing,setEditing]=useState(false);
-  const[editPrices,setEditPrices]=useState({});
+  const[editStone,setEditStone]=useState({});   // per-stone cost (baseCost) being edited
+  const[editPct,setEditPct]=useState({});        // per-carat price being edited (kept in sync)
+  const round2=x=>Math.round((Number(x)||0)*100)/100;
   const setQty=(id,v)=>{
     setQtys(p=>({...p,[id]:v}));
     const item=items.find(x=>x.id===id);
     if(item&&onQtyChange)onQtyChange(id,v,{...item,name:`${item.category} ${item.sizeMm}mm`});
   };
   const sorted=[...items].sort((a,b)=>a.sizeMm-b.sizeMm);
-  const startEdit=()=>{const m={};sorted.forEach(i=>{m[i.id]=String(i.baseCost);});setEditPrices(m);setEditing(true);};
-  const cancelEdit=()=>setEditing(false);
+  const startEdit=()=>{const s={},p={};sorted.forEach(i=>{s[i.id]=String(i.baseCost);p[i.id]=i.caratWeight>0?String(round2(i.baseCost/i.caratWeight)):"";});setEditStone(s);setEditPct(p);setEditing(true);};
+  const cancelEdit=()=>{setEditing(false);setEditStone({});setEditPct({});};
+  // Per stone and per ct are linked (carat weight is fixed), so editing one recomputes the other.
+  const changeStone=(id,v,ct)=>{setEditStone(m=>({...m,[id]:v}));setEditPct(m=>({...m,[id]:(v!==""&&ct>0)?String(round2(Number(v)/ct)):""}));};
+  const changePct=(id,v,ct)=>{setEditPct(m=>({...m,[id]:v}));setEditStone(m=>({...m,[id]:v!==""?String(round2(Number(v)*ct)):""}));};
   const saveEdit=()=>{
-    const updated=items.map(x=>({...x,baseCost:Number(editPrices[x.id]??x.baseCost)}));
-    onSavePrices(updated);setEditing(false);setEditPrices({});
+    const updated=items.map(x=>{const base=Number(editStone[x.id]??x.baseCost)||0;const pct=x.caratWeight>0?(Number(editPct[x.id])||round2(base/x.caratWeight)):(Number(x.pricePerCarat)||0);return{...x,baseCost:base,pricePerCarat:pct};});
+    onSavePrices(updated);setEditing(false);setEditStone({});setEditPct({});
   };
   const dcols="64px 78px 96px 92px 72px 92px";
   const half=Math.ceil(sorted.length/2);
@@ -7565,17 +7570,17 @@ function DiamondTable({items,onQtyChange,onSavePrices}){
   </div>;
   const Row=(item,i,len)=>{
     const qty=qtys[item.id]||"";
-    const cost=editing?(Number(editPrices[item.id])||0):item.baseCost;
     const total=qty&&Number(qty)>0?item.baseCost*Number(qty):null;
+    const inpStyle={width:"84px",padding:"5px 8px",borderRadius:7,border:`1px solid ${GOLD}`,fontSize:13,fontFamily:"inherit",color:GOLD_D,fontWeight:700,background:GOLD_L,outline:"none",textAlign:"right"};
     return <div key={item.id} style={{display:"grid",gridTemplateColumns:dcols,padding:"8px 16px",borderBottom:i<len-1?`1px solid ${BD}`:"none",alignItems:"center",background:i%2===0?WHITE:PARCH+"66"}}>
       <div style={{fontWeight:700,fontSize:13,color:INK}}>{item.sizeMm}mm</div>
       <div style={{fontSize:13,color:WG}}>{item.caratWeight}ct</div>
       {editing
-        ?<input type="number" value={editPrices[item.id]||""} min="0" step="0.01"
-            onChange={e=>setEditPrices(p=>({...p,[item.id]:e.target.value}))}
-            style={{width:"84px",padding:"5px 8px",borderRadius:7,border:`1px solid ${GOLD}`,fontSize:13,fontFamily:"inherit",color:GOLD_D,fontWeight:700,background:GOLD_L,outline:"none",textAlign:"right"}}/>
+        ?<input type="number" value={editStone[item.id]||""} min="0" step="0.01" onChange={e=>changeStone(item.id,e.target.value,item.caratWeight)} style={inpStyle}/>
         :<div style={{fontSize:13,fontWeight:700,color:INK}}>{fmt(item.baseCost)}</div>}
-      <div style={{fontSize:12,color:WG}}>{fmt(cost/item.caratWeight)}</div>
+      {editing
+        ?<input type="number" value={editPct[item.id]||""} min="0" step="0.01" onChange={e=>changePct(item.id,e.target.value,item.caratWeight)} style={inpStyle}/>
+        :<div style={{fontSize:12,color:WG}}>{fmt(item.caratWeight>0?item.baseCost/item.caratWeight:0)}</div>}
       <input type="number" value={qty} min="1" step="1" onChange={e=>setQty(item.id,e.target.value)} placeholder="0"
         disabled={editing}
         style={{width:"60px",padding:"5px 8px",borderRadius:7,border:`1px solid ${qty&&!editing?GOLD:BD}`,fontSize:13,fontFamily:"inherit",color:INK,background:editing?"#f5f5f5":WHITE,outline:"none",textAlign:"right",opacity:editing?0.4:1}}/>
@@ -7584,7 +7589,7 @@ function DiamondTable({items,onQtyChange,onSavePrices}){
   };
   return <div style={{background:WHITE,borderRadius:5,border:`1px solid ${editing?GOLD:BD}`,overflow:"hidden",transition:"border-color 0.15s"}}>
     <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"10px 16px",background:editing?GOLD_L:PARCH,borderBottom:`1px solid ${editing?GOLD+"55":BD}`}}>
-      <div style={{fontSize:11,fontWeight:700,color:editing?GOLD_D:WG,textTransform:"uppercase",letterSpacing:"0.06em"}}>{editing?"Editing per-stone prices — update then save":"Per stone cost · click ✎ to update prices"}</div>
+      <div style={{fontSize:11,fontWeight:700,color:editing?GOLD_D:WG,textTransform:"uppercase",letterSpacing:"0.06em"}}>{editing?"Editing prices · edit per stone or per ct, the other follows":"Per stone / per ct cost · click ✎ to edit"}</div>
       <div style={{display:"flex",gap:8}}>
         {editing?<><Btn sm ghost onClick={cancelEdit}>Cancel</Btn><Btn sm onClick={saveEdit}>Save prices</Btn></>
           :<Btn sm ghost onClick={startEdit}>✎ Edit prices</Btn>}
