@@ -69,11 +69,11 @@ const ICON_DOLLAR=<svg width="20" height="20" viewBox="0 0 24 24" fill="none" st
 const JOB_TYPE_ICONS={"Engagement ring":ICON_RING,"Wedding band":ICON_WEDDING_RINGS,"Eternity ring":ICON_RING,"Dress ring":ICON_RING,"Custom pendant":ICON_PENDANT,"Necklace":ICON_PENDANT,"Earrings":ICON_EARRING,"Bracelet":"∞","Repair":ICON_REPAIR,"Remodelling":"⟳","Grillz":ICON_GRILLZ,"Chain":"◈","Trade / Wholesale":"⇄","Custom":ICON_CUSTOM,"Other":"◦"};
 // "On the bench" is the active-work stage — fits a repair being worked on (and any workshop job).
 const REPAIR_WIP_STAGE="On the bench";
-const JOB_STAGES=["Enquiry","Consultation","Quoted","Approved","On the bench","Design / CAD","Manufacturing","Stone setting","Polishing / Finish","QC check","Ready for collection","Collected"];
+const JOB_STAGES=["Enquiry","Consultation","Quoted","Approved","Item ordered","On the bench","Design / CAD","3D printing","Manufacturing","Stone setting","Polishing / Finish","QC check","Ready for collection","In transit to customer","Collected"];
 // Finished/awaiting-pickup jobs — never treated as urgent (sorted last, not flagged overdue).
 const DONE_STAGES=["Ready for collection","Collected"];
 const jobIsDone=j=>DONE_STAGES.includes(j?.stage);
-const SC={"Enquiry":"#A0845C","Consultation":"#7A6C5D","Quoted":"#5E9078","Approved":"#4E8B6A","On the bench":"#3E8E8E","Design / CAD":"#96627C","Manufacturing":"#B05C3A","Stone setting":"#C47A2E","Polishing / Finish":"#8B9E3A","QC check":"#4A8E6A","Ready for collection":"#2D7A4F","Collected":"#1A5C3A"};
+const SC={"Enquiry":"#A0845C","Consultation":"#7A6C5D","Quoted":"#5E9078","Approved":"#4E8B6A","Item ordered":"#5E7CA6","On the bench":"#3E8E8E","Design / CAD":"#96627C","3D printing":"#8A6FA8","Manufacturing":"#B05C3A","Stone setting":"#C47A2E","Polishing / Finish":"#8B9E3A","QC check":"#4A8E6A","Ready for collection":"#2D7A4F","In transit to customer":"#3E86A0","Collected":"#1A5C3A"};
 // Advance a job to "On the bench" only if it isn't already at/past that point (never pull it back).
 const advanceToBench=stage=>{const i=JOB_STAGES.indexOf(stage),b=JOB_STAGES.indexOf(REPAIR_WIP_STAGE);return i<0||i<b?REPAIR_WIP_STAGE:stage;};
 const PAY_TYPES=["Diamond deposit","Diamond balance","Setting deposit","Deposit","CAD / Design stage","Production deposit","Progress payment","Final balance","Trade-in credit","Lay-by payment","Other"];
