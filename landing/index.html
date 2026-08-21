@@ -412,6 +412,8 @@
   .fcol a{color:var(--muted);text-decoration:none;font-size:.92rem;font-weight:500;transition:color .15s ease}
   .fcol a:hover{color:var(--accent)}
   .footer-bottom{margin-top:38px;padding-top:22px;border-top:1px solid var(--line);display:flex;flex-wrap:wrap;gap:8px 18px;align-items:center;justify-content:space-between;font-size:.82rem;color:var(--muted)}
+  .footer-bottom a{color:var(--muted);text-decoration:none;font-weight:600}
+  .footer-bottom a:hover{color:var(--accent)}
   @media (max-width:720px){.footer-cols{grid-template-columns:1fr 1fr;gap:28px}.footer-about{grid-column:1 / -1}}
 
   .reveal{opacity:0;transform:translateY(18px);transition:opacity .7s ease,transform .7s ease}
@@ -940,7 +942,7 @@
       </div>
       <div class="footer-bottom">
         <span>© 2026 Workshop Pilot · ABN 88 497 680 345</span>
-        <span>Independent · Australian made</span>
+        <span><a href="/privacy.html">Privacy</a> · <a href="/terms.html">Terms</a> · Independent · Australian made</span>
       </div>
     </div>
   </footer>
