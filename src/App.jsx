@@ -5462,6 +5462,7 @@ function JobProposals({job,client,quotes,proposals,setProposals,setQuotes,biz,ma
       const existing=proposals.find(x=>x.id===editingId);
       if(!existing){setBusy(false);setEditingId(null);setBuilder(false);return;}
       const proposal={...existing,...fields};
+      proposal.syncState=proposalState(proposal);   // baseline for "Update from quote" differs-detection
       const snapshot=buildProposalSnapshot({proposal,job,client,biz,quotes,markupTable,payments,photoMap});
       const{error}=await supabase.from(PUBLIC_PROPOSALS_TABLE).update({data:snapshot}).eq("token",proposal.token);
       setBusy(false);
@@ -5473,6 +5474,7 @@ function JobProposals({job,client,quotes,proposals,setProposals,setQuotes,biz,ma
     }
     const id=uid(),token=proposalToken();
     const proposal={id,jobId:job.id,token,...fields,createdAt:today(),status:"sent",acceptedQuoteId:null,acceptedName:"",acceptedAt:null};
+    proposal.syncState=proposalState(proposal);   // baseline for "Update from quote" differs-detection
     const snapshot=buildProposalSnapshot({proposal,job,client,biz,quotes,markupTable,payments,photoMap});
     const{error}=await supabase.from(PUBLIC_PROPOSALS_TABLE).insert({token,studio_id:_studioId,data:snapshot,status:"sent",created_at:new Date().toISOString()});
     setBusy(false);
@@ -5524,15 +5526,38 @@ function JobProposals({job,client,quotes,proposals,setProposals,setQuotes,biz,ma
     save(proposals.filter(x=>x.id!==p.id));
   };
   const[resent,setResent]=useState("");
+  const[resentMsg,setResentMsg]=useState("");
+  // A compact "money state" of a proposal (per-option price + trade-in, in cents, and total payments
+  // received) captured each time we publish/refresh its link. Comparing the current state to this
+  // baseline tells us whether "Update from quote" would actually change what the client sees.
+  const proposalState=pp=>{
+    const opts={};
+    (pp.optionIds||[]).forEach(id=>{const q=quotes.find(x=>x.id===id);opts[id]={t:q?Math.round(quoteGrandTotal(q,markupTable)*100):null,ti:q?Math.round((Number(q.tradeInCredit)||0)*100):0};});
+    const paid=Math.round((payments||[]).filter(pm=>pm.jobId===pp.jobId&&pm.status==="Received").reduce((s,pm)=>s+Number(pm.amount),0)*100);
+    return{opts,paid};
+  };
+  const proposalChanges=pp=>{
+    const base=pp.syncState;if(!base)return[];
+    const cur=proposalState(pp),ids=pp.optionIds||[],out=[];
+    if(ids.some(id=>(cur.opts[id]?.t)!==(base.opts?.[id]?.t)))out.push("prices");
+    if(ids.some(id=>(cur.opts[id]?.ti)!==(base.opts?.[id]?.ti)))out.push("trade-in");
+    if(cur.paid!==base.paid)out.push(cur.paid>base.paid?"new payment":"payments");
+    return out;
+  };
+  // No baseline yet (proposals sent before this was added) → treat as "may differ" so the button stays usable.
+  const proposalDiffers=pp=>!pp.syncState||proposalChanges(pp).length>0;
   // Rebuild the client's live link from the CURRENT quotes & payments (prices, trade-in, balance).
   const resendProposal=async p=>{
     if(!supabaseEnabled||!supabase||!p.token)return;
+    const changes=proposalChanges(p);   // work out what changed BEFORE we reset the baseline
     try{
       const photoMap=await jobImageMap(job);
       const snap=buildProposalSnapshot({proposal:p,job,client,biz,quotes,markupTable,payments,photoMap});
       const{error}=await supabase.from(PUBLIC_PROPOSALS_TABLE).update({data:snap}).eq("token",p.token);
       if(error){alert("Couldn't update the proposal link: "+error.message);return;}
-      setResent(p.id);setTimeout(()=>setResent(c=>c===p.id?"":c),2500);
+      const msg=changes.length?("✓ Updated: "+changes.join(", ")):(p.syncState?"✓ Already up to date":"✓ Link refreshed");
+      setResent(p.id);setResentMsg(msg);setTimeout(()=>setResent(c=>c===p.id?"":c),2800);
+      save(proposals.map(x=>x.id===p.id?{...x,syncState:proposalState(p)}:x));
     }catch(e){alert("Couldn't update the proposal link.");}
   };
 
@@ -5565,7 +5590,10 @@ function JobProposals({job,client,quotes,proposals,setProposals,setQuotes,biz,ma
             <button onClick={()=>copyLink(p)} style={{background:copied===p.id?OK:GOLD_L,border:`1px solid ${copied===p.id?OK:GOLD}`,borderRadius:6,padding:"5px 12px",fontSize:12,fontWeight:700,color:copied===p.id?WHITE:GOLD_D,cursor:"pointer",fontFamily:"inherit"}}>{copied===p.id?"✓ Copied":"Copy link"}</button>
             <EmailClientButton to={client?.email} clientName={clientDisplayName(client)} biz={biz} linkUrl={linkFor(p)} docType="proposal" defaultSubject={`Your proposal from ${biz?.name||"us"}`} defaultMessage={`Thank you for considering ${biz?.name||"us"} for your piece. Please review your proposal using the button below — you can accept your preferred option online.`}/>
             <button onClick={()=>window.open(linkFor(p),"_blank")} style={{background:"none",border:`1px solid ${BD}`,borderRadius:6,padding:"5px 12px",fontSize:12,fontWeight:700,color:WG,cursor:"pointer",fontFamily:"inherit"}}>Preview</button>
-            <button onClick={()=>resendProposal(p)} title="Refresh the client's link from the current quote & payments" style={{background:resent===p.id?OK:"none",border:`1px solid ${resent===p.id?OK:BD}`,borderRadius:6,padding:"5px 12px",fontSize:12,fontWeight:700,color:resent===p.id?WHITE:WG,cursor:"pointer",fontFamily:"inherit"}}>{resent===p.id?"✓ Updated":"↻ Update from quote"}</button>
+            {(()=>{const differs=proposalDiffers(p),showMsg=resent===p.id;
+              return <button onClick={()=>resendProposal(p)} title={differs?"Push the latest quote prices & payments to the client's link":"The client's link already matches the current quote"}
+                style={{background:showMsg?OK:"none",border:`1px solid ${showMsg?OK:differs?GOLD:BD}`,borderRadius:6,padding:"5px 12px",fontSize:12,fontWeight:700,color:showMsg?WHITE:differs?GOLD_D:WG,cursor:"pointer",fontFamily:"inherit",opacity:showMsg||differs?1:0.7}}>
+                {showMsg?resentMsg:differs?"↻ Update from quote":"✓ Matches quote"}</button>;})()}
             {!accepted&&<button onClick={()=>openEditor(p)} title="Edit this proposal — add options, images or change the intro; keeps the same link" style={{background:"none",border:`1px solid ${GOLD}`,borderRadius:6,padding:"5px 12px",fontSize:12,fontWeight:700,color:GOLD_D,cursor:"pointer",fontFamily:"inherit"}}>✎ Edit</button>}
             {!accepted&&<button onClick={()=>checkAcceptance(p,false)} style={{background:"none",border:`1px solid ${BD}`,borderRadius:6,padding:"5px 12px",fontSize:12,fontWeight:700,color:WG,cursor:"pointer",fontFamily:"inherit"}}>{checking===p.id?"Checking…":"Check for acceptance"}</button>}
             <button onClick={()=>delProposal(p)} style={{background:"none",border:"none",cursor:"pointer",color:DANGER,fontSize:17,padding:0,lineHeight:1}}>×</button>
@@ -6974,7 +7002,7 @@ function InvoiceDetailView({invoiceId,invoices,setInvoices,jobs,clients,payments
   const es=invoiceEffectiveStatus(inv,payments,invoices);
   const autoPaid=es==="Paid"&&inv.status!=="Paid";   // covered by recorded payments, not manually set
   const[showPrint,setShowPrint]=useState(false);
-  const[resynced,setResynced]=useState(false);
+  const[resyncMsg,setResyncMsg]=useState("");
   const setStatus=s=>setInvoices(p=>{const n=p.map(x=>x.id===invoiceId?{...x,status:s}:x);persist(K.inv,n);return n;});
   const del=()=>{
     if(!confirm(`Delete invoice ${inv.number}? This can't be undone. Payments recorded against the job are not affected, and the quote stays so you can re-invoice it.`))return;
@@ -6994,13 +7022,28 @@ function InvoiceDetailView({invoiceId,invoices,setInvoices,jobs,clients,payments
   // "Update from quote" — only for single-quote invoices (multi/combined invoices itemise per option).
   const srcQuote=quotes.find(q=>q.id===inv.quoteId);
   const canResync=!!srcQuote&&(!inv.quoteIds||inv.quoteIds.length<=1)&&!hasCustomerLines;
+  // Does re-syncing actually change anything? Compare the quote's current gross + trade-in to what the
+  // invoice holds, and count a pending discount (which the re-sync would clear) as a difference too.
+  const freshTotal=srcQuote?quoteGrandTotal(srcQuote,markupTable):0;
+  const freshTradeIn=srcQuote?Number(srcQuote.tradeInCredit)||0:0;
+  const invGross=inv.subtotalIncGST??inv.totalIncGST??0;
+  const totalDiffers=Math.abs(freshTotal-invGross)>0.005;
+  const tradeInDiffers=Math.abs(freshTradeIn-(Number(inv.tradeInCredit)||0))>0.005;
+  const hasDiscount=(Number(inv.discount)||0)>0.005;
+  // A deliberate invoice discount is not a reason to nag "update needed" — only a changed quote is.
+  const invoiceDiffers=canResync&&(totalDiffers||tradeInDiffers);
   const updateFromQuote=()=>{
     if(!srcQuote)return alert("The quote this invoice was created from no longer exists.");
+    if(!invoiceDiffers){setResyncMsg("✓ Already matches the quote");setTimeout(()=>setResyncMsg(""),2600);return;}
     if(!confirm("Replace this invoice's line items and totals with the current quote (including any gold trade-in credit)? Any manual edits to the invoice lines — and any invoice-level discount — will be reset to match the quote. The invoice number, date and status are kept."))return;
+    const changed=[];
+    if(totalDiffers)changed.push("amounts");
+    if(tradeInDiffers)changed.push("trade-in");
+    if(hasDiscount)changed.push("discount cleared");
     const content=invoiceContentFromQuote(srcQuote,job,markupTable);
     // Reset subtotalIncGST to the fresh gross too — otherwise a later discount would net off a stale baseline.
     setInvoices(p=>{const n=p.map(i=>i.id===inv.id?{...i,...content,subtotalIncGST:content.totalIncGST,discount:0,discountLabel:""}:i);persist(K.inv,n);return n;});
-    setResynced(true);setTimeout(()=>setResynced(false),2500);
+    setResyncMsg("✓ Updated: "+changed.join(", "));setTimeout(()=>setResyncMsg(""),3000);
   };
   const setRequestAmount=v=>setInvoices(p=>{const n=p.map(x=>x.id===invoiceId?{...x,requestAmount:v}:x);persist(K.inv,n);return n;});
   const setNumber=v=>setInvoices(p=>{const n=p.map(x=>x.id===invoiceId?{...x,number:v}:x);persist(K.inv,n);return n;});
@@ -7067,7 +7110,7 @@ function InvoiceDetailView({invoiceId,invoices,setInvoices,jobs,clients,payments
         <Btn sm={!isMobile} xs={isMobile} onClick={shareInvoice}>{linkBusy?"Creating…":linkCopied?"✓ Link copied":<>{ICON_LINK}{inv.publicToken?"Copy link":"Create link"}</>}</Btn>
         {inv.publicToken&&<EmailClientButton to={c?.email} clientName={clientDisplayName(c)} biz={biz} linkUrl={invLink} docType="invoice" defaultSubject={`Invoice ${inv.number} from ${biz?.name||"us"}`} defaultMessage={`Please find your invoice below. You can view the full details and payment information using the button.`}/>}
         {inv.publicToken&&<Btn sm={!isMobile} xs={isMobile} ghost onClick={()=>window.open(invLink,"_blank")}>Preview</Btn>}
-        {canResync&&<Btn sm={!isMobile} xs={isMobile} ghost onClick={updateFromQuote}>{resynced?"✓ Updated":"↻ Update from quote"}</Btn>}
+        {canResync&&<Btn sm={!isMobile} xs={isMobile} ghost={!invoiceDiffers} onClick={updateFromQuote}>{resyncMsg||(invoiceDiffers?"↻ Update from quote":"✓ Matches quote")}</Btn>}
         <Btn sm={!isMobile} xs={isMobile} onClick={()=>setShowPrint(true)}>{ICON_PRINT}Preview &amp; Print</Btn>
         <Btn sm={!isMobile} xs={isMobile} ghost onClick={exportOne}>{ICON_CSV}CSV</Btn>
         <Btn sm={!isMobile} xs={isMobile} danger onClick={del}>Delete</Btn>
