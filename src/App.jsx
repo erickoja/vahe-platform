@@ -6952,10 +6952,16 @@ class ErrorBoundary extends Component{
 }
 
 // ── Invoice detail ────────────────────────────────────────────────────────
-function InvoiceDetail({invoiceId,invoices,setInvoices,jobs,clients,payments,biz,setView,quotes=[],markupTable}){
+// Hook-safe guard: only mount the detail body when the invoice exists. Keeping this early return in
+// a hook-free wrapper (instead of inside the body, above the hooks) avoids React #310 when an
+// invoice disappears mid-view (e.g. deleted, or removed by a realtime sync).
+function InvoiceDetail(props){
+  if(!(props.invoices||[]).some(x=>x.id===props.invoiceId))return null;
+  return <InvoiceDetailView {...props}/>;
+}
+function InvoiceDetailView({invoiceId,invoices,setInvoices,jobs,clients,payments,biz,setView,quotes=[],markupTable}){
   const isMobile=useIsMobile();
   const inv=invoices.find(x=>x.id===invoiceId);
-  if(!inv)return null;
   const job=jobs.find(j=>j.id===inv.jobId);
   const c=job?clients.find(x=>x.id===job.clientId):null;
   const es=invoiceEffectiveStatus(inv,payments,invoices);
