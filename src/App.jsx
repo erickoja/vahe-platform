@@ -1264,7 +1264,7 @@ function ReadyForCollectionCard({job,client,biz,setJobs,setClients}){
   const defSubject=`Ready for collection — ${job.type}${trade?` (#${ref})`:""}`;
   const defMessage=trade
     ?`Job #${ref}${job.po?` (PO ${job.po})`:""}, ${job.type}, is finished and ready for collection.\n\nPlease contact us to arrange a time to collect it.`
-    :`Good news, your ${job.type} is ready to collect.\n\nPlease contact us to arrange a time for collection, or pop in during our opening hours.`;
+    :`Good news, your ${job.type} is ready to collect.\n\nPlease contact us to arrange a time for collection.`;
   const openIt=()=>{setEmail(client?.email||"");setSubject(defSubject);setMessage(defMessage);setErr("");setSent(false);setOpen(true);};
   const send=async()=>{
     if(!email.trim()){setErr("Enter an email address.");return;}
