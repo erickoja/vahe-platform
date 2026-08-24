@@ -6396,7 +6396,14 @@ function ProposalPreview({quote,job,clients=[],biz,calc,payments=[],reconcilePay
 }
 
 // ── Quote detail ──────────────────────────────────────────────────────────
-function QuoteDetail({quoteId,quotes,setQuotes,jobs,clients,biz,markupTable,naturalStoneMarkup,labStoneMarkup,tradeNatStoneMarkup=[],tradeLabStoneMarkup=[],payments=[],invoices=[],setView}){
+// Hook-free wrapper: only mount the detail body when the quote still exists. Keeping the
+// not-found guard out here (instead of after the hooks in the body) avoids React #310 when a
+// quote disappears mid-view (e.g. deleted, or removed by a realtime sync).
+function QuoteDetail(props){
+  if(!(props.quotes||[]).some(x=>x.id===props.quoteId))return null;
+  return <QuoteDetailView {...props}/>;
+}
+function QuoteDetailView({quoteId,quotes,setQuotes,jobs,clients,biz,markupTable,naturalStoneMarkup,labStoneMarkup,tradeNatStoneMarkup=[],tradeLabStoneMarkup=[],payments=[],invoices=[],setView}){
   const isMobile=useIsMobile();
   const q=quotes.find(x=>x.id===quoteId);
   if(!q)return null;
