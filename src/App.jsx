@@ -1263,8 +1263,8 @@ function ReadyForCollectionCard({job,client,biz,setJobs,setClients}){
   const who=trade?(client?.contactName||client?.name):clientDisplayName(client);
   const defSubject=`Ready for collection — ${job.type}${trade?` (#${ref})`:""}`;
   const defMessage=trade
-    ?`Job #${ref}${job.po?` (PO ${job.po})`:""} — ${job.type} — is finished and ready for collection.\n\nPlease collect at your convenience during our opening hours.`
-    :`Good news — your ${job.type} is ready to collect.\n\nPlease pop in during our opening hours to pick it up, or reply to this email if you'd like to arrange a time.`;
+    ?`Job #${ref}${job.po?` (PO ${job.po})`:""}, ${job.type}, is finished and ready for collection.\n\nPlease contact us to arrange a time to collect it.`
+    :`Good news, your ${job.type} is ready to collect.\n\nPlease contact us to arrange a time for collection, or pop in during our opening hours.`;
   const openIt=()=>{setEmail(client?.email||"");setSubject(defSubject);setMessage(defMessage);setErr("");setSent(false);setOpen(true);};
   const send=async()=>{
     if(!email.trim()){setErr("Enter an email address.");return;}
