@@ -1261,7 +1261,7 @@ function ReadyForCollectionCard({job,client,biz,setJobs,setClients}){
   const trade=client?.accountType==="trade";
   const ref=jobRef(job);
   const who=trade?(client?.contactName||client?.name):clientDisplayName(client);
-  const defSubject=`Ready for collection — ${job.type}${trade?` (#${ref})`:""}`;
+  const defSubject=`${job.type} ready for collection${trade?` (#${ref})`:""}`;
   const defMessage=trade
     ?`Job #${ref}${job.po?` (PO ${job.po})`:""}, ${job.type}, is finished and ready for collection.\n\nPlease contact us to arrange a time to collect it.`
     :`Good news, your ${job.type} is ready to collect.\n\nPlease contact us to arrange a time for collection.`;
