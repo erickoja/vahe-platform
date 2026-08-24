@@ -5426,15 +5426,12 @@ function JobProposals({job,client,quotes,proposals,setProposals,setQuotes,biz,ma
   const toggle=id=>setSel(p=>p.includes(id)?p.filter(x=>x!==id):[...p,id]);
   // Combined inc-GST total of the ticked options — a bundle's full price (manual price wins per quote).
   const selectedTotal=optionable.filter(q=>sel.includes(q.id)).reduce((s,q)=>s+quoteGrandTotal(q,markupTable),0);
-  // Default "Amount due now" to the studio's deposit % of the bundle total until the jeweller edits it.
-  // Only for multi-select bundles: in single-select mode the client picks one option, and the public
-  // page already prompts for the correct per-option deposit when this is left blank.
+  // "Amount due now" left blank = the studio's deposit % applied to whatever the client actually
+  // selects (worked out on the public page, so a bundle scales down when they pick fewer pieces).
+  // A typed dollar figure overrides it with a fixed amount. We deliberately DON'T pre-fill a dollar
+  // here: pre-filling the full-bundle deposit as a fixed number made the client page demand that
+  // whole amount even when the client picked a smaller subset.
   const depositPct=Number(biz?.depositPercent)||50;
-  useEffect(()=>{
-    if(dueNowTouched)return;
-    const bundle=selectMode==="multi"&&selectedTotal>0;
-    setDueNow(bundle?(selectedTotal*depositPct/100).toFixed(2):"");
-  },[selectMode,selectedTotal,depositPct,dueNowTouched]);
   // optPhotos[qid] is an array of chosen image paths — tap toggles a photo in/out of the option.
   const pickPhoto=(qid,path)=>setOptPhotos(p=>{const cur=p[qid]||[];return{...p,[qid]:cur.includes(path)?cur.filter(x=>x!==path):[...cur,path]};});
   const openBuilder=()=>{setEditingId(null);setSel([]);setRecommended("");setIntro("");setSelectMode("single");setOptPhotos({});setOptVideos({});setBulkVideos("");setShowBulk(false);setDueNow("");setDueNowTouched(false);setPayNote("");setBuilder(true);};
@@ -5650,11 +5647,12 @@ function JobProposals({job,client,quotes,proposals,setProposals,setQuotes,biz,ma
       </div>
       <div style={{marginTop:14,border:`1px solid ${BD}`,borderRadius:4,padding:"14px 16px",background:PARCH}}>
         <label style={{...SS.lbl,marginBottom:6}}>Payment terms <span style={{fontWeight:400,color:WG,textTransform:"none",letterSpacing:0}}>(optional)</span></label>
-        <div style={{fontSize:11,color:WG,lineHeight:1.5,marginBottom:10}}>Bundled options (multi-select) prefill at your {depositPct}% deposit of the combined total. Edit it to any amount, or clear it to ask for the full balance. The rest is shown as due on completion. Single-option proposals ask for the {depositPct}% deposit of whichever option the client picks.</div>
+        <div style={{fontSize:11,color:WG,lineHeight:1.5,marginBottom:10}}>Leave "Amount due now" blank and each client is asked your {depositPct}% deposit of whatever they choose — for a bundle that scales to the pieces they actually pick. Enter a dollar figure to request a specific amount instead. The rest shows as due on completion.</div>
         <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"0 16px"}}>
-          <Input label={<>Amount due now ({CUR_SYM})<InfoDot text="The deposit to request up front. For a bundle it defaults to your deposit % (Settings); leave blank to ask for the full balance. In 'Choose one' mode the client's page works out the deposit for whichever option they pick."/></>} value={dueNow} onChange={v=>{setDueNowTouched(true);setDueNow(v);}} type="number" min="0" step="0.01" placeholder={selectMode==="multi"?"Leave blank for full balance":`Blank asks ${depositPct}% of the chosen option`}/>
+          <Input label={<>Amount due now ({CUR_SYM})<InfoDot text="The deposit to request up front. Leave blank and the client's page asks your Settings deposit % of whatever they select — a bundle scales to the pieces they actually pick. Enter a dollar amount to request exactly that instead."/></>} value={dueNow} onChange={v=>{setDueNowTouched(true);setDueNow(v);}} type="number" min="0" step="0.01" placeholder={`Blank = ${depositPct}% of what they pick`}/>
           <Input label="Payment note" value={payNote} onChange={setPayNote} placeholder="e.g. Remaining 50% of the centre diamond"/>
         </div>
+        {!(Number(dueNow)>0)&&selectedTotal>0&&<div style={{fontSize:11,color:WG,marginTop:8}}>If they choose {selectMode==="multi"?"all the pieces":"this option"}, that deposit is {fmtR(selectedTotal*depositPct/100)} ({depositPct}% of {fmtR(selectedTotal)}). A smaller selection is scaled down automatically.</div>}
       </div>
       <div style={{display:"flex",gap:10,justifyContent:"flex-end",marginTop:18,alignItems:"center"}}>
         <span style={{fontSize:12,color:WG,marginRight:"auto"}}>{sel.length} option{sel.length!==1?"s":""} selected</span>
@@ -5971,7 +5969,6 @@ function PublicProposalPage({token}){
   const selectedOpts=opts.filter(o=>selectedIds.includes(o.id));
   const comboPrice=selectedOpts.reduce((s,o)=>s+(o.price!=null?o.price:0),0);
   const toggle=id=>{if(accepted)return;multi?setPicks(p=>p.includes(id)?p.filter(x=>x!==id):[...p,id]):setPicks([id]);};
-  const depositOf=price=>price!=null?fmtR(price*(snap.depositPercent||50)/100):"—";
 
   return wrap(<div style={{maxWidth:680,margin:"0 auto"}}>
     {/* Header */}
@@ -6045,31 +6042,34 @@ function PublicProposalPage({token}){
         <span style={{fontSize:20,fontWeight:800,color:WHITE}}>{fmtR(comboPrice)} <span style={{fontSize:11,fontWeight:400,color:"rgba(255,255,255,0.5)"}}>inc {TAX_LABEL}</span></span>
       </div>}
 
-      {/* Payments received → balance due, else deposit note (on the combined total) */}
+      {/* Amount due now: a fixed figure if the studio typed one, otherwise the deposit % of whatever
+          the client actually selected — so a bundle scales to the pieces they pick. Payments +
+          trade-in already received are credited against it. */}
       {selectedOpts.length>0&&comboPrice>0&&(()=>{
         const paid=Number(snap.paidTotal)||0;
         const tradeIn=selectedOpts.reduce((s,o)=>s+(Number(o.tradeIn)||0),0);
         const tradeInNote=selectedOpts.map(o=>(o.tradeInNote||"").trim()).filter(Boolean).join(" · ");
-        const custom=Number(snap.dueNow)||0;
+        const pct=snap.depositPercent||50;
         const note=(snap.paymentNote||"").trim();
-        // No payments, no trade-in and no custom amount → simple deposit prompt (unchanged)
-        if(paid<=0.005&&tradeIn<=0.005&&custom<=0.005)return <div style={{marginTop:14}}>
-          <div style={{fontSize:12,color:WG}}>To proceed, a {snap.depositPercent||50}% deposit of <strong style={{color:INK}}>{depositOf(comboPrice)}</strong> is required.</div>
+        const fullDue=Math.max(0,comboPrice-paid-tradeIn);
+        // Fixed dollar amount only if the studio typed one; otherwise the deposit target is pct% of
+        // the client's actual selection (scales down when they pick fewer pieces from a bundle).
+        const fixed=Number(snap.dueNow)>0?Number(snap.dueNow):null;
+        const depositTarget=fixed!=null?fixed:comboPrice*pct/100;
+        const dueNowAmt=Math.max(0,Math.min(depositTarget-paid-tradeIn,fullDue));
+        const remaining=Math.max(0,comboPrice-paid-tradeIn-dueNowAmt);
+        // Nothing paid, no trade-in, plain % deposit → simple one-line prompt.
+        if(fixed==null&&paid<=0.005&&tradeIn<=0.005)return <div style={{marginTop:14}}>
+          <div style={{fontSize:12,color:WG}}>To proceed, a {pct}% deposit of <strong style={{color:INK}}>{fmtR(dueNowAmt)}</strong> is required.</div>
           {note&&<div style={{fontSize:12,color:WG,marginTop:6,fontStyle:"italic"}}>{note}</div>}
         </div>;
-        const fullDue=Math.max(0,comboPrice-paid-tradeIn);
-        // The deposit target (custom) is a slice of the TOTAL — credit payments + trade-in already
-        // received against it, so the amount due now = deposit less what's already been paid
-        // (deposit = % of total, minus payments). No staged amount → ask for the full balance.
-        const dueNowAmt=custom>0.005?Math.max(0,Math.min(custom-paid-tradeIn,fullDue)):fullDue;
-        const remaining=Math.max(0,comboPrice-paid-tradeIn-dueNowAmt);
-        const dueLabel=custom>0.005?"Amount due now":(dueNowAmt<=0.005?"Paid in full":"Balance now due");
+        const dueLabel=dueNowAmt<=0.005?(remaining<=0.005?"Paid in full":"Nothing due now"):(remaining>0.005?"Amount due now":"Balance now due");
         return <div style={{marginTop:16,background:PARCH,border:`1px solid ${BD}`,borderRadius:4,padding:"14px 16px"}}>
           <div style={{display:"flex",justifyContent:"space-between",fontSize:13,color:WG,padding:"2px 0"}}><span>{multi?"Combined total":"Total price"} (inc {TAX_LABEL})</span><span style={{color:INK,fontWeight:600}}>{fmtR(comboPrice)}</span></div>
           {tradeIn>0.005&&<div style={{display:"flex",justifyContent:"space-between",fontSize:13,color:WG,padding:"2px 0"}}><span>Gold trade-in credit</span><span style={{color:OK,fontWeight:600}}>− {fmtR(tradeIn)}</span></div>}
           {paid>0.005&&<div style={{display:"flex",justifyContent:"space-between",fontSize:13,color:WG,padding:"2px 0"}}><span>Payments received</span><span style={{color:OK,fontWeight:600}}>− {fmtR(paid)}</span></div>}
           <div style={{display:"flex",justifyContent:"space-between",alignItems:"baseline",borderTop:`1px solid ${BD}`,marginTop:8,paddingTop:10}}><span style={{fontSize:13,fontWeight:700,color:INK}}>{dueLabel}</span><span style={{fontSize:18,fontWeight:800,color:dueNowAmt<=0.005?OK:INK}}>{fmtR(dueNowAmt)}</span></div>
-          {custom>0.005&&remaining>0.005&&<div style={{display:"flex",justifyContent:"space-between",fontSize:12,color:WG,paddingTop:6}}><span>Remaining on completion</span><span style={{color:INK,fontWeight:600}}>{fmtR(remaining)}</span></div>}
+          {remaining>0.005&&<div style={{display:"flex",justifyContent:"space-between",fontSize:12,color:WG,paddingTop:6}}><span>Remaining on completion</span><span style={{color:INK,fontWeight:600}}>{fmtR(remaining)}</span></div>}
           {tradeInNote&&<div style={{fontSize:12,color:WG,marginTop:10,lineHeight:1.5,fontStyle:"italic"}}>Trade-in: {tradeInNote}</div>}
           {note&&<div style={{fontSize:12,color:WG,marginTop:tradeInNote?4:10,lineHeight:1.5,fontStyle:"italic"}}>{note}</div>}
         </div>;
