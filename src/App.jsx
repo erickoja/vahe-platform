@@ -2235,6 +2235,9 @@ function Card({children,style={},onClick,id}){
 }
 function Modal({title,onClose,children,wide}){
   const isMobile=useIsMobile();
+  // Lock the page behind the modal so its scrollbar doesn't show alongside the modal's own, and the
+  // background can't scroll under the backdrop. Restores the previous value on close (handles nesting).
+  useEffect(()=>{const prev=document.body.style.overflow;document.body.style.overflow="hidden";return()=>{document.body.style.overflow=prev;};},[]);
   // Padding on the overlay keeps the card off the screen edges, so the dark backdrop frames it on
   // all sides — the main visual cue that you're in a modal (without it, a full-width phone card
   // reads as just another page section).
@@ -5605,19 +5608,23 @@ function JobProposals({job,client,quotes,proposals,setProposals,setQuotes,biz,ma
     {builder&&<Modal title={editingId?"Edit proposal":"New proposal"} onClose={()=>{setBuilder(false);setEditingId(null);}} wide>
       <div style={{fontSize:13,color:WG,marginBottom:14,lineHeight:1.6}}>Pick the quote(s) to offer as options, then choose how the client selects.</div>
       {/* How the client chooses */}
-      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:18}}>
-        {[["single","Choose one","The client picks a single option — for alternatives (e.g. Good / Better / Best)."],["multi","Choose any (bundle)","The client can tick more than one — for sets they buy together (e.g. two wedding bands). Total = the chosen options combined."]].map(([m,t,d])=>(
-          <button key={m} onClick={()=>setSelectMode(m)} style={{textAlign:"left",padding:"12px 14px",borderRadius:4,border:`2px solid ${selectMode===m?GOLD:BD}`,background:selectMode===m?GOLD_L+"55":WHITE,cursor:"pointer",fontFamily:"inherit"}}>
-            <div style={{fontSize:13,fontWeight:700,color:selectMode===m?GOLD_D:INK,marginBottom:3}}>{selectMode===m?"● ":"○ "}{t}</div>
-            <div style={{fontSize:11,color:WG,lineHeight:1.5}}>{d}</div>
-          </button>
-        ))}
+      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12,marginBottom:20}}>
+        {[["single","Choose one","The client picks a single option. Great for alternatives like Good, Better, Best."],["multi","Choose any (bundle)","The client can tick more than one, for sets they buy together (e.g. two wedding bands). Total is the chosen options combined."]].map(([m,t,d])=>{
+          const active=selectMode===m;
+          return <button key={m} onClick={()=>setSelectMode(m)} style={{textAlign:"left",padding:"15px 16px",borderRadius:12,border:`1.5px solid ${active?GOLD:BD}`,background:active?GOLD_L:WHITE,cursor:"pointer",fontFamily:"inherit",display:"flex",gap:12,alignItems:"flex-start",boxShadow:active?`0 0 0 3px ${GOLD_L}`:"0 1px 2px rgba(0,0,0,0.03)",transition:"border-color 0.15s, box-shadow 0.15s, background 0.15s"}}>
+            <span style={{flexShrink:0,marginTop:1,width:18,height:18,borderRadius:"50%",border:`2px solid ${active?GOLD:"#CFC5BB"}`,background:WHITE,display:"flex",alignItems:"center",justifyContent:"center"}}>{active&&<span style={{width:9,height:9,borderRadius:"50%",background:GOLD}}/>}</span>
+            <span style={{minWidth:0}}>
+              <span style={{display:"block",fontSize:13.5,fontWeight:700,color:active?GOLD_D:INK,marginBottom:3}}>{t}</span>
+              <span style={{display:"block",fontSize:11.5,color:WG,lineHeight:1.5}}>{d}</span>
+            </span>
+          </button>;
+        })}
       </div>
       <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:10,marginBottom:8,flexWrap:"wrap"}}>
         <div style={{fontSize:10,fontWeight:700,color:WG,textTransform:"uppercase",letterSpacing:"0.06em",display:"inline-flex",alignItems:"center"}}>Options<InfoDot text="Tick the quotes to offer the client. In 'Choose one' mode you can mark one as ★ Recommended. Each ticked option can carry its own photos and a video link."/></div>
         {!showBulk&&<button onClick={()=>setShowBulk(true)} style={{background:"none",border:"none",cursor:"pointer",color:GOLD_D,fontSize:12,fontWeight:700,fontFamily:"inherit",padding:0}}>＋ Paste multiple video links</button>}
       </div>
-      {showBulk&&<div style={{border:`1px solid ${BD}`,borderRadius:4,padding:"12px 14px",background:PARCH,marginBottom:10}}>
+      {showBulk&&<div style={{border:`1px solid ${BD}`,borderRadius:10,padding:"12px 14px",background:PARCH,marginBottom:10}}>
         <div style={{fontSize:11,color:WG,lineHeight:1.5,marginBottom:8}}>Tick your options below first, then paste one video link per line — they fill your ticked options top to bottom (you can still adjust any individually after).</div>
         <textarea value={bulkVideos} onChange={e=>setBulkVideos(e.target.value)} rows={4} placeholder={"https://youtu.be/aaa\nhttps://vimeo.com/123\nhttps://www.loom.com/share/…"} style={{...SS.inp,marginTop:0,resize:"vertical",fontSize:13,lineHeight:1.6}}/>
         <div style={{display:"flex",gap:8,justifyContent:"flex-end",marginTop:8}}>
@@ -5627,7 +5634,7 @@ function JobProposals({job,client,quotes,proposals,setProposals,setQuotes,biz,ma
       </div>}
       {optionable.map(q=>{
         const on=sel.includes(q.id);
-        return <div key={q.id} style={{padding:"10px 12px",border:`1px solid ${on?GOLD:BD}`,borderRadius:4,marginBottom:8,background:on?GOLD_L+"55":WHITE}}>
+        return <div key={q.id} style={{padding:"11px 13px",border:`1.5px solid ${on?GOLD:BD}`,borderRadius:10,marginBottom:9,background:on?GOLD_L+"55":WHITE,boxShadow:on?`0 0 0 3px ${GOLD_L}55`:"0 1px 2px rgba(0,0,0,0.03)",transition:"border-color 0.15s, box-shadow 0.15s"}}>
           <div style={{display:"flex",alignItems:"center",gap:12}}>
             <input type="checkbox" checked={on} onChange={()=>toggle(q.id)} style={{width:16,height:16,cursor:"pointer",accentColor:GOLD}}/>
             <div style={{flex:1,cursor:"pointer"}} onClick={()=>toggle(q.id)}>
@@ -5673,7 +5680,7 @@ function JobProposals({job,client,quotes,proposals,setProposals,setQuotes,biz,ma
         <textarea value={intro} onChange={e=>setIntro(e.target.value)} rows={3} placeholder={defaultIntro} style={{...SS.inp,marginTop:0,resize:"vertical",lineHeight:1.6}}/>
         <div style={{fontSize:11,color:WG,marginTop:5}}>Leave blank and this greyed message is added automatically.</div>
       </div>
-      <div style={{marginTop:14,border:`1px solid ${BD}`,borderRadius:4,padding:"14px 16px",background:PARCH}}>
+      <div style={{marginTop:16,border:`1px solid ${BD}`,borderRadius:10,padding:"15px 17px",background:PARCH}}>
         <label style={{...SS.lbl,marginBottom:6}}>Payment terms <span style={{fontWeight:400,color:WG,textTransform:"none",letterSpacing:0}}>(optional)</span></label>
         <div style={{fontSize:11,color:WG,lineHeight:1.5,marginBottom:10}}>Leave "Amount due now" blank and each client is asked your {depositPct}% deposit of whatever they choose — for a bundle that scales to the pieces they actually pick. Enter a dollar figure to request a specific amount instead. The rest shows as due on completion.</div>
         <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"0 16px"}}>
