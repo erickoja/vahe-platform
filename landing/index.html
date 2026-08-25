@@ -341,14 +341,93 @@
   .sstat .sub{font-size:.72rem;color:var(--muted);margin-top:5px}
   @media (max-width:760px){.stockstats{grid-template-columns:1fr 1fr;gap:12px}}
 
-  /* real product screenshot in a browser frame */
-  .shotframe{max-width:1040px;margin:44px auto 0;border:1px solid var(--line);border-radius:16px;overflow:hidden;box-shadow:var(--shadow);background:var(--surface)}
-  .shotbar{display:flex;gap:8px;align-items:center;padding:12px 16px;background:var(--surface-2);border-bottom:1px solid var(--line)}
-  .shotbar span{width:11px;height:11px;border-radius:50%;background:var(--line)}
-  .shotscroll{max-height:600px;overflow-y:auto;line-height:0;background:#F7F4F0}
-  .shotscroll img{width:100%;height:auto;display:block}
-  .shotframe figcaption{padding:12px 16px;font-size:.8rem;color:var(--muted);text-align:center;border-top:1px solid var(--line);background:var(--surface)}
-  @media (max-width:520px){.shotscroll{max-height:440px}}
+  /* Native HTML rebuild of the app's "Edit quote" builder screen — stays razor-sharp at any zoom.
+     Everything is scoped under .qb with its own palette so it looks like the real app, not the site. */
+  .qbframe{--qbink:#1b1712;--qbmut:#8a8078;--qbline:#e7e0d7;--qbbg:#f6f3ef;--qbacc:#b56a5b;--qbacc2:#9c5145;--qbok:#2e7d57;--qbsideb:#17130f;
+    max-width:1080px;margin:44px auto 0;border:1px solid var(--line);border-radius:14px;overflow:hidden;box-shadow:var(--shadow);background:#fff}
+  .qbbar{display:flex;gap:8px;align-items:center;padding:11px 15px;background:var(--surface-2);border-bottom:1px solid var(--line)}
+  .qbbar span{width:11px;height:11px;border-radius:50%;background:var(--line)}
+  .qbscroll{overflow-x:auto;-webkit-overflow-scrolling:touch}
+  .qb{width:1040px;display:flex;background:var(--qbbg);color:var(--qbink);font-size:12px;line-height:1.4;text-align:left;font-variant-numeric:tabular-nums}
+  /* sidebar */
+  .qb-side{width:180px;flex:none;background:var(--qbsideb);color:#b7afa4;padding:14px 0 10px;display:flex;flex-direction:column}
+  .qb-logo{font-weight:800;letter-spacing:.12em;font-size:11px;color:#fff;padding:2px 16px 14px;line-height:1.25}
+  .qb-sec{font-size:8.5px;font-weight:700;letter-spacing:.14em;color:#6a6157;text-transform:uppercase;padding:12px 16px 5px}
+  .qb-ni{display:flex;align-items:center;gap:9px;padding:7px 16px;font-size:11px;font-weight:600;color:#a49b90}
+  .qb-ni svg{width:13px;height:13px;flex:none;opacity:.85}
+  .qb-ni.on{background:rgba(181,106,91,.20);color:#e59486;box-shadow:inset 2px 0 0 var(--qbacc)}
+  .qb-user{margin-top:auto;padding:12px 16px 2px;border-top:1px solid rgba(255,255,255,.07)}
+  .qb-user .em{display:flex;align-items:center;gap:8px;font-size:10.5px;color:#cfc7bd}
+  .qb-user .av{width:20px;height:20px;border-radius:50%;background:#3a332b;color:#e0d8cd;display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:700;flex:none}
+  .qb-user .so{font-size:9px;font-weight:700;letter-spacing:.1em;color:#6a6157;margin-top:9px}
+  /* main */
+  .qb-main{flex:1;min-width:0;padding:18px 22px 22px}
+  .qb-back{display:inline-block;font-size:11px;font-weight:600;color:var(--qbink);border:1px solid var(--qbline);background:#fff;border-radius:7px;padding:5px 11px}
+  .qb-h1{font-size:16px;font-weight:800;letter-spacing:-.01em;margin:14px 0 0;line-height:1.3}
+  .qb-sub{font-size:11px;color:var(--qbmut);margin-top:5px}
+  .qb-warn{display:flex;gap:8px;align-items:flex-start;margin-top:13px;background:#fbebe9;border:1px solid #f1c9c4;border-radius:8px;padding:9px 12px;font-size:11px;color:#9a4b41}
+  .qb-lbl{font-size:9px;font-weight:700;letter-spacing:.09em;text-transform:uppercase;color:var(--qbmut);margin-bottom:5px;display:flex;align-items:center;gap:6px}
+  .qb-info{width:12px;height:12px;border:1px solid var(--qbline);border-radius:3px;display:inline-flex;align-items:center;justify-content:center;font-size:8px;color:var(--qbmut);font-weight:700}
+  .qb-appears{font-size:8px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--qbok);background:color-mix(in srgb,var(--qbok) 12%,transparent);border-radius:4px;padding:2px 6px}
+  .qb-in{background:#fff;border:1px solid var(--qbline);border-radius:8px;padding:9px 11px;font-size:11px;color:var(--qbink);overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
+  .qb-in.area{white-space:normal;min-height:52px}
+  .qb-grid2{display:grid;grid-template-columns:1fr 150px;gap:16px;margin-top:16px}
+  .qb-fld{margin-top:16px}
+  .qb-hr{border:none;border-top:1px solid var(--qbline);margin:18px 0}
+  .qb-help{background:#fff;border:1px solid var(--qbline);border-radius:8px;padding:11px 13px;font-size:11px;color:var(--qbmut);line-height:1.55;margin-top:9px}
+  .qb-help b{color:var(--qbink)}
+  /* cost rows */
+  .qb-cols{display:grid;grid-template-columns:1fr 1fr 118px;gap:12px;font-size:8.5px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:var(--qbmut);padding:16px 0 4px}
+  .qb-cols .r{text-align:right}
+  .qb-row{display:grid;grid-template-columns:1fr 1fr 118px;gap:12px;align-items:center;padding:8px 0 2px}
+  .qb-cell{background:#fff;border:1px solid var(--qbline);border-radius:8px;padding:9px 11px;font-size:11px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
+  .qb-cost{display:flex;align-items:center;justify-content:space-between;gap:8px}
+  .qb-cost .amt{font-weight:800}
+  .qb-tag{font-size:8px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--qbok);border:1px solid color-mix(in srgb,var(--qbok) 34%,transparent);border-radius:5px;padding:2px 6px;margin-right:7px;vertical-align:middle}
+  .qb-chips{display:flex;flex-wrap:wrap;gap:6px;padding:6px 0 2px}
+  .qb-chip{font-size:10px;font-weight:700;border:1px solid var(--qbline);background:#fff;border-radius:6px;padding:4px 9px;color:var(--qbmut)}
+  .qb-chip.acc{border-color:color-mix(in srgb,var(--qbacc) 45%,transparent);color:var(--qbacc2)}
+  .qb-chip.fill{background:var(--qbacc);border-color:var(--qbacc);color:#fff}
+  .qb-addrow{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}
+  .qb-btn{font-size:11px;font-weight:700;border-radius:7px;padding:7px 12px;border:1px dashed var(--qbline);color:var(--qbmut);background:#fff}
+  .qb-btn.acc{border-style:solid;border-color:color-mix(in srgb,var(--qbacc) 45%,transparent);color:var(--qbacc2)}
+  .qb-btn.ok{border-style:solid;border-color:color-mix(in srgb,var(--qbok) 40%,transparent);color:var(--qbok)}
+  .qb-pricing{display:flex;align-items:center;gap:10px;background:var(--surface-2);border:1px solid var(--qbline);border-radius:8px;padding:9px 12px;margin-top:16px;font-size:11px;color:var(--qbmut)}
+  .qb-seg{display:inline-flex;border:1px solid var(--qbline);border-radius:7px;overflow:hidden}
+  .qb-seg b{padding:5px 13px;font-size:11px;font-weight:700}
+  .qb-seg .on{background:var(--qbacc);color:#fff}
+  .qb-seg .off{background:#fff;color:var(--qbmut)}
+  /* markup preview */
+  .qb-mk{display:grid;grid-template-columns:repeat(4,1fr);gap:1px;background:var(--qbline);border:1px solid var(--qbline);border-radius:8px;overflow:hidden;margin-top:16px}
+  .qb-mk>div{background:var(--surface-2);padding:11px 14px;display:flex;flex-direction:column;gap:4px}
+  .qb-mk .k{font-size:8px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--qbmut)}
+  .qb-mk .v{font-size:14px;font-weight:800;color:var(--qbink)}
+  .qb-mk .v.acc{color:var(--qbacc2)} .qb-mk .v.ok{color:var(--qbok)}
+  .qb-mklbl{font-size:8.5px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--qbmut);margin:16px 0 0}
+  .qb-profit{display:flex;align-items:center;justify-content:space-between;gap:10px;background:color-mix(in srgb,var(--qbok) 9%,#fff);border:1px solid color-mix(in srgb,var(--qbok) 22%,transparent);border-radius:8px;padding:11px 14px;margin-top:8px;font-size:11px}
+  .qb-profit .r{font-weight:800;color:var(--qbok)}
+  .qb-mult{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-top:12px;font-size:11px;color:var(--qbink)}
+  .qb-mult .box{background:#fff;border:1px solid var(--qbline);border-radius:7px;padding:6px 12px;font-weight:800}
+  .qb-mult .ov{color:var(--qbacc2);font-weight:700}
+  .qb-mult .reset{border:1px solid var(--qbline);border-radius:7px;padding:5px 10px;color:var(--qbmut);font-weight:700}
+  /* centre stone + totals */
+  .qb-seg.wide{margin-top:8px}
+  .qb-total{display:grid;grid-template-columns:1fr 1fr;gap:0;border:1px solid var(--qbline);border-radius:9px;overflow:hidden;margin-top:12px}
+  .qb-total .jp{background:#f2ece6;padding:15px 18px}
+  .qb-total .tt{background:#181310;padding:15px 18px}
+  .qb-total .k{font-size:8.5px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--qbmut)}
+  .qb-total .tt .k{color:rgba(255,255,255,.5)}
+  .qb-total .jp .v{font-size:19px;font-weight:800;color:var(--qbacc2);margin-top:4px}
+  .qb-total .tt .v{font-size:19px;font-weight:800;color:#7fc698;margin-top:4px}
+  .qb-money{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-top:16px}
+  .qb-money .mi{max-width:70%}
+  .qb-money .mi b{font-size:9px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--qbmut);display:block;margin-bottom:3px}
+  .qb-money .mi span{font-size:10.5px;color:var(--qbmut)}
+  .qb-money .mv{background:#fff;border:1px solid var(--qbline);border-radius:8px;padding:9px 14px;font-size:11px;color:var(--qbmut);min-width:120px;text-align:right}
+  .qb-actions{display:flex;justify-content:flex-end;gap:10px;margin-top:18px}
+  .qb-actions .cancel{border:1px solid var(--qbline);background:#fff;color:var(--qbink);border-radius:8px;padding:8px 16px;font-size:12px;font-weight:700}
+  .qb-actions .save{background:var(--qbacc);color:#fff;border-radius:8px;padding:8px 18px;font-size:12px;font-weight:700}
+  .qbframe figcaption{padding:11px 16px;font-size:.8rem;color:var(--muted);text-align:center;border-top:1px solid var(--line);background:var(--surface)}
 
   /* why */
   .why{background:var(--surface-2);border-top:1px solid var(--line);border-bottom:1px solid var(--line)}
@@ -785,21 +864,137 @@
       </div>
     </section>
 
-    <!-- PRODUCT SHOT -->
+    <!-- QUOTE BUILDER (native rebuild of the app screen) -->
     <section class="section shotshow">
       <div class="wrap">
         <div class="sec-head reveal">
           <p class="eyebrow">Inside the app</p>
           <h2>The actual quote builder you work in.</h2>
-          <p>Every cost line, metal, labour, printing, casting, settings and stones, marked up your way, with your live profit and margin as you build. This is the real screen, not a mockup.</p>
+          <p>Every cost line, metal, labour, printing, casting, settings and stones, marked up your way, with your live profit and margin as you build. This is the real screen, rebuilt in the page so it stays sharp on any display.</p>
         </div>
-        <figure class="shotframe reveal">
-          <div class="shotbar"><span></span><span></span><span></span></div>
-          <div class="shotscroll">
-            <img src="shots/quote-builder-top.jpg" width="1660" height="2048" loading="lazy" decoding="async" alt="Workshop Pilot quote builder showing itemised jewellery costs, markup preview and profit for a custom wedding ring set">
-            <img src="shots/quote-builder-bottom.jpg" width="1660" height="658" loading="lazy" decoding="async" alt="Quote total, gold trade-in credit and manual price options in the Workshop Pilot quote builder">
+        <figure class="qbframe reveal">
+          <div class="qbbar"><span></span><span></span><span></span></div>
+          <div class="qbscroll">
+            <div class="qb">
+              <aside class="qb-side">
+                <div class="qb-logo">WORKSHOP PILOT</div>
+                <div class="qb-ni"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/></svg> Dashboard</div>
+                <div class="qb-ni"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg> To-do</div>
+                <div class="qb-sec">Workflow</div>
+                <div class="qb-ni"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg> Appointments</div>
+                <div class="qb-ni"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/></svg> Clients</div>
+                <div class="qb-ni on"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><path d="M6 3h12l3 6-9 12L3 9z"/><path d="M3 9h18"/></svg> Jobs</div>
+                <div class="qb-ni"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/></svg> Quotes</div>
+                <div class="qb-ni"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6M8 13h8M8 17h5"/></svg> Invoices</div>
+                <div class="qb-ni"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg> Safekeeping</div>
+                <div class="qb-sec">Trade</div>
+                <div class="qb-ni"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6M8 13h8M8 17h5"/></svg> Statements</div>
+                <div class="qb-sec">Studio</div>
+                <div class="qb-ni"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><path d="M21 8l-9-5-9 5 9 5 9-5z"/><path d="M3 8v8l9 5 9-5V8"/></svg> Stock</div>
+                <div class="qb-ni"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><ellipse cx="12" cy="5" rx="8" ry="3"/><path d="M4 5v14c0 1.66 3.58 3 8 3s8-1.34 8-3V5"/></svg> Pricing DB</div>
+                <div class="qb-ni"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg> Reports</div>
+                <div class="qb-ni"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.6 1.6 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.6 1.6 0 0 0-2.7 1.1V21a2 2 0 0 1-4 0v-.1A1.6 1.6 0 0 0 6 19.4l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1A1.6 1.6 0 0 0 4.6 15H4.5a2 2 0 0 1 0-4h.1A1.6 1.6 0 0 0 6 8.6l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1A1.6 1.6 0 0 0 11 4.6V4.5a2 2 0 0 1 4 0v.1A1.6 1.6 0 0 0 18 6l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.6 1.6 0 0 0-.3 1.8v.1z"/></svg> Settings</div>
+                <div class="qb-user">
+                  <div class="em"><span class="av">E</span> you@yourstudio.com</div>
+                  <div class="so">SIGN OUT</div>
+                </div>
+              </aside>
+              <div class="qb-main">
+                <span class="qb-back">← Back</span>
+                <div class="qb-h1">Edit quote: Custom Matching Wedding ring set with 5 &times; D/VS Marquise Lab Grown Diamonds with a tw. of 0.71ct &amp; 10 &times; Round Lab-Grown Diamonds with a tw. of 0.15ct. Made in platinum 950 finger size &ldquo;H&rdquo;</div>
+                <div class="qb-sub">Engagement ring &middot; Jordan &amp; Alex Rivera<br>Quote #B3HG &middot; created 11 Aug 2026</div>
+                <div class="qb-warn"><span>&#9888;</span><span>This quote is already on invoice <b>00001025</b> ($7,450.00). If your changes alter the price, you&rsquo;ll be asked whether to update the invoice to match when you save.</span></div>
+
+                <div class="qb-grid2">
+                  <div>
+                    <div class="qb-lbl">Quote title / label</div>
+                    <div class="qb-in">Custom Matching Wedding ring set with 5 &times; D/VS Marquise Lab Grown Diamonds &hellip; platinum 950 finger size &ldquo;H&rdquo;</div>
+                  </div>
+                  <div>
+                    <div class="qb-lbl">Quote expiry date <span class="qb-info">i</span></div>
+                    <div class="qb-in">13/08/2026</div>
+                  </div>
+                </div>
+
+                <div class="qb-fld">
+                  <div class="qb-lbl">Piece name on documents (optional)</div>
+                  <div class="qb-in">Custom Matching Wedding ring set with 5 &times; D/VS Marquise Lab Grown Diamonds &hellip; platinum 950 finger size &ldquo;H&rdquo;</div>
+                </div>
+
+                <div class="qb-fld">
+                  <div class="qb-lbl">Description for client <span class="qb-appears">Appears on proposal</span></div>
+                  <div class="qb-in area">Custom Matching Wedding ring set with 5 &times; D/VS Marquise Lab Grown Diamonds with a tw. of 0.71ct &amp; 10 &times; Round Lab-Grown Diamonds with a tw. of 0.15ct. Made in platinum 950 finger size &ldquo;H&rdquo;</div>
+                </div>
+
+                <hr class="qb-hr">
+                <div class="qb-lbl">Jewellery costs <span class="qb-info">i</span></div>
+                <div class="qb-help"><b>The pricing database is just a starting point.</b> It holds the simple, most commonly-used items for quoting everyday jewellery, but every studio works with different suppliers and materials. Add your own <b>manual costings</b> any time with <b>+ Add item</b>; they mark up and total exactly the same way.</div>
+
+                <div class="qb-cols"><span>Item</span><span>Detail / calculation</span><span class="r">Cost</span></div>
+
+                <div class="qb-row"><div class="qb-cell">Platinum 950</div><div class="qb-cell">5g &times; $151.75/g &middot; cast</div><div class="qb-cell qb-cost"><span>758.76</span><span class="amt">$758.76</span></div></div>
+                <div class="qb-chips"><span class="qb-chip fill">Cast</span><span class="qb-chip">Fabricated</span><span class="qb-chip acc">Markup &#10003;</span><span class="qb-chip">Duplicate</span><span class="qb-chip">Delete</span></div>
+
+                <div class="qb-row"><div class="qb-cell">Bench Labour (Casting Assembly)</div><div class="qb-cell">2 hr &times; $70.00/hr</div><div class="qb-cell qb-cost"><span>140.00</span><span class="amt">$140.00</span></div></div>
+                <div class="qb-chips"><span class="qb-chip acc">Markup &#10003;</span><span class="qb-chip">Duplicate</span><span class="qb-chip">Move up</span><span class="qb-chip">Delete</span></div>
+
+                <div class="qb-row"><div class="qb-cell">3D print fee (1 piece)</div><div class="qb-cell">1 piece &times; $75.00/piece</div><div class="qb-cell qb-cost"><span>75.00</span><span class="amt">$75.00</span></div></div>
+                <div class="qb-chips"><span class="qb-chip acc">Markup &#10003;</span><span class="qb-chip">Duplicate</span><span class="qb-chip">Move up</span><span class="qb-chip">Delete</span></div>
+
+                <div class="qb-row"><div class="qb-cell">Casting fee (1 piece)</div><div class="qb-cell">1 piece &times; $10.00/piece</div><div class="qb-cell qb-cost"><span>10.00</span><span class="amt">$10.00</span></div></div>
+                <div class="qb-chips"><span class="qb-chip acc">Markup &#10003;</span><span class="qb-chip">Duplicate</span><span class="qb-chip">Move up</span><span class="qb-chip">Delete</span></div>
+
+                <div class="qb-row"><div class="qb-cell">Prong / Claw setting &middot; platinum</div><div class="qb-cell">10 stones &times; 1.5mm &middot; +20% &middot; volume &minus;10%</div><div class="qb-cell qb-cost"><span>81.00</span><span class="amt">$81.00</span></div></div>
+                <div class="qb-chips"><span class="qb-chip acc">Markup &#10003;</span><span class="qb-chip">Duplicate</span><span class="qb-chip">Move up</span><span class="qb-chip">Delete</span></div>
+
+                <div class="qb-row"><div class="qb-cell">Prong / Claw setting</div><div class="qb-cell">4 stones &times; 5mm</div><div class="qb-cell qb-cost"><span>100.00</span><span class="amt">$100.00</span></div></div>
+                <div class="qb-chips"><span class="qb-chip acc">Markup &#10003;</span><span class="qb-chip">Duplicate</span><span class="qb-chip">Move up</span><span class="qb-chip">Delete</span></div>
+
+                <div class="qb-row"><div class="qb-cell">V claw / Talon setting</div><div class="qb-cell">1 stone &times; 6mm</div><div class="qb-cell qb-cost"><span>30.00</span><span class="amt">$30.00</span></div></div>
+                <div class="qb-chips"><span class="qb-chip acc">Markup &#10003;</span><span class="qb-chip">Duplicate</span><span class="qb-chip">Move up</span><span class="qb-chip">Delete</span></div>
+
+                <div class="qb-row"><div class="qb-cell"><span class="qb-tag">Accent</span>4 &times; D-F VVS Diamond 0.51ct Marquise 5mm &times; 2.5mm</div><div class="qb-cell">notes (optional)</div><div class="qb-cell qb-cost"><span>125.00</span><span class="amt">$125.00</span></div></div>
+                <div class="qb-chips"><span class="qb-chip">Delete</span></div>
+
+                <div class="qb-row"><div class="qb-cell"><span class="qb-tag">Accent</span>D-F VVS Diamond 0.21ct Marquise 6mm &times; 3mm</div><div class="qb-cell">notes (optional)</div><div class="qb-cell qb-cost"><span>75.00</span><span class="amt">$75.00</span></div></div>
+                <div class="qb-chips"><span class="qb-chip">Delete</span></div>
+
+                <div class="qb-row"><div class="qb-cell"><span class="qb-tag">Accent</span>10 &times; D-F VVS Diamond 0.16ct Round 1.5mm</div><div class="qb-cell">notes (optional)</div><div class="qb-cell qb-cost"><span>75.00</span><span class="amt">$75.00</span></div></div>
+                <div class="qb-chips"><span class="qb-chip">Delete</span></div>
+
+                <div class="qb-addrow"><span class="qb-btn">+ Add item</span><span class="qb-btn acc">&#9917; Pricing DB</span><span class="qb-btn ok">+ Accent, feature or fancy stone</span></div>
+
+                <div class="qb-pricing"><span class="qb-lbl" style="margin:0">Pricing <span class="qb-info">i</span></span><span class="qb-seg"><b class="on">Retail</b><b class="off">Trade</b></span> Standard retail markups.</div>
+
+                <div class="qb-mklbl">Markup preview</div>
+                <div class="qb-mk">
+                  <div><span class="k">Base cost</span><span class="v">$1,469.76</span></div>
+                  <div><span class="k">Bracket</span><span class="v" style="font-size:12px">$1,500.01 &ndash; $2,000.00</span></div>
+                  <div><span class="k">Multiplier</span><span class="v acc">2&times; (override)</span></div>
+                  <div><span class="k">Markup total</span><span class="v ok">$2,940</span></div>
+                </div>
+                <div class="qb-profit"><span>Your profit on the jewellery <span style="color:var(--qbmut)">(internal &middot; excl GST)</span></span><span class="r">$1,202.53 profit &middot; 45% margin &middot; 2&times; markup</span></div>
+                <div class="qb-mult">Markup multiplier <span class="qb-info">i</span> <span class="box">2 &times;</span> <span class="ov">Override on &middot; table suggests 2.1&times;</span> <span class="reset">Reset to auto</span></div>
+
+                <hr class="qb-hr">
+                <div class="qb-lbl">Centre / feature stone? <span class="qb-info">i</span></div>
+                <span class="qb-seg wide"><b class="on">No stone</b><b class="off">Client supplying their own</b><b class="off">We are sourcing the stone</b></span>
+
+                <div class="qb-mklbl">Quote total</div>
+                <div class="qb-total">
+                  <div class="jp"><span class="k">Jewellery piece</span><div class="v">$2,950</div></div>
+                  <div class="tt"><span class="k">Total</span><div class="v">= $2,950</div></div>
+                </div>
+
+                <div class="qb-money"><div class="mi"><b>Gold trade-in credit</b><span>Trading in old gold? Enter the credit you&rsquo;re giving &mdash; it shows as a deduction and reduces the balance.</span></div><span class="mv">$ 0.00</span></div>
+                <div class="qb-money"><div class="mi"><b>Manual quoted price</b><span>Quoted verbally? Enter the final price (inc GST) &mdash; it becomes the quote total everywhere, no line items needed.</span></div><span class="mv">$ 0.00</span></div>
+                <div class="qb-fld"><div class="qb-lbl">Internal notes <span style="color:var(--qbmut);text-transform:none;letter-spacing:0;font-weight:400">(not visible to client)</span></div><div class="qb-in area" style="color:var(--qbmut)">e.g. Price locked at approval. Metal prices current as of today.</div></div>
+
+                <div class="qb-actions"><span class="cancel">Cancel</span><span class="save">Save changes</span></div>
+              </div>
+            </div>
           </div>
-          <figcaption>A real quote in Workshop Pilot. Scroll to see the full breakdown.</figcaption>
+          <figcaption>A real quote in Workshop Pilot, rebuilt in HTML so it stays sharp. Scroll sideways on a narrow screen.</figcaption>
         </figure>
       </div>
     </section>
