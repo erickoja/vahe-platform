@@ -487,15 +487,71 @@
   .qbtabbar label:hover{color:var(--strong)}
   #qbtab-quote:checked~.qbtabbar label[for="qbtab-quote"],
   #qbtab-invoice:checked~.qbtabbar label[for="qbtab-invoice"],
-  #qbtab-todo:checked~.qbtabbar label[for="qbtab-todo"]{background:var(--accent);color:#fff}
+  #qbtab-todo:checked~.qbtabbar label[for="qbtab-todo"],
+  #qbtab-job:checked~.qbtabbar label[for="qbtab-job"]{background:var(--accent);color:#fff}
   #qbtab-quote:focus-visible~.qbtabbar label[for="qbtab-quote"],
   #qbtab-invoice:focus-visible~.qbtabbar label[for="qbtab-invoice"],
-  #qbtab-todo:focus-visible~.qbtabbar label[for="qbtab-todo"]{outline:2px solid var(--accent);outline-offset:2px}
+  #qbtab-todo:focus-visible~.qbtabbar label[for="qbtab-todo"],
+  #qbtab-job:focus-visible~.qbtabbar label[for="qbtab-job"]{outline:2px solid var(--accent);outline-offset:2px}
   .qbpanel{display:none;margin-top:22px}
   .qbpanel .qbframe{margin-top:0}
   #qbtab-quote:checked~.qbpanel-quote,
   #qbtab-invoice:checked~.qbpanel-invoice,
-  #qbtab-todo:checked~.qbpanel-todo{display:block}
+  #qbtab-todo:checked~.qbpanel-todo,
+  #qbtab-job:checked~.qbpanel-job{display:block}
+  @media(max-width:560px){.qbtabbar{flex-wrap:wrap}}
+
+  /* master job page rebuild (shares the .qb frame + sidebar) */
+  .jb-head{display:flex;justify-content:space-between;align-items:flex-start;gap:14px 18px;flex-wrap:wrap}
+  .jb-h1{font-size:20px;font-weight:800}
+  .jb-sub{font-size:11px;color:var(--qbmut);margin-top:5px}
+  .jb-acts{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+  .jb-stage{font-size:10px;font-weight:700;color:#6a5aa8;background:#efecfa;border:1px solid #d9d2f2;border-radius:8px;padding:6px 11px}
+  .jb-card{background:#fff;border:1px solid var(--qbline);border-radius:11px;padding:16px 18px;margin-top:14px}
+  .jb-cardhead{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:12px}
+  .jb-ct{font-size:14px;font-weight:800;color:var(--qbink)}
+  .jb-desc{font-size:12px;color:var(--qbink)}
+  .jb-imgs{display:grid;grid-template-columns:repeat(6,1fr);gap:12px}
+  .jb-img{border:1px solid var(--qbline);border-radius:9px;overflow:hidden;background:var(--surface-2)}
+  .jb-thumb{aspect-ratio:1/1;display:flex;align-items:center;justify-content:center;color:#b9b0a6;background:linear-gradient(135deg,#eceae6,#e3e0da)}
+  .jb-thumb svg{width:34px;height:34px}
+  .jb-imeta{padding:8px 9px}
+  .jb-imeta .fn{font-size:9.5px;font-weight:700;color:var(--qbink);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .jb-cap{margin-top:6px;background:#fff;border:1px solid var(--qbline);border-radius:6px;padding:5px 7px;font-size:9px;color:var(--qbmut)}
+  .jb-imfoot{display:flex;justify-content:space-between;align-items:center;margin-top:7px;font-size:8.5px;color:var(--qbmut)}
+  .jb-imfoot .rm{color:var(--qbacc2);font-weight:700}
+  .jb-pstats{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
+  .jb-pstat{background:var(--surface-2);border-radius:9px;padding:13px 15px}
+  .jb-pstat .k{font-size:8.5px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:var(--qbmut)}
+  .jb-pstat .v{font-size:18px;font-weight:800;margin-top:6px}
+  .jb-pstat .v.ok{color:var(--qbok)} .jb-pstat .v.due{color:#b06a10}
+  .jb-line{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:12px 0;border-top:1px solid var(--qbline)}
+  .jb-line .nm b{font-size:12px;font-weight:700;color:var(--qbink)}
+  .jb-line .nm span{display:block;font-size:10px;color:var(--qbmut);margin-top:2px}
+  .jb-line .r{display:flex;align-items:center;gap:12px;white-space:nowrap}
+  .jb-badge{font-size:9px;font-weight:700;border-radius:6px;padding:3px 9px}
+  .jb-badge.ok{color:var(--qbok);background:color-mix(in srgb,var(--qbok) 13%,transparent);border:1px solid color-mix(in srgb,var(--qbok) 30%,transparent)}
+  .jb-badge.warn{color:#b06a10;background:#fbf1e2;border:1px solid #eed6b0}
+  .jb-badge.grey{color:var(--qbmut);background:var(--surface-2);border:1px solid var(--qbline)}
+  .jb-amt{font-weight:800;font-size:12px}
+  .jb-note{font-size:10.5px;color:var(--qbmut);margin:-4px 0 10px}
+  .jb-q{display:flex;justify-content:space-between;align-items:flex-start;gap:14px;padding:12px 0;border-top:1px solid var(--qbline)}
+  .jb-q .qt{font-size:12px;font-weight:700;color:var(--qbink);line-height:1.4}
+  .jb-q .qref{color:var(--qbmut);font-weight:600}
+  .jb-q .qb{font-size:10px;color:var(--qbmut);margin-top:3px}
+  .jb-q .qb b{color:var(--qbok)}
+  .jb-q .qr{display:flex;align-items:center;gap:8px;flex:none}
+  .jb-dupe{font-size:10px;font-weight:700;color:var(--qbmut);border:1px solid var(--qbline);border-radius:7px;padding:5px 10px}
+  .jb-btn{display:inline-flex;align-items:center;gap:6px;font-size:11px;font-weight:700;border-radius:8px;padding:7px 12px;border:1px solid var(--qbline);background:#fff;color:var(--qbink)}
+  .jb-btn.fill{background:var(--qbacc);border-color:var(--qbacc);color:#fff}
+  .jb-btn.danger{background:#c0392b;border-color:#c0392b;color:#fff}
+  .jb-prop{background:#fff;border:1px solid var(--qbline);border-radius:10px;padding:13px 15px;display:flex;justify-content:space-between;gap:16px;flex-wrap:wrap}
+  .jb-prop .pt{font-size:12px;font-weight:800;color:var(--qbink);display:flex;align-items:center;gap:8px}
+  .jb-prop .pd{font-size:10.5px;color:var(--qbmut);margin-top:6px;line-height:1.5;max-width:62ch}
+  .jb-prop .pacts{display:flex;flex-wrap:wrap;gap:7px;align-items:flex-start}
+  .jb-tainput{background:#fff;border:1px solid var(--qbline);border-radius:8px;padding:9px 11px;font-size:11px;color:var(--qbmut);min-height:46px}
+  .jb-two{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+  @media(max-width:640px){.jb-imgs{grid-template-columns:repeat(3,1fr)}.jb-pstats{grid-template-columns:1fr}.jb-two{grid-template-columns:1fr}}
 
   /* to-do board rebuild (shares the .qb frame + sidebar) */
   .td-top{display:flex;justify-content:space-between;align-items:flex-start;gap:16px 20px;flex-wrap:wrap}
@@ -991,13 +1047,139 @@
           <p>The actual screens you work in: quoting a bespoke piece, and turning accepted quotes into a GST invoice. Rebuilt in the page rather than screenshotted, so every figure reads crisply on any display.</p>
         </div>
         <div class="qbtabs reveal">
-          <input type="radio" name="qbtab" id="qbtab-quote" checked>
+          <input type="radio" name="qbtab" id="qbtab-job" checked>
+          <input type="radio" name="qbtab" id="qbtab-quote">
           <input type="radio" name="qbtab" id="qbtab-invoice">
           <input type="radio" name="qbtab" id="qbtab-todo">
           <div class="qbtabbar">
+            <label for="qbtab-job">Job</label>
             <label for="qbtab-quote">Quote builder</label>
             <label for="qbtab-invoice">Invoice</label>
             <label for="qbtab-todo">To-do</label>
+          </div>
+          <div class="qbpanel qbpanel-job">
+        <figure class="qbframe">
+          <div class="qbbar"><span></span><span></span><span></span></div>
+          <div class="qbscroll">
+            <div class="qb">
+              <aside class="qb-side">
+                <div class="qb-logo">WORKSHOP PILOT</div>
+                <div class="qb-ni"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/></svg> Dashboard</div>
+                <div class="qb-ni"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg> To-do</div>
+                <div class="qb-sec">Workflow</div>
+                <div class="qb-ni"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg> Appointments</div>
+                <div class="qb-ni"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/></svg> Clients</div>
+                <div class="qb-ni on"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><path d="M6 3h12l3 6-9 12L3 9z"/><path d="M3 9h18"/></svg> Jobs</div>
+                <div class="qb-ni"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/></svg> Quotes</div>
+                <div class="qb-ni"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6M8 13h8M8 17h5"/></svg> Invoices</div>
+                <div class="qb-ni"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg> Safekeeping</div>
+                <div class="qb-sec">Trade</div>
+                <div class="qb-ni"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6M8 13h8M8 17h5"/></svg> Statements</div>
+                <div class="qb-sec">Studio</div>
+                <div class="qb-ni"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><path d="M21 8l-9-5-9 5 9 5 9-5z"/><path d="M3 8v8l9 5 9-5V8"/></svg> Stock</div>
+                <div class="qb-ni"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><ellipse cx="12" cy="5" rx="8" ry="3"/><path d="M4 5v14c0 1.66 3.58 3 8 3s8-1.34 8-3V5"/></svg> Pricing DB</div>
+                <div class="qb-ni"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg> Reports</div>
+                <div class="qb-ni"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.6 1.6 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.6 1.6 0 0 0-2.7 1.1V21a2 2 0 0 1-4 0v-.1A1.6 1.6 0 0 0 6 19.4l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1A1.6 1.6 0 0 0 4.6 15H4.5a2 2 0 0 1 0-4h.1A1.6 1.6 0 0 0 6 8.6l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1A1.6 1.6 0 0 0 11 4.6V4.5a2 2 0 0 1 4 0v.1A1.6 1.6 0 0 0 18 6l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.6 1.6 0 0 0-.3 1.8v.1z"/></svg> Settings</div>
+                <div class="qb-user">
+                  <div class="em"><span class="av">A</span> you@yourstudio.com</div>
+                  <div class="so">SIGN OUT</div>
+                </div>
+              </aside>
+              <div class="qb-main">
+                <span class="qb-back">← Back</span>
+                <div class="jb-head">
+                  <div>
+                    <div class="jb-h1">Engagement ring</div>
+                    <div class="jb-sub">Jordan &amp; Alex Rivera &middot; Due 3 Sept 2026</div>
+                  </div>
+                  <div class="jb-acts">
+                    <span class="jb-stage">3D printing</span>
+                    <span class="jb-btn">Move stage</span>
+                    <span class="jb-btn">&#10073;&#10073; Awaiting client</span>
+                    <span class="jb-btn">Docket</span>
+                    <span class="jb-btn">Labels</span>
+                    <span class="jb-btn">Tag</span>
+                    <span class="jb-btn">Edit job</span>
+                    <span class="jb-btn danger">Delete job</span>
+                  </div>
+                </div>
+
+                <div class="jb-card">
+                  <div class="qb-lbl">Description</div>
+                  <div class="jb-desc">Platinum Solitaire set with an emerald cut diamond</div>
+                </div>
+
+                <div class="jb-card">
+                  <div class="jb-cardhead"><span class="jb-ct">Images (6)</span><span class="jb-btn fill">+ Upload images</span></div>
+                  <div class="jb-imgs">
+                    <div class="jb-img"><div class="jb-thumb"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.3"><path d="M6 3h12l3 6-9 12L3 9z"/><path d="M3 9h18M9 3 6 9l6 12 6-12-3-6"/></svg></div><div class="jb-imeta"><div class="fn">ESI1.jpeg</div><div class="jb-cap">Add caption&hellip;</div><div class="jb-imfoot"><span>6 Aug 2026</span><span class="rm">Remove</span></div></div></div>
+                    <div class="jb-img"><div class="jb-thumb"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.3"><path d="M6 3h12l3 6-9 12L3 9z"/><path d="M3 9h18M9 3 6 9l6 12 6-12-3-6"/></svg></div><div class="jb-imeta"><div class="fn">EVVS1.jpeg</div><div class="jb-cap">Add caption&hellip;</div><div class="jb-imfoot"><span>6 Aug 2026</span><span class="rm">Remove</span></div></div></div>
+                    <div class="jb-img"><div class="jb-thumb"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.3"><path d="M6 3h12l3 6-9 12L3 9z"/><path d="M3 9h18M9 3 6 9l6 12 6-12-3-6"/></svg></div><div class="jb-imeta"><div class="fn">HVVS1.jpeg</div><div class="jb-cap">Add caption&hellip;</div><div class="jb-imfoot"><span>6 Aug 2026</span><span class="rm">Remove</span></div></div></div>
+                    <div class="jb-img"><div class="jb-thumb"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.3"><path d="M6 3h12l3 6-9 12L3 9z"/><path d="M3 9h18M9 3 6 9l6 12 6-12-3-6"/></svg></div><div class="jb-imeta"><div class="fn">FVS1.jpeg</div><div class="jb-cap">Add caption&hellip;</div><div class="jb-imfoot"><span>7 Aug 2026</span><span class="rm">Remove</span></div></div></div>
+                    <div class="jb-img"><div class="jb-thumb"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.3"><path d="M6 3h12l3 6-9 12L3 9z"/><path d="M3 9h18M9 3 6 9l6 12 6-12-3-6"/></svg></div><div class="jb-imeta"><div class="fn">EVVS2.jpeg</div><div class="jb-cap">Add caption&hellip;</div><div class="jb-imfoot"><span>10 Aug 2026</span><span class="rm">Remove</span></div></div></div>
+                    <div class="jb-img"><div class="jb-thumb"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.3"><path d="M6 3h12l3 6-9 12L3 9z"/><path d="M3 9h18M9 3 6 9l6 12 6-12-3-6"/></svg></div><div class="jb-imeta"><div class="fn">dvvs2.jpeg</div><div class="jb-cap">Add caption&hellip;</div><div class="jb-imfoot"><span>11 Aug 2026</span><span class="rm">Remove</span></div></div></div>
+                  </div>
+                </div>
+
+                <div class="jb-card">
+                  <div class="jb-cardhead"><span class="jb-ct">Payments</span><span class="jb-btn fill">+ Record payment</span></div>
+                  <div class="jb-pstats">
+                    <div class="jb-pstat"><div class="k">Approx. quote</div><div class="v">$7,450.00</div></div>
+                    <div class="jb-pstat"><div class="k">Received</div><div class="v ok">$3,725.00</div></div>
+                    <div class="jb-pstat"><div class="k">Outstanding</div><div class="v due">$3,725.00</div></div>
+                  </div>
+                  <div class="jb-line"><div class="nm"><b>Deposit</b><span>12 Aug 2026 &middot; Bank transfer</span></div><div class="r"><span class="jb-badge ok">Received</span><span class="jb-amt">$3,725.00</span><span class="td-tx">&times;</span></div></div>
+                </div>
+
+                <div class="jb-card">
+                  <div class="jb-cardhead"><span class="jb-ct">Invoices (1)</span></div>
+                  <div class="jb-line" style="border-top:none;padding-top:0"><div class="nm"><b>00001025</b><span>11 Aug 2026</span></div><div class="r"><span class="jb-badge warn">Unpaid</span><span class="jb-amt">$7,450.00 <span style="font-weight:400;color:var(--qbmut);font-size:10px">inc GST</span></span></div></div>
+                </div>
+
+                <div class="jb-card">
+                  <div class="jb-cardhead"><span class="jb-ct">Quotes (6)</span><span class="jb-btn fill">+ New quote</span></div>
+                  <div class="jb-note">Order shown here is the order options appear on new proposals.</div>
+                  <div class="jb-q"><div><div class="qt">Platinum Solitaire with hidden halo set with a Lab-Grown Emerald 1.5ct D VVS2 EX EX None finger size &ldquo;H&rdquo; <span class="qref">#R1RO</span></div><div class="qb">Base: $1,550.34 &rarr; 2.2&times; &rarr; <b>$4,500</b></div></div><div class="qr"><span class="jb-badge ok">Approved</span><span class="jb-dupe">Duplicate</span></div></div>
+                  <div class="jb-q"><div><div class="qt">Platinum Solitaire with hidden halo set with a Lab-Grown Emerald 2.02ct E VVS1 EX EX None <span class="qref">#OWAI</span></div><div class="qb">Base: $1,550.34 &rarr; 2.2&times; &rarr; <b>$4,950</b></div></div><div class="qr"><span class="jb-badge grey">Draft</span><span class="jb-dupe">Duplicate</span></div></div>
+                  <div class="jb-q"><div><div class="qt">Platinum Solitaire with hidden halo set with a Natural Emerald 1.5ct F VS1 EX EX None <span class="qref">#I7U7</span></div><div class="qb">Base: $1,572.84 &rarr; 2.2&times; &rarr; <b>$15,400</b></div></div><div class="qr"><span class="jb-badge grey">Draft</span><span class="jb-dupe">Duplicate</span></div></div>
+                  <div class="jb-q"><div><div class="qt">Platinum Solitaire with hidden halo set with a Natural Emerald 2.01ct E SI1 EX EX None <span class="qref">#ACQ3</span></div><div class="qb">Base: $1,572.84 &rarr; 2.2&times; &rarr; <b>$23,350</b></div></div><div class="qr"><span class="jb-badge grey">Draft</span><span class="jb-dupe">Duplicate</span></div></div>
+                  <div class="jb-q"><div><div class="qt">Platinum Solitaire with hidden halo set with a Natural Emerald 2.03ct H VVS1 EX EX None <span class="qref">#0PFW</span></div><div class="qb">Base: $1,572.84 &rarr; 2.2&times; &rarr; <b>$22,550</b></div></div><div class="qr"><span class="jb-badge grey">Draft</span><span class="jb-dupe">Duplicate</span></div></div>
+                  <div class="jb-q"><div><div class="qt">Custom Matching Wedding ring set with 5 &times; D/VS Marquise Lab Grown Diamonds with a tw. of 0.71ct &amp; 10 &times; Round Lab-Grown Diamonds with a tw. of 0.15ct. Made in platinum 950 finger size &ldquo;H&rdquo; <span class="qref">#B3HG</span></div><div class="qb">Base: $1,469.76 &rarr; 2&times; &rarr; <b>$2,950</b></div></div><div class="qr"><span class="jb-badge ok">Approved</span><span class="jb-dupe">Duplicate</span></div></div>
+                </div>
+
+                <div class="jb-card">
+                  <div class="jb-cardhead"><span class="jb-ct">Online proposals (1)</span><span class="jb-btn fill">+ New proposal</span></div>
+                  <div class="jb-note">Send the client a link with one or more price options they can accept online.</div>
+                  <div class="jb-prop">
+                    <div style="min-width:0">
+                      <div class="pt">2 options <span class="jb-badge grey">Sent</span> <span style="font-weight:400;color:var(--qbmut);font-size:10px">11 Aug 2026</span></div>
+                      <div class="pd">Platinum Solitaire with hidden halo set with a Lab-Grown Emerald 1.5ct D VVS2 EX EX None finger size &ldquo;H&rdquo; &middot; Custom Matching Wedding ring set with 5 &times; D/VS Marquise Lab Grown Diamonds &hellip; platinum 950 finger size &ldquo;H&rdquo;</div>
+                    </div>
+                    <div class="pacts">
+                      <span class="jb-btn fill">Copy link</span>
+                      <span class="jb-btn">Email</span>
+                      <span class="jb-btn">Preview</span>
+                      <span class="jb-btn">Update from quote</span>
+                      <span class="jb-btn">Edit</span>
+                      <span class="jb-btn">Check for acceptance</span>
+                    </div>
+                  </div>
+                </div>
+
+                <div class="jb-card">
+                  <div class="jb-cardhead"><span class="jb-ct">Job notes (0)</span><span class="jb-btn">Hide</span></div>
+                  <div class="qb-lbl">Note</div>
+                  <div class="jb-tainput">Add a note, call log, approval, or update&hellip;</div>
+                  <div class="jb-two" style="margin-top:12px">
+                    <div><div class="qb-lbl">Type</div><div class="qb-in" style="color:var(--qbmut)">General note</div></div>
+                    <div><div class="qb-lbl">Date</div><div class="qb-in" style="color:var(--qbmut)">25/08/2026</div></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <figcaption>A real master job page in Workshop Pilot, rebuilt in HTML so it stays sharp. Scroll sideways on a narrow screen.</figcaption>
+        </figure>
           </div>
           <div class="qbpanel qbpanel-quote">
         <figure class="qbframe">
