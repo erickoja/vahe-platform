@@ -341,6 +341,15 @@
   .sstat .sub{font-size:.72rem;color:var(--muted);margin-top:5px}
   @media (max-width:760px){.stockstats{grid-template-columns:1fr 1fr;gap:12px}}
 
+  /* real product screenshot in a browser frame */
+  .shotframe{max-width:1040px;margin:44px auto 0;border:1px solid var(--line);border-radius:16px;overflow:hidden;box-shadow:var(--shadow);background:var(--surface)}
+  .shotbar{display:flex;gap:8px;align-items:center;padding:12px 16px;background:var(--surface-2);border-bottom:1px solid var(--line)}
+  .shotbar span{width:11px;height:11px;border-radius:50%;background:var(--line)}
+  .shotscroll{max-height:600px;overflow-y:auto;line-height:0;background:#F7F4F0}
+  .shotscroll img{width:100%;display:block}
+  .shotframe figcaption{padding:12px 16px;font-size:.8rem;color:var(--muted);text-align:center;border-top:1px solid var(--line);background:var(--surface)}
+  @media (max-width:520px){.shotscroll{max-height:440px}}
+
   /* why */
   .why{background:var(--surface-2);border-top:1px solid var(--line);border-bottom:1px solid var(--line)}
   .why .sec-head{max-width:82ch}
@@ -773,6 +782,25 @@
             <div class="ct"><span class="k">Combined total</span><span class="v">$2,200</span></div>
           </div>
         </div>
+      </div>
+    </section>
+
+    <!-- PRODUCT SHOT -->
+    <section class="section shotshow">
+      <div class="wrap">
+        <div class="sec-head reveal">
+          <p class="eyebrow">Inside the app</p>
+          <h2>The actual quote builder you work in.</h2>
+          <p>Every cost line, metal, labour, printing, casting, settings and stones, marked up your way, with your live profit and margin as you build. This is the real screen, not a mockup.</p>
+        </div>
+        <figure class="shotframe reveal">
+          <div class="shotbar"><span></span><span></span><span></span></div>
+          <div class="shotscroll">
+            <img src="shots/quote-builder-top.jpg" width="1920" height="2048" loading="lazy" decoding="async" alt="Workshop Pilot quote builder showing itemised jewellery costs, markup preview and profit for a custom wedding ring set">
+            <img src="shots/quote-builder-bottom.jpg" width="1920" height="658" loading="lazy" decoding="async" alt="Quote total, gold trade-in credit and manual price options in the Workshop Pilot quote builder">
+          </div>
+          <figcaption>A real quote in Workshop Pilot. Scroll to see the full breakdown.</figcaption>
+        </figure>
       </div>
     </section>
 
