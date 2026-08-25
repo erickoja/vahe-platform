@@ -430,6 +430,55 @@
   .qb-actions .save{background:var(--qbacc);color:#fff;border-radius:8px;padding:8px 18px;font-size:12px;font-weight:700}
   .qbframe figcaption{padding:11px 16px;font-size:.8rem;color:var(--muted);text-align:center;border-top:1px solid var(--line);background:var(--surface)}
 
+  /* invoice back-office rebuild (shares the .qb frame + sidebar) */
+  .iv-crumb{font-size:11px;color:var(--qbmut);margin-top:13px}
+  .iv-crumb a{color:var(--qbacc2);font-weight:600}
+  .iv-head{display:flex;justify-content:space-between;align-items:flex-start;gap:14px 20px;flex-wrap:wrap;margin-top:9px}
+  .iv-h1{font-size:20px;font-weight:800;display:flex;align-items:center;gap:12px}
+  .iv-editchip{font-size:10px;font-weight:700;color:var(--qbmut);border:1px solid var(--qbline);border-radius:6px;padding:4px 9px}
+  .iv-sub{font-size:11px;color:var(--qbmut);margin-top:6px}
+  .iv-actions{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+  .iv-pill{font-size:10px;font-weight:700;color:var(--qbacc2);background:color-mix(in srgb,var(--qbacc) 12%,#fff);border:1px solid color-mix(in srgb,var(--qbacc) 40%,transparent);border-radius:999px;padding:5px 12px}
+  .iv-btn{display:inline-flex;align-items:center;gap:6px;font-size:11px;font-weight:700;border-radius:8px;padding:7px 12px;border:1px solid var(--qbline);background:#fff;color:var(--qbink)}
+  .iv-btn.fill{background:var(--qbacc);border-color:var(--qbacc);color:#fff}
+  .iv-btn.danger{background:#c0392b;border-color:#c0392b;color:#fff}
+  .iv-linkbar{display:flex;justify-content:space-between;align-items:center;gap:14px;flex-wrap:wrap;background:#fbeeec;border:1px solid #f1cfc9;border-radius:8px;padding:9px 14px;margin-top:14px;font-size:11px;color:var(--qbacc2);font-weight:700}
+  .iv-linkbar .url{color:var(--qbmut);font-weight:400;font-family:ui-monospace,Menlo,monospace;font-size:10.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0;flex:1}
+  .iv-linkbar .re{color:var(--qbmut);font-weight:400}
+  .iv-stats{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-top:16px}
+  .iv-stat{background:#fff;border:1px solid var(--qbline);border-radius:10px;padding:15px 18px}
+  .iv-stat .k{font-size:9px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--qbmut)}
+  .iv-stat .v{font-size:20px;font-weight:800;margin-top:7px}
+  .iv-stat .v.ok{color:var(--qbok)}
+  .iv-req{font-size:11px;color:var(--qbmut);margin-top:12px}
+  .iv-req b{color:var(--qbink)}
+  .iv-card{background:#fff;border:1px solid var(--qbline);border-radius:10px;padding:15px 18px;margin-top:14px}
+  .iv-amt{display:inline-flex;align-items:center;gap:10px;border:1px solid var(--qbacc);border-radius:8px;padding:9px 14px;font-size:12px;font-weight:800;min-width:190px;justify-content:space-between}
+  .iv-amt .cur{color:var(--qbmut);font-weight:600}
+  .iv-help{font-size:10.5px;color:var(--qbmut);line-height:1.55;margin-top:9px}
+  .iv-help b{color:var(--qbink)}
+  .iv-clear{border:1px solid var(--qbline);border-radius:6px;padding:3px 9px;font-size:10px;font-weight:700;color:var(--qbmut)}
+  .iv-disc{display:grid;grid-template-columns:1fr 150px;gap:12px;align-items:center}
+  .iv-cfl{display:flex;justify-content:space-between;align-items:center;gap:16px;margin-top:10px}
+  .iv-cfl .box{flex:1;min-width:0;background:#fff;border:1px solid var(--qbline);border-radius:8px;padding:9px 12px;font-size:11px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .iv-cfl .amt2{font-weight:800;font-size:12px;white-space:nowrap}
+  .iv-cols{display:grid;grid-template-columns:1fr 54px 110px;gap:12px;font-size:8.5px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:var(--qbmut);padding:20px 0 8px;border-bottom:1px solid var(--qbline)}
+  .iv-cols .r{text-align:right}
+  .iv-irow{display:grid;grid-template-columns:1fr 54px 110px;gap:12px;align-items:center;padding:11px 0;border-bottom:1px solid var(--qbline)}
+  .iv-irow .nm b{display:block;font-size:11.5px;font-weight:700;color:var(--qbink)}
+  .iv-irow .nm span{display:block;font-size:10px;color:var(--qbmut);margin-top:2px}
+  .iv-irow .tx{font-size:10px;color:var(--qbmut)}
+  .iv-irow .am{text-align:right;font-weight:800;font-size:11.5px}
+  .iv-tot{max-width:340px;margin:14px 0 0 auto}
+  .iv-totrow{display:flex;justify-content:space-between;gap:16px;font-size:11px;color:var(--qbmut);padding:5px 0}
+  .iv-totrow.grand{border-top:1.5px solid var(--qbink);margin-top:6px;padding-top:11px;font-size:15px;font-weight:800;color:var(--qbink)}
+  .iv-totrow.bal{font-weight:800;color:#b06a10}
+  .iv-markas{display:flex;align-items:center;gap:10px;margin-top:18px}
+  .iv-malbl{font-size:9px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--qbmut)}
+  .iv-mabtn{font-size:11px;font-weight:700;border-radius:8px;padding:7px 15px;border:1px solid var(--qbline);background:#fff;color:var(--qbink)}
+  .iv-mabtn.on{background:var(--qbacc);border-color:var(--qbacc);color:#fff}
+  @media(max-width:560px){.iv-stats{grid-template-columns:1fr}.iv-disc{grid-template-columns:1fr}}
+
   /* why */
   .why{background:var(--surface-2);border-top:1px solid var(--line);border-bottom:1px solid var(--line)}
   .why .sec-head{max-width:82ch}
@@ -996,6 +1045,129 @@
             </div>
           </div>
           <figcaption>A real quote in Workshop Pilot, rebuilt in HTML so it stays sharp. Scroll sideways on a narrow screen.</figcaption>
+        </figure>
+      </div>
+    </section>
+
+    <!-- INVOICE BACK OFFICE (native rebuild of the app screen) -->
+    <section class="section shotshow">
+      <div class="wrap">
+        <div class="sec-head reveal">
+          <p class="eyebrow">Inside the app</p>
+          <h2>Accepted quotes become one clean, staged GST invoice.</h2>
+          <p>Every accepted option is combined into a single invoice with its own customer-facing lines, while your internal cost breakdown stays private. Request a staged amount, add a discount, and the total, GST and balance recalculate. Rebuilt in the page so it stays sharp.</p>
+        </div>
+        <figure class="qbframe reveal">
+          <div class="qbbar"><span></span><span></span><span></span></div>
+          <div class="qbscroll">
+            <div class="qb">
+              <aside class="qb-side">
+                <div class="qb-logo">WORKSHOP PILOT</div>
+                <div class="qb-ni"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/></svg> Dashboard</div>
+                <div class="qb-ni"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg> To-do</div>
+                <div class="qb-sec">Workflow</div>
+                <div class="qb-ni"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg> Appointments</div>
+                <div class="qb-ni"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/></svg> Clients</div>
+                <div class="qb-ni"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><path d="M6 3h12l3 6-9 12L3 9z"/><path d="M3 9h18"/></svg> Jobs</div>
+                <div class="qb-ni"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/></svg> Quotes</div>
+                <div class="qb-ni on"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6M8 13h8M8 17h5"/></svg> Invoices</div>
+                <div class="qb-ni"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg> Safekeeping</div>
+                <div class="qb-sec">Trade</div>
+                <div class="qb-ni"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6M8 13h8M8 17h5"/></svg> Statements</div>
+                <div class="qb-sec">Studio</div>
+                <div class="qb-ni"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><path d="M21 8l-9-5-9 5 9 5 9-5z"/><path d="M3 8v8l9 5 9-5V8"/></svg> Stock</div>
+                <div class="qb-ni"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><ellipse cx="12" cy="5" rx="8" ry="3"/><path d="M4 5v14c0 1.66 3.58 3 8 3s8-1.34 8-3V5"/></svg> Pricing DB</div>
+                <div class="qb-ni"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg> Reports</div>
+                <div class="qb-ni"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.6 1.6 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.6 1.6 0 0 0-2.7 1.1V21a2 2 0 0 1-4 0v-.1A1.6 1.6 0 0 0 6 19.4l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1A1.6 1.6 0 0 0 4.6 15H4.5a2 2 0 0 1 0-4h.1A1.6 1.6 0 0 0 6 8.6l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1A1.6 1.6 0 0 0 11 4.6V4.5a2 2 0 0 1 4 0v.1A1.6 1.6 0 0 0 18 6l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.6 1.6 0 0 0-.3 1.8v.1z"/></svg> Settings</div>
+                <div class="qb-user">
+                  <div class="em"><span class="av">E</span> you@yourstudio.com</div>
+                  <div class="so">SIGN OUT</div>
+                </div>
+              </aside>
+              <div class="qb-main">
+                <span class="qb-back">← Back</span>
+                <div class="iv-crumb"><a>← Invoices</a> &nbsp;&middot;&nbsp; View job</div>
+                <div class="iv-head">
+                  <div>
+                    <div class="iv-h1">00001025 <span class="iv-editchip">&#9998; Edit</span></div>
+                    <div class="iv-sub">Engagement ring &middot; Jordan &amp; Alex Rivera &middot; 11 Aug 2026</div>
+                  </div>
+                  <div class="iv-actions">
+                    <span class="iv-pill">Unpaid</span>
+                    <span class="iv-btn fill">Copy link</span>
+                    <span class="iv-btn">Email</span>
+                    <span class="iv-btn">Preview</span>
+                    <span class="iv-btn fill">Preview &amp; Print</span>
+                    <span class="iv-btn">CSV</span>
+                    <span class="iv-btn danger">Delete</span>
+                  </div>
+                </div>
+
+                <div class="iv-linkbar"><span>&#128279; Client link <span class="url">https://app.workshoppilot.app/?p=nq8tpy4we4kay2msomt0</span></span><span class="re">Re-copy to refresh totals before sending.</span></div>
+
+                <div class="iv-stats">
+                  <div class="iv-stat"><div class="k">Invoice total</div><div class="v">$7,450.00</div></div>
+                  <div class="iv-stat"><div class="k">Received</div><div class="v ok">$3,725.00</div></div>
+                  <div class="iv-stat"><div class="k">Due now</div><div class="v ok">$0.00</div></div>
+                </div>
+                <div class="iv-req">Requesting <b>$0.00</b> now of the <b>$3,725.00</b> outstanding &middot; <b>$3,725.00</b> payable later.</div>
+
+                <div class="iv-card">
+                  <div class="qb-lbl">Amount due now &mdash; this request <span style="font-weight:400;color:var(--qbmut);text-transform:none;letter-spacing:0">(optional)</span></div>
+                  <span class="iv-amt"><span class="cur">$</span><span>3725</span></span>
+                  <div class="iv-help">Set this to request a <b>specific staged amount</b> now (e.g. the diamond balance) instead of the full outstanding balance. The invoice and client link will show <b>&ldquo;Due now&rdquo;</b> with the remainder noted as payable later. Leave blank to request the full balance. <span class="iv-clear">Clear</span></div>
+                  <div class="iv-help" style="color:var(--qbacc2)">After changing this, click <b style="color:var(--qbacc2)">Copy link</b> above to refresh what the client sees.</div>
+                </div>
+
+                <div class="iv-card">
+                  <div class="qb-lbl">Discount <span style="font-weight:400;color:var(--qbmut);text-transform:none;letter-spacing:0">(optional)</span></div>
+                  <div class="iv-disc">
+                    <div class="qb-in" style="color:var(--qbmut)">Discount</div>
+                    <span class="iv-amt" style="border-color:var(--qbline);color:var(--qbmut);font-weight:600"><span class="cur">&minus; $</span><span>0.00</span></span>
+                  </div>
+                  <div class="iv-help">Enter an amount to take off the total &mdash; it appears as its own line on the customer&rsquo;s invoice, and the total, GST and balance recalculate automatically.</div>
+                </div>
+
+                <div class="iv-card">
+                  <div class="qb-lbl">Customer-facing lines <span style="font-weight:400;color:var(--qbmut);text-transform:none;letter-spacing:0">(one per accepted option, shown on the invoice with the combined total)</span></div>
+                  <div class="iv-cfl"><div class="box">Platinum Solitaire with hidden halo set with a Lab-Grown Emerald 1.5ct D VVS2 EX EX None finger size &ldquo;H&rdquo;</div><span class="amt2">$4,500.00</span></div>
+                  <div class="iv-cfl"><div class="box">Custom Matching Wedding ring set with 5 &times; D/VS Marquise Lab Grown Diamonds &hellip; platinum 950 finger size &ldquo;H&rdquo;</div><span class="amt2">$2,950.00</span></div>
+                  <div class="iv-help">Each option appears as its own line on the customer&rsquo;s invoice, with the prices adding up to the total. Edit the wording so it reads well for the client. The internal cost lines below are never shown to the customer.</div>
+                </div>
+
+                <div class="iv-cols"><span>Item / description (internal)</span><span>Tax</span><span class="r">Amount inc GST</span></div>
+                <div class="iv-irow"><div class="nm"><b>Platinum 950</b><span>5g &times; $143.34/g &middot; cast</span></div><div class="tx">GST</div><div class="am">$716.68</div></div>
+                <div class="iv-irow"><div class="nm"><b>Bench Labour (Casting Assembly)</b><span>3 hr &times; $70.00/hr</span></div><div class="tx">GST</div><div class="am">$210.00</div></div>
+                <div class="iv-irow"><div class="nm"><b>V-claw / Talon setting &middot; platinum</b><span>2.02ct &middot; V-claw / Talon &middot; platinum +20%</span></div><div class="tx">GST</div><div class="am">$217.34</div></div>
+                <div class="iv-irow"><div class="nm"><b>3D print fee (1 piece)</b><span>1 piece &times; $75.00/piece</span></div><div class="tx">GST</div><div class="am">$75.00</div></div>
+                <div class="iv-irow"><div class="nm"><b>Casting fee (1 piece)</b><span>1 piece &times; $10.00/piece</span></div><div class="tx">GST</div><div class="am">$10.00</div></div>
+                <div class="iv-irow"><div class="nm"><b>Prong / Claw setting &middot; platinum</b><span>18 stones &times; 0.9mm &middot; platinum +20% &middot; volume &minus;10%</span></div><div class="tx">GST</div><div class="am">$87.48</div></div>
+                <div class="iv-irow"><div class="nm"><b>V-claw / Talon setting &middot; platinum</b><span>2.02ct &middot; V-claw / Talon &middot; platinum +20%</span></div><div class="tx">GST</div><div class="am">$217.34</div></div>
+                <div class="iv-irow"><div class="nm"><b>18 &times; D-F colour VS clarity Diamond 0.06ct total Round 0.9mm</b><span>0.06ct &times; $275.00/ct</span></div><div class="tx">GST</div><div class="am">$16.50</div></div>
+                <div class="iv-irow"><div class="nm"><b>IGI Lab-Grown Emerald 1.5ct D VVS2 EX EX None 8.01 &times; 5.31 &times; 3.54</b><span>Cert LG821626079</span></div><div class="tx">GST</div><div class="am">$1,100.00</div></div>
+                <div class="iv-irow"><div class="nm"><b>Platinum 950</b><span>5g &times; $151.75/g &middot; cast</span></div><div class="tx">GST</div><div class="am">$758.76</div></div>
+                <div class="iv-irow"><div class="nm"><b>Bench Labour (Casting Assembly)</b><span>2 hr &times; $70.00/hr</span></div><div class="tx">GST</div><div class="am">$140.00</div></div>
+                <div class="iv-irow"><div class="nm"><b>3D print fee (1 piece)</b><span>1 piece &times; $75.00/piece</span></div><div class="tx">GST</div><div class="am">$75.00</div></div>
+                <div class="iv-irow"><div class="nm"><b>Casting fee (1 piece)</b><span>1 piece &times; $10.00/piece</span></div><div class="tx">GST</div><div class="am">$10.00</div></div>
+                <div class="iv-irow"><div class="nm"><b>Prong / Claw setting &middot; platinum</b><span>10 stones &times; 1.5mm &middot; platinum +20% &middot; volume &minus;10%</span></div><div class="tx">GST</div><div class="am">$81.00</div></div>
+                <div class="iv-irow"><div class="nm"><b>Prong / Claw setting</b><span>4 stones &times; 5mm &middot; Prong / Claw</span></div><div class="tx">GST</div><div class="am">$100.00</div></div>
+                <div class="iv-irow"><div class="nm"><b>Prong / Claw setting</b><span>1 stone &times; 6mm &middot; Prong / Claw</span></div><div class="tx">GST</div><div class="am">$30.00</div></div>
+                <div class="iv-irow"><div class="nm"><b>4 &times; D-F colour VVS clarity Diamond 0.51ct Marquise 5mm &times; 2.5mm</b><span></span></div><div class="tx">GST</div><div class="am">$125.00</div></div>
+                <div class="iv-irow"><div class="nm"><b>D-F colour VVS clarity Diamond 0.21ct Marquise 6mm &times; 3mm</b><span></span></div><div class="tx">GST</div><div class="am">$75.00</div></div>
+                <div class="iv-irow"><div class="nm"><b>10 &times; D-F colour VVS clarity Diamond 0.16ct Round 1.5mm</b><span></span></div><div class="tx">GST</div><div class="am">$75.00</div></div>
+
+                <div class="iv-tot">
+                  <div class="iv-totrow"><span>Includes GST</span><span>$677.27</span></div>
+                  <div class="iv-totrow grand"><span>Total (incl. GST)</span><span>$7,450.00</span></div>
+                  <div class="iv-totrow"><span>Paid to date</span><span>&minus;$3,725.00</span></div>
+                  <div class="iv-totrow bal"><span>Balance due</span><span>$3,725.00</span></div>
+                </div>
+
+                <div class="iv-markas"><span class="iv-malbl">Mark as:</span><span class="iv-mabtn on">&#10003; Unpaid</span><span class="iv-mabtn">Paid</span><span class="iv-mabtn">Overdue</span></div>
+              </div>
+            </div>
+          </div>
+          <figcaption>A real invoice in Workshop Pilot, rebuilt in HTML so it stays sharp. Scroll sideways on a narrow screen.</figcaption>
         </figure>
       </div>
     </section>
