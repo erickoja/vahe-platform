@@ -341,14 +341,11 @@
   .sstat .sub{font-size:.72rem;color:var(--muted);margin-top:5px}
   @media (max-width:760px){.stockstats{grid-template-columns:1fr 1fr;gap:12px}}
 
-  /* real product screenshot in a browser frame */
-  .shotframe{max-width:1040px;margin:44px auto 0;border:1px solid var(--line);border-radius:16px;overflow:hidden;box-shadow:var(--shadow);background:var(--surface)}
-  .shotbar{display:flex;gap:8px;align-items:center;padding:12px 16px;background:var(--surface-2);border-bottom:1px solid var(--line)}
-  .shotbar span{width:11px;height:11px;border-radius:50%;background:var(--line)}
-  .shotscroll{max-height:600px;overflow-y:auto;line-height:0;background:#F7F4F0}
-  .shotscroll img{width:100%;height:auto;display:block}
-  .shotframe figcaption{padding:12px 16px;font-size:.8rem;color:var(--muted);text-align:center;border-top:1px solid var(--line);background:var(--surface)}
-  @media (max-width:520px){.shotscroll{max-height:440px}}
+  /* quote-builder total bar (matches the combined-total dark bar) */
+  .cbtotal{display:flex;align-items:baseline;justify-content:space-between;gap:10px;padding:16px 22px;background:#181310;color:#fff;border-top:1px solid var(--line)}
+  .cbtotal .l{font-size:.72rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:rgba(255,255,255,.6)}
+  .cbtotal .v{font-size:1.5rem;font-weight:700;color:#7FC698}
+  @media (max-width:560px){.cbtotal{padding-left:16px;padding-right:16px}}
 
   /* why */
   .why{background:var(--surface-2);border-top:1px solid var(--line);border-bottom:1px solid var(--line)}
@@ -785,22 +782,35 @@
       </div>
     </section>
 
-    <!-- PRODUCT SHOT -->
+    <!-- QUOTE BUILDER -->
     <section class="section shotshow">
       <div class="wrap">
         <div class="sec-head reveal">
-          <p class="eyebrow">Inside the app</p>
-          <h2>The actual quote builder you work in.</h2>
-          <p>Every cost line, metal, labour, printing, casting, settings and stones, marked up your way, with your live profit and margin as you build. This is the real screen, not a mockup.</p>
+          <p class="eyebrow">Inside the quote builder</p>
+          <h2>Itemise the real costs, and watch your markup and profit as you build.</h2>
+          <p>Metal, labour, printing, casting, settings and stones each go in at cost, then your markup bracket does the maths. Nudge the multiplier and your profit updates live. A real quote for a platinum wedding ring set, rebuilt in the page so it stays crisp on any screen.</p>
         </div>
-        <figure class="shotframe reveal">
-          <div class="shotbar"><span></span><span></span><span></span></div>
-          <div class="shotscroll">
-            <img src="shots/quote-builder-top.jpg" width="1660" height="2048" loading="lazy" decoding="async" alt="Workshop Pilot quote builder showing itemised jewellery costs, markup preview and profit for a custom wedding ring set">
-            <img src="shots/quote-builder-bottom.jpg" width="1660" height="658" loading="lazy" decoding="async" alt="Quote total, gold trade-in credit and manual price options in the Workshop Pilot quote builder">
+        <div class="appcard reveal">
+          <div class="appcard-h"><span>Edit quote · Platinum wedding ring set</span><span class="tag">Retail · 2× markup</span></div>
+          <div class="cbtable">
+            <div class="cbrow"><div class="cbi"><b>Platinum 950</b><span>5g × $151.75/g · cast</span></div><div class="cbc">$758.76</div></div>
+            <div class="cbrow"><div class="cbi"><b>Bench Labour (Casting Assembly)</b><span>2 hr × $70.00/hr</span></div><div class="cbc">$140.00</div></div>
+            <div class="cbrow"><div class="cbi"><b>3D print fee</b><span>1 piece × $75.00/piece</span></div><div class="cbc">$75.00</div></div>
+            <div class="cbrow"><div class="cbi"><b>Casting fee</b><span>1 piece × $10.00/piece</span></div><div class="cbc">$10.00</div></div>
+            <div class="cbrow"><div class="cbi"><b>Prong / Claw setting · platinum</b><span>10 stones × 1.5mm · +20% · volume −10%</span></div><div class="cbc">$81.00</div></div>
+            <div class="cbrow"><div class="cbi"><b>Prong / Claw setting</b><span>4 stones × 5mm</span></div><div class="cbc">$100.00</div></div>
+            <div class="cbrow"><div class="cbi"><b>V claw / Talon setting</b><span>1 stone × 6mm</span></div><div class="cbc">$30.00</div></div>
+            <div class="cbrow"><div class="cbi"><b>Accent diamonds · D-F VVS</b><span>4 × 0.51ct Marquise · 1 × 0.21ct · 10 × 0.16ct Round</span></div><div class="cbc">$275.00</div></div>
           </div>
-          <figcaption>A real quote in Workshop Pilot. Scroll to see the full breakdown.</figcaption>
-        </figure>
+          <div class="cbcosts">
+            <div><span class="k">Base cost</span><span class="v">$1,469.76</span></div>
+            <div><span class="k">Bracket</span><span class="v">$1,500 to $2,000</span></div>
+            <div><span class="k">Multiplier</span><span class="v mult">2× override</span></div>
+            <div><span class="k">Markup total</span><span class="v mk">$2,940</span></div>
+          </div>
+          <div class="cbprofit"><span class="l">Your profit on the jewellery · excl GST</span><span class="r">$1,202.53 · 45% margin</span></div>
+          <div class="cbtotal"><span class="l">Quote total · inc GST</span><span class="v">$2,950</span></div>
+        </div>
       </div>
     </section>
 
