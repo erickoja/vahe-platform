@@ -479,6 +479,21 @@
   .iv-mabtn.on{background:var(--qbacc);border-color:var(--qbacc);color:#fff}
   @media(max-width:560px){.iv-stats{grid-template-columns:1fr}.iv-disc{grid-template-columns:1fr}}
 
+  /* tabbed switcher: show one app-screen rebuild at a time (CSS only, no JS) */
+  .qbtabs{margin-top:38px}
+  .qbtabs>input{position:absolute;width:1px;height:1px;opacity:0;pointer-events:none}
+  .qbtabbar{display:flex;gap:6px;width:fit-content;margin:0 auto;background:var(--surface-2);border:1px solid var(--line);border-radius:12px;padding:5px}
+  .qbtabbar label{padding:9px 22px;border-radius:8px;font-size:.92rem;font-weight:700;color:var(--muted);cursor:pointer;transition:background .15s ease,color .15s ease}
+  .qbtabbar label:hover{color:var(--strong)}
+  #qbtab-quote:checked~.qbtabbar label[for="qbtab-quote"],
+  #qbtab-invoice:checked~.qbtabbar label[for="qbtab-invoice"]{background:var(--accent);color:#fff}
+  #qbtab-quote:focus-visible~.qbtabbar label[for="qbtab-quote"],
+  #qbtab-invoice:focus-visible~.qbtabbar label[for="qbtab-invoice"]{outline:2px solid var(--accent);outline-offset:2px}
+  .qbpanel{display:none;margin-top:22px}
+  .qbpanel .qbframe{margin-top:0}
+  #qbtab-quote:checked~.qbpanel-quote{display:block}
+  #qbtab-invoice:checked~.qbpanel-invoice{display:block}
+
   /* why */
   .why{background:var(--surface-2);border-top:1px solid var(--line);border-bottom:1px solid var(--line)}
   .why .sec-head{max-width:82ch}
@@ -914,15 +929,23 @@
       </div>
     </section>
 
-    <!-- QUOTE BUILDER (native rebuild of the app screen) -->
+    <!-- APP SCREENS (tabbed: quote builder / invoice) -->
     <section class="section shotshow">
       <div class="wrap">
         <div class="sec-head reveal">
           <p class="eyebrow">Inside the app</p>
-          <h2>The actual quote builder you work in.</h2>
-          <p>Every cost line, metal, labour, printing, casting, settings and stones, marked up your way, with your live profit and margin as you build. This is the real screen, rebuilt in the page so it stays sharp on any display.</p>
+          <h2>The real workspace, rebuilt so it stays sharp.</h2>
+          <p>The actual screens you work in: quoting a bespoke piece, and turning accepted quotes into a GST invoice. Rebuilt in the page rather than screenshotted, so every figure reads crisply on any display.</p>
         </div>
-        <figure class="qbframe reveal">
+        <div class="qbtabs reveal">
+          <input type="radio" name="qbtab" id="qbtab-quote" checked>
+          <input type="radio" name="qbtab" id="qbtab-invoice">
+          <div class="qbtabbar">
+            <label for="qbtab-quote">Quote builder</label>
+            <label for="qbtab-invoice">Invoice</label>
+          </div>
+          <div class="qbpanel qbpanel-quote">
+        <figure class="qbframe">
           <div class="qbbar"><span></span><span></span><span></span></div>
           <div class="qbscroll">
             <div class="qb">
@@ -1046,18 +1069,9 @@
           </div>
           <figcaption>A real quote in Workshop Pilot, rebuilt in HTML so it stays sharp. Scroll sideways on a narrow screen.</figcaption>
         </figure>
-      </div>
-    </section>
-
-    <!-- INVOICE BACK OFFICE (native rebuild of the app screen) -->
-    <section class="section shotshow">
-      <div class="wrap">
-        <div class="sec-head reveal">
-          <p class="eyebrow">Inside the app</p>
-          <h2>Accepted quotes become one clean, staged GST invoice.</h2>
-          <p>Every accepted option is combined into a single invoice with its own customer-facing lines, while your internal cost breakdown stays private. Request a staged amount, add a discount, and the total, GST and balance recalculate. Rebuilt in the page so it stays sharp.</p>
-        </div>
-        <figure class="qbframe reveal">
+          </div>
+          <div class="qbpanel qbpanel-invoice">
+        <figure class="qbframe">
           <div class="qbbar"><span></span><span></span><span></span></div>
           <div class="qbscroll">
             <div class="qb">
@@ -1169,6 +1183,8 @@
           </div>
           <figcaption>A real invoice in Workshop Pilot, rebuilt in HTML so it stays sharp. Scroll sideways on a narrow screen.</figcaption>
         </figure>
+          </div>
+        </div>
       </div>
     </section>
 
