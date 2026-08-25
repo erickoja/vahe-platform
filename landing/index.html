@@ -331,6 +331,16 @@
   .smargin{font-size:.74rem;font-weight:700;color:var(--ok)}
   @media (max-width:520px){.stockgrid{grid-template-columns:1fr 1fr;gap:12px}}
 
+  /* stock summary tiles — mirrors the in-app inventory dashboard */
+  .stockstats{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin:40px auto 0}
+  .sstat{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:18px 20px;box-shadow:var(--shadow-sm)}
+  .sstat .ic{width:38px;height:38px;border-radius:10px;display:flex;align-items:center;justify-content:center;background:color-mix(in srgb,var(--accent) 12%,transparent);color:var(--accent-ink);margin-bottom:14px}
+  .sstat .ic svg{width:19px;height:19px}
+  .sstat .num{font-size:1.7rem;font-weight:800;color:var(--strong);letter-spacing:-.02em;line-height:1}
+  .sstat .lbl{font-size:.66rem;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);margin-top:9px}
+  .sstat .sub{font-size:.72rem;color:var(--muted);margin-top:5px}
+  @media (max-width:760px){.stockstats{grid-template-columns:1fr 1fr;gap:12px}}
+
   /* why */
   .why{background:var(--surface-2);border-top:1px solid var(--line);border-bottom:1px solid var(--line)}
   .why .sec-head{max-width:82ch}
@@ -773,6 +783,12 @@
           <p class="eyebrow">Stock &amp; display</p>
           <h2>Your ready to sell pieces, at a glance.</h2>
           <p>Every display and stock piece with its photo, SKU, price and your margin, kept separate from custom jobs, always to hand.</p>
+        </div>
+        <div class="stockstats reveal">
+          <div class="sstat"><div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M6 3h12l3 6-9 11L3 9l3-6z"/><path d="M3 9h18"/></svg></div><div class="num">28</div><div class="lbl">Pieces</div></div>
+          <div class="sstat"><div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="9"/><path d="m8.5 12 2.5 2.5 4.5-5"/></svg></div><div class="num">28</div><div class="lbl">Available</div></div>
+          <div class="sstat"><div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M20.6 13.4 13.4 20.6a2 2 0 0 1-2.8 0l-6.2-6.2A2 2 0 0 1 3.8 12V5a2 2 0 0 1 2-2h4.6a2 2 0 0 1 1.4.6l6.2 6.2a2 2 0 0 1 0 2.8Z"/><circle cx="8.5" cy="8.5" r="1.1" fill="currentColor" stroke="none"/></svg></div><div class="num">$246,800</div><div class="lbl">Retail value</div><div class="sub">excludes sold</div></div>
+          <div class="sstat"><div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 17l6-6 4 4 7-7"/><path d="M14 8h6v6"/></svg></div><div class="num">$92,856</div><div class="lbl">Potential margin</div><div class="sub">cost $131,508 · excl. GST</div></div>
         </div>
         <div class="stockgrid reveal">
           <div class="scard"><div class="sphoto"><img src="shots/stock/v78.png" width="250" height="232" loading="lazy" decoding="async" alt="White natural princess-cut diamond engagement ring in a VAHÉ box"></div><div class="sbody"><div class="stitle">White Natural Princess Diamond Engagement</div><div class="ssku">V-78 · Ring</div><span class="smade">Cast &amp; assembly made</span><div class="sfoot"><span class="sprice">$6,250</span><span class="smargin">56% margin</span></div></div></div>
