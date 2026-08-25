@@ -486,13 +486,66 @@
   .qbtabbar label{padding:9px 22px;border-radius:8px;font-size:.92rem;font-weight:700;color:var(--muted);cursor:pointer;transition:background .15s ease,color .15s ease}
   .qbtabbar label:hover{color:var(--strong)}
   #qbtab-quote:checked~.qbtabbar label[for="qbtab-quote"],
-  #qbtab-invoice:checked~.qbtabbar label[for="qbtab-invoice"]{background:var(--accent);color:#fff}
+  #qbtab-invoice:checked~.qbtabbar label[for="qbtab-invoice"],
+  #qbtab-todo:checked~.qbtabbar label[for="qbtab-todo"]{background:var(--accent);color:#fff}
   #qbtab-quote:focus-visible~.qbtabbar label[for="qbtab-quote"],
-  #qbtab-invoice:focus-visible~.qbtabbar label[for="qbtab-invoice"]{outline:2px solid var(--accent);outline-offset:2px}
+  #qbtab-invoice:focus-visible~.qbtabbar label[for="qbtab-invoice"],
+  #qbtab-todo:focus-visible~.qbtabbar label[for="qbtab-todo"]{outline:2px solid var(--accent);outline-offset:2px}
   .qbpanel{display:none;margin-top:22px}
   .qbpanel .qbframe{margin-top:0}
-  #qbtab-quote:checked~.qbpanel-quote{display:block}
-  #qbtab-invoice:checked~.qbpanel-invoice{display:block}
+  #qbtab-quote:checked~.qbpanel-quote,
+  #qbtab-invoice:checked~.qbpanel-invoice,
+  #qbtab-todo:checked~.qbpanel-todo{display:block}
+
+  /* to-do board rebuild (shares the .qb frame + sidebar) */
+  .td-top{display:flex;justify-content:space-between;align-items:flex-start;gap:16px 20px;flex-wrap:wrap}
+  .td-eyebrow{font-size:9px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--qbmut)}
+  .td-h1{font-size:22px;font-weight:800;margin-top:4px}
+  .td-lede{font-size:11px;color:var(--qbmut);margin-top:6px;max-width:58ch}
+  .td-addp{display:flex;gap:8px;align-items:center}
+  .td-addp .in{background:#fff;border:1px solid var(--qbline);border-radius:8px;padding:8px 11px;font-size:11px;color:var(--qbmut);min-width:150px}
+  .td-addp .btn{background:var(--qbacc);color:#fff;border-radius:8px;padding:8px 14px;font-size:11px;font-weight:700;white-space:nowrap}
+  .td-stats{display:grid;grid-template-columns:repeat(5,1fr);gap:10px;margin-top:18px}
+  .td-stat{background:#fff;border:1px solid var(--qbline);border-radius:10px;padding:13px 15px}
+  .td-stat .ic{width:30px;height:30px;border-radius:8px;background:var(--surface-2);display:flex;align-items:center;justify-content:center;color:var(--qbmut);margin-bottom:11px}
+  .td-stat .ic svg{width:15px;height:15px}
+  .td-stat .num{font-size:20px;font-weight:800;line-height:1}
+  .td-stat .lbl{font-size:8.5px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:var(--qbmut);margin-top:6px}
+  .td-filter{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:16px}
+  .td-search{background:#fff;border:1px solid var(--qbline);border-radius:8px;padding:8px 12px;font-size:11px;color:var(--qbmut);flex:1;min-width:180px;max-width:320px}
+  .td-fchip{font-size:11px;font-weight:700;border:1px solid var(--qbline);background:#fff;border-radius:999px;padding:6px 14px;color:var(--qbmut)}
+  .td-fchip.on{background:color-mix(in srgb,var(--qbacc) 12%,#fff);border-color:color-mix(in srgb,var(--qbacc) 40%,transparent);color:var(--qbacc2)}
+  .td-cols{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-top:18px;align-items:start}
+  .td-col{background:#fff;border:1px solid var(--qbline);border-radius:12px;padding:14px 14px 16px}
+  .td-person{display:flex;align-items:center;gap:10px}
+  .td-av{width:26px;height:26px;border-radius:50%;background:var(--surface-2);color:var(--qbacc2);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:800;flex:none}
+  .td-pname{font-size:12.5px;font-weight:800;color:var(--qbink)}
+  .td-pmeta{font-size:9.5px;color:var(--qbmut);margin-top:1px}
+  .td-px{margin-left:auto;color:var(--qbmut);font-size:14px;line-height:1}
+  .td-bar{height:5px;border-radius:3px;background:var(--qbline);margin:11px 0 12px;overflow:hidden}
+  .td-bar>i{display:block;height:100%;background:var(--qbok);border-radius:3px}
+  .td-addtask{display:flex;gap:8px;margin-bottom:2px}
+  .td-addtask .in{flex:1;min-width:0;background:#fff;border:1px solid var(--qbline);border-radius:8px;padding:8px 11px;font-size:11px;color:var(--qbmut)}
+  .td-addtask .btn{background:var(--qbacc);color:#fff;border-radius:8px;padding:8px 15px;font-size:11px;font-weight:700}
+  .td-task{display:flex;gap:9px;align-items:flex-start;border:1px solid var(--qbline);border-radius:9px;padding:10px 11px;margin-top:9px;background:#fff}
+  .td-task.job{background:#faf5ef;border-color:#ecdfcf}
+  .td-checks{display:flex;gap:6px;flex:none;padding-top:1px}
+  .td-cb{width:15px;height:15px;border:1.6px solid var(--qbline);border-radius:4px;flex:none}
+  .td-rd{width:15px;height:15px;border:1.6px solid var(--qbline);border-radius:50%;flex:none;display:flex;align-items:center;justify-content:center}
+  .td-rd.on{border-color:var(--qbacc)}
+  .td-rd.on::after{content:"";width:7px;height:7px;border-radius:50%;background:var(--qbacc)}
+  .td-tbody{min-width:0;flex:1}
+  .td-ttl{font-size:11px;font-weight:600;color:var(--qbink);line-height:1.4}
+  .td-pills{display:flex;gap:6px;flex-wrap:wrap;margin-top:7px}
+  .td-pill{font-size:8.5px;font-weight:700;border-radius:5px;padding:2px 7px}
+  .td-pill.ok{color:var(--qbok);background:color-mix(in srgb,var(--qbok) 13%,transparent);border:1px solid color-mix(in srgb,var(--qbok) 30%,transparent)}
+  .td-pill.prog{color:#a8574a;background:#f6e6e2;border:1px solid #ecccc4}
+  .td-pill.grey{color:var(--qbmut);background:var(--surface-2);border:1px solid var(--qbline)}
+  .td-pill.mauve{color:#8a5273;background:#f3e3ec;border:1px solid #e6cdda}
+  .td-jl{font-size:10px;color:var(--qbacc2);margin-top:7px}
+  .td-tx{margin-left:auto;color:var(--qbmut);font-size:13px;line-height:1;flex:none;padding-left:6px}
+  .td-done{font-size:10px;font-weight:700;color:var(--qbmut);margin-top:13px}
+  @media(max-width:560px){.td-stats{grid-template-columns:1fr 1fr}.td-cols{grid-template-columns:1fr}}
 
   /* why */
   .why{background:var(--surface-2);border-top:1px solid var(--line);border-bottom:1px solid var(--line)}
@@ -940,9 +993,11 @@
         <div class="qbtabs reveal">
           <input type="radio" name="qbtab" id="qbtab-quote" checked>
           <input type="radio" name="qbtab" id="qbtab-invoice">
+          <input type="radio" name="qbtab" id="qbtab-todo">
           <div class="qbtabbar">
             <label for="qbtab-quote">Quote builder</label>
             <label for="qbtab-invoice">Invoice</label>
+            <label for="qbtab-todo">To-do</label>
           </div>
           <div class="qbpanel qbpanel-quote">
         <figure class="qbframe">
@@ -1182,6 +1237,100 @@
             </div>
           </div>
           <figcaption>A real invoice in Workshop Pilot, rebuilt in HTML so it stays sharp. Scroll sideways on a narrow screen.</figcaption>
+        </figure>
+          </div>
+          <div class="qbpanel qbpanel-todo">
+        <figure class="qbframe">
+          <div class="qbbar"><span></span><span></span><span></span></div>
+          <div class="qbscroll">
+            <div class="qb">
+              <aside class="qb-side">
+                <div class="qb-logo">WORKSHOP PILOT</div>
+                <div class="qb-ni"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/></svg> Dashboard</div>
+                <div class="qb-ni on"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg> To-do</div>
+                <div class="qb-sec">Workflow</div>
+                <div class="qb-ni"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg> Appointments</div>
+                <div class="qb-ni"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/></svg> Clients</div>
+                <div class="qb-ni"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><path d="M6 3h12l3 6-9 12L3 9z"/><path d="M3 9h18"/></svg> Jobs</div>
+                <div class="qb-ni"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/></svg> Quotes</div>
+                <div class="qb-ni"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6M8 13h8M8 17h5"/></svg> Invoices</div>
+                <div class="qb-ni"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg> Safekeeping</div>
+                <div class="qb-sec">Trade</div>
+                <div class="qb-ni"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6M8 13h8M8 17h5"/></svg> Statements</div>
+                <div class="qb-sec">Studio</div>
+                <div class="qb-ni"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><path d="M21 8l-9-5-9 5 9 5 9-5z"/><path d="M3 8v8l9 5 9-5V8"/></svg> Stock</div>
+                <div class="qb-ni"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><ellipse cx="12" cy="5" rx="8" ry="3"/><path d="M4 5v14c0 1.66 3.58 3 8 3s8-1.34 8-3V5"/></svg> Pricing DB</div>
+                <div class="qb-ni"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg> Reports</div>
+                <div class="qb-ni"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.6 1.6 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.6 1.6 0 0 0-2.7 1.1V21a2 2 0 0 1-4 0v-.1A1.6 1.6 0 0 0 6 19.4l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1A1.6 1.6 0 0 0 4.6 15H4.5a2 2 0 0 1 0-4h.1A1.6 1.6 0 0 0 6 8.6l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1A1.6 1.6 0 0 0 11 4.6V4.5a2 2 0 0 1 4 0v.1A1.6 1.6 0 0 0 18 6l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.6 1.6 0 0 0-.3 1.8v.1z"/></svg> Settings</div>
+                <div class="qb-user">
+                  <div class="em"><span class="av">A</span> you@yourstudio.com</div>
+                  <div class="so">SIGN OUT</div>
+                </div>
+              </aside>
+              <div class="qb-main">
+                <span class="qb-back">← Back</span>
+                <div class="td-top">
+                  <div>
+                    <div class="td-eyebrow">Team tasks</div>
+                    <div class="td-h1">To-do</div>
+                    <div class="td-lede">A running task list for each person. Link a task to a job to see its live stage at a glance.</div>
+                  </div>
+                  <div class="td-addp"><span class="in">New person&rsquo;s name&hellip;</span><span class="btn">+ Add person</span></div>
+                </div>
+
+                <div class="td-stats">
+                  <div class="td-stat"><div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg></div><div class="num">3</div><div class="lbl">People</div></div>
+                  <div class="td-stat"><div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><rect x="5" y="4" width="14" height="17" rx="2"/><path d="M9 4V3h6v1M9 10h6M9 14h4"/></svg></div><div class="num">8</div><div class="lbl">To do</div></div>
+                  <div class="td-stat"><div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><circle cx="12" cy="12" r="9"/><path d="M12 3a9 9 0 0 1 0 18z" fill="currentColor" stroke="none"/></svg></div><div class="num">4</div><div class="lbl">In progress</div></div>
+                  <div class="td-stat"><div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><path d="M12 2l3 7 7 3-7 3-3 7-3-7-7-3 7-3z"/></svg></div><div class="num">0</div><div class="lbl">High priority</div></div>
+                  <div class="td-stat"><div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><circle cx="12" cy="12" r="9"/><path d="m8.5 12 2.5 2.5 4.5-5"/></svg></div><div class="num">3</div><div class="lbl">Completed</div></div>
+                </div>
+
+                <div class="td-filter">
+                  <span class="td-search">Search tasks&hellip;</span>
+                  <span class="td-fchip on">All</span>
+                  <span class="td-fchip">To do</span>
+                  <span class="td-fchip">In progress</span>
+                  <span class="td-fchip">Done</span>
+                  <span class="td-fchip">Overdue</span>
+                </div>
+
+                <div class="td-cols">
+                  <div class="td-col">
+                    <div class="td-person"><span class="td-av">A</span><div><div class="td-pname">Alex Rivera</div><div class="td-pmeta">7 open &middot; <b>2 in progress</b> &middot; 3 done</div></div><span class="td-px">&times;</span></div>
+                    <div class="td-bar"><i style="width:30%"></i></div>
+                    <div class="td-addtask"><span class="in">Add a task&hellip;</span><span class="btn">Add</span></div>
+                    <div class="td-task job"><div class="td-checks"><span class="td-cb"></span><span class="td-rd on"></span></div><div class="td-tbody"><div class="td-ttl">3D print and cast a wholesale signet in 9ct white gold</div><div class="td-pills"><span class="td-pill ok">Approved</span><span class="td-pill prog">In progress</span></div><div class="td-jl">&rarr; Trade / Wholesale &middot; M. Rivera</div></div><span class="td-tx">&times;</span></div>
+                    <div class="td-task job"><div class="td-checks"><span class="td-cb"></span><span class="td-rd on"></span></div><div class="td-tbody"><div class="td-ttl">3D print and cast a set of grillz in sterling silver</div><div class="td-pills"><span class="td-pill ok">Approved</span><span class="td-pill prog">In progress</span></div><div class="td-jl">&rarr; Grillz &middot; D. Okafor</div></div><span class="td-tx">&times;</span></div>
+                    <div class="td-task"><div class="td-checks"><span class="td-cb"></span><span class="td-rd"></span></div><div class="td-tbody"><div class="td-ttl">Build a product page for the radiant / emerald halo setting</div></div><span class="td-tx">&times;</span></div>
+                    <div class="td-task"><div class="td-checks"><span class="td-cb"></span><span class="td-rd"></span></div><div class="td-tbody"><div class="td-ttl">Create the setting product listing for the tulip coronet set</div></div><span class="td-tx">&times;</span></div>
+                    <div class="td-task"><div class="td-checks"><span class="td-cb"></span><span class="td-rd"></span></div><div class="td-tbody"><div class="td-ttl">Work out batch rendering to speed up uploading rings to the website, and look into the iframe embed</div></div><span class="td-tx">&times;</span></div>
+                    <div class="td-task"><div class="td-checks"><span class="td-cb"></span><span class="td-rd"></span></div><div class="td-tbody"><div class="td-ttl">Reply to a client enquiry</div></div><span class="td-tx">&times;</span></div>
+                    <div class="td-task"><div class="td-checks"><span class="td-cb"></span><span class="td-rd"></span></div><div class="td-tbody"><div class="td-ttl">Send updated renders to a client</div></div><span class="td-tx">&times;</span></div>
+                    <div class="td-done">&rsaquo; Completed (3)</div>
+                  </div>
+
+                  <div class="td-col">
+                    <div class="td-person"><span class="td-av">S</span><div><div class="td-pname">Sam Chen</div><div class="td-pmeta">2 open &middot; <b>2 in progress</b></div></div><span class="td-px">&times;</span></div>
+                    <div class="td-bar"><i style="width:0%"></i></div>
+                    <div class="td-addtask"><span class="in">Add a task&hellip;</span><span class="btn">Add</span></div>
+                    <div class="td-task job"><div class="td-checks"><span class="td-cb"></span><span class="td-rd on"></span></div><div class="td-tbody"><div class="td-ttl">CAD design a wedding band</div><div class="td-pills"><span class="td-pill grey">Enquiry</span><span class="td-pill prog">In progress</span></div><div class="td-jl">&rarr; Wedding band &middot; L. Bianchi</div></div><span class="td-tx">&times;</span></div>
+                    <div class="td-task job"><div class="td-checks"><span class="td-cb"></span><span class="td-rd on"></span></div><div class="td-tbody"><div class="td-ttl">CAD design an engagement ring</div><div class="td-pills"><span class="td-pill mauve">Design / CAD</span><span class="td-pill prog">In progress</span></div><div class="td-jl">&rarr; Engagement ring &middot; A. Rossi &amp; Cam</div></div><span class="td-tx">&times;</span></div>
+                  </div>
+
+                  <div class="td-col">
+                    <div class="td-person"><span class="td-av">J</span><div><div class="td-pname">Jordan Lee</div><div class="td-pmeta">3 open</div></div><span class="td-px">&times;</span></div>
+                    <div class="td-bar"><i style="width:0%"></i></div>
+                    <div class="td-addtask"><span class="in">Add a task&hellip;</span><span class="btn">Add</span></div>
+                    <div class="td-task"><div class="td-checks"><span class="td-cb"></span><span class="td-rd"></span></div><div class="td-tbody"><div class="td-ttl">Reconcile the bank statement</div></div><span class="td-tx">&times;</span></div>
+                    <div class="td-task"><div class="td-checks"><span class="td-cb"></span><span class="td-rd"></span></div><div class="td-tbody"><div class="td-ttl">Deposit cash takings</div></div><span class="td-tx">&times;</span></div>
+                    <div class="td-task"><div class="td-checks"><span class="td-cb"></span><span class="td-rd"></span></div><div class="td-tbody"><div class="td-ttl">Update supplier address and pay the workshop insurance</div></div><span class="td-tx">&times;</span></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <figcaption>A real team to-do board in Workshop Pilot, rebuilt in HTML so it stays sharp. Scroll sideways on a narrow screen.</figcaption>
         </figure>
           </div>
         </div>
