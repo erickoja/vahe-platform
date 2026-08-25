@@ -536,7 +536,8 @@
   .jb-amt{font-weight:800;font-size:12px}
   .jb-note{font-size:10.5px;color:var(--qbmut);margin:-4px 0 10px}
   .jb-q{display:flex;justify-content:space-between;align-items:flex-start;gap:14px;padding:12px 0;border-top:1px solid var(--qbline)}
-  .jb-q .qt{font-size:12px;font-weight:700;color:var(--qbink);line-height:1.4}
+  .jb-q>div:first-child{min-width:0}
+  .jb-q .qt{font-size:12px;font-weight:700;color:var(--qbink);line-height:1.4;overflow-wrap:break-word}
   .jb-q .qref{color:var(--qbmut);font-weight:600}
   .jb-q .qb{font-size:10px;color:var(--qbmut);margin-top:3px}
   .jb-q .qb b{color:var(--qbok)}
