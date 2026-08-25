@@ -511,7 +511,7 @@
   .jb-cardhead{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:12px}
   .jb-ct{font-size:14px;font-weight:800;color:var(--qbink)}
   .jb-desc{font-size:12px;color:var(--qbink)}
-  .jb-imgs{display:grid;grid-template-columns:repeat(6,1fr);gap:12px}
+  .jb-imgs{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:12px}
   .jb-img{border:1px solid var(--qbline);border-radius:9px;overflow:hidden;background:var(--surface-2)}
   .jb-thumb{aspect-ratio:1/1;display:flex;align-items:center;justify-content:center;color:#b9b0a6;background:linear-gradient(135deg,#eceae6,#e3e0da)}
   .jb-thumb svg{width:34px;height:34px}
@@ -520,7 +520,7 @@
   .jb-cap{margin-top:6px;background:#fff;border:1px solid var(--qbline);border-radius:6px;padding:5px 7px;font-size:9px;color:var(--qbmut)}
   .jb-imfoot{display:flex;justify-content:space-between;align-items:center;margin-top:7px;font-size:8.5px;color:var(--qbmut)}
   .jb-imfoot .rm{color:var(--qbacc2);font-weight:700}
-  .jb-pstats{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
+  .jb-pstats{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
   .jb-pstat{background:var(--surface-2);border-radius:9px;padding:13px 15px}
   .jb-pstat .k{font-size:8.5px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:var(--qbmut)}
   .jb-pstat .v{font-size:18px;font-weight:800;margin-top:6px}
@@ -551,7 +551,7 @@
   .jb-prop .pd{font-size:10.5px;color:var(--qbmut);margin-top:6px;line-height:1.5;max-width:62ch}
   .jb-prop .pacts{display:flex;flex-wrap:wrap;gap:7px;align-items:flex-start}
   .jb-tainput{background:#fff;border:1px solid var(--qbline);border-radius:8px;padding:9px 11px;font-size:11px;color:var(--qbmut);min-height:46px}
-  .jb-two{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+  .jb-two{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:14px}
   @media(max-width:640px){.jb-imgs{grid-template-columns:repeat(3,1fr)}.jb-pstats{grid-template-columns:1fr}.jb-two{grid-template-columns:1fr}}
 
   /* to-do board rebuild (shares the .qb frame + sidebar) */
