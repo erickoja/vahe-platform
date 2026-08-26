@@ -8413,7 +8413,7 @@ function SpotPriceUpdater({spotPrices,setSpotPrices,pricing,setPricing,onClose})
         {/* Fabrication premium — mill metal (sheet/wire) for hand-fabricated work; usually lower, no casting-house charge */}
         <div style={{borderTop:`1px solid ${BD_SOFT}`,paddingTop:16}}>
           <div style={{fontSize:11,fontWeight:800,color:INK,textTransform:"uppercase",letterSpacing:"0.06em",marginBottom:2}}>Fabrication premium <span style={{color:WG,fontWeight:700}}>· hand-fabricated metal</span></div>
-          <div style={{fontSize:12,color:WG,marginBottom:12,lineHeight:1.5}}>What you pay over spot for <strong style={{color:INK}}>mill metal</strong> (sheet, wire, grain) built at the bench, usually lower than casting. Bench labour is billed separately, so each metal has a <strong style={{color:INK}}>cast</strong> and a <strong style={{color:INK}}>fabricated</strong> cost you choose between per quote line.</div>
+          <div style={{fontSize:12,color:WG,marginBottom:12,lineHeight:1.5}}>For metal you <strong style={{color:INK}}>work yourself</strong>, bought as mill product (sheet, wire, grain) or cast in house. You usually pay far less over spot than a casting house charges, so keep this premium low, or set it to zero. Bench labour is billed separately.</div>
           <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"0 16px"}}>
             <Input label="Fabrication / mill premium (%)" value={pmFab} onChange={setPmFab} type="number" min="0" step="0.5" placeholder="0"/>
           </div>
