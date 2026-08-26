@@ -2233,7 +2233,7 @@ function Card({children,style={},onClick,id}){
   return <div id={id} onClick={onClick} onMouseEnter={()=>onClick&&setH(true)} onMouseLeave={()=>setH(false)}
     style={{background:WHITE,borderRadius:RADIUS,border:`1px solid ${onClick&&h?"#D2D2D6":BD_SOFT}`,padding:"22px 26px",marginBottom:16,transition:"all 0.18s",cursor:onClick?"pointer":"default",boxShadow:onClick&&h?SHADOW_HV:SHADOW,transform:onClick&&h?"translateY(-2px)":"none",...style}}>{children}</div>;
 }
-function Modal({title,onClose,children,wide,footer}){
+function Modal({title,onClose,children,wide,footer,maxW}){
   const isMobile=useIsMobile();
   // Lock the page behind the modal so its scrollbar doesn't show alongside the modal's own, and the
   // background can't scroll under the backdrop. Restores the previous value on close (handles nesting).
@@ -2245,7 +2245,7 @@ function Modal({title,onClose,children,wide,footer}){
   // footer for actions that must stay reachable in long modals.
   const px=isMobile?20:34;
   return <div style={{position:"fixed",inset:0,background:"rgba(26,23,20,0.62)",display:"flex",alignItems:"center",justifyContent:"center",zIndex:200,backdropFilter:"blur(3px)",padding:isMobile?16:24,boxSizing:"border-box"}}>
-    <div style={{background:WHITE,borderRadius:isMobile?16:18,width:"100%",maxWidth:wide?860:580,maxHeight:isMobile?"90vh":"92vh",display:"flex",flexDirection:"column",overflow:"hidden",border:`1px solid ${BD}`,boxShadow:"0 20px 60px rgba(0,0,0,0.35), 0 4px 16px rgba(0,0,0,0.18)"}}>
+    <div style={{background:WHITE,borderRadius:isMobile?16:18,width:"100%",maxWidth:maxW||(wide?860:580),maxHeight:isMobile?"90vh":"92vh",display:"flex",flexDirection:"column",overflow:"hidden",border:`1px solid ${BD}`,boxShadow:"0 20px 60px rgba(0,0,0,0.35), 0 4px 16px rgba(0,0,0,0.18)"}}>
       <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",gap:12,padding:`${isMobile?15:17}px ${px}px`,borderBottom:`1px solid ${BD}`,flexShrink:0}}>
         <h2 style={{margin:0,fontSize:isMobile?17:19,fontWeight:800,color:INK,minWidth:0}}>{title}</h2>
         <button onClick={onClose} aria-label="Close" style={{background:PARCH,border:`1px solid ${BD}`,borderRadius:9,width:34,height:34,display:"flex",alignItems:"center",justifyContent:"center",fontSize:21,cursor:"pointer",color:WG,lineHeight:1,padding:0,flexShrink:0}}>×</button>
@@ -8364,9 +8364,11 @@ function SpotPriceUpdater({spotPrices,setSpotPrices,pricing,setPricing,onClose})
     setPricing(prev=>{const u=prev.map(item=>{if(item.category!=="Metals"||!item.metalKey||item.purity==null)return item;const spot=spotOf(item.metalKey);if(!spot)return item;const cast=loaded(spot,premForMetal(item,ns))*item.purity;const fab=loaded(spot,ns.premFab)*item.purity;return{...item,baseCost:Number(cast.toFixed(4)),baseCostFab:Number(fab.toFixed(4))};});persist(K.pr,u);return u;});
     onClose();
   };
-  return <div>
-    <div style={{background:GOLD_L,borderRadius:4,padding:"12px 16px",marginBottom:16,fontSize:13,color:GOLD_D,lineHeight:1.6}}>{`Enter today's fine metal spot price per gram (${CUR_CODE}). All metal pricing items update automatically based on purity.`}</div>
-    {supabaseEnabled&&<div style={{display:"flex",alignItems:"center",gap:12,marginBottom:16}}>
+  return <Modal title="Update metal spot prices" onClose={onClose} maxW={680}
+    footer={<div style={{display:"flex",gap:10,justifyContent:"flex-end"}}><Btn ghost onClick={onClose}>Cancel</Btn><Btn onClick={apply}>Apply prices</Btn></div>}>
+    <div style={{background:GOLD_L,borderRadius:10,padding:"12px 16px",marginBottom:18,fontSize:13,color:GOLD_D,lineHeight:1.6}}>{`Enter today's fine metal spot price per gram (${CUR_CODE}). All metal pricing items update automatically based on purity.`}</div>
+    <div style={{fontSize:11,fontWeight:800,color:INK,textTransform:"uppercase",letterSpacing:"0.06em",marginBottom:9}}>Today's fine metal spot price</div>
+    {supabaseEnabled&&<div style={{display:"flex",alignItems:"center",gap:12,marginBottom:14,flexWrap:"wrap"}}>
       <Btn sm onClick={fetchLive} disabled={fetching}>{fetching?"Fetching…":"⟳ Fetch live prices"}</Btn>
       {fetched&&<span style={{fontSize:12,color:OK,fontWeight:600}}>✓ Live spot loaded{fetched.marketTimestamp?` · market time ${new Date(fetched.marketTimestamp).toLocaleString(LOCALE,{day:"numeric",month:"short",hour:"numeric",minute:"2-digit"})}`:""} — review &amp; apply below</span>}
       {!fetched&&!fetching&&<span style={{fontSize:12,color:WG}}>{`Live ${CUR_CODE} spot per gram via metals.dev`}</span>}
@@ -8408,8 +8410,7 @@ function SpotPriceUpdater({spotPrices,setSpotPrices,pricing,setPricing,onClose})
         </div>;
       })}
     </div>
-    <div style={{display:"flex",gap:10,justifyContent:"flex-end"}}><Btn ghost onClick={onClose}>Cancel</Btn><Btn onClick={apply}>Apply prices</Btn></div>
-  </div>;
+  </Modal>;
 }
 
 // ── Reports ───────────────────────────────────────────────────────────────
@@ -10910,9 +10911,7 @@ export default function App(){
         :<ErrorBoundary key={view} onHome={()=>setView("dashboard")}>{render()}</ErrorBoundary>}
     </div>
     {/* Update metal spot prices — app-level so the button works from the Dashboard or Pricing DB */}
-    {spotModal&&<Modal title="Update metal spot prices" onClose={()=>setSpotModal(false)}>
-      <SpotPriceUpdater spotPrices={spotPrices} setSpotPrices={setSpotPrices} pricing={pricing} setPricing={setPricing} onClose={()=>setSpotModal(false)}/>
-    </Modal>}
+    {spotModal&&<SpotPriceUpdater spotPrices={spotPrices} setSpotPrices={setSpotPrices} pricing={pricing} setPricing={setPricing} onClose={()=>setSpotModal(false)}/>}
     {/* Live response pop-up — proposals & repairs (any view) */}
     {acceptToast&&<div onClick={()=>{const j=acceptToast.jobId;setAcceptToast(null);if(j)setView("jobDetail_"+j);}}
       style={{position:"fixed",bottom:24,right:24,maxWidth:340,background:INK,color:WHITE,borderRadius:5,padding:"16px 18px",boxShadow:"0 12px 40px rgba(0,0,0,0.35)",zIndex:9999,cursor:"pointer",border:`1px solid ${(acceptToast.color||OK)}66`}}>
