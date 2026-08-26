@@ -8397,11 +8397,11 @@ function SpotPriceUpdater({spotPrices,setSpotPrices,pricing,setPricing,onClose})
           <div style={{fontSize:11,fontWeight:800,color:INK,textTransform:"uppercase",letterSpacing:"0.06em"}}>Supplier premiums</div>
           <div style={{fontSize:12,color:WG,marginTop:3,lineHeight:1.5}}>What you pay above spot to cast or hand-fabricate</div>
         </div>
-        <span style={{fontSize:12,color:GOLD_D,fontWeight:700,flexShrink:0,whiteSpace:"nowrap"}}>{showPrem?"Hide ▲":"Edit ▾"}</span>
+        <span style={{fontSize:12,color:WG,fontWeight:700,flexShrink:0,whiteSpace:"nowrap"}}>{showPrem?"Hide ▲":"Edit ▾"}</span>
       </button>
       {showPrem&&<div style={{padding:"18px",borderTop:`1px solid ${BD}`,background:WHITE}}>
         {/* Casting-house premium — the % your supplier charges above spot for cast metal */}
-        <div style={{fontSize:11,fontWeight:800,color:INK,textTransform:"uppercase",letterSpacing:"0.06em",marginBottom:2,display:"flex",alignItems:"center"}}>Casting house premium <span style={{color:GOLD,fontWeight:700,marginLeft:5}}>· cast metal</span><InfoDot text="Your landed cost per gram = spot price × (1 + this %) × purity. It's what your caster charges above market to cast the metal — set once, and every manual or live price update applies it automatically."/></div>
+        <div style={{fontSize:11,fontWeight:800,color:INK,textTransform:"uppercase",letterSpacing:"0.06em",marginBottom:2,display:"flex",alignItems:"center"}}>Casting house premium <span style={{color:WG,fontWeight:700,marginLeft:5}}>· cast metal</span><InfoDot text="Your landed cost per gram = spot price × (1 + this %) × purity. It's what your caster charges above market to cast the metal — set once, and every manual or live price update applies it automatically."/></div>
         <div style={{fontSize:12,color:WG,marginBottom:12,lineHeight:1.5}}>What your casting house charges <strong style={{color:INK}}>above spot</strong> to cast a piece in each metal — this is your <strong style={{color:INK}}>cast</strong> cost. Saved once; every price update (manual or live) applies it automatically.</div>
         <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"0 16px"}}>
           <Input label="Gold — yellow / rose (%)" value={pmG} onChange={setPmG} type="number" min="0" step="0.5" placeholder="0"/>
@@ -8412,7 +8412,7 @@ function SpotPriceUpdater({spotPrices,setSpotPrices,pricing,setPricing,onClose})
         <div style={{fontSize:11,color:WG,marginTop:4,marginBottom:18,lineHeight:1.5}}>White gold usually costs more to cast — palladium in the master alloy. Set a higher % here; it applies only to metal items marked <strong style={{color:INK}}>white</strong>.</div>
         {/* Fabrication premium — mill metal (sheet/wire) for hand-fabricated work; usually lower, no casting-house charge */}
         <div style={{borderTop:`1px solid ${BD_SOFT}`,paddingTop:16}}>
-          <div style={{fontSize:11,fontWeight:800,color:INK,textTransform:"uppercase",letterSpacing:"0.06em",marginBottom:2}}>Fabrication premium <span style={{color:GOLD,fontWeight:700}}>· hand-fabricated metal</span></div>
+          <div style={{fontSize:11,fontWeight:800,color:INK,textTransform:"uppercase",letterSpacing:"0.06em",marginBottom:2}}>Fabrication premium <span style={{color:WG,fontWeight:700}}>· hand-fabricated metal</span></div>
           <div style={{fontSize:12,color:WG,marginBottom:12,lineHeight:1.5}}>The premium over spot when you buy <strong style={{color:INK}}>mill metal</strong> (sheet, wire, grain) and build the piece at the bench — usually lower than casting, sometimes near spot. Bench labour is billed separately. Each metal then has a <strong style={{color:INK}}>cast</strong> and a <strong style={{color:INK}}>fabricated</strong> cost; you pick per line in the quote.</div>
           <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"0 16px"}}>
             <Input label="Fabrication / mill premium (%)" value={pmFab} onChange={setPmFab} type="number" min="0" step="0.5" placeholder="0"/>
@@ -8427,7 +8427,7 @@ function SpotPriceUpdater({spotPrices,setSpotPrices,pricing,setPricing,onClose})
         <div style={{display:"grid",gridTemplateColumns:col,gap:"0 26px",paddingBottom:7,borderBottom:`1px solid ${BD}`}}>
           <span style={{fontSize:10,fontWeight:800,color:WG,textTransform:"uppercase",letterSpacing:"0.06em"}}>Metal type</span>
           <span style={{textAlign:"right",fontSize:10,fontWeight:800,color:WG,textTransform:"uppercase",letterSpacing:"0.06em"}}>Cast</span>
-          <span style={{textAlign:"right",fontSize:10,fontWeight:800,color:GOLD_D,textTransform:"uppercase",letterSpacing:"0.06em"}}>Fabricated</span>
+          <span style={{textAlign:"right",fontSize:10,fontWeight:800,color:WG,textTransform:"uppercase",letterSpacing:"0.06em"}}>Fabricated</span>
         </div>
         {[{n:"9ct yellow / rose gold",k:"gold",p:0.375,prem:pmG},{n:"18ct yellow / rose gold",k:"gold",p:0.75,prem:pmG},{n:"18ct white gold",k:"gold",p:0.75,prem:pmGW},{n:"Platinum 950",k:"platinum",p:0.95,prem:pmPt},{n:"Silver 925",k:"silver",p:0.925,prem:pmAg}].map((m,i)=>{
           const spot=m.k==="gold"?Number(g):m.k==="platinum"?Number(pt):Number(ag);
@@ -8436,7 +8436,7 @@ function SpotPriceUpdater({spotPrices,setSpotPrices,pricing,setPricing,onClose})
           return <div key={m.n} style={{display:"grid",gridTemplateColumns:col,gap:"0 26px",alignItems:"center",padding:"7px 0",borderTop:i?`1px solid ${BD_SOFT}`:"none"}}>
             <span style={{color:INK,fontSize:13}}>{m.n}</span>
             <span style={{textAlign:"right",fontWeight:700,color:INK,fontSize:13,fontVariantNumeric:"tabular-nums"}}>{fmt(cast)}</span>
-            <span style={{textAlign:"right",fontWeight:700,color:GOLD_D,fontSize:13,fontVariantNumeric:"tabular-nums"}}>{fmt(fab)}</span>
+            <span style={{textAlign:"right",fontWeight:700,color:INK,fontSize:13,fontVariantNumeric:"tabular-nums"}}>{fmt(fab)}</span>
           </div>;
         })}
       </>;})()}
