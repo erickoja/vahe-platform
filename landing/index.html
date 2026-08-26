@@ -488,18 +488,59 @@
   #qbtab-quote:checked~.qbtabbar label[for="qbtab-quote"],
   #qbtab-invoice:checked~.qbtabbar label[for="qbtab-invoice"],
   #qbtab-todo:checked~.qbtabbar label[for="qbtab-todo"],
+  #qbtab-metals:checked~.qbtabbar label[for="qbtab-metals"],
   #qbtab-job:checked~.qbtabbar label[for="qbtab-job"]{background:var(--accent);color:#fff}
   #qbtab-quote:focus-visible~.qbtabbar label[for="qbtab-quote"],
   #qbtab-invoice:focus-visible~.qbtabbar label[for="qbtab-invoice"],
   #qbtab-todo:focus-visible~.qbtabbar label[for="qbtab-todo"],
+  #qbtab-metals:focus-visible~.qbtabbar label[for="qbtab-metals"],
   #qbtab-job:focus-visible~.qbtabbar label[for="qbtab-job"]{outline:2px solid var(--accent);outline-offset:2px}
   .qbpanel{display:none;margin-top:22px}
   .qbpanel .qbframe{margin-top:0}
   #qbtab-quote:checked~.qbpanel-quote,
   #qbtab-invoice:checked~.qbpanel-invoice,
   #qbtab-todo:checked~.qbpanel-todo,
+  #qbtab-metals:checked~.qbpanel-metals,
   #qbtab-job:checked~.qbpanel-job{display:block}
   @media(max-width:560px){.qbtabbar{flex-wrap:wrap}}
+
+  /* metal spot-price modal rebuild (a real dialog, shown on its dimmed backdrop) */
+  .mp-wrap{background:#332e29;padding:34px 22px;display:flex;justify-content:center}
+  .mp-modal{width:100%;max-width:600px;background:#fff;border:1px solid var(--qbline);border-radius:16px;box-shadow:0 24px 60px rgba(0,0,0,.4);overflow:hidden;text-align:left;color:var(--qbink)}
+  .mp-head{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:15px 20px;border-bottom:1px solid var(--qbline)}
+  .mp-title{font-size:16px;font-weight:800;display:flex;align-items:center;gap:8px}
+  .mp-title .ic{color:var(--qbacc2)}
+  .mp-x{width:28px;height:28px;flex:none;border:1px solid var(--qbline);background:var(--qbbg);border-radius:8px;display:flex;align-items:center;justify-content:center;color:var(--qbmut);font-size:17px;line-height:1}
+  .mp-body{padding:18px 20px}
+  .mp-intro{font-size:12px;color:var(--qbmut);line-height:1.55;margin-bottom:16px}
+  .mp-hero{background:#fff;border:1px solid var(--qbline);border-radius:13px;padding:15px 16px;margin-bottom:14px;box-shadow:0 2px 6px rgba(72,60,84,.05)}
+  .mp-herohead{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:14px}
+  .mp-eyebrow{font-size:9px;font-weight:800;letter-spacing:.07em;text-transform:uppercase;color:var(--qbink)}
+  .mp-fetch{font-size:11px;font-weight:700;background:var(--qbacc);color:#fff;border-radius:8px;padding:7px 13px;display:inline-flex;align-items:center;gap:6px;white-space:nowrap}
+  .mp-grid3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px}
+  .mp-field .l{font-size:8.5px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:var(--qbink);display:flex;align-items:center;gap:6px;margin-bottom:5px}
+  .mp-dot{width:8px;height:8px;border-radius:50%;flex:none;box-shadow:0 0 0 1px rgba(0,0,0,.06)}
+  .mp-input{background:#fff;border:1px solid var(--qbline);border-radius:9px;padding:9px 11px;font-size:13px;font-weight:600;color:var(--qbink)}
+  .mp-status{font-size:11px;margin-top:12px;color:var(--qbmut)}
+  .mp-status.ok{color:var(--qbok);font-weight:600}
+  .mp-prem{border:1px solid var(--qbline);border-radius:13px;margin-bottom:14px;overflow:hidden}
+  .mp-premhead{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:13px 16px;background:var(--qbbg)}
+  .mp-premhead .t{font-size:9px;font-weight:800;letter-spacing:.07em;text-transform:uppercase;color:var(--qbink)}
+  .mp-premhead .d{font-size:11px;color:var(--qbmut);margin-top:3px}
+  .mp-premhead .edit{font-size:11px;font-weight:700;color:var(--qbmut);white-space:nowrap}
+  .mp-preview{background:var(--qbbg);border:1px solid var(--qbline);border-radius:13px;padding:15px 16px}
+  .mp-preview .h{font-size:9px;font-weight:800;letter-spacing:.07em;text-transform:uppercase;color:var(--qbink);margin-bottom:11px}
+  .mp-prow{display:grid;grid-template-columns:minmax(0,1fr) 86px 86px;gap:0 24px;align-items:center;padding:7px 0}
+  .mp-prow.head{padding-bottom:7px;border-bottom:1px solid var(--qbline)}
+  .mp-prow.row+.mp-prow.row{border-top:1px solid #ece7e0}
+  .mp-prow .colh{font-size:8.5px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--qbmut);text-align:right}
+  .mp-prow .colh.l{text-align:left}
+  .mp-prow .nm{font-size:12px;color:var(--qbink)}
+  .mp-prow .v{text-align:right;font-weight:800;font-size:12.5px;color:var(--qbink)}
+  .mp-foot{display:flex;justify-content:flex-end;gap:10px;padding:13px 20px;border-top:1px solid var(--qbline)}
+  .mp-cancel{font-size:12px;font-weight:700;border:1px solid var(--qbline);background:#fff;color:var(--qbink);border-radius:9px;padding:9px 16px}
+  .mp-apply{font-size:12px;font-weight:700;background:var(--qbacc);border:1px solid var(--qbacc);color:#fff;border-radius:9px;padding:9px 18px}
+  @media(max-width:560px){.mp-wrap{padding:20px 14px}.mp-grid3{grid-template-columns:1fr}.mp-prow{grid-template-columns:minmax(0,1fr) 68px 68px;gap:0 12px}}
 
   /* master job page rebuild (shares the .qb frame + sidebar) */
   .jb-head{display:flex;justify-content:space-between;align-items:flex-start;gap:14px 18px;flex-wrap:wrap}
@@ -1045,17 +1086,19 @@
         <div class="sec-head reveal">
           <p class="eyebrow">Inside the app</p>
           <h2>The real workspace, rebuilt so it stays sharp.</h2>
-          <p>The actual screens you work in: quoting a bespoke piece, and turning accepted quotes into a GST invoice. Rebuilt in the page rather than screenshotted, so every figure reads crisply on any display.</p>
+          <p>The actual screens you work in, from quoting a bespoke piece to invoicing it and repricing your metals to the day&rsquo;s spot. Rebuilt in the page rather than screenshotted, so every figure reads crisply on any display.</p>
         </div>
         <div class="qbtabs reveal">
           <input type="radio" name="qbtab" id="qbtab-job" checked>
           <input type="radio" name="qbtab" id="qbtab-quote">
           <input type="radio" name="qbtab" id="qbtab-invoice">
+          <input type="radio" name="qbtab" id="qbtab-metals">
           <input type="radio" name="qbtab" id="qbtab-todo">
           <div class="qbtabbar">
             <label for="qbtab-job">Job</label>
             <label for="qbtab-quote">Quote builder</label>
             <label for="qbtab-invoice">Invoice</label>
+            <label for="qbtab-metals">Metal prices</label>
             <label for="qbtab-todo">To-do</label>
           </div>
           <div class="qbpanel qbpanel-job">
@@ -1420,6 +1463,62 @@
             </div>
           </div>
           <figcaption>A real invoice in Workshop Pilot, rebuilt in HTML so it stays sharp. Scroll sideways on a narrow screen.</figcaption>
+        </figure>
+          </div>
+          <div class="qbpanel qbpanel-metals">
+        <figure class="qbframe">
+          <div class="qbbar"><span></span><span></span><span></span></div>
+          <div class="qbscroll">
+            <div class="mp-wrap">
+              <div class="mp-modal">
+                <div class="mp-head">
+                  <div class="mp-title"><span class="ic">&#10227;</span> Update metal spot prices</div>
+                  <div class="mp-x">&times;</div>
+                </div>
+                <div class="mp-body">
+                  <div class="mp-intro">Enter today&rsquo;s fine metal spot price per gram (AUD), or fetch it live. Every metal item in your pricing list updates automatically from its purity.</div>
+
+                  <div class="mp-hero">
+                    <div class="mp-herohead">
+                      <div class="mp-eyebrow">Today&rsquo;s fine metal spot price</div>
+                      <span class="mp-fetch">&#10227; Fetch live prices</span>
+                    </div>
+                    <div class="mp-grid3">
+                      <div class="mp-field"><div class="l"><span class="mp-dot" style="background:linear-gradient(135deg,#F3D27A,#D6A63A)"></span> Fine gold ($/g)</div><div class="mp-input">208.86</div></div>
+                      <div class="mp-field"><div class="l"><span class="mp-dot" style="background:#D4D8DF"></span> Platinum ($/g)</div><div class="mp-input">83.51</div></div>
+                      <div class="mp-field"><div class="l"><span class="mp-dot" style="background:#BEC3CB"></span> Silver ($/g)</div><div class="mp-input">3.09</div></div>
+                    </div>
+                    <div class="mp-status ok">&#10003; Live spot loaded &middot; market time 26 Aug, 2:05pm. Review and apply below.</div>
+                  </div>
+
+                  <div class="mp-prem">
+                    <div class="mp-premhead">
+                      <div>
+                        <div class="t">Supplier premiums</div>
+                        <div class="d">What you pay above spot to cast or hand-fabricate</div>
+                      </div>
+                      <div class="edit">Edit &#9662;</div>
+                    </div>
+                  </div>
+
+                  <div class="mp-preview">
+                    <div class="h">Preview: your cost per gram</div>
+                    <div class="mp-prow head"><span class="colh l">Metal type</span><span class="colh">Cast</span><span class="colh">Fabricated</span></div>
+                    <div class="mp-prow row"><span class="nm">9ct yellow / rose gold</span><span class="v">$99.86</span><span class="v">$86.15</span></div>
+                    <div class="mp-prow row"><span class="nm">18ct yellow / rose gold</span><span class="v">$199.72</span><span class="v">$172.31</span></div>
+                    <div class="mp-prow row"><span class="nm">18ct white gold</span><span class="v">$207.55</span><span class="v">$172.31</span></div>
+                    <div class="mp-prow row"><span class="nm">Platinum 950</span><span class="v">$126.94</span><span class="v">$87.27</span></div>
+                    <div class="mp-prow row"><span class="nm">Silver 925</span><span class="v">$5.72</span><span class="v">$3.14</span></div>
+                  </div>
+                </div>
+                <div class="mp-foot">
+                  <span class="mp-cancel">Cancel</span>
+                  <span class="mp-apply">Apply prices</span>
+                </div>
+              </div>
+            </div>
+          </div>
+          <figcaption>Live metal pricing in Workshop Pilot: fetch today&rsquo;s spot, and every metal item reprices from its purity. Rebuilt in HTML so it stays sharp.</figcaption>
         </figure>
           </div>
           <div class="qbpanel qbpanel-todo">
