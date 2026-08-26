@@ -757,6 +757,30 @@
   .td-done{font-size:10px;font-weight:700;color:var(--qbmut);margin-top:13px}
   @media(max-width:560px){.td-stats{grid-template-columns:1fr 1fr}.td-cols{grid-template-columns:1fr}}
 
+  /* tablet + phone reflow for the fixed-width app-page tabs (job/quote/invoice/to-do):
+     drop the 1040px frame to fluid so the sidebar + content fit, stack the line-item grids */
+  @media(max-width:900px){
+    .qb{width:100%;min-width:0}
+    .qb-main{padding:16px 15px}
+    /* quote builder: stack each cost row, hide the column header */
+    .qb-cols{display:none}
+    .qb-row{grid-template-columns:1fr;gap:7px}
+    .qb-mk{grid-template-columns:repeat(2,1fr)}
+    /* invoice: stack each internal cost line into name over tax + amount */
+    .iv-cols{display:none}
+    .iv-irow{display:flex;align-items:baseline;gap:5px 12px;flex-wrap:wrap}
+    .iv-irow .nm{flex:1 1 100%}
+    .iv-irow .tx{order:2}
+    .iv-irow .am{order:3;margin-left:auto}
+  }
+  /* phones: hide the sidebar chrome so the content gets the full width */
+  @media(max-width:600px){
+    .qb-side{display:none}
+    .qb-main{padding:15px 13px}
+    .qb-mk{grid-template-columns:1fr}
+    .td-stats{grid-template-columns:1fr 1fr}
+  }
+
   /* why */
   .why{background:var(--surface-2);border-top:1px solid var(--line);border-bottom:1px solid var(--line)}
   .why .sec-head{max-width:82ch}
@@ -1338,7 +1362,7 @@
               </div>
             </div>
           </div>
-          <figcaption>A real master job page in Workshop Pilot, rebuilt in HTML so it stays sharp. Scroll sideways on a narrow screen.</figcaption>
+          <figcaption>A real master job page in Workshop Pilot, rebuilt in HTML so it stays sharp.</figcaption>
         </figure>
           </div>
           <div class="qbpanel qbpanel-quote">
@@ -1464,7 +1488,7 @@
               </div>
             </div>
           </div>
-          <figcaption>A real quote in Workshop Pilot, rebuilt in HTML so it stays sharp. Scroll sideways on a narrow screen.</figcaption>
+          <figcaption>A real quote in Workshop Pilot, rebuilt in HTML so it stays sharp.</figcaption>
         </figure>
           </div>
           <div class="qbpanel qbpanel-proposal">
@@ -1730,7 +1754,7 @@
               </div>
             </div>
           </div>
-          <figcaption>A real invoice in Workshop Pilot, rebuilt in HTML so it stays sharp. Scroll sideways on a narrow screen.</figcaption>
+          <figcaption>A real invoice in Workshop Pilot, rebuilt in HTML so it stays sharp.</figcaption>
         </figure>
           </div>
           <div class="qbpanel qbpanel-metals">
@@ -1898,7 +1922,7 @@
               </div>
             </div>
           </div>
-          <figcaption>A real team to-do board in Workshop Pilot, rebuilt in HTML so it stays sharp. Scroll sideways on a narrow screen.</figcaption>
+          <figcaption>A real team to-do board in Workshop Pilot, rebuilt in HTML so it stays sharp.</figcaption>
         </figure>
           </div>
         </div>
