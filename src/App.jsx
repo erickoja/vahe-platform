@@ -5404,6 +5404,7 @@ function JobProposals({job,client,quotes,proposals,setProposals,setQuotes,biz,ma
   const [copied,setCopied]=useState("");
   const [checking,setChecking]=useState("");
   const [expanded,setExpanded]=useState({});   // per-option: show its photos/video editor (default open)
+  const isMobile=useIsMobile();
   const [selectMode,setSelectMode]=useState("single");   // "single" = pick one, "multi" = pick any (bundle)
   const [optPhotos,setOptPhotos]=useState({});            // quoteId → chosen job image path
   const [optVideos,setOptVideos]=useState({});            // quoteId → video URL (YouTube/Vimeo/Loom/direct)
@@ -5618,7 +5619,7 @@ function JobProposals({job,client,quotes,proposals,setProposals,setQuotes,biz,ma
         </div>
         <div style={{display:"flex",gap:10,alignItems:"center",flexShrink:0}}>
           <Btn ghost onClick={()=>{setBuilder(false);setEditingId(null);}}>Cancel</Btn>
-          <Btn onClick={createAndShare} disabled={busy||!sel.length}>{busy?(editingId?"Updating…":"Publishing…"):(editingId?"Update proposal":"Publish & copy link")}</Btn>
+          <Btn onClick={createAndShare} disabled={busy||!sel.length}>{busy?(editingId?"Updating…":"Publishing…"):(editingId?(isMobile?"Update":"Update proposal"):(isMobile?"Publish":"Publish & copy link"))}</Btn>
         </div>
       </div>}>
       <div style={{fontSize:13,color:WG,marginBottom:16,lineHeight:1.6}}>Pick the quote(s) to offer as options, then choose how the client selects.</div>
