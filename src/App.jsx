@@ -8439,7 +8439,6 @@ function SpotPriceUpdater({spotPrices,setSpotPrices,pricing,setPricing,onClose})
             <span style={{textAlign:"right",fontWeight:700,color:GOLD_D,fontSize:13,fontVariantNumeric:"tabular-nums"}}>{fmt(fab)}</span>
           </div>;
         })}
-        <div style={{fontSize:11,color:WG,marginTop:9,textAlign:"right"}}>per gram · loaded cost incl. premium</div>
       </>;})()}
     </div>
   </Modal>;
