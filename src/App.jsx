@@ -8395,7 +8395,7 @@ function SpotPriceUpdater({spotPrices,setSpotPrices,pricing,setPricing,onClose})
       <button onClick={()=>setShowPrem(s=>!s)} style={{width:"100%",display:"flex",alignItems:"center",justifyContent:"space-between",gap:12,padding:"14px 18px",background:PARCH,border:"none",cursor:"pointer",fontFamily:"inherit",textAlign:"left"}}>
         <div style={{minWidth:0}}>
           <div style={{fontSize:11,fontWeight:800,color:INK,textTransform:"uppercase",letterSpacing:"0.06em"}}>Supplier premiums</div>
-          <div style={{fontSize:12,color:WG,marginTop:3,lineHeight:1.5}}>{showPrem?"What you pay above spot to cast or hand-fabricate":`Cast: gold ${pmG||0}% · white ${pmGW||0}% · plat ${pmPt||0}% · silver ${pmAg||0}%   ·   Fabrication ${pmFab||0}%`}</div>
+          <div style={{fontSize:12,color:WG,marginTop:3,lineHeight:1.5}}>What you pay above spot to cast or hand-fabricate</div>
         </div>
         <span style={{fontSize:12,color:GOLD_D,fontWeight:700,flexShrink:0,whiteSpace:"nowrap"}}>{showPrem?"Hide ▲":"Edit ▾"}</span>
       </button>
