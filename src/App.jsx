@@ -8423,9 +8423,9 @@ function SpotPriceUpdater({spotPrices,setSpotPrices,pricing,setPricing,onClose})
 
     <div style={{background:PARCH,border:`1px solid ${BD}`,borderRadius:14,padding:"16px 18px",marginBottom:4}}>
       <div style={{fontSize:11,fontWeight:800,color:INK,textTransform:"uppercase",letterSpacing:"0.06em",marginBottom:10}}>Preview — your cost per gram</div>
-      {(()=>{const col="minmax(0,1fr) 84px 84px";return <>
-        <div style={{display:"grid",gridTemplateColumns:col,gap:"0 12px",paddingBottom:7,borderBottom:`1px solid ${BD}`}}>
-          <span/>
+      {(()=>{const col="minmax(0,1fr) 92px 92px";return <>
+        <div style={{display:"grid",gridTemplateColumns:col,gap:"0 26px",paddingBottom:7,borderBottom:`1px solid ${BD}`}}>
+          <span style={{fontSize:10,fontWeight:800,color:WG,textTransform:"uppercase",letterSpacing:"0.06em"}}>Metal type</span>
           <span style={{textAlign:"right",fontSize:10,fontWeight:800,color:WG,textTransform:"uppercase",letterSpacing:"0.06em"}}>Cast</span>
           <span style={{textAlign:"right",fontSize:10,fontWeight:800,color:GOLD_D,textTransform:"uppercase",letterSpacing:"0.06em"}}>Fabricated</span>
         </div>
@@ -8433,7 +8433,7 @@ function SpotPriceUpdater({spotPrices,setSpotPrices,pricing,setPricing,onClose})
           const spot=m.k==="gold"?Number(g):m.k==="platinum"?Number(pt):Number(ag);
           const cast=loaded(spot,m.prem)*m.p;
           const fab=loaded(spot,pmFab)*m.p;
-          return <div key={m.n} style={{display:"grid",gridTemplateColumns:col,gap:"0 12px",alignItems:"center",padding:"7px 0",borderTop:i?`1px solid ${BD_SOFT}`:"none"}}>
+          return <div key={m.n} style={{display:"grid",gridTemplateColumns:col,gap:"0 26px",alignItems:"center",padding:"7px 0",borderTop:i?`1px solid ${BD_SOFT}`:"none"}}>
             <span style={{color:INK,fontSize:13}}>{m.n}</span>
             <span style={{textAlign:"right",fontWeight:700,color:INK,fontSize:13,fontVariantNumeric:"tabular-nums"}}>{fmt(cast)}</span>
             <span style={{textAlign:"right",fontWeight:700,color:GOLD_D,fontSize:13,fontVariantNumeric:"tabular-nums"}}>{fmt(fab)}</span>
