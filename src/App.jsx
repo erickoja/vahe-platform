@@ -8398,17 +8398,26 @@ function SpotPriceUpdater({spotPrices,setSpotPrices,pricing,setPricing,onClose})
         <Input label="Fabrication / mill premium (%)" value={pmFab} onChange={setPmFab} type="number" min="0" step="0.5" placeholder="0"/>
       </div>
     </div>
-    <div style={{background:PARCH,borderRadius:4,padding:"12px 16px",marginBottom:14,fontSize:13}}>
-      <div style={{display:"flex",justifyContent:"space-between",alignItems:"baseline",marginBottom:8}}><span style={{fontWeight:700,color:INK}}>Preview — your cost per gram</span><span style={{fontSize:11,color:WG,textTransform:"uppercase",letterSpacing:"0.05em"}}>cast · fabricated</span></div>
-      {[{n:"9ct yellow / rose gold",k:"gold",p:0.375,prem:pmG},{n:"18ct yellow / rose gold",k:"gold",p:0.75,prem:pmG},{n:"18ct white gold",k:"gold",p:0.75,prem:pmGW},{n:"Platinum 950",k:"platinum",p:0.95,prem:pmPt},{n:"Silver 925",k:"silver",p:0.925,prem:pmAg}].map(m=>{
-        const spot=m.k==="gold"?Number(g):m.k==="platinum"?Number(pt):Number(ag);
-        const cast=loaded(spot,m.prem)*m.p;
-        const fab=loaded(spot,pmFab)*m.p;
-        return <div key={m.n} style={{display:"flex",justifyContent:"space-between",alignItems:"center",fontSize:13,padding:"4px 0",borderBottom:`1px solid ${BD}`}}>
-          <span style={{color:WG}}>{m.n}</span>
-          <span><span style={{fontWeight:700,color:INK}}>{fmt(cast)}</span><span style={{color:WG,margin:"0 6px"}}>·</span><span style={{fontWeight:700,color:GOLD_D}}>{fmt(fab)}</span><span style={{color:WG,fontSize:11}}>/g</span></span>
-        </div>;
-      })}
+    <div style={{background:WHITE,border:`1px solid ${BD}`,borderRadius:10,padding:"14px 16px",marginBottom:14}}>
+      <div style={{fontWeight:800,color:INK,fontSize:13,marginBottom:10}}>Preview — your cost per gram</div>
+      {(()=>{const col="minmax(0,1fr) 84px 84px";return <>
+        <div style={{display:"grid",gridTemplateColumns:col,gap:"0 12px",paddingBottom:7,borderBottom:`1px solid ${BD}`}}>
+          <span/>
+          <span style={{textAlign:"right",fontSize:10,fontWeight:800,color:WG,textTransform:"uppercase",letterSpacing:"0.06em"}}>Cast</span>
+          <span style={{textAlign:"right",fontSize:10,fontWeight:800,color:GOLD_D,textTransform:"uppercase",letterSpacing:"0.06em"}}>Fabricated</span>
+        </div>
+        {[{n:"9ct yellow / rose gold",k:"gold",p:0.375,prem:pmG},{n:"18ct yellow / rose gold",k:"gold",p:0.75,prem:pmG},{n:"18ct white gold",k:"gold",p:0.75,prem:pmGW},{n:"Platinum 950",k:"platinum",p:0.95,prem:pmPt},{n:"Silver 925",k:"silver",p:0.925,prem:pmAg}].map((m,i)=>{
+          const spot=m.k==="gold"?Number(g):m.k==="platinum"?Number(pt):Number(ag);
+          const cast=loaded(spot,m.prem)*m.p;
+          const fab=loaded(spot,pmFab)*m.p;
+          return <div key={m.n} style={{display:"grid",gridTemplateColumns:col,gap:"0 12px",alignItems:"center",padding:"7px 0",borderTop:i?`1px solid ${BD_SOFT}`:"none"}}>
+            <span style={{color:INK,fontSize:13}}>{m.n}</span>
+            <span style={{textAlign:"right",fontWeight:700,color:INK,fontSize:13,fontVariantNumeric:"tabular-nums"}}>{fmt(cast)}</span>
+            <span style={{textAlign:"right",fontWeight:700,color:GOLD_D,fontSize:13,fontVariantNumeric:"tabular-nums"}}>{fmt(fab)}</span>
+          </div>;
+        })}
+        <div style={{fontSize:11,color:WG,marginTop:9,textAlign:"right"}}>per gram · loaded cost incl. premium</div>
+      </>;})()}
     </div>
   </Modal>;
 }
