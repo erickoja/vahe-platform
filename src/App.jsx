@@ -2949,7 +2949,7 @@ function NeedsAttention({items}){
     </div>
   </Card>;
 }
-function Dashboard({clients,jobs,quotes,payments,invoices,appointments=[],proposals=[],markProposalSeen,markRepairSeen,markupTable,biz,setBiz,setView,setSelClient,openJobs}){
+function Dashboard({clients,jobs,quotes,payments,invoices,appointments=[],proposals=[],markProposalSeen,markRepairSeen,markupTable,biz,setBiz,setView,setSelClient,openJobs,spotPrices,onUpdateSpot}){
   const go=openJobs||(()=>setView("jobs"));
   const dismissGS=()=>{if(!setBiz)return;const nb={...biz,gsDismissed:true};setBiz(nb);persist(K.biz,nb);};
   const isMobile=useIsMobile();
@@ -3110,6 +3110,9 @@ function Dashboard({clients,jobs,quotes,payments,invoices,appointments=[],propos
       <div style={{color:INK,fontSize:15,marginTop:6,lineHeight:1.5}}>{[todaysAppts.length>0&&`${todaysAppts.length} appointment${todaysAppts.length>1?"s":""} today`,`${active.length} active job${active.length!==1?"s":""}`,overdue.length>0&&`${overdue.length} overdue`,ready.length>0&&`${ready.length} ready to collect`].filter(Boolean).join(" · ")||"Here's everything happening in your workshop today."}</div>
       <div style={{color:WG,fontSize:12.5,marginTop:3}}>{fmtDate(today())}</div>
     </div>
+    {onUpdateSpot&&<button onClick={onUpdateSpot} title="Set today's gold, platinum and silver spot prices, and every quote recalculates automatically" style={{display:"inline-flex",alignItems:"center",gap:9,background:WHITE,border:`1px solid ${BD}`,borderRadius:10,padding:"9px 15px",fontSize:12.5,fontWeight:700,color:INK,cursor:"pointer",fontFamily:"inherit",marginBottom:24,boxShadow:SHADOW}}>
+      <span style={{color:GOLD_D,fontSize:14,lineHeight:1}}>⟳</span>Update metal spot prices{spotPrices?.updatedAt&&<span style={{fontWeight:400,color:WG}}> · last updated {fmtDate(spotPrices.updatedAt)}</span>}
+    </button>}
     {!biz?.gsDismissed&&<GettingStarted biz={biz} clients={clients} quotes={quotes} proposals={proposals} setView={setView} onDismiss={dismissGS}/>}
     <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(176px,1fr))",gap:14,marginBottom:24}}>
       <Stat label="Today's appts" value={todaysAppts.length} sub={todaysAppts.length>0?fmtTime(todaysAppts.slice().sort((a,b)=>String(a.time||"").localeCompare(String(b.time||"")))[0].time)+" first":"none today"} tint="slate" icon={<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M16 2v4M8 2v4m13 7v-1c0-3.771 0-5.657-1.172-6.828S16.771 4 13 4h-2C7.229 4 5.343 4 4.172 5.172S3 8.229 3 12v2c0 3.771 0 5.657 1.172 6.828S7.229 22 11 22M3 10h18"/><path d="M13 19.5s1.348.507 2 2.5c0 0 3.177-5 6-6"/></svg>} onClick={()=>setView("appointments")}/>
@@ -7907,11 +7910,10 @@ function PrintCastTable({items,onSavePrices,onQtyChange}){
   </div>;
 }
 
-function PricingDB({pricing,setPricing,spotPrices,setSpotPrices,markupTable,centreRates=DEFAULT_SETTING_RATES,setCentreRates}){
+function PricingDB({pricing,setPricing,spotPrices,setSpotPrices,markupTable,centreRates=DEFAULT_SETTING_RATES,setCentreRates,onUpdateSpot}){
   const isMobile=useIsMobile();
   const[modal,setModal]=useState(null);
   const[cf,setCf]=useState("All");
-  const[spotModal,setSpotModal]=useState(false);
   const[editingCostId,setEditingCostId]=useState(null);
   const[editingCostVal,setEditingCostVal]=useState("");
   const[dragId,setDragId]=useState(null);
@@ -8019,7 +8021,7 @@ function PricingDB({pricing,setPricing,spotPrices,setSpotPrices,markupTable,cent
   const DCOLORS={"Lab Grown Diamonds | D-E":"#96627C","Natural diamonds G-H SI1":"#4E8B6A","Natural diamonds D-E VS":"#2D7A4F"};
   return <div>
     <SectionHeader eyebrow="Cost prices" title="Pricing database" subtitle="Your metals, stones, setting and labour rates — the numbers behind every quote." action={<div style={{display:"flex",gap:10,alignItems:"center",flexWrap:"wrap"}}>
-      <Btn ghost onClick={()=>setSpotModal(true)}>⟳ Update spot prices</Btn>
+      <Btn ghost onClick={onUpdateSpot}>⟳ Update metal spot prices</Btn>
       <Btn onClick={()=>setModal("add")}>+ Add item</Btn>
     </div>}/>
     {spotPrices?.updatedAt&&<div style={{fontSize:12,color:WG,marginTop:-14,marginBottom:16}}>Metal spot prices last updated <strong style={{color:INK}}>{fmtDate(spotPrices.updatedAt)}</strong>{(Number(spotPrices.premGold)||Number(spotPrices.premGoldWhite)||Number(spotPrices.premPlatinum)||Number(spotPrices.premSilver))?" · casting premiums applied":""}</div>}
@@ -8242,9 +8244,6 @@ function PricingDB({pricing,setPricing,spotPrices,setSpotPrices,markupTable,cent
     </>}
     {modal&&<Modal title={modal==="add"?"New pricing item":"Edit item"} onClose={()=>setModal(null)}>
       <PricingItemForm initial={modal==="add"?{}:modal} spotPrices={spotPrices} onSave={f=>saveItem(f,modal==="add"?null:modal.id)} onCancel={()=>setModal(null)}/>
-    </Modal>}
-    {spotModal&&<Modal title="Update metal spot prices" onClose={()=>setSpotModal(false)}>
-      <SpotPriceUpdater spotPrices={spotPrices} setSpotPrices={setSpotPrices} pricing={pricing} setPricing={setPricing} onClose={()=>setSpotModal(false)}/>
     </Modal>}
   </div>;
 }
@@ -10370,6 +10369,7 @@ export default function App(){
   const[proposals,setProposals]=useState([]);
   const[appointments,setAppointments]=useState(SEED_APPOINTMENTS);
   const[spotPrices,setSpotPrices]=useState(SEED_SPOT);
+  const[spotModal,setSpotModal]=useState(false);   // "Update metal spot prices" — app-level so it opens from anywhere
   const[markupTable,setMarkupTable]=useState(DEFAULT_MARKUP_TABLE);
   const[naturalStoneMarkup,setNaturalStoneMarkup]=useState(DEFAULT_NATURAL_STONE_MARKUP);
   const[labStoneMarkup,setLabStoneMarkup]=useState(DEFAULT_LAB_STONE_MARKUP);
@@ -10784,7 +10784,7 @@ export default function App(){
     return()=>{stop=true;};
   },[studioId]);
   const render=()=>{
-    if(view==="dashboard")return <Dashboard clients={clients} jobs={jobs} quotes={quotes} payments={payments} invoices={invoices} appointments={appointments} proposals={proposals} markProposalSeen={markProposalSeen} markRepairSeen={markRepairSeen} markupTable={markupTable} biz={biz} setBiz={setBiz} setView={setView} setSelClient={setSelClient} openJobs={openJobs}/>;
+    if(view==="dashboard")return <Dashboard clients={clients} jobs={jobs} quotes={quotes} payments={payments} invoices={invoices} appointments={appointments} proposals={proposals} markProposalSeen={markProposalSeen} markRepairSeen={markRepairSeen} markupTable={markupTable} biz={biz} setBiz={setBiz} setView={setView} setSelClient={setSelClient} openJobs={openJobs} spotPrices={spotPrices} onUpdateSpot={()=>setSpotModal(true)}/>;
     if(view==="todo")return <TodoBoard todos={todos} setTodos={setTodos} jobs={jobs} clients={clients} setView={setView} setSelJob={setSelJob}/>;
     if(view==="appointments")return <Appointments appointments={appointments} setAppointments={setAppointments} clients={clients} setClients={setClients} jobs={jobs} setJobs={setJobs} setView={setView} setSelClient={setSelClient} setSelJob={setSelJob}/>;
     if(view==="clients")return <Clients clients={clients} setClients={setClients} jobs={jobs} payments={payments} setView={setView} setSelClient={setSelClient} quotes={quotes} biz={biz}/>;
@@ -10802,7 +10802,7 @@ export default function App(){
     if(view==="stock")return <StockBoard stock={stock} setStock={setStock} setView={setView}/>;
     if(view==="gemcustody")return <GemCustody custody={gemCustody} setCustody={setGemCustody} clients={clients} biz={biz}/>;
     if(view.startsWith("stockPrice_"))return <QuoteBuilder stockId={view.split("_")[1]} stock={stock} setStock={setStock} jobs={jobs} clients={clients} quotes={quotes} setQuotes={setQuotes} pricing={pricing} setPricing={setPricing} markupTable={markupTable} naturalStoneMarkup={naturalStoneMarkup} labStoneMarkup={labStoneMarkup} tradeMarkupTable={tradeMarkupTable} tradeNatStoneMarkup={tradeNatStoneMarkup} tradeLabStoneMarkup={tradeLabStoneMarkup} centreRates={centreRates} setCentreRates={setCentreRates} setView={setView}/>;
-    if(view==="pricing")return <PricingDB pricing={pricing} setPricing={setPricing} spotPrices={spotPrices} setSpotPrices={setSpotPrices} markupTable={markupTable} centreRates={centreRates} setCentreRates={setCentreRates}/>;
+    if(view==="pricing")return <PricingDB pricing={pricing} setPricing={setPricing} spotPrices={spotPrices} setSpotPrices={setSpotPrices} markupTable={markupTable} centreRates={centreRates} setCentreRates={setCentreRates} onUpdateSpot={()=>setSpotModal(true)}/>;
     if(view==="reports")return <Reports jobs={jobs} clients={clients} quotes={quotes} payments={payments} invoices={invoices} markupTable={markupTable} setView={setView}/>;
     if(view==="settings")return <Settings biz={biz} setBiz={setBiz} markupTable={markupTable} setMarkupTable={setMarkupTable} naturalStoneMarkup={naturalStoneMarkup} setNaturalStoneMarkup={setNaturalStoneMarkup} labStoneMarkup={labStoneMarkup} setLabStoneMarkup={setLabStoneMarkup} tradeMarkupTable={tradeMarkupTable} setTradeMarkupTable={setTradeMarkupTable} tradeNatStoneMarkup={tradeNatStoneMarkup} setTradeNatStoneMarkup={setTradeNatStoneMarkup} tradeLabStoneMarkup={tradeLabStoneMarkup} setTradeLabStoneMarkup={setTradeLabStoneMarkup} dataSafety={{backupNow,loadSnapshots:listCloudSnapshots,restoreSnapshot}} billing={billing}/>;
     return null;
@@ -10909,6 +10909,10 @@ export default function App(){
           </div>
         :<ErrorBoundary key={view} onHome={()=>setView("dashboard")}>{render()}</ErrorBoundary>}
     </div>
+    {/* Update metal spot prices — app-level so the button works from the Dashboard or Pricing DB */}
+    {spotModal&&<Modal title="Update metal spot prices" onClose={()=>setSpotModal(false)}>
+      <SpotPriceUpdater spotPrices={spotPrices} setSpotPrices={setSpotPrices} pricing={pricing} setPricing={setPricing} onClose={()=>setSpotModal(false)}/>
+    </Modal>}
     {/* Live response pop-up — proposals & repairs (any view) */}
     {acceptToast&&<div onClick={()=>{const j=acceptToast.jobId;setAcceptToast(null);if(j)setView("jobDetail_"+j);}}
       style={{position:"fixed",bottom:24,right:24,maxWidth:340,background:INK,color:WHITE,borderRadius:5,padding:"16px 18px",boxShadow:"0 12px 40px rgba(0,0,0,0.35)",zIndex:9999,cursor:"pointer",border:`1px solid ${(acceptToast.color||OK)}66`}}>
