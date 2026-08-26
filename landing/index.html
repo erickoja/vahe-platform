@@ -487,12 +487,14 @@
   .qbtabbar label:hover{color:var(--strong)}
   #qbtab-quote:checked~.qbtabbar label[for="qbtab-quote"],
   #qbtab-proposal:checked~.qbtabbar label[for="qbtab-proposal"],
+  #qbtab-accept:checked~.qbtabbar label[for="qbtab-accept"],
   #qbtab-invoice:checked~.qbtabbar label[for="qbtab-invoice"],
   #qbtab-todo:checked~.qbtabbar label[for="qbtab-todo"],
   #qbtab-metals:checked~.qbtabbar label[for="qbtab-metals"],
   #qbtab-job:checked~.qbtabbar label[for="qbtab-job"]{background:var(--accent);color:#fff}
   #qbtab-quote:focus-visible~.qbtabbar label[for="qbtab-quote"],
   #qbtab-proposal:focus-visible~.qbtabbar label[for="qbtab-proposal"],
+  #qbtab-accept:focus-visible~.qbtabbar label[for="qbtab-accept"],
   #qbtab-invoice:focus-visible~.qbtabbar label[for="qbtab-invoice"],
   #qbtab-todo:focus-visible~.qbtabbar label[for="qbtab-todo"],
   #qbtab-metals:focus-visible~.qbtabbar label[for="qbtab-metals"],
@@ -501,6 +503,7 @@
   .qbpanel .qbframe{margin-top:0}
   #qbtab-quote:checked~.qbpanel-quote,
   #qbtab-proposal:checked~.qbpanel-proposal,
+  #qbtab-accept:checked~.qbpanel-accept,
   #qbtab-invoice:checked~.qbpanel-invoice,
   #qbtab-todo:checked~.qbpanel-todo,
   #qbtab-metals:checked~.qbpanel-metals,
@@ -590,7 +593,47 @@
   .pb-foot{display:flex;justify-content:space-between;align-items:center;gap:12px 16px;flex-wrap:wrap;padding:13px 20px;border-top:1px solid var(--qbline)}
   .pb-selcount{font-size:12.5px;font-weight:700;color:var(--qbink)}
   .pb-footacts{display:flex;gap:10px;align-items:center}
+  .pb-expand{margin-top:11px;padding-left:28px}
+  .pb-exlbl{font-size:9px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--qbmut);margin-bottom:8px}
+  .pb-thumbs{display:flex;gap:9px;flex-wrap:wrap}
+  .pb-thumb{width:74px;height:74px;border-radius:7px;border:2px solid var(--qbacc);overflow:hidden;position:relative;background:linear-gradient(135deg,#efeae4,#e2ddd5);display:flex;align-items:center;justify-content:center;color:#b9b0a6}
+  .pb-thumb.off{border:1px solid var(--qbline);opacity:.7}
+  .pb-thumb svg{width:26px;height:26px}
+  .pb-thumb .n{position:absolute;top:3px;left:3px;min-width:16px;height:16px;padding:0 3px;box-sizing:border-box;border-radius:8px;background:var(--qbacc);color:#fff;font-size:9px;font-weight:800;display:flex;align-items:center;justify-content:center;line-height:1}
+  .pb-thumb .z{position:absolute;bottom:3px;right:3px;width:17px;height:17px;border-radius:50%;background:rgba(0,0,0,.55);color:#fff;font-size:9px;display:flex;align-items:center;justify-content:center}
   @media(max-width:560px){.pb-modes{grid-template-columns:1fr}}
+
+  /* proposal-acceptance showcase (in-app alert + email notification) */
+  .ac-wrap{background:#f2ede7;padding:30px 22px}
+  .ac-lede{max-width:720px;margin:0 auto 20px;text-align:center;font-size:12.5px;color:var(--qbmut);line-height:1.6}
+  .ac-grid{display:grid;grid-template-columns:1fr 1fr;gap:18px;max-width:900px;margin:0 auto;align-items:start;text-align:left}
+  .ac-col>.lbl{font-size:9px;font-weight:800;letter-spacing:.09em;text-transform:uppercase;color:var(--qbmut);margin-bottom:9px;text-align:center}
+  .ac-alert{display:flex;align-items:center;gap:12px;background:color-mix(in srgb,var(--qbok) 8%,#fff);border:1px solid color-mix(in srgb,var(--qbok) 33%,transparent);border-radius:11px;padding:15px 16px}
+  .ac-alert .em{font-size:23px;line-height:1;flex:none}
+  .ac-alert .tx{flex:1;min-width:0}
+  .ac-alert .h{font-size:13px;font-weight:800;color:var(--qbink)}
+  .ac-alert .s{font-size:11.5px;color:var(--qbmut);margin-top:3px;line-height:1.5}
+  .ac-alert .s b{color:var(--qbok)}
+  .ac-alert .rev{flex:none;font-size:11px;font-weight:700;background:var(--qbacc);color:#fff;border-radius:8px;padding:7px 12px}
+  .ac-alert .x{flex:none;color:var(--qbmut);font-size:16px;line-height:1}
+  .ac-mail{background:#fff;border:1px solid var(--qbline);border-radius:11px;overflow:hidden;box-shadow:0 2px 6px rgba(72,60,84,.05)}
+  .ac-mailhead{padding:13px 16px;border-bottom:1px solid var(--qbline)}
+  .ac-mailsub{font-size:13px;font-weight:800;color:var(--qbink)}
+  .ac-mailmeta{display:flex;align-items:center;gap:9px;margin-top:10px}
+  .ac-av{width:30px;height:30px;border-radius:50%;background:var(--qbacc);color:#fff;font-size:12px;font-weight:800;display:flex;align-items:center;justify-content:center;flex:none}
+  .ac-from{font-size:11.5px;font-weight:700;color:var(--qbink)}
+  .ac-to{font-size:10.5px;color:var(--qbmut);margin-top:1px}
+  .ac-mailbody{padding:15px 16px;font-size:12px;color:var(--qbink);line-height:1.65}
+  .ac-mailbody p{margin:0 0 11px}
+  .ac-mailbody b{font-weight:700}
+  .ac-mini{background:var(--qbbg);border:1px solid var(--qbline);border-radius:9px;padding:11px 13px;margin:0 0 12px}
+  .ac-mini .r{display:flex;justify-content:space-between;gap:12px;font-size:11.5px;padding:2px 0}
+  .ac-mini .r .k{color:var(--qbmut)}
+  .ac-mini .r .v{font-weight:700;color:var(--qbink)}
+  .ac-mini .r.tot{border-top:1px solid var(--qbline);margin-top:5px;padding-top:7px}
+  .ac-mini .r.tot .v{color:var(--qbok)}
+  .ac-pill{display:inline-block;font-size:11px;font-weight:700;background:var(--qbacc);color:#fff;border-radius:8px;padding:8px 14px}
+  @media(max-width:640px){.ac-grid{grid-template-columns:1fr}}
 
   /* master job page rebuild (shares the .qb frame + sidebar) */
   .jb-head{display:flex;justify-content:space-between;align-items:flex-start;gap:14px 18px;flex-wrap:wrap}
@@ -1136,12 +1179,13 @@
         <div class="sec-head reveal">
           <p class="eyebrow">Inside the app</p>
           <h2>The real workspace, rebuilt so it stays sharp.</h2>
-          <p>The actual screens you work in, from quoting a bespoke piece and sending an online proposal to invoicing it and repricing your metals to the day&rsquo;s spot. Rebuilt in the page rather than screenshotted, so every figure reads crisply on any display.</p>
+          <p>The actual screens you work in, from quoting a bespoke piece and sending an online proposal, to the moment a client accepts, the GST invoice, and repricing your metals to the day&rsquo;s spot. Rebuilt in the page rather than screenshotted, so every figure reads crisply on any display.</p>
         </div>
         <div class="qbtabs reveal">
           <input type="radio" name="qbtab" id="qbtab-job" checked>
           <input type="radio" name="qbtab" id="qbtab-quote">
           <input type="radio" name="qbtab" id="qbtab-proposal">
+          <input type="radio" name="qbtab" id="qbtab-accept">
           <input type="radio" name="qbtab" id="qbtab-invoice">
           <input type="radio" name="qbtab" id="qbtab-metals">
           <input type="radio" name="qbtab" id="qbtab-todo">
@@ -1149,6 +1193,7 @@
             <label for="qbtab-job">Job</label>
             <label for="qbtab-quote">Quote builder</label>
             <label for="qbtab-proposal">Proposal</label>
+            <label for="qbtab-accept">Acceptance</label>
             <label for="qbtab-invoice">Invoice</label>
             <label for="qbtab-metals">Metal prices</label>
             <label for="qbtab-todo">To-do</label>
@@ -1442,7 +1487,18 @@
                       </div>
                       <span class="pb-rec on">&#9733; Recommend</span>
                     </div>
-                    <div class="pb-media">&#9662; Photos &amp; video <span class="mut">&middot; 3 photos &middot; video linked</span></div>
+                    <div class="pb-media">&#9662; Photos &amp; video <span class="mut">&middot; 3 selected &middot; video linked</span></div>
+                    <div class="pb-expand">
+                      <div class="pb-exlbl">Photos for this option</div>
+                      <div class="pb-thumbs">
+                        <div class="pb-thumb"><span class="n">1</span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.3"><path d="M6 3h12l3 6-9 12L3 9z"/><path d="M3 9h18M9 3 6 9l6 12 6-12-3-6"/></svg><span class="z">&#128269;</span></div>
+                        <div class="pb-thumb"><span class="n">2</span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.3"><path d="M6 3h12l3 6-9 12L3 9z"/><path d="M3 9h18M9 3 6 9l6 12 6-12-3-6"/></svg><span class="z">&#128269;</span></div>
+                        <div class="pb-thumb"><span class="n">3</span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.3"><path d="M6 3h12l3 6-9 12L3 9z"/><path d="M3 9h18M9 3 6 9l6 12 6-12-3-6"/></svg><span class="z">&#128269;</span></div>
+                        <div class="pb-thumb off"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.3"><path d="M6 3h12l3 6-9 12L3 9z"/><path d="M3 9h18M9 3 6 9l6 12 6-12-3-6"/></svg></div>
+                      </div>
+                      <div class="pb-exlbl" style="margin-top:12px">Video for this option</div>
+                      <div class="mp-input" style="color:var(--qbmut);font-weight:500">https://youtu.be/render-walkthrough</div>
+                    </div>
                   </div>
 
                   <div class="pb-opt on">
@@ -1495,6 +1551,53 @@
             </div>
           </div>
           <figcaption>The proposal builder in Workshop Pilot: offer a client one or several options, mark your pick, and publish a link they accept online. Rebuilt in HTML so it stays sharp.</figcaption>
+        </figure>
+          </div>
+          <div class="qbpanel qbpanel-accept">
+        <figure class="qbframe">
+          <div class="qbbar"><span></span><span></span><span></span></div>
+          <div class="qbscroll">
+            <div class="ac-wrap">
+              <div class="ac-lede">The moment your client taps Accept online, you know. A card pops up on your dashboard and an email lands in your inbox, each with their name, the option they chose, and the deposit to collect. The quote is approved automatically, ready to invoice.</div>
+              <div class="ac-grid">
+                <div class="ac-col">
+                  <div class="lbl">On your dashboard</div>
+                  <div class="ac-alert">
+                    <span class="em">&#127881;</span>
+                    <div class="tx">
+                      <div class="h">Proposal accepted &mdash; Mara &amp; Tom</div>
+                      <div class="s"><b>Mara</b> accepted &ldquo;Platinum solitaire &middot; Lab-Grown Emerald 1.5ct D VVS2&rdquo; for Engagement ring on 26 Aug 2026 &mdash; quote approved.</div>
+                    </div>
+                    <span class="rev">Review</span>
+                    <span class="x">&times;</span>
+                  </div>
+                </div>
+                <div class="ac-col">
+                  <div class="lbl">In your inbox</div>
+                  <div class="ac-mail">
+                    <div class="ac-mailhead">
+                      <div class="ac-mailsub">&#127881; Proposal accepted &mdash; Mara &amp; Tom</div>
+                      <div class="ac-mailmeta">
+                        <span class="ac-av">W</span>
+                        <div><div class="ac-from">Workshop Pilot</div><div class="ac-to">to you@yourstudio.com</div></div>
+                      </div>
+                    </div>
+                    <div class="ac-mailbody">
+                      <p>Good news &mdash; <b>Mara</b> just accepted their proposal online.</p>
+                      <div class="ac-mini">
+                        <div class="r"><span class="k">Option</span><span class="v">Platinum solitaire</span></div>
+                        <div class="r"><span class="k">Total (inc GST)</span><span class="v">$7,450.00</span></div>
+                        <div class="r tot"><span class="k">Deposit to collect (30%)</span><span class="v">$2,235.00</span></div>
+                      </div>
+                      <p>The quote is now approved and the job is ready to invoice.</p>
+                      <span class="ac-pill">View the job &rarr;</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <figcaption>What lands when a client accepts: an in-app alert and an email to your studio inbox. Rebuilt in HTML so it stays sharp.</figcaption>
         </figure>
           </div>
           <div class="qbpanel qbpanel-invoice">
