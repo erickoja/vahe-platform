@@ -2233,21 +2233,25 @@ function Card({children,style={},onClick,id}){
   return <div id={id} onClick={onClick} onMouseEnter={()=>onClick&&setH(true)} onMouseLeave={()=>setH(false)}
     style={{background:WHITE,borderRadius:RADIUS,border:`1px solid ${onClick&&h?"#D2D2D6":BD_SOFT}`,padding:"22px 26px",marginBottom:16,transition:"all 0.18s",cursor:onClick?"pointer":"default",boxShadow:onClick&&h?SHADOW_HV:SHADOW,transform:onClick&&h?"translateY(-2px)":"none",...style}}>{children}</div>;
 }
-function Modal({title,onClose,children,wide}){
+function Modal({title,onClose,children,wide,footer}){
   const isMobile=useIsMobile();
   // Lock the page behind the modal so its scrollbar doesn't show alongside the modal's own, and the
   // background can't scroll under the backdrop. Restores the previous value on close (handles nesting).
   useEffect(()=>{const prev=document.body.style.overflow;document.body.style.overflow="hidden";return()=>{document.body.style.overflow=prev;};},[]);
   // Padding on the overlay keeps the card off the screen edges, so the dark backdrop frames it on
   // all sides — the main visual cue that you're in a modal (without it, a full-width phone card
-  // reads as just another page section).
+  // reads as just another page section). The card is a flex column: a pinned header, a scrolling
+  // body (so the scrollbar lives inside the content, not on the card edge), and an optional pinned
+  // footer for actions that must stay reachable in long modals.
+  const px=isMobile?20:34;
   return <div style={{position:"fixed",inset:0,background:"rgba(26,23,20,0.62)",display:"flex",alignItems:"center",justifyContent:"center",zIndex:200,backdropFilter:"blur(3px)",padding:isMobile?16:24,boxSizing:"border-box"}}>
-    <div style={{background:WHITE,borderRadius:isMobile?16:18,padding:isMobile?"22px 20px":"30px 34px",width:"100%",maxWidth:wide?860:580,maxHeight:isMobile?"90vh":"92vh",overflowY:"auto",border:`1px solid ${BD}`,boxShadow:"0 20px 60px rgba(0,0,0,0.35), 0 4px 16px rgba(0,0,0,0.18)"}}>
-      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",gap:12,marginBottom:isMobile?18:22}}>
+    <div style={{background:WHITE,borderRadius:isMobile?16:18,width:"100%",maxWidth:wide?860:580,maxHeight:isMobile?"90vh":"92vh",display:"flex",flexDirection:"column",overflow:"hidden",border:`1px solid ${BD}`,boxShadow:"0 20px 60px rgba(0,0,0,0.35), 0 4px 16px rgba(0,0,0,0.18)"}}>
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",gap:12,padding:`${isMobile?15:17}px ${px}px`,borderBottom:`1px solid ${BD}`,flexShrink:0}}>
         <h2 style={{margin:0,fontSize:isMobile?17:19,fontWeight:800,color:INK,minWidth:0}}>{title}</h2>
         <button onClick={onClose} aria-label="Close" style={{background:PARCH,border:`1px solid ${BD}`,borderRadius:9,width:34,height:34,display:"flex",alignItems:"center",justifyContent:"center",fontSize:21,cursor:"pointer",color:WG,lineHeight:1,padding:0,flexShrink:0}}>×</button>
       </div>
-      {children}
+      <div style={{overflowY:"auto",overflowX:"hidden",flex:"1 1 auto",padding:`${isMobile?20:26}px ${px}px`}}>{children}</div>
+      {footer&&<div style={{flexShrink:0,borderTop:`1px solid ${BD}`,background:WHITE,padding:`${isMobile?12:14}px ${px}px`}}>{footer}</div>}
     </div>
   </div>;
 }
@@ -5399,6 +5403,7 @@ function JobProposals({job,client,quotes,proposals,setProposals,setQuotes,biz,ma
   const [busy,setBusy]=useState(false);
   const [copied,setCopied]=useState("");
   const [checking,setChecking]=useState("");
+  const [expanded,setExpanded]=useState({});   // per-option: show its photos/video editor (default open)
   const [selectMode,setSelectMode]=useState("single");   // "single" = pick one, "multi" = pick any (bundle)
   const [optPhotos,setOptPhotos]=useState({});            // quoteId → chosen job image path
   const [optVideos,setOptVideos]=useState({});            // quoteId → video URL (YouTube/Vimeo/Loom/direct)
@@ -5605,10 +5610,21 @@ function JobProposals({job,client,quotes,proposals,setProposals,setQuotes,biz,ma
       </div>;
     })}
 
-    {builder&&<Modal title={editingId?"Edit proposal":"New proposal"} onClose={()=>{setBuilder(false);setEditingId(null);}} wide>
-      <div style={{fontSize:13,color:WG,marginBottom:14,lineHeight:1.6}}>Pick the quote(s) to offer as options, then choose how the client selects.</div>
+    {builder&&<Modal title={editingId?"Edit proposal":"New proposal"} onClose={()=>{setBuilder(false);setEditingId(null);}} wide
+      footer={<div style={{display:"flex",gap:12,justifyContent:"space-between",alignItems:"center",flexWrap:"wrap"}}>
+        <div style={{marginRight:"auto",minWidth:0}}>
+          <div style={{fontSize:12.5,fontWeight:700,color:INK}}>{sel.length} option{sel.length!==1?"s":""} selected</div>
+          {selectMode==="multi"&&selectedTotal>0&&<div style={{fontSize:11,color:WG,marginTop:1}}>Combined {fmtR(selectedTotal)} inc {TAX_LABEL} · {Number(dueNow)>0?`${fmtR(Number(dueNow))} due now`:`${fmtR(selectedTotal*depositPct/100)} deposit (${depositPct}%)`}</div>}
+        </div>
+        <div style={{display:"flex",gap:10,alignItems:"center",flexShrink:0}}>
+          <Btn ghost onClick={()=>{setBuilder(false);setEditingId(null);}}>Cancel</Btn>
+          <Btn onClick={createAndShare} disabled={busy||!sel.length}>{busy?(editingId?"Updating…":"Publishing…"):(editingId?"Update proposal":"Publish & copy link")}</Btn>
+        </div>
+      </div>}>
+      <div style={{fontSize:13,color:WG,marginBottom:16,lineHeight:1.6}}>Pick the quote(s) to offer as options, then choose how the client selects.</div>
       {/* How the client chooses */}
-      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12,marginBottom:20}}>
+      <div style={{fontSize:10,fontWeight:700,color:WG,textTransform:"uppercase",letterSpacing:"0.06em",marginBottom:9}}>How the client chooses</div>
+      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12,marginBottom:22}}>
         {[["single","Choose one","The client picks a single option. Great for alternatives like Good, Better, Best."],["multi","Choose any (bundle)","The client can tick more than one, for sets they buy together (e.g. two wedding bands). Total is the chosen options combined."]].map(([m,t,d])=>{
           const active=selectMode===m;
           return <button key={m} onClick={()=>setSelectMode(m)} style={{textAlign:"left",padding:"15px 16px",borderRadius:12,border:`1.5px solid ${active?GOLD:BD}`,background:active?GOLD_L:WHITE,cursor:"pointer",fontFamily:"inherit",display:"flex",gap:12,alignItems:"flex-start",boxShadow:active?`0 0 0 3px ${GOLD_L}`:"0 1px 2px rgba(0,0,0,0.03)",transition:"border-color 0.15s, box-shadow 0.15s, background 0.15s"}}>
@@ -5645,7 +5661,12 @@ function JobProposals({job,client,quotes,proposals,setProposals,setQuotes,biz,ma
               title="Mark as recommended"
               style={{background:recommended===q.id?GOLD:"none",border:`1px solid ${recommended===q.id?GOLD:BD}`,borderRadius:6,padding:"5px 11px",fontSize:12,fontWeight:700,color:recommended===q.id?WHITE:(on?GOLD_D:WG),cursor:on?"pointer":"not-allowed",fontFamily:"inherit",opacity:on?1:0.5}}>★ Recommend</button>}
           </div>
-          {on&&<div style={{marginTop:10,paddingLeft:28}}>
+          {on&&(()=>{const isExp=expanded[q.id]!==false;const pc=(optPhotos[q.id]||[]).length;const hv=(optVideos[q.id]||"").trim();
+          return <div style={{marginTop:10,paddingLeft:28}}>
+            <button onClick={()=>setExpanded(e=>({...e,[q.id]:!isExp}))} style={{background:"none",border:"none",padding:0,cursor:"pointer",fontFamily:"inherit",display:"inline-flex",alignItems:"center",gap:7,color:GOLD_D,fontSize:11,fontWeight:700}}>
+              <span style={{fontSize:9,color:WG}}>{isExp?"▾":"▸"}</span>Photos &amp; video<span style={{color:WG,fontWeight:400}}>{pc?` · ${pc} photo${pc!==1?"s":""}`:" · none yet"}{hv?" · video linked":""}</span>
+            </button>
+            {isExp&&<div style={{marginTop:10}}>
             {jobPhotos.length===0
               ?<div style={{fontSize:11,color:WG,fontStyle:"italic"}}>Upload images to this job to show a photo with this option.</div>
               :<>
@@ -5672,7 +5693,8 @@ function JobProposals({job,client,quotes,proposals,setProposals,setQuotes,biz,ma
               <label style={{fontSize:10,fontWeight:700,color:WG,textTransform:"uppercase",letterSpacing:"0.06em",display:"block",marginBottom:6}}>Video for this option <span style={{fontWeight:400,textTransform:"none",letterSpacing:0}}>(optional — paste a YouTube, Vimeo, Loom or direct video link)</span></label>
               <input value={optVideos[q.id]||""} onChange={e=>setOptVideos(p=>({...p,[q.id]:e.target.value}))} placeholder="https://youtu.be/…" style={{...SS.inp,marginTop:0,fontSize:13,padding:"7px 10px"}}/>
             </div>
-          </div>}
+            </div>}
+          </div>;})()}
         </div>;
       })}
       <div style={{marginTop:14}}>
@@ -5688,11 +5710,6 @@ function JobProposals({job,client,quotes,proposals,setProposals,setQuotes,biz,ma
           <Input label="Payment note" value={payNote} onChange={setPayNote} placeholder="e.g. Remaining 50% of the centre diamond"/>
         </div>
         {!(Number(dueNow)>0)&&selectedTotal>0&&<div style={{fontSize:11,color:WG,marginTop:8}}>If they choose {selectMode==="multi"?"all the pieces":"this option"}, that deposit is {fmtR(selectedTotal*depositPct/100)} ({depositPct}% of {fmtR(selectedTotal)}). A smaller selection is scaled down automatically.</div>}
-      </div>
-      <div style={{display:"flex",gap:10,justifyContent:"flex-end",marginTop:18,alignItems:"center"}}>
-        <span style={{fontSize:12,color:WG,marginRight:"auto"}}>{sel.length} option{sel.length!==1?"s":""} selected</span>
-        <Btn ghost onClick={()=>{setBuilder(false);setEditingId(null);}}>Cancel</Btn>
-        <Btn onClick={createAndShare} disabled={busy||!sel.length}>{busy?(editingId?"Updating…":"Publishing…"):(editingId?"Update proposal":"Publish & copy link")}</Btn>
       </div>
     </Modal>}
     {preview&&<div onClick={()=>setPreview(null)} style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.85)",zIndex:700,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",gap:12,padding:"30px 16px",cursor:"zoom-out"}}>
