@@ -528,6 +528,14 @@
   .mp-premhead .t{font-size:9px;font-weight:800;letter-spacing:.07em;text-transform:uppercase;color:var(--qbink)}
   .mp-premhead .d{font-size:11px;color:var(--qbmut);margin-top:3px}
   .mp-premhead .edit{font-size:11px;font-weight:700;color:var(--qbmut);white-space:nowrap}
+  .mp-prembody{padding:16px;border-top:1px solid var(--qbline);background:#fff}
+  .mp-subh{font-size:9px;font-weight:800;letter-spacing:.07em;text-transform:uppercase;color:var(--qbink);display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+  .mp-subh .tag{color:var(--qbmut);font-weight:700}
+  .mp-subh .i{width:12px;height:12px;border:1px solid var(--qbline);border-radius:3px;display:inline-flex;align-items:center;justify-content:center;font-size:8px;color:var(--qbmut)}
+  .mp-note{font-size:11px;color:var(--qbmut);line-height:1.5;margin:6px 0 11px}
+  .mp-note b{color:var(--qbink)}
+  .mp-grid2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+  .mp-pdiv{border-top:1px solid #ece7e0;margin:13px 0 0;padding-top:14px}
   .mp-preview{background:var(--qbbg);border:1px solid var(--qbline);border-radius:13px;padding:15px 16px}
   .mp-preview .h{font-size:9px;font-weight:800;letter-spacing:.07em;text-transform:uppercase;color:var(--qbink);margin-bottom:11px}
   .mp-prow{display:grid;grid-template-columns:minmax(0,1fr) 86px 86px;gap:0 24px;align-items:center;padding:7px 0}
@@ -540,7 +548,7 @@
   .mp-foot{display:flex;justify-content:flex-end;gap:10px;padding:13px 20px;border-top:1px solid var(--qbline)}
   .mp-cancel{font-size:12px;font-weight:700;border:1px solid var(--qbline);background:#fff;color:var(--qbink);border-radius:9px;padding:9px 16px}
   .mp-apply{font-size:12px;font-weight:700;background:var(--qbacc);border:1px solid var(--qbacc);color:#fff;border-radius:9px;padding:9px 18px}
-  @media(max-width:560px){.mp-wrap{padding:20px 14px}.mp-grid3{grid-template-columns:1fr}.mp-prow{grid-template-columns:minmax(0,1fr) 68px 68px;gap:0 12px}}
+  @media(max-width:560px){.mp-wrap{padding:20px 14px}.mp-grid3,.mp-grid2{grid-template-columns:1fr}.mp-prow{grid-template-columns:minmax(0,1fr) 68px 68px;gap:0 12px}}
 
   /* master job page rebuild (shares the .qb frame + sidebar) */
   .jb-head{display:flex;justify-content:space-between;align-items:flex-start;gap:14px 18px;flex-wrap:wrap}
@@ -1497,7 +1505,25 @@
                         <div class="t">Supplier premiums</div>
                         <div class="d">What you pay above spot to cast or hand-fabricate</div>
                       </div>
-                      <div class="edit">Edit &#9662;</div>
+                      <div class="edit">Hide &#9652;</div>
+                    </div>
+                    <div class="mp-prembody">
+                      <div class="mp-subh">Casting house premium <span class="tag">&middot; cast metal</span> <span class="i">i</span></div>
+                      <div class="mp-note">What your casting house charges <b>above spot</b> to cast a piece in each metal. This is your <b>cast</b> cost. Saved once, every price update (manual or live) applies it automatically.</div>
+                      <div class="mp-grid2">
+                        <div class="mp-field"><div class="l">Gold, yellow / rose (%)</div><div class="mp-input">27.5</div></div>
+                        <div class="mp-field"><div class="l">Gold, white (%)</div><div class="mp-input">32.5</div></div>
+                        <div class="mp-field"><div class="l">Platinum premium (%)</div><div class="mp-input">60</div></div>
+                        <div class="mp-field"><div class="l">Silver premium (%)</div><div class="mp-input">100</div></div>
+                      </div>
+                      <div class="mp-note" style="margin:8px 0 0">White gold usually costs more to cast because of the palladium in the master alloy. Set a higher % here; it applies only to metal items marked <b>white</b>.</div>
+                      <div class="mp-pdiv">
+                        <div class="mp-subh">Fabrication premium <span class="tag">&middot; hand-fabricated metal</span></div>
+                        <div class="mp-note">For metal you <b>work yourself</b>, bought as mill product (sheet, wire, grain) or cast in house. You usually pay far less over spot than a casting house charges, so keep this premium low, or set it to zero. Bench labour is billed separately.</div>
+                        <div class="mp-grid2">
+                          <div class="mp-field"><div class="l">Fabrication / mill premium (%)</div><div class="mp-input">10</div></div>
+                        </div>
+                      </div>
                     </div>
                   </div>
 
