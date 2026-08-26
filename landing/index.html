@@ -486,11 +486,13 @@
   .qbtabbar label{padding:9px 22px;border-radius:8px;font-size:.92rem;font-weight:700;color:var(--muted);cursor:pointer;transition:background .15s ease,color .15s ease}
   .qbtabbar label:hover{color:var(--strong)}
   #qbtab-quote:checked~.qbtabbar label[for="qbtab-quote"],
+  #qbtab-proposal:checked~.qbtabbar label[for="qbtab-proposal"],
   #qbtab-invoice:checked~.qbtabbar label[for="qbtab-invoice"],
   #qbtab-todo:checked~.qbtabbar label[for="qbtab-todo"],
   #qbtab-metals:checked~.qbtabbar label[for="qbtab-metals"],
   #qbtab-job:checked~.qbtabbar label[for="qbtab-job"]{background:var(--accent);color:#fff}
   #qbtab-quote:focus-visible~.qbtabbar label[for="qbtab-quote"],
+  #qbtab-proposal:focus-visible~.qbtabbar label[for="qbtab-proposal"],
   #qbtab-invoice:focus-visible~.qbtabbar label[for="qbtab-invoice"],
   #qbtab-todo:focus-visible~.qbtabbar label[for="qbtab-todo"],
   #qbtab-metals:focus-visible~.qbtabbar label[for="qbtab-metals"],
@@ -498,6 +500,7 @@
   .qbpanel{display:none;margin-top:22px}
   .qbpanel .qbframe{margin-top:0}
   #qbtab-quote:checked~.qbpanel-quote,
+  #qbtab-proposal:checked~.qbpanel-proposal,
   #qbtab-invoice:checked~.qbpanel-invoice,
   #qbtab-todo:checked~.qbpanel-todo,
   #qbtab-metals:checked~.qbpanel-metals,
@@ -549,6 +552,45 @@
   .mp-cancel{font-size:12px;font-weight:700;border:1px solid var(--qbline);background:#fff;color:var(--qbink);border-radius:9px;padding:9px 16px}
   .mp-apply{font-size:12px;font-weight:700;background:var(--qbacc);border:1px solid var(--qbacc);color:#fff;border-radius:9px;padding:9px 18px}
   @media(max-width:560px){.mp-wrap{padding:20px 14px}.mp-grid3,.mp-grid2{grid-template-columns:1fr}.mp-prow{grid-template-columns:minmax(0,1fr) 68px 68px;gap:0 12px}}
+
+  /* proposal builder modal rebuild (reuses the .mp modal shell + dark backdrop) */
+  .pb-modal{width:100%;max-width:720px;background:#fff;border:1px solid var(--qbline);border-radius:16px;box-shadow:0 24px 60px rgba(0,0,0,.4);overflow:hidden;text-align:left;color:var(--qbink)}
+  .pb-sec{font-size:9px;font-weight:800;letter-spacing:.07em;text-transform:uppercase;color:var(--qbmut);margin-bottom:9px}
+  .pb-modes{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:20px}
+  .pb-mode{display:flex;gap:11px;align-items:flex-start;padding:14px 15px;border:1.5px solid var(--qbline);border-radius:12px;background:#fff}
+  .pb-mode.on{border-color:var(--qbacc);background:color-mix(in srgb,var(--qbacc) 8%,#fff);box-shadow:0 0 0 3px color-mix(in srgb,var(--qbacc) 12%,transparent)}
+  .pb-radio{flex:none;margin-top:1px;width:17px;height:17px;border-radius:50%;border:2px solid #cfc5bb;background:#fff;display:flex;align-items:center;justify-content:center}
+  .pb-mode.on .pb-radio{border-color:var(--qbacc)}
+  .pb-radio i{width:8px;height:8px;border-radius:50%;background:var(--qbacc);display:none}
+  .pb-mode.on .pb-radio i{display:block}
+  .pb-mode .t{font-size:13px;font-weight:700;color:var(--qbink);margin-bottom:3px}
+  .pb-mode.on .t{color:var(--qbacc2)}
+  .pb-mode .d{font-size:11px;color:var(--qbmut);line-height:1.45}
+  .pb-ohead{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:9px}
+  .pb-bulk{font-size:11px;font-weight:700;color:var(--qbacc2);white-space:nowrap}
+  .pb-opt{border:1.5px solid var(--qbline);border-radius:11px;padding:11px 13px;margin-bottom:9px;background:#fff}
+  .pb-opt.on{border-color:var(--qbacc);background:color-mix(in srgb,var(--qbacc) 6%,#fff);box-shadow:0 0 0 3px color-mix(in srgb,var(--qbacc) 10%,transparent)}
+  .pb-optrow{display:flex;align-items:center;gap:12px}
+  .pb-check{flex:none;width:16px;height:16px;border-radius:4px;border:1.5px solid var(--qbline);background:#fff;display:flex;align-items:center;justify-content:center;color:#fff;font-size:11px;line-height:1}
+  .pb-opt.on .pb-check{background:var(--qbacc);border-color:var(--qbacc)}
+  .pb-optmain{flex:1;min-width:0}
+  .pb-optt{font-size:13.5px;font-weight:700;color:var(--qbink)}
+  .pb-optm{font-size:11.5px;color:var(--qbmut);margin-top:1px}
+  .pb-rec{flex:none;font-size:11px;font-weight:700;border:1px solid var(--qbline);border-radius:6px;padding:5px 11px;color:var(--qbmut);background:#fff}
+  .pb-rec.on{background:var(--qbacc);border-color:var(--qbacc);color:#fff}
+  .pb-rec.off{opacity:.5}
+  .pb-media{margin-top:10px;padding-left:28px;font-size:11px;font-weight:700;color:var(--qbacc2);display:flex;align-items:center;gap:7px;flex-wrap:wrap}
+  .pb-media .mut{color:var(--qbmut);font-weight:400}
+  .pb-field{margin-top:14px}
+  .pb-l{font-size:9px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--qbmut);display:block;margin-bottom:6px}
+  .pb-l .opt{font-weight:400;letter-spacing:0;text-transform:none;color:var(--qbmut)}
+  .pb-ta{background:#fff;border:1px solid var(--qbline);border-radius:9px;padding:11px 13px;font-size:12px;color:var(--qbink);line-height:1.6}
+  .pb-hint{font-size:11px;color:var(--qbmut);margin-top:6px}
+  .pb-pay{margin-top:16px;border:1px solid var(--qbline);border-radius:11px;padding:15px 16px;background:var(--qbbg)}
+  .pb-foot{display:flex;justify-content:space-between;align-items:center;gap:12px 16px;flex-wrap:wrap;padding:13px 20px;border-top:1px solid var(--qbline)}
+  .pb-selcount{font-size:12.5px;font-weight:700;color:var(--qbink)}
+  .pb-footacts{display:flex;gap:10px;align-items:center}
+  @media(max-width:560px){.pb-modes{grid-template-columns:1fr}}
 
   /* master job page rebuild (shares the .qb frame + sidebar) */
   .jb-head{display:flex;justify-content:space-between;align-items:flex-start;gap:14px 18px;flex-wrap:wrap}
@@ -1094,17 +1136,19 @@
         <div class="sec-head reveal">
           <p class="eyebrow">Inside the app</p>
           <h2>The real workspace, rebuilt so it stays sharp.</h2>
-          <p>The actual screens you work in, from quoting a bespoke piece to invoicing it and repricing your metals to the day&rsquo;s spot. Rebuilt in the page rather than screenshotted, so every figure reads crisply on any display.</p>
+          <p>The actual screens you work in, from quoting a bespoke piece and sending an online proposal to invoicing it and repricing your metals to the day&rsquo;s spot. Rebuilt in the page rather than screenshotted, so every figure reads crisply on any display.</p>
         </div>
         <div class="qbtabs reveal">
           <input type="radio" name="qbtab" id="qbtab-job" checked>
           <input type="radio" name="qbtab" id="qbtab-quote">
+          <input type="radio" name="qbtab" id="qbtab-proposal">
           <input type="radio" name="qbtab" id="qbtab-invoice">
           <input type="radio" name="qbtab" id="qbtab-metals">
           <input type="radio" name="qbtab" id="qbtab-todo">
           <div class="qbtabbar">
             <label for="qbtab-job">Job</label>
             <label for="qbtab-quote">Quote builder</label>
+            <label for="qbtab-proposal">Proposal</label>
             <label for="qbtab-invoice">Invoice</label>
             <label for="qbtab-metals">Metal prices</label>
             <label for="qbtab-todo">To-do</label>
@@ -1357,6 +1401,100 @@
             </div>
           </div>
           <figcaption>A real quote in Workshop Pilot, rebuilt in HTML so it stays sharp. Scroll sideways on a narrow screen.</figcaption>
+        </figure>
+          </div>
+          <div class="qbpanel qbpanel-proposal">
+        <figure class="qbframe">
+          <div class="qbbar"><span></span><span></span><span></span></div>
+          <div class="qbscroll">
+            <div class="mp-wrap">
+              <div class="pb-modal">
+                <div class="mp-head">
+                  <div class="mp-title">New proposal</div>
+                  <div class="mp-x">&times;</div>
+                </div>
+                <div class="mp-body">
+                  <div class="mp-intro">Pick the quote(s) to offer as options, then choose how the client selects. Each option can carry its own photos and a video, and you set the deposit terms here.</div>
+
+                  <div class="pb-sec">How the client chooses</div>
+                  <div class="pb-modes">
+                    <div class="pb-mode on">
+                      <span class="pb-radio"><i></i></span>
+                      <span><span class="t">Choose one</span><span class="d">The client picks a single option. Great for alternatives like Good, Better, Best.</span></span>
+                    </div>
+                    <div class="pb-mode">
+                      <span class="pb-radio"><i></i></span>
+                      <span><span class="t">Choose any (bundle)</span><span class="d">The client can tick more than one, for sets they buy together (e.g. two wedding bands). Total is the chosen options combined.</span></span>
+                    </div>
+                  </div>
+
+                  <div class="pb-ohead">
+                    <div class="pb-sec" style="margin:0">Options</div>
+                    <span class="pb-bulk">&#65291; Paste multiple video links</span>
+                  </div>
+
+                  <div class="pb-opt on">
+                    <div class="pb-optrow">
+                      <span class="pb-check">&#10003;</span>
+                      <div class="pb-optmain">
+                        <div class="pb-optt">Platinum solitaire &middot; Lab-Grown Emerald 1.5ct D VVS2</div>
+                        <div class="pb-optm">$7,450.00 inc GST &middot; Approved</div>
+                      </div>
+                      <span class="pb-rec on">&#9733; Recommend</span>
+                    </div>
+                    <div class="pb-media">&#9662; Photos &amp; video <span class="mut">&middot; 3 photos &middot; video linked</span></div>
+                  </div>
+
+                  <div class="pb-opt on">
+                    <div class="pb-optrow">
+                      <span class="pb-check">&#10003;</span>
+                      <div class="pb-optmain">
+                        <div class="pb-optt">18ct white gold &middot; Lab-Grown Emerald 1.2ct F VS1</div>
+                        <div class="pb-optm">$6,180.00 inc GST &middot; Draft</div>
+                      </div>
+                      <span class="pb-rec off">&#9733; Recommend</span>
+                    </div>
+                    <div class="pb-media">&#9656; Photos &amp; video <span class="mut">&middot; 1 photo</span></div>
+                  </div>
+
+                  <div class="pb-opt">
+                    <div class="pb-optrow">
+                      <span class="pb-check"></span>
+                      <div class="pb-optmain">
+                        <div class="pb-optt">Platinum trilogy &middot; three lab-grown diamonds</div>
+                        <div class="pb-optm">$8,900.00 inc GST &middot; Draft</div>
+                      </div>
+                      <span class="pb-rec off">&#9733; Recommend</span>
+                    </div>
+                  </div>
+
+                  <div class="pb-field">
+                    <label class="pb-l">Intro message <span class="opt">(optional &mdash; shown at the top of the proposal)</span></label>
+                    <div class="pb-ta">Hi Mara and Tom, thank you for coming in. Here are the two designs we talked through for your engagement ring, with photos and a short render walk-through of each. My recommendation is the platinum solitaire, but both are ready to go. Happy to tweak anything before you decide.</div>
+                    <div class="pb-hint">Leave blank and a friendly default message is added automatically.</div>
+                  </div>
+
+                  <div class="pb-pay">
+                    <label class="pb-l">Payment terms <span class="opt">(optional)</span></label>
+                    <div class="pb-hint" style="margin:0 0 11px">Leave &ldquo;Amount due now&rdquo; blank and each client is asked your 30% deposit of whatever they choose. Enter a dollar figure to request a specific amount instead. The rest shows as due on completion.</div>
+                    <div class="mp-grid2">
+                      <div class="mp-field"><div class="l">Amount due now ($)</div><div class="mp-input" style="color:var(--qbmut);font-weight:500">Blank = 30% of what they pick</div></div>
+                      <div class="mp-field"><div class="l">Payment note</div><div class="mp-input">Balance due on completion</div></div>
+                    </div>
+                    <div class="pb-hint">If they choose the platinum solitaire, that deposit is $2,235.00 (30% of $7,450.00). A smaller selection is scaled down automatically.</div>
+                  </div>
+                </div>
+                <div class="pb-foot">
+                  <span class="pb-selcount">2 options selected</span>
+                  <span class="pb-footacts">
+                    <span class="mp-cancel">Cancel</span>
+                    <span class="mp-apply">Publish &amp; copy link</span>
+                  </span>
+                </div>
+              </div>
+            </div>
+          </div>
+          <figcaption>The proposal builder in Workshop Pilot: offer a client one or several options, mark your pick, and publish a link they accept online. Rebuilt in HTML so it stays sharp.</figcaption>
         </figure>
           </div>
           <div class="qbpanel qbpanel-invoice">
