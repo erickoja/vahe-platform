@@ -505,6 +505,7 @@
   #qbtab-stock:checked~.qbtabbar label[for="qbtab-stock"],
   #qbtab-reports:checked~.qbtabbar label[for="qbtab-reports"],
   #qbtab-notify:checked~.qbtabbar label[for="qbtab-notify"],
+  #qbtab-reviews:checked~.qbtabbar label[for="qbtab-reviews"],
   #qbtab-dash:checked~.qbtabbar label[for="qbtab-dash"],
   #qbtab-job:checked~.qbtabbar label[for="qbtab-job"]{background:var(--accent);color:#fff;border-color:var(--accent)}
   #qbtab-quote:focus-visible~.qbtabbar label[for="qbtab-quote"],
@@ -523,6 +524,7 @@
   #qbtab-stock:focus-visible~.qbtabbar label[for="qbtab-stock"],
   #qbtab-reports:focus-visible~.qbtabbar label[for="qbtab-reports"],
   #qbtab-notify:focus-visible~.qbtabbar label[for="qbtab-notify"],
+  #qbtab-reviews:focus-visible~.qbtabbar label[for="qbtab-reviews"],
   #qbtab-dash:focus-visible~.qbtabbar label[for="qbtab-dash"],
   #qbtab-job:focus-visible~.qbtabbar label[for="qbtab-job"]{outline:2px solid var(--accent);outline-offset:2px}
   .qbpanel{display:none;margin-top:22px}
@@ -543,6 +545,7 @@
   #qbtab-stock:checked~.qbpanel-stock,
   #qbtab-reports:checked~.qbpanel-reports,
   #qbtab-notify:checked~.qbpanel-notify,
+  #qbtab-reviews:checked~.qbpanel-reviews,
   #qbtab-dash:checked~.qbpanel-dash,
   #qbtab-job:checked~.qbpanel-job{display:block}
   @media(max-width:980px){.qbtabbar{flex-wrap:wrap;justify-content:center;gap:5px;max-width:100%}.qbtabbar label{padding:8px 13px;font-size:.82rem}}
@@ -1180,6 +1183,18 @@
   .rd-card .s{font-size:12px;color:var(--qbmut);margin-top:4px;line-height:1.5}
   .rd-btn{background:#fff;border:1px solid var(--qbline);border-radius:8px;padding:8px 14px;font-size:12px;font-weight:700;color:var(--qbink);white-space:nowrap;flex:none}
   .rd-review{display:inline-block;font-size:11px;font-weight:700;background:#E1A94F;color:#3a2a08;border-radius:8px;padding:8px 14px;margin-top:2px}
+  /* bulk review requests modal */
+  .rv-intro{font-size:12px;color:var(--qbmut);line-height:1.55;margin-bottom:12px}
+  .rv-intro b{color:var(--qbink)}
+  .rv-list{border:1px solid var(--qbline);border-radius:8px;overflow:hidden}
+  .rv-row{display:flex;align-items:center;gap:11px;padding:10px 13px;border-bottom:1px solid var(--qbline)}
+  .rv-row:last-child{border-bottom:none}
+  .rv-check{width:16px;height:16px;border-radius:4px;border:1.5px solid var(--qbline);background:#fff;flex:none;display:flex;align-items:center;justify-content:center;color:#fff;font-size:11px;line-height:1}
+  .rv-check.on{background:var(--qbacc);border-color:var(--qbacc)}
+  .rv-info{flex:1;min-width:0}
+  .rv-info b{font-size:13px;font-weight:700;color:var(--qbink);display:block}
+  .rv-info span{font-size:11px;color:var(--qbmut)}
+  .rv-asked{font-size:10px;color:var(--qbmut);flex:none;white-space:nowrap}
 
   /* master job page rebuild (shares the .qb frame + sidebar) */
   .jb-head{display:flex;justify-content:space-between;align-items:flex-start;gap:14px 18px;flex-wrap:wrap}
@@ -1766,6 +1781,7 @@
           <input type="radio" name="qbtab" id="qbtab-safekeep">
           <input type="radio" name="qbtab" id="qbtab-appts">
           <input type="radio" name="qbtab" id="qbtab-clients">
+          <input type="radio" name="qbtab" id="qbtab-reviews">
           <input type="radio" name="qbtab" id="qbtab-statements">
           <input type="radio" name="qbtab" id="qbtab-stock">
           <input type="radio" name="qbtab" id="qbtab-reports">
@@ -1776,6 +1792,7 @@
             <label for="qbtab-todo">To-do</label>
             <label for="qbtab-appts">Appointments</label>
             <label for="qbtab-clients">Clients</label>
+            <label for="qbtab-reviews">Review requests</label>
           </div>
           <div class="qbtabgroup-label">Jobs &amp; quoting</div>
           <div class="qbtabbar">
@@ -2923,6 +2940,38 @@
             </div>
           </div>
           <figcaption>Every client with their contacts, jobs, lifetime spend and history in one place, retail or trade.</figcaption>
+        </figure>
+          </div>
+
+          <div class="qbpanel qbpanel-reviews">
+        <figure class="qbframe">
+          <div class="qbbar"><span></span><span></span><span></span></div>
+          <div class="qbscroll">
+            <div class="mp-wrap">
+              <div class="mp-modal">
+                <div class="mp-head">
+                  <div class="mp-title">&#9733; Ask recent clients for a review</div>
+                  <div class="mp-x">&times;</div>
+                </div>
+                <div class="mp-body">
+                  <div class="rv-intro">Clients who completed work with you in the last 90 days and have an email. Those asked recently start unticked. Each gets a short thank-you with your <b>Review us on Google</b> button.</div>
+                  <div class="rv-list">
+                    <div class="rv-row"><span class="rv-check on">&#10003;</span><div class="rv-info"><b>Jordan &amp; Alex Rivera</b><span>jordan.rivera@example.com</span></div><span class="rv-asked">Collected 20 Aug</span></div>
+                    <div class="rv-row"><span class="rv-check on">&#10003;</span><div class="rv-info"><b>Priya Nguyen</b><span>priya.n@example.com</span></div><span class="rv-asked">Collected 12 Aug</span></div>
+                    <div class="rv-row"><span class="rv-check on">&#10003;</span><div class="rv-info"><b>Chen Wei</b><span>chen.w@example.com</span></div><span class="rv-asked">Collected 5 Aug</span></div>
+                    <div class="rv-row"><span class="rv-check"></span><div class="rv-info"><b>Aisha Kaur</b><span>aisha.k@example.com</span></div><span class="rv-asked">Asked 2 weeks ago</span></div>
+                    <div class="rv-row"><span class="rv-check on">&#10003;</span><div class="rv-info"><b>Tom Ford</b><span>tom.ford@example.com</span></div><span class="rv-asked">Collected 22 Jul</span></div>
+                  </div>
+                </div>
+                <div class="mp-foot">
+                  <span style="margin-right:auto;font-size:12px;font-weight:700;color:var(--qbink)">4 selected</span>
+                  <span class="mp-cancel">Cancel</span>
+                  <span class="mp-apply">Send review requests</span>
+                </div>
+              </div>
+            </div>
+          </div>
+          <figcaption>Email your recent happy clients a Google review request in one go, so more of your best work turns into five-star reviews.</figcaption>
         </figure>
           </div>
 
