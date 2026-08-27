@@ -481,7 +481,7 @@
 
   /* tabbed switcher: show one app-screen rebuild at a time (CSS only, no JS) */
   .qbtabs{margin-top:38px}
-  .qbtabs>input{position:absolute;width:1px;height:1px;opacity:0;pointer-events:none}
+  .qbtabs>input{position:fixed;top:0;left:0;width:1px;height:1px;opacity:0;pointer-events:none}
   .qbtabbar{display:flex;flex-wrap:wrap;justify-content:center;gap:8px;max-width:100%;margin:0 auto 4px}
   .qbtabgroup-label{font-size:1.05rem;font-weight:800;letter-spacing:.02em;color:var(--strong);text-align:center;margin:30px 0 12px;display:flex;align-items:center;justify-content:center;gap:12px}
   .qbtabgroup-label::before,.qbtabgroup-label::after{content:"";height:1px;width:30px;background:var(--line)}
@@ -866,7 +866,7 @@
 
   /* ── "What you send out" output documents ── */
   .outtabs{margin-top:34px}
-  .outtabs>input{position:absolute;width:1px;height:1px;opacity:0;pointer-events:none}
+  .outtabs>input{position:fixed;top:0;left:0;width:1px;height:1px;opacity:0;pointer-events:none}
   #out-quote:checked~.qbtabbar label[for="out-quote"],
   #out-invoice:checked~.qbtabbar label[for="out-invoice"],
   #out-proposal:checked~.qbtabbar label[for="out-proposal"],
