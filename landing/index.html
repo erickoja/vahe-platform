@@ -482,9 +482,9 @@
   /* tabbed switcher: show one app-screen rebuild at a time (CSS only, no JS) */
   .qbtabs{margin-top:38px}
   .qbtabs>input{position:absolute;width:1px;height:1px;opacity:0;pointer-events:none}
-  .qbtabbar{display:flex;flex-wrap:wrap;justify-content:center;gap:5px;width:fit-content;max-width:100%;margin:0 auto;background:var(--surface-2);border:1px solid var(--line);border-radius:12px;padding:5px}
-  .qbtabbar label{padding:9px 22px;border-radius:8px;font-size:.92rem;font-weight:700;color:var(--muted);cursor:pointer;white-space:nowrap;transition:background .15s ease,color .15s ease}
-  .qbtabbar label:hover{color:var(--strong)}
+  .qbtabbar{display:flex;flex-wrap:wrap;justify-content:center;gap:8px;max-width:100%;margin:0 auto}
+  .qbtabbar label{padding:9px 17px;border-radius:11px;font-size:.88rem;font-weight:700;color:var(--muted);cursor:pointer;white-space:nowrap;background:var(--surface);border:1px solid var(--line);box-shadow:var(--shadow-sm);transition:color .15s ease,background .15s ease,border-color .15s ease,transform .15s ease}
+  .qbtabbar label:hover{color:var(--strong);border-color:var(--accent);transform:translateY(-1px)}
   #qbtab-quote:checked~.qbtabbar label[for="qbtab-quote"],
   #qbtab-additems:checked~.qbtabbar label[for="qbtab-additems"],
   #qbtab-proposal:checked~.qbtabbar label[for="qbtab-proposal"],
@@ -494,7 +494,7 @@
   #qbtab-metals:checked~.qbtabbar label[for="qbtab-metals"],
   #qbtab-pricing:checked~.qbtabbar label[for="qbtab-pricing"],
   #qbtab-dash:checked~.qbtabbar label[for="qbtab-dash"],
-  #qbtab-job:checked~.qbtabbar label[for="qbtab-job"]{background:var(--accent);color:#fff}
+  #qbtab-job:checked~.qbtabbar label[for="qbtab-job"]{background:var(--accent);color:#fff;border-color:var(--accent)}
   #qbtab-quote:focus-visible~.qbtabbar label[for="qbtab-quote"],
   #qbtab-additems:focus-visible~.qbtabbar label[for="qbtab-additems"],
   #qbtab-proposal:focus-visible~.qbtabbar label[for="qbtab-proposal"],
