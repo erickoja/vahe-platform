@@ -486,6 +486,7 @@
   .qbtabbar label{padding:9px 22px;border-radius:8px;font-size:.92rem;font-weight:700;color:var(--muted);cursor:pointer;transition:background .15s ease,color .15s ease}
   .qbtabbar label:hover{color:var(--strong)}
   #qbtab-quote:checked~.qbtabbar label[for="qbtab-quote"],
+  #qbtab-additems:checked~.qbtabbar label[for="qbtab-additems"],
   #qbtab-proposal:checked~.qbtabbar label[for="qbtab-proposal"],
   #qbtab-accept:checked~.qbtabbar label[for="qbtab-accept"],
   #qbtab-invoice:checked~.qbtabbar label[for="qbtab-invoice"],
@@ -494,6 +495,7 @@
   #qbtab-pricing:checked~.qbtabbar label[for="qbtab-pricing"],
   #qbtab-job:checked~.qbtabbar label[for="qbtab-job"]{background:var(--accent);color:#fff}
   #qbtab-quote:focus-visible~.qbtabbar label[for="qbtab-quote"],
+  #qbtab-additems:focus-visible~.qbtabbar label[for="qbtab-additems"],
   #qbtab-proposal:focus-visible~.qbtabbar label[for="qbtab-proposal"],
   #qbtab-accept:focus-visible~.qbtabbar label[for="qbtab-accept"],
   #qbtab-invoice:focus-visible~.qbtabbar label[for="qbtab-invoice"],
@@ -504,6 +506,7 @@
   .qbpanel{display:none;margin-top:22px}
   .qbpanel .qbframe{margin-top:0}
   #qbtab-quote:checked~.qbpanel-quote,
+  #qbtab-additems:checked~.qbpanel-additems,
   #qbtab-proposal:checked~.qbpanel-proposal,
   #qbtab-accept:checked~.qbpanel-accept,
   #qbtab-invoice:checked~.qbpanel-invoice,
@@ -511,8 +514,8 @@
   #qbtab-metals:checked~.qbpanel-metals,
   #qbtab-pricing:checked~.qbpanel-pricing,
   #qbtab-job:checked~.qbpanel-job{display:block}
-  @media(max-width:820px){.qbtabbar{flex-wrap:wrap;justify-content:center;gap:5px;max-width:100%}.qbtabbar label{padding:8px 14px;font-size:.83rem}}
-  @media(max-width:400px){.qbtabbar label{padding:7px 11px;font-size:.78rem}}
+  @media(max-width:980px){.qbtabbar{flex-wrap:wrap;justify-content:center;gap:5px;max-width:100%}.qbtabbar label{padding:8px 13px;font-size:.82rem}}
+  @media(max-width:400px){.qbtabbar label{padding:7px 11px;font-size:.77rem}}
 
   /* metal spot-price modal rebuild (a real dialog, shown on its dimmed backdrop) */
   .mp-wrap{background:#332e29;padding:34px 22px;display:flex;justify-content:center}
@@ -700,6 +703,56 @@
   .pd-sv::after{content:"\25be";position:absolute;right:11px;top:50%;transform:translateY(-40%);color:var(--qbmut);font-size:10px;pointer-events:none}
   @media(max-width:640px){.pd-cols,.pd-row{grid-template-columns:1fr auto}.pd-cols .unitcol,.pd-cols .catcol,.pd-row .pd-badge,.pd-row .pd-unit{display:none}.pd-row .nm{grid-column:1;min-width:0}.pd-row .cost{grid-column:1;text-align:left;font-size:12px;color:var(--qbmut)}.pd-row .pd-rowacts{grid-row:1;grid-column:2}}
   @media(max-width:560px){.pd-overlay{padding:18px 12px}.pd-mgrid2{grid-template-columns:1fr}}
+
+  /* "Add from pricing DB" quote-picker modal (its own dark backdrop) */
+  .ap-wrap{background:#332e29;padding:26px 18px;display:flex;justify-content:center}
+  .ap-modal{width:100%;max-width:1040px;background:#fff;border:1px solid var(--qbline);border-radius:14px;box-shadow:0 24px 60px rgba(0,0,0,.4);overflow:hidden;text-align:left;color:var(--qbink);display:flex;flex-direction:column;height:min(620px,82vh)}
+  .ap-head{flex:none;padding:16px 20px 13px;border-bottom:1px solid var(--qbline)}
+  .ap-titlerow{display:flex;justify-content:space-between;align-items:center;margin-bottom:11px}
+  .ap-title{font-size:16px;font-weight:800;margin:0}
+  .ap-x{color:var(--qbmut);font-size:20px;line-height:1;flex:none}
+  .ap-search{background:#fff;border:1px solid var(--qbline);border-radius:9px;padding:11px 13px;font-size:12px;color:var(--qbmut)}
+  .ap-note{margin-top:9px;font-size:11px;color:var(--qbmut);line-height:1.5}
+  .ap-body{flex:1;display:flex;min-height:0}
+  .ap-cats{width:196px;flex:none;border-right:1px solid var(--qbline);background:var(--qbbg);overflow-y:auto;padding:9px 8px}
+  .ap-cat{display:flex;justify-content:space-between;align-items:center;gap:8px;width:100%;text-align:left;padding:8px 11px;border-radius:6px;border:none;background:transparent;color:var(--qbink);font-size:11.5px;font-weight:700;margin-bottom:2px;line-height:1.35}
+  .ap-cat .n{font-size:10px;font-weight:700;color:var(--qbmut);flex:none}
+  .ap-cat.on{background:var(--qbacc);color:#fff}
+  .ap-cat.on .n{color:rgba(255,255,255,.75)}
+  .ap-list{flex:1;min-width:0;display:flex;flex-direction:column;padding:0 18px;overflow-y:auto}
+  .ap-manual{background:color-mix(in srgb,var(--qbacc) 7%,#fff);border:1px solid color-mix(in srgb,var(--qbacc) 33%,transparent);border-radius:8px;padding:11px 13px;margin:12px 0 10px;flex:none}
+  .ap-manual .t{font-size:11.5px;font-weight:800;color:var(--qbacc2);margin-bottom:3px}
+  .ap-manual .d{font-size:10.5px;color:var(--qbmut);line-height:1.5;margin-bottom:9px}
+  .ap-manrow{display:flex;gap:9px;align-items:center;flex-wrap:wrap}
+  .ap-in{flex:1;min-width:150px;background:#fff;border:1px solid var(--qbline);border-radius:8px;padding:9px 11px;font-size:11px;color:var(--qbmut)}
+  .ap-inprice{width:96px;flex:none;background:#fff;border:1px solid var(--qbline);border-radius:8px;padding:9px 11px;font-size:11px;color:var(--qbmut);text-align:right}
+  .ap-add{flex:none;background:var(--qbacc);color:#fff;border-radius:8px;padding:8px 13px;font-size:11px;font-weight:700;white-space:nowrap}
+  .ap-row{display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid var(--qbline)}
+  .ap-nm{flex:1;min-width:0}
+  .ap-nm b{font-size:12.5px;font-weight:700;color:var(--qbink);display:block}
+  .ap-nm span{font-size:10.5px;color:var(--qbmut);display:block;margin-top:1px}
+  .ap-controls{display:flex;align-items:center;gap:8px;flex:none}
+  .ap-toggle{display:flex;border:1px solid var(--qbline);border-radius:6px;overflow:hidden}
+  .ap-toggle span{padding:4px 9px;font-size:10.5px;font-weight:800;color:var(--qbmut);background:#fff;white-space:nowrap}
+  .ap-toggle .on{background:var(--qbink);color:#fff}
+  .ap-qty{width:76px;flex:none;background:#fff;border:1px solid var(--qbline);border-radius:7px;padding:6px 9px;font-size:11px;color:var(--qbmut);text-align:right}
+  .ap-foot{flex:none;border-top:1px solid var(--qbline);background:var(--qbbg);padding:12px 18px;display:flex;align-items:center;justify-content:space-between;gap:12px 16px;flex-wrap:wrap}
+  .ap-tally{font-size:11.5px;color:var(--qbmut)}
+  .ap-total{font-size:11.5px;color:var(--qbmut);display:flex;align-items:center;gap:14px}
+  .ap-total b{color:var(--qbok);font-size:15px}
+  .ap-done{background:var(--qbacc);color:#fff;border-radius:8px;padding:8px 16px;font-size:12px;font-weight:700}
+  @media(max-width:720px){
+    .ap-body{flex-direction:column}
+    .ap-cats{width:auto;border-right:none;border-bottom:1px solid var(--qbline);display:flex;gap:6px;overflow-x:auto;padding:8px 10px}
+    .ap-cat{width:auto;flex:none;white-space:nowrap;border:1px solid var(--qbline);background:#fff}
+    .ap-cat.on{border-color:var(--qbacc)}
+  }
+  @media(max-width:560px){
+    .ap-wrap{padding:16px 10px}
+    .ap-modal{height:auto;max-height:82vh}
+    .ap-row{flex-wrap:wrap;gap:8px}
+    .ap-controls{width:100%;justify-content:flex-end}
+  }
 
   /* master job page rebuild (shares the .qb frame + sidebar) */
   .jb-head{display:flex;justify-content:space-between;align-items:flex-start;gap:14px 18px;flex-wrap:wrap}
@@ -1274,6 +1327,7 @@
         <div class="qbtabs reveal">
           <input type="radio" name="qbtab" id="qbtab-job" checked>
           <input type="radio" name="qbtab" id="qbtab-quote">
+          <input type="radio" name="qbtab" id="qbtab-additems">
           <input type="radio" name="qbtab" id="qbtab-proposal">
           <input type="radio" name="qbtab" id="qbtab-accept">
           <input type="radio" name="qbtab" id="qbtab-invoice">
@@ -1283,6 +1337,7 @@
           <div class="qbtabbar">
             <label for="qbtab-job">Job</label>
             <label for="qbtab-quote">Quote builder</label>
+            <label for="qbtab-additems">Add to quote</label>
             <label for="qbtab-proposal">Proposal</label>
             <label for="qbtab-accept">Acceptance</label>
             <label for="qbtab-invoice">Invoice</label>
@@ -1538,6 +1593,58 @@
             </div>
           </div>
           <figcaption>Build a quote line by line, from metal and stones to bench hours, and your markup lands the retail price for you.</figcaption>
+        </figure>
+          </div>
+          <div class="qbpanel qbpanel-additems">
+        <figure class="qbframe">
+          <div class="qbbar"><span></span><span></span><span></span></div>
+          <div class="qbscroll">
+            <div class="ap-wrap">
+              <div class="ap-modal">
+                <div class="ap-head">
+                  <div class="ap-titlerow"><h3 class="ap-title">Add from pricing DB</h3><span class="ap-x">&times;</span></div>
+                  <div class="ap-search">Search the whole pricing DB&hellip;&nbsp; (Esc closes)</div>
+                  <div class="ap-note">These are your cost prices, the mark-up is applied automatically by the multiplier table. The one exception is repair prices, already shown as a retail guide.</div>
+                </div>
+                <div class="ap-body">
+                  <div class="ap-cats">
+                    <button class="ap-cat on"><span>All</span><span class="n">540</span></button>
+                    <button class="ap-cat"><span>Metals</span><span class="n">11</span></button>
+                    <button class="ap-cat"><span>Labour</span><span class="n">2</span></button>
+                    <button class="ap-cat"><span>Design &amp; CAD</span><span class="n">3</span></button>
+                    <button class="ap-cat"><span>Stone Setting</span></button>
+                    <button class="ap-cat"><span>3D Print &amp; Cast</span><span class="n">6</span></button>
+                    <button class="ap-cat"><span>Findings</span><span class="n">5</span></button>
+                    <button class="ap-cat"><span>Purchased Components</span><span class="n">2</span></button>
+                    <button class="ap-cat"><span>(Round) Lab Grown Diamonds: D-E/VS</span><span class="n">33</span></button>
+                    <button class="ap-cat"><span>(Round) Natural Diamonds: G-H/SI</span><span class="n">33</span></button>
+                    <button class="ap-cat"><span>(Round) Natural Diamonds: D-E/VS</span><span class="n">33</span></button>
+                    <button class="ap-cat"><span>Repairs</span><span class="n">284</span></button>
+                  </div>
+                  <div class="ap-list">
+                    <div class="ap-manual">
+                      <div class="t">Manual price</div>
+                      <div class="d">The prices in this database are a starting point. Pricing varies between jewellers depending on your suppliers and materials, so enter your own label and price to add a custom line to the quote instead.</div>
+                      <div class="ap-manrow"><div class="ap-in">Label</div><div class="ap-inprice">$ 0.00</div><span class="ap-add">Add to quote</span></div>
+                    </div>
+                    <div class="ap-row"><div class="ap-nm"><b>9ct yellow gold</b><span>Metals &middot; $99.86 per g</span></div><div class="ap-controls"><div class="ap-toggle"><span class="on">Qty</span><span>$ Price</span></div><div class="ap-qty">Grams</div><span class="ap-add">Add</span></div></div>
+                    <div class="ap-row"><div class="ap-nm"><b>14ct yellow gold</b><span>Metals &middot; $155.78 per g</span></div><div class="ap-controls"><div class="ap-toggle"><span class="on">Qty</span><span>$ Price</span></div><div class="ap-qty">Grams</div><span class="ap-add">Add</span></div></div>
+                    <div class="ap-row"><div class="ap-nm"><b>18ct yellow gold</b><span>Metals &middot; $199.72 per g</span></div><div class="ap-controls"><div class="ap-toggle"><span class="on">Qty</span><span>$ Price</span></div><div class="ap-qty">Grams</div><span class="ap-add">Add</span></div></div>
+                    <div class="ap-row"><div class="ap-nm"><b>9ct rose gold</b><span>Metals &middot; $99.86 per g</span></div><div class="ap-controls"><div class="ap-toggle"><span class="on">Qty</span><span>$ Price</span></div><div class="ap-qty">Grams</div><span class="ap-add">Add</span></div></div>
+                    <div class="ap-row"><div class="ap-nm"><b>18ct rose gold</b><span>Metals &middot; $199.72 per g</span></div><div class="ap-controls"><div class="ap-toggle"><span class="on">Qty</span><span>$ Price</span></div><div class="ap-qty">Grams</div><span class="ap-add">Add</span></div></div>
+                    <div class="ap-row"><div class="ap-nm"><b>9ct white gold</b><span>Metals &middot; $103.78 per g</span></div><div class="ap-controls"><div class="ap-toggle"><span class="on">Qty</span><span>$ Price</span></div><div class="ap-qty">Grams</div><span class="ap-add">Add</span></div></div>
+                    <div class="ap-row"><div class="ap-nm"><b>14ct white gold</b><span>Metals &middot; $161.89 per g</span></div><div class="ap-controls"><div class="ap-toggle"><span class="on">Qty</span><span>$ Price</span></div><div class="ap-qty">Grams</div><span class="ap-add">Add</span></div></div>
+                    <div class="ap-row"><div class="ap-nm"><b>Bench Labour (Casting Assembly)</b><span>Labour &middot; $70.00 per hr</span></div><div class="ap-controls"><div class="ap-toggle"><span class="on">Qty</span><span>$ Price</span></div><div class="ap-qty">Hours</div><span class="ap-add">Add</span></div></div>
+                  </div>
+                </div>
+                <div class="ap-foot">
+                  <span class="ap-tally">The popup stays open, add as many items as you need, then hit Done.</span>
+                  <span class="ap-total">Quote total: <b>$4,500</b> inc GST <span class="ap-done">Done</span></span>
+                </div>
+              </div>
+            </div>
+          </div>
+          <figcaption>Pull any priced item straight into a quote, set the grams or quantity and the line prices itself. Add as many as you need in one pass.</figcaption>
         </figure>
           </div>
           <div class="qbpanel qbpanel-proposal">
