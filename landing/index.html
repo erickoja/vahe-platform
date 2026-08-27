@@ -493,6 +493,8 @@
   #qbtab-todo:checked~.qbtabbar label[for="qbtab-todo"],
   #qbtab-metals:checked~.qbtabbar label[for="qbtab-metals"],
   #qbtab-pricing:checked~.qbtabbar label[for="qbtab-pricing"],
+  #qbtab-repair:checked~.qbtabbar label[for="qbtab-repair"],
+  #qbtab-safekeep:checked~.qbtabbar label[for="qbtab-safekeep"],
   #qbtab-dash:checked~.qbtabbar label[for="qbtab-dash"],
   #qbtab-job:checked~.qbtabbar label[for="qbtab-job"]{background:var(--accent);color:#fff;border-color:var(--accent)}
   #qbtab-quote:focus-visible~.qbtabbar label[for="qbtab-quote"],
@@ -503,6 +505,8 @@
   #qbtab-todo:focus-visible~.qbtabbar label[for="qbtab-todo"],
   #qbtab-metals:focus-visible~.qbtabbar label[for="qbtab-metals"],
   #qbtab-pricing:focus-visible~.qbtabbar label[for="qbtab-pricing"],
+  #qbtab-repair:focus-visible~.qbtabbar label[for="qbtab-repair"],
+  #qbtab-safekeep:focus-visible~.qbtabbar label[for="qbtab-safekeep"],
   #qbtab-dash:focus-visible~.qbtabbar label[for="qbtab-dash"],
   #qbtab-job:focus-visible~.qbtabbar label[for="qbtab-job"]{outline:2px solid var(--accent);outline-offset:2px}
   .qbpanel{display:none;margin-top:22px}
@@ -515,6 +519,8 @@
   #qbtab-todo:checked~.qbpanel-todo,
   #qbtab-metals:checked~.qbpanel-metals,
   #qbtab-pricing:checked~.qbpanel-pricing,
+  #qbtab-repair:checked~.qbpanel-repair,
+  #qbtab-safekeep:checked~.qbpanel-safekeep,
   #qbtab-dash:checked~.qbpanel-dash,
   #qbtab-job:checked~.qbpanel-job{display:block}
   @media(max-width:980px){.qbtabbar{flex-wrap:wrap;justify-content:center;gap:5px;max-width:100%}.qbtabbar label{padding:8px 13px;font-size:.82rem}}
@@ -827,17 +833,23 @@
   #out-quote:checked~.qbtabbar label[for="out-quote"],
   #out-invoice:checked~.qbtabbar label[for="out-invoice"],
   #out-proposal:checked~.qbtabbar label[for="out-proposal"],
+  #out-repair:checked~.qbtabbar label[for="out-repair"],
+  #out-safekeep:checked~.qbtabbar label[for="out-safekeep"],
   #out-docket:checked~.qbtabbar label[for="out-docket"],
   #out-tags:checked~.qbtabbar label[for="out-tags"]{background:var(--accent);color:#fff;border-color:var(--accent)}
   #out-quote:focus-visible~.qbtabbar label[for="out-quote"],
   #out-invoice:focus-visible~.qbtabbar label[for="out-invoice"],
   #out-proposal:focus-visible~.qbtabbar label[for="out-proposal"],
+  #out-repair:focus-visible~.qbtabbar label[for="out-repair"],
+  #out-safekeep:focus-visible~.qbtabbar label[for="out-safekeep"],
   #out-docket:focus-visible~.qbtabbar label[for="out-docket"],
   #out-tags:focus-visible~.qbtabbar label[for="out-tags"]{outline:2px solid var(--accent);outline-offset:2px}
   .outpanel{display:none;margin-top:24px}
   #out-quote:checked~.outpanel-quote,
   #out-invoice:checked~.outpanel-invoice,
   #out-proposal:checked~.outpanel-proposal,
+  #out-repair:checked~.outpanel-repair,
+  #out-safekeep:checked~.outpanel-safekeep,
   #out-docket:checked~.outpanel-docket,
   #out-tags:checked~.outpanel-tags{display:block}
   .docwrap{background:var(--surface-2);border-radius:16px;padding:30px 20px;display:flex;justify-content:center;overflow-x:auto}
@@ -944,6 +956,77 @@
     .dk{padding:24px 20px}
     .dk-grid4{grid-template-columns:1fr 1fr}
   }
+
+  /* repair intake form (in-app, shares the .qb frame + sidebar) */
+  .ri-head{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:16px}
+  .ri-title{font-size:15px;font-weight:700;color:var(--qbink)}
+  .ri-title span{font-weight:400;color:var(--qbmut);font-size:13px}
+  .ri-acts{display:flex;gap:8px;flex-wrap:wrap}
+  .ri-btn{font-size:11px;font-weight:700;border-radius:8px;padding:7px 12px;border:1px solid var(--qbline);background:#fff;color:var(--qbink)}
+  .ri-btn.fill{background:var(--qbacc);border-color:var(--qbacc);color:#fff}
+  .ri-linkbar{background:color-mix(in srgb,var(--qbacc) 10%,#fff);border:1px solid color-mix(in srgb,var(--qbacc) 33%,transparent);border-radius:8px;padding:9px 14px;margin-bottom:16px;font-size:11.5px;color:var(--qbacc2);font-weight:600}
+  .ri-dates{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:16px}
+  .ri-l{font-size:9px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--qbmut);display:block;margin-bottom:5px}
+  .ri-in{background:#fff;border:1px solid var(--qbline);border-radius:8px;padding:10px 12px;font-size:12px;color:var(--qbink)}
+  .ri-item{border:1px solid var(--qbline);border-radius:8px;padding:14px 16px;margin-bottom:12px;background:var(--qbbg)}
+  .ri-itemhead{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px}
+  .ri-itemhead .n{font-size:10px;font-weight:700;color:var(--qbacc2);text-transform:uppercase;letter-spacing:.06em}
+  .ri-itemhead .rm{font-size:11px;font-weight:700;color:#c0392b}
+  .ri-2{display:grid;grid-template-columns:1fr 200px;gap:12px;margin-bottom:12px;align-items:end}
+  .ri-price{background:#fff;border:1px solid var(--qbline);border-radius:8px;padding:10px 12px;font-size:13px;font-weight:700;color:var(--qbink);text-align:right}
+  .ri-hint{font-size:10px;color:var(--qbmut);margin-top:4px;text-align:right}
+  .ri-ta{background:#fff;border:1px solid var(--qbline);border-radius:8px;padding:10px 12px;font-size:12px;color:var(--qbmut);min-height:42px;line-height:1.5}
+  .ri-fieldgap{margin-bottom:12px}
+  .ri-add{display:inline-block;background:none;border:1px dashed var(--qbacc);border-radius:8px;padding:8px 16px;color:var(--qbacc2);font-size:12px;font-weight:700}
+  /* safekeeping page (in-app, shares the .qb frame + sidebar) */
+  .sk-filters{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin:18px 0 16px}
+  .sk-chip{font-size:10.5px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;border:1px solid var(--qbline);background:#fff;color:var(--qbink);border-radius:3px;padding:6px 13px}
+  .sk-chip.on{background:var(--qbink);border-color:var(--qbink);color:#fff}
+  .sk-search{background:#fff;border:1px solid var(--qbline);border-radius:8px;padding:8px 12px;font-size:11.5px;color:var(--qbmut);flex:1;min-width:180px;max-width:280px}
+  .sk-card{background:#fff;border:1px solid var(--qbline);border-radius:11px;padding:15px 18px;margin-bottom:12px;display:flex;justify-content:space-between;gap:16px;flex-wrap:wrap}
+  .sk-nm{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:5px}
+  .sk-nm b{font-size:15px;font-weight:800;color:var(--qbink)}
+  .sk-badge{font-size:9px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;border-radius:5px;padding:3px 8px}
+  .sk-badge.hold{color:var(--qbok);border:1px solid color-mix(in srgb,var(--qbok) 34%,transparent)}
+  .sk-badge.ret{color:var(--qbmut);border:1px solid var(--qbline)}
+  .sk-ref{font-size:11px;color:var(--qbmut)}
+  .sk-items{font-size:13px;color:var(--qbink);margin-bottom:4px}
+  .sk-meta{font-size:12px;color:var(--qbmut)}
+  .sk-acts{display:flex;gap:8px;flex-wrap:wrap;align-items:flex-start}
+  /* gold receipt documents (repair + safekeeping) */
+  .rc{background:#fff;color:#1a1714;font-family:'Poppins',system-ui,'Segoe UI',Roboto,sans-serif;max-width:640px;width:100%;padding:34px 40px;border:1px solid var(--line);border-radius:6px;box-shadow:var(--shadow);font-size:13px;line-height:1.5}
+  .rc-head{display:flex;justify-content:space-between;align-items:flex-start;gap:20px;border-bottom:2.5px solid #C9A84C;padding-bottom:18px;margin-bottom:22px}
+  .rc-bname{font-size:20px;font-weight:800}
+  .rc-bsub{font-size:11px;color:#6b6560;margin-top:4px}
+  .rc-ql{font-size:10px;font-weight:700;color:#C9A84C;letter-spacing:.12em;text-transform:uppercase;text-align:right}
+  .rc-num{font-size:22px;font-weight:800;text-align:right;margin-top:2px}
+  .rc-date{font-size:10px;color:#6b6560;text-align:right;margin-top:3px}
+  .rc-to{margin-bottom:22px}
+  .rc-tolbl{font-size:8.5px;font-weight:700;color:#6b6560;text-transform:uppercase;letter-spacing:.08em;margin-bottom:4px}
+  .rc-toname{font-size:17px;font-weight:700}
+  .rc-todet{font-size:12px;color:#6b6560;margin-top:2px}
+  .rc-sum{display:grid;gap:1px;background:#E8E2D9;border:1px solid #E8E2D9;border-radius:10px;overflow:hidden;margin-bottom:24px}
+  .rc-sum>div{background:#fff;padding:12px 16px}
+  .rc-slbl{font-size:8.5px;font-weight:700;color:#6b6560;text-transform:uppercase;letter-spacing:.08em;margin-bottom:5px}
+  .rc-sval{font-size:14px;font-weight:700;color:#1a1714}
+  .rc-sval.gold{color:#8b6914}
+  .rc-tbl{width:100%;border-collapse:collapse;margin-bottom:18px}
+  .rc-tbl th{font-size:9px;font-weight:700;color:#6b6560;text-transform:uppercase;letter-spacing:.06em;padding:8px 10px;border-bottom:2px solid #1a1714;text-align:left}
+  .rc-tbl td{padding:11px 10px;font-size:12px;border-bottom:1px solid #E8E2D9;vertical-align:top;line-height:1.5;color:#1a1714}
+  .rc-tbl .num{width:24px;color:#8b6914;font-weight:800}
+  .rc-tbl .it{font-weight:700;white-space:nowrap}
+  .rc-tbl th.amt,.rc-tbl td.amt{text-align:right;white-space:nowrap}
+  .rc-tbl td.amt{font-weight:700}
+  .rc-instr{font-size:12px;line-height:1.6;color:#1a1714;background:#FAF7F2;border-left:3px solid #C9A84C;border-radius:0 8px 8px 0;padding:11px 16px;margin-bottom:22px}
+  .rc-instr b{font-size:8.5px;font-weight:700;color:#6b6560;text-transform:uppercase;letter-spacing:.08em;display:block;margin-bottom:4px}
+  .rc-terms{font-size:9.5px;line-height:1.6;color:#7a746e;margin-bottom:18px}
+  .rc-terms .tt{font-size:8.5px;font-weight:700;color:#6b6560;text-transform:uppercase;letter-spacing:.1em;margin-bottom:6px}
+  .rc-terms b{color:#1a1714}
+  .rc-sig{display:grid;grid-template-columns:1fr 1fr;gap:28px;margin-top:8px}
+  .rc-sigline{border-bottom:1px solid #1a1714;margin-top:26px;margin-bottom:5px}
+  .rc-siglbl{font-size:9px;color:#6b6560;line-height:1.4}
+  .rc-foot{margin-top:22px;padding-top:12px;border-top:1px solid #E8E2D9;font-size:9.5px;color:#6b6560;text-align:center}
+  @media(max-width:560px){.ri-dates,.ri-2{grid-template-columns:1fr}.rc{padding:24px 20px}.rc-sum{grid-template-columns:1fr 1fr}.rc-tbl th:nth-child(4),.rc-tbl td:nth-child(4){display:none}}
 
   /* master job page rebuild (shares the .qb frame + sidebar) */
   .jb-head{display:flex;justify-content:space-between;align-items:flex-start;gap:14px 18px;flex-wrap:wrap}
@@ -1518,6 +1601,7 @@
         <div class="qbtabs reveal">
           <input type="radio" name="qbtab" id="qbtab-dash" checked>
           <input type="radio" name="qbtab" id="qbtab-job">
+          <input type="radio" name="qbtab" id="qbtab-repair">
           <input type="radio" name="qbtab" id="qbtab-quote">
           <input type="radio" name="qbtab" id="qbtab-additems">
           <input type="radio" name="qbtab" id="qbtab-proposal">
@@ -1525,10 +1609,12 @@
           <input type="radio" name="qbtab" id="qbtab-invoice">
           <input type="radio" name="qbtab" id="qbtab-metals">
           <input type="radio" name="qbtab" id="qbtab-pricing">
+          <input type="radio" name="qbtab" id="qbtab-safekeep">
           <input type="radio" name="qbtab" id="qbtab-todo">
           <div class="qbtabbar">
             <label for="qbtab-dash">Dashboard</label>
             <label for="qbtab-job">Job</label>
+            <label for="qbtab-repair">Repair intake</label>
             <label for="qbtab-quote">Quote builder</label>
             <label for="qbtab-additems">Add to quote</label>
             <label for="qbtab-proposal">Proposal</label>
@@ -1536,6 +1622,7 @@
             <label for="qbtab-invoice">Invoice</label>
             <label for="qbtab-metals">Metal prices</label>
             <label for="qbtab-pricing">Pricing DB</label>
+            <label for="qbtab-safekeep">Safekeeping</label>
             <label for="qbtab-todo">To-do</label>
           </div>
           <div class="qbpanel qbpanel-dash">
@@ -1774,6 +1861,84 @@
             </div>
           </div>
           <figcaption>One page for the whole commission: the brief, photos, every quote, the proposal and payments, all in a single view.</figcaption>
+        </figure>
+          </div>
+          <div class="qbpanel qbpanel-repair">
+        <figure class="qbframe">
+          <div class="qbbar"><span></span><span></span><span></span></div>
+          <div class="qbscroll">
+            <div class="qb">
+              <aside class="qb-side">
+                <div class="qb-logo">WORKSHOP PILOT</div>
+                <div class="qb-ni"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/></svg> Dashboard</div>
+                <div class="qb-ni"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg> To-do</div>
+                <div class="qb-sec">Workflow</div>
+                <div class="qb-ni"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg> Appointments</div>
+                <div class="qb-ni"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/></svg> Clients</div>
+                <div class="qb-ni on"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><path d="M6 3h12l3 6-9 12L3 9z"/><path d="M3 9h18"/></svg> Jobs</div>
+                <div class="qb-ni"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/></svg> Quotes</div>
+                <div class="qb-ni"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6M8 13h8M8 17h5"/></svg> Invoices</div>
+                <div class="qb-ni"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg> Safekeeping</div>
+                <div class="qb-sec">Trade</div>
+                <div class="qb-ni"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6M8 13h8M8 17h5"/></svg> Statements</div>
+                <div class="qb-sec">Studio</div>
+                <div class="qb-ni"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><path d="M21 8l-9-5-9 5 9 5 9-5z"/><path d="M3 8v8l9 5 9-5V8"/></svg> Stock</div>
+                <div class="qb-ni"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><ellipse cx="12" cy="5" rx="8" ry="3"/><path d="M4 5v14c0 1.66 3.58 3 8 3s8-1.34 8-3V5"/></svg> Pricing DB</div>
+                <div class="qb-ni"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg> Reports</div>
+                <div class="qb-ni"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.6 1.6 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.6 1.6 0 0 0-2.7 1.1V21a2 2 0 0 1-4 0v-.1A1.6 1.6 0 0 0 6 19.4l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1A1.6 1.6 0 0 0 4.6 15H4.5a2 2 0 0 1 0-4h.1A1.6 1.6 0 0 0 6 8.6l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1A1.6 1.6 0 0 0 11 4.6V4.5a2 2 0 0 1 4 0v.1A1.6 1.6 0 0 0 18 6l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.6 1.6 0 0 0-.3 1.8v.1z"/></svg> Settings</div>
+                <div class="qb-user">
+                  <div class="em"><span class="av">A</span> you@yourstudio.com</div>
+                  <div class="so">SIGN OUT</div>
+                </div>
+              </aside>
+              <div class="qb-main">
+                <span class="qb-back">&larr; Back</span>
+                <div class="jb-head" style="margin-top:14px;margin-bottom:16px">
+                  <div><div class="jb-h1">Repair &middot; Jordan &amp; Alex Rivera</div><div class="jb-sub">Ring re-claw &amp; bracelet clasp &middot; Due 20 Aug 2026</div></div>
+                  <span class="jb-stage">On the bench</span>
+                </div>
+                <div class="jb-card">
+                  <div class="ri-head">
+                    <div class="ri-title">Repair Intake <span>&middot; 2 items</span></div>
+                    <div class="ri-acts"><span class="ri-btn fill">&#128279; Copy link</span><span class="ri-btn">Email</span><span class="ri-btn">Preview</span><span class="ri-btn">Print / Save PDF</span></div>
+                  </div>
+                  <div class="ri-linkbar">&#128279; Client link live &middot; the customer can view their receipt online any time.</div>
+                  <div class="ri-dates">
+                    <div><div class="ri-l">Date taken in</div><div class="ri-in">6 Aug 2026</div></div>
+                    <div><div class="ri-l">Date of pickup / collection</div><div class="ri-in">20 Aug 2026</div></div>
+                  </div>
+                  <div class="ri-item">
+                    <div class="ri-itemhead"><span class="n">Item 1</span></div>
+                    <div class="ri-2">
+                      <div><div class="ri-l">Item type</div><div class="ri-in">18ct gold ring</div></div>
+                      <div>
+                        <div style="display:flex;gap:4px;margin-bottom:5px"><span style="flex:1;text-align:center;padding:5px;border-radius:6px;background:var(--qbink);color:#fff;font-size:10px;font-weight:700">Set price</span><span style="flex:1;text-align:center;padding:5px;border-radius:6px;border:1px solid var(--qbline);color:var(--qbmut);font-size:10px;font-weight:700">Cost + markup</span><span style="padding:5px 8px;border-radius:6px;border:1px solid var(--qbline);color:var(--qbmut);font-size:10px">&#128203;</span></div>
+                        <div class="ri-price">$180.00</div>
+                        <div class="ri-hint">Final price (inc GST)</div>
+                      </div>
+                    </div>
+                    <div class="ri-fieldgap"><div class="ri-l">Description of damage / issue</div><div class="ri-ta">Broken claw on the centre setting &mdash; re-tip and re-set the stone.</div></div>
+                    <div><div class="ri-l">Condition on arrival</div><div class="ri-ta">Light wear, centre stone secure.</div></div>
+                  </div>
+                  <div class="ri-item">
+                    <div class="ri-itemhead"><span class="n">Item 2</span><span class="rm">&times; Remove</span></div>
+                    <div class="ri-2">
+                      <div><div class="ri-l">Item type</div><div class="ri-in">Silver bracelet</div></div>
+                      <div>
+                        <div style="display:flex;gap:4px;margin-bottom:5px"><span style="flex:1;text-align:center;padding:5px;border-radius:6px;background:var(--qbink);color:#fff;font-size:10px;font-weight:700">Set price</span><span style="flex:1;text-align:center;padding:5px;border-radius:6px;border:1px solid var(--qbline);color:var(--qbmut);font-size:10px;font-weight:700">Cost + markup</span><span style="padding:5px 8px;border-radius:6px;border:1px solid var(--qbline);color:var(--qbmut);font-size:10px">&#128203;</span></div>
+                        <div class="ri-price">$160.00</div>
+                        <div class="ri-hint">Final price (inc GST)</div>
+                      </div>
+                    </div>
+                    <div class="ri-fieldgap"><div class="ri-l">Description of damage / issue</div><div class="ri-ta">Faulty clasp &mdash; replace with a new lobster clasp.</div></div>
+                    <div><div class="ri-l">Condition on arrival</div><div class="ri-ta">Tarnished, clasp spring broken.</div></div>
+                  </div>
+                  <span class="ri-add">+ Add another item</span>
+                </div>
+              </div>
+            </div>
+          </div>
+          <figcaption>Log every piece a client drops in: the damage, the condition on arrival, and the price, then hand them a receipt on the spot.</figcaption>
         </figure>
           </div>
           <div class="qbpanel qbpanel-quote">
@@ -2383,6 +2548,77 @@
           <figcaption>Every cost your quotes draw on in one searchable list. Edit any line and every future quote uses the new figure.</figcaption>
         </figure>
           </div>
+          <div class="qbpanel qbpanel-safekeep">
+        <figure class="qbframe">
+          <div class="qbbar"><span></span><span></span><span></span></div>
+          <div class="qbscroll">
+            <div class="qb">
+              <aside class="qb-side">
+                <div class="qb-logo">WORKSHOP PILOT</div>
+                <div class="qb-ni"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/></svg> Dashboard</div>
+                <div class="qb-ni"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg> To-do</div>
+                <div class="qb-sec">Workflow</div>
+                <div class="qb-ni"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg> Appointments</div>
+                <div class="qb-ni"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/></svg> Clients</div>
+                <div class="qb-ni"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><path d="M6 3h12l3 6-9 12L3 9z"/><path d="M3 9h18"/></svg> Jobs</div>
+                <div class="qb-ni"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/></svg> Quotes</div>
+                <div class="qb-ni"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6M8 13h8M8 17h5"/></svg> Invoices</div>
+                <div class="qb-ni on"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg> Safekeeping</div>
+                <div class="qb-sec">Trade</div>
+                <div class="qb-ni"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6M8 13h8M8 17h5"/></svg> Statements</div>
+                <div class="qb-sec">Studio</div>
+                <div class="qb-ni"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><path d="M21 8l-9-5-9 5 9 5 9-5z"/><path d="M3 8v8l9 5 9-5V8"/></svg> Stock</div>
+                <div class="qb-ni"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><ellipse cx="12" cy="5" rx="8" ry="3"/><path d="M4 5v14c0 1.66 3.58 3 8 3s8-1.34 8-3V5"/></svg> Pricing DB</div>
+                <div class="qb-ni"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg> Reports</div>
+                <div class="qb-ni"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.6 1.6 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.6 1.6 0 0 0-2.7 1.1V21a2 2 0 0 1-4 0v-.1A1.6 1.6 0 0 0 6 19.4l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1A1.6 1.6 0 0 0 4.6 15H4.5a2 2 0 0 1 0-4h.1A1.6 1.6 0 0 0 6 8.6l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1A1.6 1.6 0 0 0 11 4.6V4.5a2 2 0 0 1 4 0v.1A1.6 1.6 0 0 0 18 6l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.6 1.6 0 0 0-.3 1.8v.1z"/></svg> Settings</div>
+                <div class="qb-user">
+                  <div class="em"><span class="av">A</span> you@yourstudio.com</div>
+                  <div class="so">SIGN OUT</div>
+                </div>
+              </aside>
+              <div class="qb-main">
+                <div class="db-eyebrow">Client-owned items</div>
+                <h1 class="db-h1" style="font-size:24px">Safekeeping</h1>
+                <div class="db-summary">Log any client-owned stone or piece you&rsquo;re holding, and print a signed receipt as proof for the customer.</div>
+                <div class="db-stats" style="margin-top:18px">
+                  <div class="db-stat slate"><div class="db-val">3</div><div class="db-lbl">Currently holding</div></div>
+                  <div class="db-stat slate"><div class="db-val">$31,200</div><div class="db-lbl">Declared value held</div><div class="db-sub">client-declared, for reference</div></div>
+                  <div class="db-stat slate"><div class="db-val">8</div><div class="db-lbl">Returned</div></div>
+                </div>
+                <div class="sk-filters">
+                  <span class="sk-chip on">Holding</span><span class="sk-chip">Returned</span><span class="sk-chip">All</span>
+                  <span class="sk-search">Search client, item or certificate&hellip;</span>
+                </div>
+                <div class="sk-card">
+                  <div style="min-width:220px;flex:1">
+                    <div class="sk-nm"><b>Jordan &amp; Alex Rivera</b><span class="sk-badge hold">Holding</span><span class="sk-ref">#B7F903</span></div>
+                    <div class="sk-items">2.01ct Round Diamond</div>
+                    <div class="sk-meta">Received 12 Aug 2026 &middot; Declared $18,000 &middot; &#128247; 2</div>
+                  </div>
+                  <div class="sk-acts"><span class="ri-btn fill">Print / Save PDF</span><span class="ri-btn">Mark returned</span><span class="ri-btn">Edit</span></div>
+                </div>
+                <div class="sk-card">
+                  <div style="min-width:220px;flex:1">
+                    <div class="sk-nm"><b>Priya Nguyen</b><span class="sk-badge hold">Holding</span><span class="sk-ref">#C21D48</span></div>
+                    <div class="sk-items">18ct yellow gold ring &middot; sapphire &amp; diamond</div>
+                    <div class="sk-meta">Received 18 Aug 2026 &middot; Return by 5 Sep 2026 &middot; Declared $9,400</div>
+                  </div>
+                  <div class="sk-acts"><span class="ri-btn fill">Print / Save PDF</span><span class="ri-btn">Mark returned</span><span class="ri-btn">Edit</span></div>
+                </div>
+                <div class="sk-card">
+                  <div style="min-width:220px;flex:1">
+                    <div class="sk-nm"><b>Marcus Lee</b><span class="sk-badge hold">Holding</span><span class="sk-ref">#D90A17</span></div>
+                    <div class="sk-items">1.05ct Emerald-cut Diamond</div>
+                    <div class="sk-meta">Received 22 Aug 2026 &middot; Declared $3,800 &middot; &#128247; 1</div>
+                  </div>
+                  <div class="sk-acts"><span class="ri-btn fill">Print / Save PDF</span><span class="ri-btn">Mark returned</span><span class="ri-btn">Edit</span></div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <figcaption>Record any stone or piece a client leaves with you, and print a signed custody receipt so they have proof you&rsquo;re holding it.</figcaption>
+        </figure>
+          </div>
           <div class="qbpanel qbpanel-todo">
         <figure class="qbframe">
           <div class="qbbar"><span></span><span></span><span></span></div>
@@ -2493,12 +2729,16 @@
           <input type="radio" name="outtab" id="out-quote" checked>
           <input type="radio" name="outtab" id="out-invoice">
           <input type="radio" name="outtab" id="out-proposal">
+          <input type="radio" name="outtab" id="out-repair">
+          <input type="radio" name="outtab" id="out-safekeep">
           <input type="radio" name="outtab" id="out-docket">
           <input type="radio" name="outtab" id="out-tags">
           <div class="qbtabbar">
             <label for="out-quote">Quote</label>
             <label for="out-invoice">Invoice</label>
             <label for="out-proposal">Proposal</label>
+            <label for="out-repair">Repair receipt</label>
+            <label for="out-safekeep">Safekeeping</label>
             <label for="out-docket">Docket</label>
             <label for="out-tags">Tags</label>
           </div>
@@ -2616,6 +2856,80 @@
                   </div>
                 </div>
                 <div class="doc-foot">All prices inclusive of GST &middot; Quoted in AUD</div>
+              </div>
+            </div>
+          </div>
+
+          <div class="outpanel outpanel-repair">
+            <div class="docwrap">
+              <div class="rc">
+                <div class="rc-head">
+                  <div><div class="rc-bname">Aurelia Fine Jewellery</div><div class="rc-bsub">hello@aurelia.com.au &middot; 03 9000 1234</div></div>
+                  <div><div class="rc-ql">Repair Receipt</div><div class="rc-num">#7C4A21</div><div class="rc-date">26 Aug 2026</div></div>
+                </div>
+                <div class="rc-sum" style="grid-template-columns:repeat(4,1fr)">
+                  <div><div class="rc-slbl">Client</div><div class="rc-sval">Jordan &amp; Alex Rivera</div></div>
+                  <div><div class="rc-slbl">Taken in</div><div class="rc-sval">6 Aug 2026</div></div>
+                  <div><div class="rc-slbl">Ready for collection</div><div class="rc-sval">20 Aug 2026</div></div>
+                  <div><div class="rc-slbl">Repair total &middot; inc GST</div><div class="rc-sval gold">$340.00</div></div>
+                </div>
+                <div style="font-size:10px;font-weight:700;color:#6b6560;text-transform:uppercase;letter-spacing:.08em;margin-bottom:10px">2 items received in this drop-off</div>
+                <table class="rc-tbl">
+                  <thead><tr><th class="num">#</th><th>Item</th><th>Issue / work required</th><th>Condition on arrival</th><th class="amt">Price</th></tr></thead>
+                  <tbody>
+                    <tr><td class="num">1</td><td class="it">18ct gold ring</td><td>Broken claw on centre setting &mdash; re-tip and re-set the stone.</td><td>Light wear, centre stone secure.</td><td class="amt">$180.00</td></tr>
+                    <tr><td class="num">2</td><td class="it">Silver bracelet</td><td>Faulty clasp &mdash; replace with a new lobster clasp.</td><td>Tarnished, clasp spring broken.</td><td class="amt">$160.00</td></tr>
+                  </tbody>
+                </table>
+                <div class="rc-instr"><b>Client instructions</b>Please polish both pieces before collection. Call the mobile on file when ready.</div>
+                <div class="rc-terms">
+                  <div class="tt">Terms &amp; conditions</div>
+                  <b>Client-supplied stones:</b> For gemstones or diamonds we have not crafted or sourced, we cannot assume responsibility for damage during setting or repair; their condition and suitability remain the client&rsquo;s responsibility.<br><br>
+                  <b>Repair warranty:</b> Repairs are carried out with the utmost care, but no warranty is provided against further wear or failure of repaired areas after the piece leaves our care. All repairs are undertaken at the client&rsquo;s risk.
+                </div>
+                <div class="rc-sig">
+                  <div><div class="rc-sigline"></div><div class="rc-siglbl">Client signature &mdash; I have read and accept the above terms</div></div>
+                  <div><div class="rc-sigline"></div><div class="rc-siglbl">Date</div></div>
+                </div>
+                <div class="rc-foot">Aurelia Fine Jewellery &middot; ABN 12 345 678 901</div>
+              </div>
+            </div>
+          </div>
+
+          <div class="outpanel outpanel-safekeep">
+            <div class="docwrap">
+              <div class="rc">
+                <div class="rc-head">
+                  <div><div class="rc-bname">Aurelia Fine Jewellery</div><div class="rc-bsub">hello@aurelia.com.au &middot; 03 9000 1234</div></div>
+                  <div><div class="rc-ql">Safekeeping Receipt</div><div class="rc-num">#B7F903</div><div class="rc-date">26 Aug 2026</div></div>
+                </div>
+                <div class="rc-to"><div class="rc-tolbl">Held on behalf of</div><div class="rc-toname">Jordan &amp; Alex Rivera</div><div class="rc-todet">jordan.rivera@example.com &middot; 0412 345 678</div></div>
+                <div class="rc-sum" style="grid-template-columns:repeat(4,1fr)">
+                  <div><div class="rc-slbl">Held for</div><div class="rc-sval">Jordan &amp; Alex Rivera</div></div>
+                  <div><div class="rc-slbl">Received on</div><div class="rc-sval">12 Aug 2026</div></div>
+                  <div><div class="rc-slbl">Expected return</div><div class="rc-sval">On request</div></div>
+                  <div><div class="rc-slbl">Declared value</div><div class="rc-sval gold">$18,000.00</div></div>
+                </div>
+                <table class="rc-tbl">
+                  <thead><tr><th class="num">#</th><th>Item</th><th>Details</th><th>Certificate</th><th class="amt">Declared value</th></tr></thead>
+                  <tbody>
+                    <tr><td class="num">1</td><td class="it">2.01ct Round Diamond</td><td>Colour F &middot; Clarity VS1 &middot; 8.1 &times; 8.1 &times; 4.9mm</td><td>GIA 2205618471</td><td class="amt">$18,000.00</td></tr>
+                  </tbody>
+                </table>
+                <div class="rc-instr"><b>Reason held / instructions</b>Client&rsquo;s own diamond, left with us for resetting into a new engagement ring.</div>
+                <div class="rc-terms">
+                  <div class="tt">Terms of safekeeping</div>
+                  <b>Ownership:</b> The item(s) remain the property of the client at all times. Aurelia Fine Jewellery takes no ownership interest and holds the item(s) solely as custodian.<br><br>
+                  <b>Return:</b> The item(s) will be returned to the client, or handled per the client&rsquo;s written instructions, on presentation of this receipt and reasonable proof of identity.<br><br>
+                  <b>Care &amp; liability:</b> We will take reasonable care of the item(s) while in our custody. The client is encouraged to maintain their own insurance; to the extent permitted by law, our liability is limited to the declared value shown above.
+                </div>
+                <div class="rc-sig">
+                  <div><div class="rc-sigline"></div><div class="rc-siglbl">Received into safekeeping by (Aurelia Fine Jewellery)</div></div>
+                  <div><div class="rc-sigline"></div><div class="rc-siglbl">Date received</div></div>
+                  <div><div class="rc-sigline"></div><div class="rc-siglbl">Collected by client &mdash; returned in good order</div></div>
+                  <div><div class="rc-sigline"></div><div class="rc-siglbl">Date returned</div></div>
+                </div>
+                <div class="rc-foot">Aurelia Fine Jewellery &middot; ABN 12 345 678 901</div>
               </div>
             </div>
           </div>
