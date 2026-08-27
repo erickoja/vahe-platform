@@ -483,8 +483,10 @@
   .qbtabs{margin-top:38px}
   .qbtabs>input{position:absolute;width:1px;height:1px;opacity:0;pointer-events:none}
   .qbtabbar{display:flex;flex-wrap:wrap;justify-content:center;gap:8px;max-width:100%;margin:0 auto 4px}
-  .qbtabgroup-label{font-size:.68rem;font-weight:800;letter-spacing:.15em;text-transform:uppercase;color:var(--muted);text-align:center;margin:22px 0 9px}
+  .qbtabgroup-label{font-size:1.05rem;font-weight:800;letter-spacing:.02em;color:var(--strong);text-align:center;margin:30px 0 12px;display:flex;align-items:center;justify-content:center;gap:12px}
+  .qbtabgroup-label::before,.qbtabgroup-label::after{content:"";height:1px;width:30px;background:var(--line)}
   .qbtabgroup-label:first-of-type{margin-top:0}
+  @media(max-width:560px){.qbtabgroup-label{font-size:.95rem}.qbtabgroup-label::before,.qbtabgroup-label::after{width:18px}}
   .qbtabbar label{padding:9px 17px;border-radius:11px;font-size:.88rem;font-weight:700;color:var(--muted);cursor:pointer;white-space:nowrap;background:var(--surface);border:1px solid var(--line);box-shadow:var(--shadow-sm);transition:color .15s ease,background .15s ease,border-color .15s ease,transform .15s ease}
   .qbtabbar label:hover{color:var(--strong);border-color:var(--accent);transform:translateY(-1px)}
   #qbtab-quote:checked~.qbtabbar label[for="qbtab-quote"],
