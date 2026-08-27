@@ -482,7 +482,7 @@
   /* tabbed switcher: show one app-screen rebuild at a time (CSS only, no JS) */
   .qbtabs{margin-top:38px}
   .qbtabs>input{position:absolute;width:1px;height:1px;opacity:0;pointer-events:none}
-  .qbtabbar{display:flex;gap:6px;width:fit-content;margin:0 auto;background:var(--surface-2);border:1px solid var(--line);border-radius:12px;padding:5px}
+  .qbtabbar{display:flex;flex-wrap:wrap;justify-content:center;gap:5px;width:fit-content;max-width:100%;margin:0 auto;background:var(--surface-2);border:1px solid var(--line);border-radius:12px;padding:5px}
   .qbtabbar label{padding:9px 22px;border-radius:8px;font-size:.92rem;font-weight:700;color:var(--muted);cursor:pointer;white-space:nowrap;transition:background .15s ease,color .15s ease}
   .qbtabbar label:hover{color:var(--strong)}
   #qbtab-quote:checked~.qbtabbar label[for="qbtab-quote"],
@@ -493,6 +493,7 @@
   #qbtab-todo:checked~.qbtabbar label[for="qbtab-todo"],
   #qbtab-metals:checked~.qbtabbar label[for="qbtab-metals"],
   #qbtab-pricing:checked~.qbtabbar label[for="qbtab-pricing"],
+  #qbtab-dash:checked~.qbtabbar label[for="qbtab-dash"],
   #qbtab-job:checked~.qbtabbar label[for="qbtab-job"]{background:var(--accent);color:#fff}
   #qbtab-quote:focus-visible~.qbtabbar label[for="qbtab-quote"],
   #qbtab-additems:focus-visible~.qbtabbar label[for="qbtab-additems"],
@@ -502,6 +503,7 @@
   #qbtab-todo:focus-visible~.qbtabbar label[for="qbtab-todo"],
   #qbtab-metals:focus-visible~.qbtabbar label[for="qbtab-metals"],
   #qbtab-pricing:focus-visible~.qbtabbar label[for="qbtab-pricing"],
+  #qbtab-dash:focus-visible~.qbtabbar label[for="qbtab-dash"],
   #qbtab-job:focus-visible~.qbtabbar label[for="qbtab-job"]{outline:2px solid var(--accent);outline-offset:2px}
   .qbpanel{display:none;margin-top:22px}
   .qbpanel .qbframe{margin-top:0}
@@ -513,6 +515,7 @@
   #qbtab-todo:checked~.qbpanel-todo,
   #qbtab-metals:checked~.qbpanel-metals,
   #qbtab-pricing:checked~.qbpanel-pricing,
+  #qbtab-dash:checked~.qbpanel-dash,
   #qbtab-job:checked~.qbpanel-job{display:block}
   @media(max-width:980px){.qbtabbar{flex-wrap:wrap;justify-content:center;gap:5px;max-width:100%}.qbtabbar label{padding:8px 13px;font-size:.82rem}}
   @media(max-width:400px){.qbtabbar label{padding:7px 11px;font-size:.77rem}}
@@ -753,6 +756,70 @@
     .ap-row{flex-wrap:wrap;gap:8px}
     .ap-controls{width:100%;justify-content:flex-end}
   }
+
+  /* dashboard home page (shares the .qb frame + sidebar) */
+  .db-eyebrow{font-size:9px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--qbmut)}
+  .db-h1{font-size:26px;font-weight:800;margin:5px 0 0;letter-spacing:-.02em;color:var(--qbink)}
+  .db-summary{font-size:13px;color:var(--qbink);margin-top:6px}
+  .db-date{font-size:11px;color:var(--qbmut);margin-top:3px}
+  .db-spot{display:inline-flex;align-items:center;gap:8px;background:#fff;border:1px solid var(--qbline);border-radius:9px;padding:8px 13px;font-size:11.5px;font-weight:700;color:var(--qbink);margin:16px 0 20px;box-shadow:0 1px 3px rgba(0,0,0,.05)}
+  .db-spot .ic{color:var(--qbacc2);font-size:13px}
+  .db-spot .mut{color:var(--qbmut);font-weight:400}
+  .db-stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(148px,1fr));gap:12px;margin-bottom:20px}
+  .db-stat{background:#fff;border:1px solid var(--qbline);border-radius:11px;padding:15px 16px}
+  .db-stat .ic{width:36px;height:36px;border-radius:11px;display:flex;align-items:center;justify-content:center;margin-bottom:11px}
+  .db-stat .ic svg{width:18px;height:18px}
+  .db-val{font-size:23px;font-weight:800;letter-spacing:-.02em;line-height:1.1;display:flex;align-items:baseline;gap:6px;color:var(--qbink)}
+  .db-trend{font-size:10px;font-weight:800;color:var(--qbok)}
+  .db-lbl{font-size:9.5px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--qbmut);margin-top:5px}
+  .db-sub{font-size:10.5px;color:var(--qbmut);margin-top:3px}
+  .db-stat.slate .ic{background:#efe9e1;color:#5d5a57} .db-stat.slate .db-val{color:#5d5a57}
+  .db-stat.mint .ic{background:#e7f1ec;color:var(--qbok)} .db-stat.mint .db-val{color:var(--qbok)}
+  .db-stat.peach .ic{background:#f7eae1;color:#a65d32} .db-stat.peach .db-val{color:#a65d32}
+  .db-stat.rose .ic{background:#fbeaea;color:#c0392b} .db-stat.rose .db-val{color:#c0392b}
+  .db-card{background:#fff;border:1px solid var(--qbline);border-radius:12px;padding:17px 19px}
+  .db-cardhead{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:13px}
+  .db-cardtitle{font-weight:700;font-size:14px;color:var(--qbink)}
+  .db-viewall{font-size:11px;font-weight:700;color:var(--qbink);border:1px solid var(--qbline);background:#fff;border-radius:7px;padding:5px 11px;white-space:nowrap}
+  .db-attn{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:10px}
+  .db-att{display:flex;align-items:center;gap:11px;padding:12px 14px;border-radius:10px}
+  .db-att .h{font-size:14px;font-weight:800}
+  .db-att .s{font-size:11px;color:var(--qbmut);margin-top:1px}
+  .db-att .ar{margin-left:auto;font-weight:700;font-size:15px;flex:none}
+  .db-2col{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin:20px 0;align-items:stretch}
+  .db-chart{display:flex;align-items:stretch;gap:8px;height:120px;margin-top:2px}
+  .db-bar{flex:1;display:flex;flex-direction:column;align-items:center;gap:4px;min-width:0}
+  .db-bar .amt{font-size:9.5px;font-weight:700;color:var(--qbmut);white-space:nowrap}
+  .db-bar .amt.cur{color:var(--qbok)}
+  .db-bar .track{flex:1;width:100%;display:flex;align-items:flex-end;justify-content:center}
+  .db-bar .fill{width:100%;max-width:38px;border-radius:5px 5px 2px 2px;background:color-mix(in srgb,var(--qbok) 30%,transparent)}
+  .db-bar .fill.cur{background:var(--qbok)}
+  .db-barlabels{display:flex;gap:8px;margin-top:6px}
+  .db-barlabels span{flex:1;text-align:center;font-size:10px;color:var(--qbmut);font-weight:600}
+  .db-pipeval{font-size:21px;font-weight:800;letter-spacing:-.02em;margin-bottom:13px;color:var(--qbink)}
+  .db-pipeval span{font-size:11px;font-weight:600;color:var(--qbmut)}
+  .db-pipebar{display:flex;gap:2px;height:13px;margin-bottom:13px}
+  .db-pipebar i{border-radius:4px;display:block}
+  .db-pipelegend{display:grid;grid-template-columns:1fr 1fr;gap:7px 16px}
+  .db-pipelegend div{display:flex;align-items:center;gap:8px;font-size:11.5px}
+  .db-pipelegend .dot{width:9px;height:9px;border-radius:3px;flex:none}
+  .db-pipelegend .k{color:var(--qbmut);flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .db-pipelegend .v{font-weight:800;color:var(--qbink)}
+  .db-2colb{display:grid;grid-template-columns:minmax(0,1.6fr) minmax(0,1fr);gap:16px;align-items:start}
+  .db-side{display:flex;flex-direction:column;gap:16px}
+  .db-row{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:10px 0;border-top:1px solid var(--qbline)}
+  .db-rows .db-row:first-child{border-top:none;padding-top:2px}
+  .db-row .nm{min-width:0}
+  .db-row .nm b{font-size:13px;font-weight:600;color:var(--qbink);display:block}
+  .db-row .nm b .mut{color:var(--qbmut);font-weight:400}
+  .db-row .nm .sig{font-size:11.5px;margin-top:2px}
+  .db-right{display:flex;flex-direction:column;align-items:flex-end;gap:3px;flex:none;text-align:right}
+  .db-in{font-size:12px;font-weight:800;color:var(--qbok);white-space:nowrap}
+  .db-owing{font-size:11.5px;font-weight:700;color:#b06a10;white-space:nowrap}
+  .db-badge{font-size:9px;font-weight:700;letter-spacing:.03em;text-transform:uppercase;color:var(--qbmut);border:1px solid var(--qbline);border-radius:5px;padding:3px 8px;white-space:nowrap}
+  .db-dot{width:8px;height:8px;border-radius:50%;flex:none}
+  @media(max-width:900px){.db-2col,.db-2colb{grid-template-columns:1fr}}
+  @media(max-width:560px){.db-stats{grid-template-columns:1fr 1fr}.db-row{flex-wrap:wrap}}
 
   /* master job page rebuild (shares the .qb frame + sidebar) */
   .jb-head{display:flex;justify-content:space-between;align-items:flex-start;gap:14px 18px;flex-wrap:wrap}
@@ -1322,10 +1389,11 @@
         <div class="sec-head reveal">
           <p class="eyebrow">Inside the app</p>
           <h2>The real workspace, screen by screen.</h2>
-          <p>The actual screens you work in, from quoting a bespoke piece and sending an online proposal, to the moment a client accepts, raising the GST invoice, and repricing your metals to the day&rsquo;s spot. Everything a bespoke studio runs on, in one place.</p>
+          <p>The actual screens you work in, from a dashboard that reads your whole studio at a glance to quoting a bespoke piece, proposing it, invoicing it, and repricing your metals to the day&rsquo;s spot. Everything a bespoke studio runs on, in one place.</p>
         </div>
         <div class="qbtabs reveal">
-          <input type="radio" name="qbtab" id="qbtab-job" checked>
+          <input type="radio" name="qbtab" id="qbtab-dash" checked>
+          <input type="radio" name="qbtab" id="qbtab-job">
           <input type="radio" name="qbtab" id="qbtab-quote">
           <input type="radio" name="qbtab" id="qbtab-additems">
           <input type="radio" name="qbtab" id="qbtab-proposal">
@@ -1335,6 +1403,7 @@
           <input type="radio" name="qbtab" id="qbtab-pricing">
           <input type="radio" name="qbtab" id="qbtab-todo">
           <div class="qbtabbar">
+            <label for="qbtab-dash">Dashboard</label>
             <label for="qbtab-job">Job</label>
             <label for="qbtab-quote">Quote builder</label>
             <label for="qbtab-additems">Add to quote</label>
@@ -1344,6 +1413,120 @@
             <label for="qbtab-metals">Metal prices</label>
             <label for="qbtab-pricing">Pricing DB</label>
             <label for="qbtab-todo">To-do</label>
+          </div>
+          <div class="qbpanel qbpanel-dash">
+        <figure class="qbframe">
+          <div class="qbbar"><span></span><span></span><span></span></div>
+          <div class="qbscroll">
+            <div class="qb">
+              <aside class="qb-side">
+                <div class="qb-logo">WORKSHOP PILOT</div>
+                <div class="qb-ni on"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/></svg> Dashboard</div>
+                <div class="qb-ni"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg> To-do</div>
+                <div class="qb-sec">Workflow</div>
+                <div class="qb-ni"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg> Appointments</div>
+                <div class="qb-ni"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/></svg> Clients</div>
+                <div class="qb-ni"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><path d="M6 3h12l3 6-9 12L3 9z"/><path d="M3 9h18"/></svg> Jobs</div>
+                <div class="qb-ni"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/></svg> Quotes</div>
+                <div class="qb-ni"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6M8 13h8M8 17h5"/></svg> Invoices</div>
+                <div class="qb-ni"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg> Safekeeping</div>
+                <div class="qb-sec">Trade</div>
+                <div class="qb-ni"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6M8 13h8M8 17h5"/></svg> Statements</div>
+                <div class="qb-sec">Studio</div>
+                <div class="qb-ni"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><path d="M21 8l-9-5-9 5 9 5 9-5z"/><path d="M3 8v8l9 5 9-5V8"/></svg> Stock</div>
+                <div class="qb-ni"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><ellipse cx="12" cy="5" rx="8" ry="3"/><path d="M4 5v14c0 1.66 3.58 3 8 3s8-1.34 8-3V5"/></svg> Pricing DB</div>
+                <div class="qb-ni"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg> Reports</div>
+                <div class="qb-ni"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.6 1.6 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.6 1.6 0 0 0-2.7 1.1V21a2 2 0 0 1-4 0v-.1A1.6 1.6 0 0 0 6 19.4l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1A1.6 1.6 0 0 0 4.6 15H4.5a2 2 0 0 1 0-4h.1A1.6 1.6 0 0 0 6 8.6l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1A1.6 1.6 0 0 0 11 4.6V4.5a2 2 0 0 1 4 0v.1A1.6 1.6 0 0 0 18 6l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.6 1.6 0 0 0-.3 1.8v.1z"/></svg> Settings</div>
+                <div class="qb-user">
+                  <div class="em"><span class="av">A</span> you@yourstudio.com</div>
+                  <div class="so">SIGN OUT</div>
+                </div>
+              </aside>
+              <div class="qb-main">
+                <div class="db-eyebrow">Workshop overview</div>
+                <h1 class="db-h1">Good morning</h1>
+                <div class="db-summary">2 appointments today &middot; 6 active jobs &middot; 1 overdue &middot; 2 ready to collect</div>
+                <div class="db-date">Wednesday, 26 August 2026</div>
+                <div class="db-spot"><span class="ic">&#10227;</span> Update metal spot prices <span class="mut">&middot; last updated 26 Aug 2026</span></div>
+                <div class="db-stats">
+                  <div class="db-stat slate"><div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg></div><div class="db-val">2</div><div class="db-lbl">Today&rsquo;s appts</div><div class="db-sub">10:00am first</div></div>
+                  <div class="db-stat slate"><div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/></svg></div><div class="db-val">148</div><div class="db-lbl">Clients</div></div>
+                  <div class="db-stat slate"><div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M6 3h12l3 6-9 12L3 9z"/><path d="M3 9h18"/></svg></div><div class="db-val">6</div><div class="db-lbl">Active jobs</div></div>
+                  <div class="db-stat mint"><div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="6" width="20" height="12" rx="2"/><circle cx="12" cy="12" r="2.5"/></svg></div><div class="db-val">$18,400 <span class="db-trend">&#9650; 12%</span></div><div class="db-lbl">This month</div><div class="db-sub">vs $16,450 last month</div></div>
+                  <div class="db-stat peach"><div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="6" width="20" height="12" rx="2"/><circle cx="12" cy="12" r="2.5"/></svg></div><div class="db-val">$9,275</div><div class="db-lbl">Outstanding</div><div class="db-sub">balance owed</div></div>
+                  <div class="db-stat slate"><div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 7l9-4 9 4-9 4-9-4z"/><path d="M3 7v10l9 4 9-4V7"/></svg></div><div class="db-val">2</div><div class="db-lbl">Ready to collect</div></div>
+                  <div class="db-stat rose"><div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg></div><div class="db-val">1</div><div class="db-lbl">Overdue</div></div>
+                </div>
+                <div class="db-card" style="margin-bottom:20px">
+                  <div class="db-cardtitle" style="margin-bottom:12px">Needs your attention</div>
+                  <div class="db-attn">
+                    <div class="db-att" style="border:1px solid #c0392b44;background:#c0392b12"><span style="font-size:19px">&#9200;</span><div><div class="h" style="color:#c0392b">1 overdue</div><div class="s">past their due date</div></div><span class="ar" style="color:#c0392b">&rarr;</span></div>
+                    <div class="db-att" style="border:1px solid #a65a5044;background:#a65a5012"><span style="font-size:19px">&#128233;</span><div><div class="h" style="color:#a65a50">2 quotes to chase</div><div class="s">sent 7+ days ago, no reply</div></div><span class="ar" style="color:#a65a50">&rarr;</span></div>
+                    <div class="db-att" style="border:1px solid #2e7d5744;background:#2e7d5712"><span style="font-size:19px">&#9989;</span><div><div class="h" style="color:#2e7d57">2 ready to collect</div><div class="s">waiting on pickup</div></div><span class="ar" style="color:#2e7d57">&rarr;</span></div>
+                    <div class="db-att" style="border:1px solid #b06a1044;background:#b06a1012"><span style="font-size:19px">&#128176;</span><div><div class="h" style="color:#b06a10">$9,275 owing</div><div class="s">across 3 jobs</div></div><span class="ar" style="color:#b06a10">&rarr;</span></div>
+                  </div>
+                </div>
+                <div class="db-2col">
+                  <div class="db-card">
+                    <div class="db-cardhead"><span class="db-cardtitle">Money received</span><span style="font-size:11px;color:var(--qbmut);font-weight:600">last 6 months</span></div>
+                    <div class="db-chart">
+                      <div class="db-bar"><span class="amt">$9.2k</span><span class="track"><span class="fill" style="height:50%"></span></span></div>
+                      <div class="db-bar"><span class="amt">$12.1k</span><span class="track"><span class="fill" style="height:66%"></span></span></div>
+                      <div class="db-bar"><span class="amt">$14.8k</span><span class="track"><span class="fill" style="height:80%"></span></span></div>
+                      <div class="db-bar"><span class="amt">$11.3k</span><span class="track"><span class="fill" style="height:61%"></span></span></div>
+                      <div class="db-bar"><span class="amt">$16.5k</span><span class="track"><span class="fill" style="height:89%"></span></span></div>
+                      <div class="db-bar"><span class="amt cur">$18.4k</span><span class="track"><span class="fill cur" style="height:100%"></span></span></div>
+                    </div>
+                    <div class="db-barlabels"><span>Mar</span><span>Apr</span><span>May</span><span>Jun</span><span>Jul</span><span>Aug</span></div>
+                  </div>
+                  <div class="db-card">
+                    <div class="db-cardhead"><span class="db-cardtitle">Production pipeline</span><span style="font-size:11px;color:var(--qbmut);font-weight:600">6 active</span></div>
+                    <div class="db-pipeval">$42,600 <span>in the pipeline</span></div>
+                    <div class="db-pipebar"><i style="flex:2;background:#A0845C"></i><i style="flex:1;background:#4E8B6A"></i><i style="flex:2;background:#3E8E8E"></i><i style="flex:1;background:#2D7A4F"></i></div>
+                    <div class="db-pipelegend">
+                      <div><span class="dot" style="background:#A0845C"></span><span class="k">Quoting</span><span class="v">2</span></div>
+                      <div><span class="dot" style="background:#4E8B6A"></span><span class="k">Approved</span><span class="v">1</span></div>
+                      <div><span class="dot" style="background:#3E8E8E"></span><span class="k">In production</span><span class="v">2</span></div>
+                      <div><span class="dot" style="background:#2D7A4F"></span><span class="k">Ready</span><span class="v">1</span></div>
+                    </div>
+                  </div>
+                </div>
+                <div class="db-2colb">
+                  <div class="db-card">
+                    <div class="db-cardhead"><span class="db-cardtitle">Active jobs</span><span class="db-viewall">View all</span></div>
+                    <div class="db-rows">
+                      <div class="db-row"><div class="nm"><b>Engagement ring <span class="mut">&middot; Jordan &amp; Alex Rivera</span></b><div class="sig" style="color:var(--qbmut)">Due 3 Sep 2026</div></div><div class="db-right"><span class="db-in">$3,725 in</span><span class="db-badge">3D printing</span></div></div>
+                      <div class="db-row"><div class="nm"><b>Wedding bands <span class="mut">&middot; Priya &amp; Sam</span></b><div class="sig" style="color:#2e7d57;font-weight:700">Ready to collect</div></div><div class="db-right"><span class="db-badge">Ready for collection</span></div></div>
+                      <div class="db-row"><div class="nm"><b>Eternity ring <span class="mut">&middot; Chen</span></b><div class="sig" style="color:var(--qbmut)">Due 2 Sep 2026</div></div><div class="db-right"><span class="db-in">$1,200 in</span><span class="db-badge">Stone setting</span></div></div>
+                      <div class="db-row"><div class="nm"><b>Signet ring <span class="mut">&middot; Marcus Lee</span></b><div class="sig" style="color:#a65a50;font-weight:700">&#9203; Proposal sent &middot; 3 days ago</div></div><div class="db-right"><span class="db-badge">Quoted</span></div></div>
+                      <div class="db-row" style="opacity:.58"><div class="nm"><b>Pendant remodel <span class="mut">&middot; Aisha Kaur</span></b><div class="sig" style="color:var(--qbmut)">Quote out, no reply yet</div></div><div class="db-right"><span class="db-badge">Quoted</span></div></div>
+                      <div class="db-row"><div class="nm"><b>Bracelet repair <span class="mut">&middot; Tom Ford</span></b><div class="sig" style="color:var(--qbmut)">Due 29 Aug 2026</div></div><div class="db-right"><span class="db-owing">$980 owing</span><span class="db-badge">Polishing / Finish</span></div></div>
+                    </div>
+                  </div>
+                  <div class="db-side">
+                    <div class="db-card">
+                      <div class="db-cardhead"><span class="db-cardtitle">Upcoming appointments</span><span class="db-viewall">View all</span></div>
+                      <div class="db-rows">
+                        <div class="db-row"><div class="nm"><b>Jordan Rivera <span class="mut">&middot; Design consult</span></b><div class="sig" style="color:var(--qbacc2)">Today &middot; 10:00am</div></div><span class="db-dot" style="background:#b56a5b"></span></div>
+                        <div class="db-row"><div class="nm"><b>Priya Nguyen <span class="mut">&middot; Collection</span></b><div class="sig" style="color:var(--qbacc2)">Today &middot; 2:30pm</div></div><span class="db-dot" style="background:#4E8B6A"></span></div>
+                        <div class="db-row"><div class="nm"><b>Marcus Lee <span class="mut">&middot; First enquiry</span></b><div class="sig" style="color:var(--qbmut)">Fri 28 Aug &middot; 11:00am</div></div><span class="db-dot" style="background:#6E5B96"></span></div>
+                      </div>
+                    </div>
+                    <div class="db-card">
+                      <div class="db-cardtitle" style="margin-bottom:12px">Balance owing by job</div>
+                      <div class="db-rows">
+                        <div class="db-row"><div class="nm"><b>Engagement ring <span class="mut">&middot; Jordan &amp; Alex Rivera</span></b><div class="sig" style="color:var(--qbmut)">3D printing</div></div><span class="db-owing" style="font-size:14px">$3,725 owing</span></div>
+                        <div class="db-row"><div class="nm"><b>Eternity ring <span class="mut">&middot; Chen</span></b><div class="sig" style="color:var(--qbmut)">Stone setting</div></div><span class="db-owing" style="font-size:14px">$4,570 owing</span></div>
+                        <div class="db-row"><div class="nm"><b>Bracelet repair <span class="mut">&middot; Tom Ford</span></b><div class="sig" style="color:var(--qbmut)">Polishing / Finish</div></div><span class="db-owing" style="font-size:14px">$980 owing</span></div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <figcaption>Your whole studio at a glance: money in, what needs chasing, the production pipeline, and every active job ranked by momentum.</figcaption>
+        </figure>
           </div>
           <div class="qbpanel qbpanel-job">
         <figure class="qbframe">
