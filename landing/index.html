@@ -482,7 +482,9 @@
   /* tabbed switcher: show one app-screen rebuild at a time (CSS only, no JS) */
   .qbtabs{margin-top:38px}
   .qbtabs>input{position:absolute;width:1px;height:1px;opacity:0;pointer-events:none}
-  .qbtabbar{display:flex;flex-wrap:wrap;justify-content:center;gap:8px;max-width:100%;margin:0 auto}
+  .qbtabbar{display:flex;flex-wrap:wrap;justify-content:center;gap:8px;max-width:100%;margin:0 auto 4px}
+  .qbtabgroup-label{font-size:.68rem;font-weight:800;letter-spacing:.15em;text-transform:uppercase;color:var(--muted);text-align:center;margin:22px 0 9px}
+  .qbtabgroup-label:first-of-type{margin-top:0}
   .qbtabbar label{padding:9px 17px;border-radius:11px;font-size:.88rem;font-weight:700;color:var(--muted);cursor:pointer;white-space:nowrap;background:var(--surface);border:1px solid var(--line);box-shadow:var(--shadow-sm);transition:color .15s ease,background .15s ease,border-color .15s ease,transform .15s ease}
   .qbtabbar label:hover{color:var(--strong);border-color:var(--accent);transform:translateY(-1px)}
   #qbtab-quote:checked~.qbtabbar label[for="qbtab-quote"],
@@ -1766,8 +1768,15 @@
           <input type="radio" name="qbtab" id="qbtab-stock">
           <input type="radio" name="qbtab" id="qbtab-reports">
           <input type="radio" name="qbtab" id="qbtab-todo">
+          <div class="qbtabgroup-label">Your day</div>
           <div class="qbtabbar">
             <label for="qbtab-dash">Dashboard</label>
+            <label for="qbtab-todo">To-do</label>
+            <label for="qbtab-appts">Appointments</label>
+            <label for="qbtab-clients">Clients</label>
+          </div>
+          <div class="qbtabgroup-label">Jobs &amp; quoting</div>
+          <div class="qbtabbar">
             <label for="qbtab-job">Job</label>
             <label for="qbtab-repair">Repair intake</label>
             <label for="qbtab-quote">Quote builder</label>
@@ -1775,16 +1784,19 @@
             <label for="qbtab-proposal">Proposal</label>
             <label for="qbtab-accept">Acceptance</label>
             <label for="qbtab-notify">Notify ready</label>
+          </div>
+          <div class="qbtabgroup-label">Billing &amp; reports</div>
+          <div class="qbtabbar">
             <label for="qbtab-invoice">Invoice</label>
+            <label for="qbtab-statements">Statements</label>
+            <label for="qbtab-reports">Reports</label>
+          </div>
+          <div class="qbtabgroup-label">Studio &amp; pricing</div>
+          <div class="qbtabbar">
             <label for="qbtab-metals">Metal prices</label>
             <label for="qbtab-pricing">Pricing DB</label>
-            <label for="qbtab-safekeep">Safekeeping</label>
-            <label for="qbtab-appts">Appointments</label>
-            <label for="qbtab-clients">Clients</label>
-            <label for="qbtab-statements">Statements</label>
             <label for="qbtab-stock">Stock</label>
-            <label for="qbtab-reports">Reports</label>
-            <label for="qbtab-todo">To-do</label>
+            <label for="qbtab-safekeep">Safekeeping</label>
           </div>
           <div class="qbpanel qbpanel-dash">
         <figure class="qbframe">
