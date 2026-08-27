@@ -491,6 +491,7 @@
   #qbtab-invoice:checked~.qbtabbar label[for="qbtab-invoice"],
   #qbtab-todo:checked~.qbtabbar label[for="qbtab-todo"],
   #qbtab-metals:checked~.qbtabbar label[for="qbtab-metals"],
+  #qbtab-pricing:checked~.qbtabbar label[for="qbtab-pricing"],
   #qbtab-job:checked~.qbtabbar label[for="qbtab-job"]{background:var(--accent);color:#fff}
   #qbtab-quote:focus-visible~.qbtabbar label[for="qbtab-quote"],
   #qbtab-proposal:focus-visible~.qbtabbar label[for="qbtab-proposal"],
@@ -498,6 +499,7 @@
   #qbtab-invoice:focus-visible~.qbtabbar label[for="qbtab-invoice"],
   #qbtab-todo:focus-visible~.qbtabbar label[for="qbtab-todo"],
   #qbtab-metals:focus-visible~.qbtabbar label[for="qbtab-metals"],
+  #qbtab-pricing:focus-visible~.qbtabbar label[for="qbtab-pricing"],
   #qbtab-job:focus-visible~.qbtabbar label[for="qbtab-job"]{outline:2px solid var(--accent);outline-offset:2px}
   .qbpanel{display:none;margin-top:22px}
   .qbpanel .qbframe{margin-top:0}
@@ -507,6 +509,7 @@
   #qbtab-invoice:checked~.qbpanel-invoice,
   #qbtab-todo:checked~.qbpanel-todo,
   #qbtab-metals:checked~.qbpanel-metals,
+  #qbtab-pricing:checked~.qbpanel-pricing,
   #qbtab-job:checked~.qbpanel-job{display:block}
   @media(max-width:820px){.qbtabbar{flex-wrap:wrap;justify-content:center;gap:5px;max-width:100%}.qbtabbar label{padding:8px 14px;font-size:.83rem}}
   @media(max-width:400px){.qbtabbar label{padding:7px 11px;font-size:.78rem}}
@@ -653,6 +656,50 @@
     .ac-alert .rev{margin-left:35px;order:3}
     .ac-alert .x{margin-left:auto;order:4}
   }
+
+  /* pricing database page (shares the .qb frame + sidebar) with the edit-item modal layered over */
+  .qbpanel-pricing .qbscroll{position:relative}
+  .pd-rel{position:relative}
+  .pd-head{display:flex;justify-content:space-between;align-items:flex-end;gap:14px 18px;flex-wrap:wrap;margin-bottom:4px}
+  .pd-eyebrow{font-size:9px;font-weight:700;letter-spacing:.13em;text-transform:uppercase;color:var(--qbmut)}
+  .pd-h1{font-size:22px;font-weight:800;margin-top:4px}
+  .pd-sub{font-size:11.5px;color:var(--qbmut);margin-top:5px;max-width:56ch;line-height:1.5}
+  .pd-acts{display:flex;gap:8px;flex-wrap:wrap}
+  .pd-btn{font-size:11px;font-weight:700;border-radius:8px;padding:8px 13px;border:1px solid var(--qbline);background:#fff;color:var(--qbink)}
+  .pd-btn.fill{background:var(--qbacc);border-color:var(--qbacc);color:#fff}
+  .pd-updated{font-size:11px;color:var(--qbmut);margin:12px 0 14px}
+  .pd-updated b{color:var(--qbink)}
+  .pd-chips{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px}
+  .pd-chip{font-size:11px;font-weight:700;border:1px solid var(--qbline);border-radius:6px;padding:5px 11px;color:var(--qbmut);background:transparent}
+  .pd-chip.on{background:var(--qbacc);border-color:var(--qbacc);color:#fff}
+  .pd-note{background:#fff;border:1px solid var(--qbline);border-radius:8px;padding:11px 15px;margin-bottom:14px;font-size:12px;color:var(--qbmut);line-height:1.55}
+  .pd-note b{color:var(--qbink)}
+  .pd-table{background:#fff;border:1px solid var(--qbline);border-radius:9px;overflow:hidden}
+  .pd-cols,.pd-row{display:grid;grid-template-columns:2fr 1fr 58px 104px 74px;gap:10px;align-items:center;padding:10px 16px}
+  .pd-cols{background:var(--qbbg);border-bottom:1px solid var(--qbline);font-size:9px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--qbmut)}
+  .pd-cols .r,.pd-row .cost{text-align:right}
+  .pd-row+.pd-row{border-top:1px solid var(--qbline)}
+  .pd-row .nm{font-size:12.5px;font-weight:600;color:var(--qbink);display:flex;align-items:center;gap:8px;min-width:0}
+  .pd-row .nm .drag{color:var(--qbmut);font-size:13px;flex:none}
+  .pd-badge{font-size:9px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:var(--qbmut);border:1px solid var(--qbline);border-radius:5px;padding:3px 8px;justify-self:start;white-space:nowrap}
+  .pd-unit{font-size:12px;color:var(--qbmut)}
+  .pd-cost{font-size:12.5px;font-weight:800;color:var(--qbink)}
+  .pd-rowacts{display:flex;gap:5px;justify-content:flex-end}
+  .pd-ic{width:26px;height:26px;border-radius:7px;border:1px solid var(--qbline);background:#fff;display:flex;align-items:center;justify-content:center;font-size:12px;color:var(--qbmut)}
+  .pd-ic.del{color:#c0392b}
+  .pd-row.sel{background:color-mix(in srgb,var(--qbacc) 7%,#fff)}
+  /* edit-item modal, absolutely positioned over the page */
+  .pd-overlay{position:absolute;inset:0;background:rgba(26,23,20,.55);display:flex;align-items:flex-start;justify-content:center;padding:34px 18px;z-index:5}
+  .pd-modal{width:100%;max-width:520px;background:#fff;border:1px solid var(--qbline);border-radius:16px;box-shadow:0 24px 60px rgba(0,0,0,.45);overflow:hidden}
+  .pd-autobox{background:#eef5f0;border:1px solid #cfe3d6;border-radius:8px;padding:10px 13px;font-size:11px;color:#3f7d5c;line-height:1.5;margin-bottom:12px}
+  .pd-autobox b{color:#2e6a4c}
+  .pd-modal .mp-field{margin-bottom:14px}
+  .pd-modal .mp-grid2{margin-bottom:14px}
+  .pd-modal .mp-grid2 .mp-field{margin-bottom:0}
+  .pd-sv{position:relative}
+  .pd-sv::after{content:"\25be";position:absolute;right:11px;top:50%;transform:translateY(-40%);color:var(--qbmut);font-size:10px;pointer-events:none}
+  @media(max-width:640px){.pd-cols,.pd-row{grid-template-columns:1fr auto}.pd-cols .unitcol,.pd-cols .catcol,.pd-row .pd-badge,.pd-row .pd-unit{display:none}.pd-row .nm{grid-column:1;min-width:0}.pd-row .cost{grid-column:1;text-align:left;font-size:12px;color:var(--qbmut)}.pd-row .pd-rowacts{grid-row:1;grid-column:2}}
+  @media(max-width:560px){.pd-overlay{padding:18px 12px}.pd-mgrid2{grid-template-columns:1fr}}
 
   /* master job page rebuild (shares the .qb frame + sidebar) */
   .jb-head{display:flex;justify-content:space-between;align-items:flex-start;gap:14px 18px;flex-wrap:wrap}
@@ -1231,6 +1278,7 @@
           <input type="radio" name="qbtab" id="qbtab-accept">
           <input type="radio" name="qbtab" id="qbtab-invoice">
           <input type="radio" name="qbtab" id="qbtab-metals">
+          <input type="radio" name="qbtab" id="qbtab-pricing">
           <input type="radio" name="qbtab" id="qbtab-todo">
           <div class="qbtabbar">
             <label for="qbtab-job">Job</label>
@@ -1239,6 +1287,7 @@
             <label for="qbtab-accept">Acceptance</label>
             <label for="qbtab-invoice">Invoice</label>
             <label for="qbtab-metals">Metal prices</label>
+            <label for="qbtab-pricing">Pricing DB</label>
             <label for="qbtab-todo">To-do</label>
           </div>
           <div class="qbpanel qbpanel-job">
@@ -1829,6 +1878,95 @@
             </div>
           </div>
           <figcaption>Fetch today&rsquo;s spot price and every metal item in your list reprices from its purity, so your quotes never lag the market.</figcaption>
+        </figure>
+          </div>
+          <div class="qbpanel qbpanel-pricing">
+        <figure class="qbframe">
+          <div class="qbbar"><span></span><span></span><span></span></div>
+          <div class="qbscroll">
+            <div class="qb pd-rel">
+              <aside class="qb-side">
+                <div class="qb-logo">WORKSHOP PILOT</div>
+                <div class="qb-ni"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/></svg> Dashboard</div>
+                <div class="qb-ni"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg> To-do</div>
+                <div class="qb-sec">Workflow</div>
+                <div class="qb-ni"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg> Appointments</div>
+                <div class="qb-ni"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/></svg> Clients</div>
+                <div class="qb-ni"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><path d="M6 3h12l3 6-9 12L3 9z"/><path d="M3 9h18"/></svg> Jobs</div>
+                <div class="qb-ni"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/></svg> Quotes</div>
+                <div class="qb-ni"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6M8 13h8M8 17h5"/></svg> Invoices</div>
+                <div class="qb-ni"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg> Safekeeping</div>
+                <div class="qb-sec">Trade</div>
+                <div class="qb-ni"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6M8 13h8M8 17h5"/></svg> Statements</div>
+                <div class="qb-sec">Studio</div>
+                <div class="qb-ni"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><path d="M21 8l-9-5-9 5 9 5 9-5z"/><path d="M3 8v8l9 5 9-5V8"/></svg> Stock</div>
+                <div class="qb-ni on"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><ellipse cx="12" cy="5" rx="8" ry="3"/><path d="M4 5v14c0 1.66 3.58 3 8 3s8-1.34 8-3V5"/></svg> Pricing DB</div>
+                <div class="qb-ni"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg> Reports</div>
+                <div class="qb-ni"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.6 1.6 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.6 1.6 0 0 0-2.7 1.1V21a2 2 0 0 1-4 0v-.1A1.6 1.6 0 0 0 6 19.4l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1A1.6 1.6 0 0 0 4.6 15H4.5a2 2 0 0 1 0-4h.1A1.6 1.6 0 0 0 6 8.6l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1A1.6 1.6 0 0 0 11 4.6V4.5a2 2 0 0 1 4 0v.1A1.6 1.6 0 0 0 18 6l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.6 1.6 0 0 0-.3 1.8v.1z"/></svg> Settings</div>
+                <div class="qb-user">
+                  <div class="em"><span class="av">A</span> you@yourstudio.com</div>
+                  <div class="so">SIGN OUT</div>
+                </div>
+              </aside>
+              <div class="qb-main">
+                <span class="qb-back">&larr; Back</span>
+                <div class="pd-head">
+                  <div>
+                    <div class="pd-eyebrow">Cost prices</div>
+                    <div class="pd-h1">Pricing database</div>
+                    <div class="pd-sub">Your metals, stones, setting and labour rates, the numbers behind every quote.</div>
+                  </div>
+                  <div class="pd-acts">
+                    <span class="pd-btn">&#10227; Update metal spot prices</span>
+                    <span class="pd-btn fill">+ Add item</span>
+                  </div>
+                </div>
+                <div class="pd-updated">Metal spot prices last updated <b>26 Aug 2026</b> &middot; casting premiums applied</div>
+                <div class="pd-chips">
+                  <span class="pd-chip">All</span>
+                  <span class="pd-chip on">Metals</span>
+                  <span class="pd-chip">Accent stones</span>
+                  <span class="pd-chip">Stone setting</span>
+                  <span class="pd-chip">Lab-grown diamonds</span>
+                  <span class="pd-chip">Natural diamonds</span>
+                  <span class="pd-chip">Labour</span>
+                  <span class="pd-chip">3D print &amp; cast</span>
+                  <span class="pd-chip">Repairs</span>
+                </div>
+                <div class="pd-note"><b>These are your cost prices; the markup is applied automatically by the multiplier table.</b> The one exception is repair prices, already shown as a retail guide.</div>
+                <div class="pd-table">
+                  <div class="pd-cols"><span>Item</span><span class="catcol">Category</span><span class="unitcol">Unit</span><span class="r">Your cost</span><span></span></div>
+                  <div class="pd-row"><div class="nm"><span class="drag">&#10287;</span>9ct yellow / rose gold</div><span class="pd-badge">Metals</span><span class="pd-unit">/g</span><span class="pd-cost cost">$99.86</span><div class="pd-rowacts"><span class="pd-ic">&#9998;</span><span class="pd-ic del">&times;</span></div></div>
+                  <div class="pd-row"><div class="nm"><span class="drag">&#10287;</span>18ct yellow / rose gold</div><span class="pd-badge">Metals</span><span class="pd-unit">/g</span><span class="pd-cost cost">$199.72</span><div class="pd-rowacts"><span class="pd-ic">&#9998;</span><span class="pd-ic del">&times;</span></div></div>
+                  <div class="pd-row sel"><div class="nm"><span class="drag">&#10287;</span>18ct white gold</div><span class="pd-badge">Metals</span><span class="pd-unit">/g</span><span class="pd-cost cost">$207.55</span><div class="pd-rowacts"><span class="pd-ic">&#9998;</span><span class="pd-ic del">&times;</span></div></div>
+                  <div class="pd-row"><div class="nm"><span class="drag">&#10287;</span>Platinum 950</div><span class="pd-badge">Metals</span><span class="pd-unit">/g</span><span class="pd-cost cost">$126.94</span><div class="pd-rowacts"><span class="pd-ic">&#9998;</span><span class="pd-ic del">&times;</span></div></div>
+                  <div class="pd-row"><div class="nm"><span class="drag">&#10287;</span>Silver 925</div><span class="pd-badge">Metals</span><span class="pd-unit">/g</span><span class="pd-cost cost">$5.72</span><div class="pd-rowacts"><span class="pd-ic">&#9998;</span><span class="pd-ic del">&times;</span></div></div>
+                  <div class="pd-row"><div class="nm"><span class="drag">&#10287;</span>Bench labour</div><span class="pd-badge">Labour</span><span class="pd-unit">/hr</span><span class="pd-cost cost">$70.00</span><div class="pd-rowacts"><span class="pd-ic">&#9998;</span><span class="pd-ic del">&times;</span></div></div>
+                </div>
+              </div>
+            </div>
+            <div class="pd-overlay">
+              <div class="pd-modal">
+                <div class="mp-head"><div class="mp-title">Edit item</div><div class="mp-x">&times;</div></div>
+                <div class="mp-body">
+                  <div class="mp-grid2">
+                    <div class="mp-field"><div class="l">Category</div><div class="mp-input pd-sv">Metals</div></div>
+                    <div class="mp-field"><div class="l">Unit</div><div class="mp-input pd-sv">g</div></div>
+                  </div>
+                  <div class="mp-field"><div class="l">Item name / description</div><div class="mp-input">18ct white gold</div></div>
+                  <div class="mp-grid2">
+                    <div class="mp-field"><div class="l">Linked metal</div><div class="mp-input pd-sv">Gold</div></div>
+                    <div class="mp-field"><div class="l">Purity / carat</div><div class="mp-input pd-sv">18ct &middot; 0.750</div></div>
+                  </div>
+                  <div class="mp-field"><div class="l">Gold colour</div><div class="mp-input pd-sv">White &middot; palladium premium</div></div>
+                  <div class="pd-autobox">Cost updates automatically whenever you update spot prices. <b>Cast $207.55/g &middot; fabricated $172.31/g</b> (white-gold casting premium applied).</div>
+                  <div class="mp-field" style="margin-bottom:0"><div class="l">Cost per gram <span style="font-weight:400;text-transform:none;letter-spacing:0;color:var(--qbmut)">(auto from spot)</span></div><div class="mp-input" style="background:var(--qbbg);font-weight:700">$207.55 <span style="color:var(--qbmut);font-weight:400">cast</span> &middot; $172.31 <span style="color:var(--qbmut);font-weight:400">fabricated</span> / g</div></div>
+                </div>
+                <div class="mp-foot"><span class="mp-cancel">Cancel</span><span class="mp-apply">Save item</span></div>
+              </div>
+            </div>
+          </div>
+          <figcaption>Every cost your quotes draw on in one searchable list. Edit any line and every future quote uses the new figure.</figcaption>
         </figure>
           </div>
           <div class="qbpanel qbpanel-todo">
