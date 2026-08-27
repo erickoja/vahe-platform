@@ -495,6 +495,11 @@
   #qbtab-pricing:checked~.qbtabbar label[for="qbtab-pricing"],
   #qbtab-repair:checked~.qbtabbar label[for="qbtab-repair"],
   #qbtab-safekeep:checked~.qbtabbar label[for="qbtab-safekeep"],
+  #qbtab-appts:checked~.qbtabbar label[for="qbtab-appts"],
+  #qbtab-clients:checked~.qbtabbar label[for="qbtab-clients"],
+  #qbtab-statements:checked~.qbtabbar label[for="qbtab-statements"],
+  #qbtab-stock:checked~.qbtabbar label[for="qbtab-stock"],
+  #qbtab-reports:checked~.qbtabbar label[for="qbtab-reports"],
   #qbtab-dash:checked~.qbtabbar label[for="qbtab-dash"],
   #qbtab-job:checked~.qbtabbar label[for="qbtab-job"]{background:var(--accent);color:#fff;border-color:var(--accent)}
   #qbtab-quote:focus-visible~.qbtabbar label[for="qbtab-quote"],
@@ -507,6 +512,11 @@
   #qbtab-pricing:focus-visible~.qbtabbar label[for="qbtab-pricing"],
   #qbtab-repair:focus-visible~.qbtabbar label[for="qbtab-repair"],
   #qbtab-safekeep:focus-visible~.qbtabbar label[for="qbtab-safekeep"],
+  #qbtab-appts:focus-visible~.qbtabbar label[for="qbtab-appts"],
+  #qbtab-clients:focus-visible~.qbtabbar label[for="qbtab-clients"],
+  #qbtab-statements:focus-visible~.qbtabbar label[for="qbtab-statements"],
+  #qbtab-stock:focus-visible~.qbtabbar label[for="qbtab-stock"],
+  #qbtab-reports:focus-visible~.qbtabbar label[for="qbtab-reports"],
   #qbtab-dash:focus-visible~.qbtabbar label[for="qbtab-dash"],
   #qbtab-job:focus-visible~.qbtabbar label[for="qbtab-job"]{outline:2px solid var(--accent);outline-offset:2px}
   .qbpanel{display:none;margin-top:22px}
@@ -521,6 +531,11 @@
   #qbtab-pricing:checked~.qbpanel-pricing,
   #qbtab-repair:checked~.qbpanel-repair,
   #qbtab-safekeep:checked~.qbpanel-safekeep,
+  #qbtab-appts:checked~.qbpanel-appts,
+  #qbtab-clients:checked~.qbpanel-clients,
+  #qbtab-statements:checked~.qbpanel-statements,
+  #qbtab-stock:checked~.qbpanel-stock,
+  #qbtab-reports:checked~.qbpanel-reports,
   #qbtab-dash:checked~.qbpanel-dash,
   #qbtab-job:checked~.qbpanel-job{display:block}
   @media(max-width:980px){.qbtabbar{flex-wrap:wrap;justify-content:center;gap:5px;max-width:100%}.qbtabbar label{padding:8px 13px;font-size:.82rem}}
@@ -836,14 +851,18 @@
   #out-repair:checked~.qbtabbar label[for="out-repair"],
   #out-safekeep:checked~.qbtabbar label[for="out-safekeep"],
   #out-docket:checked~.qbtabbar label[for="out-docket"],
-  #out-tags:checked~.qbtabbar label[for="out-tags"]{background:var(--accent);color:#fff;border-color:var(--accent)}
+  #out-tags:checked~.qbtabbar label[for="out-tags"],
+  #out-statement:checked~.qbtabbar label[for="out-statement"],
+  #out-repairaccept:checked~.qbtabbar label[for="out-repairaccept"]{background:var(--accent);color:#fff;border-color:var(--accent)}
   #out-quote:focus-visible~.qbtabbar label[for="out-quote"],
   #out-invoice:focus-visible~.qbtabbar label[for="out-invoice"],
   #out-proposal:focus-visible~.qbtabbar label[for="out-proposal"],
   #out-repair:focus-visible~.qbtabbar label[for="out-repair"],
   #out-safekeep:focus-visible~.qbtabbar label[for="out-safekeep"],
   #out-docket:focus-visible~.qbtabbar label[for="out-docket"],
-  #out-tags:focus-visible~.qbtabbar label[for="out-tags"]{outline:2px solid var(--accent);outline-offset:2px}
+  #out-tags:focus-visible~.qbtabbar label[for="out-tags"],
+  #out-statement:focus-visible~.qbtabbar label[for="out-statement"],
+  #out-repairaccept:focus-visible~.qbtabbar label[for="out-repairaccept"]{outline:2px solid var(--accent);outline-offset:2px}
   .outpanel{display:none;margin-top:24px}
   #out-quote:checked~.outpanel-quote,
   #out-invoice:checked~.outpanel-invoice,
@@ -851,7 +870,9 @@
   #out-repair:checked~.outpanel-repair,
   #out-safekeep:checked~.outpanel-safekeep,
   #out-docket:checked~.outpanel-docket,
-  #out-tags:checked~.outpanel-tags{display:block}
+  #out-tags:checked~.outpanel-tags,
+  #out-statement:checked~.outpanel-statement,
+  #out-repairaccept:checked~.outpanel-repairaccept{display:block}
   .docwrap{background:var(--surface-2);border-radius:16px;padding:30px 20px;display:flex;justify-content:center;overflow-x:auto}
   .doc{width:100%;max-width:680px;background:#fff;border:1px solid var(--line);border-radius:6px;box-shadow:var(--shadow);overflow:hidden;text-align:left;color:#17130f;font-family:'Poppins',system-ui,'Segoe UI',Roboto,sans-serif;font-size:13px;line-height:1.5}
   .doc-ink{background:#17130f;color:#fff;padding:30px 40px;display:flex;justify-content:space-between;align-items:flex-start;gap:20px}
@@ -1027,6 +1048,124 @@
   .rc-siglbl{font-size:9px;color:#6b6560;line-height:1.4}
   .rc-foot{margin-top:22px;padding-top:12px;border-top:1px solid #E8E2D9;font-size:9.5px;color:#6b6560;text-align:center}
   @media(max-width:560px){.ri-dates,.ri-2{grid-template-columns:1fr}.rc{padding:24px 20px}.rc-sum{grid-template-columns:1fr 1fr}.rc-tbl th:nth-child(4),.rc-tbl td:nth-child(4){display:none}}
+
+  /* reports */
+  .rp-chart{display:flex;align-items:flex-end;gap:8px;height:120px;margin-top:6px}
+  .rp-bar{flex:1;display:flex;flex-direction:column;align-items:center;gap:4px;min-width:0}
+  .rp-bar .a{font-size:9.5px;font-weight:700;color:var(--qbok);white-space:nowrap}
+  .rp-bar .tk{flex:1;width:100%;display:flex;align-items:flex-end;justify-content:center}
+  .rp-bar .f{width:100%;max-width:40px;background:var(--qbok);border-radius:4px 4px 0 0}
+  .rp-bar .m{font-size:10px;color:var(--qbmut);font-weight:600}
+  .rp-2{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:16px}
+  .rp-brk{display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-top:1px solid var(--qbline);font-size:12.5px}
+  .rp-card .rp-brk:first-of-type{border-top:none}
+  .rp-brk .k{color:var(--qbink)}
+  .rp-brk .r{display:flex;align-items:center;gap:8px}
+  .rp-brk .track{width:60px;height:6px;background:var(--qbline);border-radius:3px;overflow:hidden}
+  .rp-brk .track i{display:block;height:100%;background:var(--qbacc);border-radius:3px}
+  .rp-brk .v{font-weight:700;color:var(--qbink);min-width:16px;text-align:right}
+  .rp-brk .dot{width:8px;height:8px;border-radius:50%;flex:none}
+  .rp-tbl{width:100%;border-collapse:collapse;margin-top:6px}
+  .rp-tbl th{font-size:9px;font-weight:700;color:var(--qbmut);text-transform:uppercase;letter-spacing:.05em;padding:0 6px 8px;border-bottom:2px solid var(--qbink);text-align:right}
+  .rp-tbl th:first-child{text-align:left}
+  .rp-tbl td{padding:11px 6px;font-size:12.5px;border-bottom:1px solid var(--qbline);text-align:right;color:var(--qbink)}
+  .rp-tbl td:first-child{text-align:left;font-weight:700}
+  .rp-tbl td.ok{color:var(--qbok);font-weight:600}
+  .rp-tbl td.warn{color:#b06a10;font-weight:700}
+  .rp-tbl .tot td{font-weight:800;border-top:2px solid var(--qbink);border-bottom:none}
+  @media(max-width:700px){.rp-2{grid-template-columns:1fr}.rp-tbl th:nth-child(4),.rp-tbl td:nth-child(4),.rp-tbl th:nth-child(6),.rp-tbl td:nth-child(6){display:none}}
+  /* appointments calendar */
+  .cal-toolbar{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:14px}
+  .cal-nav{border:1px solid var(--qbline);background:#fff;border-radius:6px;padding:6px 12px;font-size:12px;font-weight:700;color:var(--qbink)}
+  .cal-range{font-size:15px;font-weight:800;color:var(--qbink);margin-left:6px}
+  .cal-seg{display:inline-flex;border:1px solid var(--qbline);border-radius:6px;overflow:hidden;margin-left:auto}
+  .cal-seg span{padding:6px 14px;font-size:10.5px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--qbmut);background:#fff}
+  .cal-seg .on{background:var(--qbacc);color:#fff}
+  .cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:8px;align-items:start}
+  .cal-day{background:#fff;border:1px solid var(--qbline);border-radius:6px;min-height:150px;padding:10px 9px}
+  .cal-day.today{border-color:var(--qbacc)}
+  .cal-dl{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:var(--qbmut);margin-bottom:8px}
+  .cal-day.today .cal-dl{color:var(--qbacc2)}
+  .cal-chip{border-radius:5px;padding:6px 8px;margin-bottom:6px;font-size:10.5px;line-height:1.35;border-left:3px solid;background:var(--qbbg)}
+  .cal-chip .t{font-weight:800;display:block}
+  .cal-chip .n{color:var(--qbink)}
+  @media(max-width:720px){.cal-grid{grid-template-columns:1fr;gap:6px}.cal-day{min-height:0}}
+  /* statements */
+  .st-aging{display:grid;grid-template-columns:repeat(auto-fit,minmax(118px,1fr));gap:10px;margin:14px 0 18px}
+  .st-agecard{background:#fff;border:1px solid var(--qbline);border-radius:8px;padding:13px 14px}
+  .st-agecard .l{font-size:9px;color:var(--qbmut);font-weight:700;text-transform:uppercase;letter-spacing:.06em}
+  .st-agecard .v{font-size:16px;font-weight:800;margin-top:4px;color:var(--qbink)}
+  .st-agecard .v.big{font-size:19px}
+  .st-agecard .v.warn{color:#b06a10} .st-agecard .v.danger{color:#c0392b}
+  .st-card{background:#fff;border:1px solid var(--qbline);border-radius:11px;padding:15px 18px;margin-bottom:12px;display:flex;justify-content:space-between;align-items:center;gap:16px;flex-wrap:wrap}
+  .st-nm{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+  .st-nm b{font-size:15px;font-weight:700;color:var(--qbink)}
+  .st-terms{font-size:9px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--qbacc2);background:color-mix(in srgb,var(--qbacc) 12%,#fff);border:1px solid color-mix(in srgb,var(--qbacc) 40%,transparent);border-radius:999px;padding:2px 8px}
+  .st-over{font-size:9px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:#fff;background:#c0392b;border-radius:999px;padding:2px 8px}
+  .st-sub{font-size:12px;color:var(--qbmut);margin-top:3px}
+  .st-sub .od{color:#b06a10;font-weight:600}
+  .st-right{display:flex;align-items:center;gap:14px;flex:none}
+  .st-amt{text-align:right}
+  .st-amt .a{font-size:17px;font-weight:800;color:var(--qbink)}
+  .st-amt .l{font-size:11px;color:var(--qbmut)}
+  .st-chev{width:30px;height:30px;border-radius:50%;background:color-mix(in srgb,var(--qbacc) 12%,#fff);border:1px solid color-mix(in srgb,var(--qbacc) 40%,transparent);color:var(--qbacc2);display:flex;align-items:center;justify-content:center;font-weight:800;flex:none}
+  /* clients */
+  .cl-search{background:#fff;border:1px solid var(--qbline);border-radius:8px;padding:10px 13px;font-size:12px;color:var(--qbmut);margin-bottom:16px;display:block;width:100%;box-sizing:border-box}
+  .cl-card{background:#fff;border:1px solid var(--qbline);border-radius:11px;padding:16px 18px;margin-bottom:12px;display:flex;justify-content:space-between;gap:16px;flex-wrap:wrap;align-items:flex-start}
+  .cl-left{display:flex;gap:14px;align-items:flex-start;flex:1;min-width:0}
+  .cl-av{width:38px;height:38px;border-radius:50%;background:color-mix(in srgb,var(--qbacc) 15%,#fff);color:var(--qbacc2);display:flex;align-items:center;justify-content:center;font-size:16px;font-weight:800;flex:none}
+  .cl-nm{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+  .cl-nm b{font-size:15px;font-weight:700;color:var(--qbink)}
+  .cl-trade{font-size:9px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--qbacc2);background:color-mix(in srgb,var(--qbacc) 12%,#fff);border:1px solid color-mix(in srgb,var(--qbacc) 40%,transparent);border-radius:999px;padding:2px 7px}
+  .cl-contact{font-size:12px;color:var(--qbmut);margin-top:3px}
+  .cl-recv{font-size:12px;color:var(--qbmut);margin-top:4px}
+  .cl-recv b{color:var(--qbok)}
+  .cl-right{display:flex;flex-direction:column;align-items:flex-end;gap:8px;flex:none}
+  /* stock grid */
+  .stk-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(188px,1fr));gap:14px}
+  .stk-card{background:#fff;border:1px solid var(--qbline);border-radius:10px;overflow:hidden}
+  .stk-img{aspect-ratio:1/1;background:linear-gradient(135deg,#efeae4,#e2ddd5);display:flex;align-items:center;justify-content:center;color:#b9b0a6;position:relative}
+  .stk-img svg{width:40px;height:40px}
+  .stk-status{position:absolute;top:8px;left:8px;font-size:8.5px;font-weight:800;letter-spacing:.05em;text-transform:uppercase;border-radius:5px;padding:3px 8px}
+  .stk-status.avail{background:color-mix(in srgb,var(--qbok) 15%,#fff);color:var(--qbok)}
+  .stk-status.sold{background:var(--qbbg);color:var(--qbmut)}
+  .stk-body{padding:12px 13px}
+  .stk-title{font-size:13px;font-weight:700;color:var(--qbink)}
+  .stk-sku{font-size:10.5px;color:var(--qbmut);margin-top:2px}
+  .stk-meta{font-size:11px;color:var(--qbmut);margin-top:6px;line-height:1.5}
+  .stk-price{font-size:15px;font-weight:800;color:var(--qbink);margin-top:8px}
+  /* statement document (reuses .rc gold shell) */
+  .sd-bal{display:flex;justify-content:space-between;align-items:center;padding:12px 18px;background:#FAF7F2;border:1px solid #E8E2D9;border-radius:9px;margin-bottom:14px}
+  .sd-bal.big{background:#1a1714;border-color:#1a1714;margin:14px 0 22px;padding:15px 18px}
+  .sd-bal .l{font-size:11px;font-weight:700;color:#6b6560;text-transform:uppercase;letter-spacing:.08em}
+  .sd-bal.big .l{color:#C9A84C}
+  .sd-bal .v{font-size:16px;font-weight:800;color:#1a1714}
+  .sd-bal.big .v{font-size:22px;color:#fff}
+  .sd-tbl{width:100%;border-collapse:collapse;margin:6px 0 14px}
+  .sd-tbl th{font-size:9px;font-weight:700;color:#6b6560;text-transform:uppercase;letter-spacing:.06em;padding:8px 0 8px 12px;border-bottom:2px solid #1a1714;text-align:right}
+  .sd-tbl th:first-child,.sd-tbl th:nth-child(2){text-align:left}
+  .sd-tbl th:first-child{padding-left:0}
+  .sd-tbl td{padding:10px 0 10px 12px;font-size:11.5px;border-bottom:1px solid #E8E2D9;color:#1a1714;text-align:right;vertical-align:top}
+  .sd-tbl td:first-child,.sd-tbl td:nth-child(2){text-align:left}
+  .sd-tbl td:first-child{padding-left:0;white-space:nowrap;color:#6b6560}
+  .sd-tbl td.bal{font-weight:700}
+  .sd-tbl td.cr{color:#2D7A4F}
+  .sd-aging{display:grid;grid-template-columns:repeat(5,1fr);gap:1px;background:#E8E2D9;border:1px solid #E8E2D9;border-radius:10px;overflow:hidden;margin-top:8px}
+  .sd-aging>div{background:#fff;padding:11px 12px}
+  .sd-aging .l{font-size:8px;font-weight:700;color:#6b6560;text-transform:uppercase;letter-spacing:.05em;margin-bottom:4px}
+  .sd-aging .v{font-size:13.5px;font-weight:800;color:#1a1714}
+  .sd-aging .v.gold{color:#8b6914}
+  @media(max-width:560px){.sd-aging{grid-template-columns:1fr 1fr}.sd-tbl th:nth-child(3),.sd-tbl td:nth-child(3),.sd-tbl th:nth-child(4),.sd-tbl td:nth-child(4){display:none}}
+  /* repair accept page (reuses .doc dark-header shell) */
+  .ra-sum{display:grid;grid-template-columns:repeat(3,1fr);gap:1px;background:#ece4db;border:1px solid #ece4db;border-radius:8px;overflow:hidden;margin-bottom:2px}
+  .ra-sum>div{background:#fff;padding:14px 16px}
+  .ra-sum .l{font-size:8.5px;font-weight:700;color:#8b837c;text-transform:uppercase;letter-spacing:.06em;margin-bottom:5px}
+  .ra-sum .v{font-size:14px;font-weight:700;color:#17130f}
+  .ra-sum .v.gold{color:#8b6914}
+  .ra-btns{display:flex;gap:10px;margin-top:16px}
+  .ra-accept{flex:1;background:#17130f;color:#fff;border-radius:5px;padding:14px;text-align:center;font-size:14px;font-weight:800}
+  .ra-decline{flex:none;background:#fff;border:1px solid #ece4db;color:#8b837c;border-radius:5px;padding:14px 20px;text-align:center;font-size:13px;font-weight:700}
+  @media(max-width:560px){.ra-sum{grid-template-columns:1fr}}
 
   /* master job page rebuild (shares the .qb frame + sidebar) */
   .jb-head{display:flex;justify-content:space-between;align-items:flex-start;gap:14px 18px;flex-wrap:wrap}
@@ -1610,6 +1749,11 @@
           <input type="radio" name="qbtab" id="qbtab-metals">
           <input type="radio" name="qbtab" id="qbtab-pricing">
           <input type="radio" name="qbtab" id="qbtab-safekeep">
+          <input type="radio" name="qbtab" id="qbtab-appts">
+          <input type="radio" name="qbtab" id="qbtab-clients">
+          <input type="radio" name="qbtab" id="qbtab-statements">
+          <input type="radio" name="qbtab" id="qbtab-stock">
+          <input type="radio" name="qbtab" id="qbtab-reports">
           <input type="radio" name="qbtab" id="qbtab-todo">
           <div class="qbtabbar">
             <label for="qbtab-dash">Dashboard</label>
@@ -1623,6 +1767,11 @@
             <label for="qbtab-metals">Metal prices</label>
             <label for="qbtab-pricing">Pricing DB</label>
             <label for="qbtab-safekeep">Safekeeping</label>
+            <label for="qbtab-appts">Appointments</label>
+            <label for="qbtab-clients">Clients</label>
+            <label for="qbtab-statements">Statements</label>
+            <label for="qbtab-stock">Stock</label>
+            <label for="qbtab-reports">Reports</label>
             <label for="qbtab-todo">To-do</label>
           </div>
           <div class="qbpanel qbpanel-dash">
@@ -2619,6 +2768,274 @@
           <figcaption>Record any stone or piece a client leaves with you, and print a signed custody receipt so they have proof you&rsquo;re holding it.</figcaption>
         </figure>
           </div>
+
+          <div class="qbpanel qbpanel-appts">
+        <figure class="qbframe">
+          <div class="qbbar"><span></span><span></span><span></span></div>
+          <div class="qbscroll">
+            <div class="qb">
+              <aside class="qb-side">
+                <div class="qb-logo">WORKSHOP PILOT</div>
+                <div class="qb-ni"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/></svg> Dashboard</div>
+                <div class="qb-ni"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg> To-do</div>
+                <div class="qb-sec">Workflow</div>
+                <div class="qb-ni on"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg> Appointments</div>
+                <div class="qb-ni"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/></svg> Clients</div>
+                <div class="qb-ni"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><path d="M6 3h12l3 6-9 12L3 9z"/><path d="M3 9h18"/></svg> Jobs</div>
+                <div class="qb-ni"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/></svg> Quotes</div>
+                <div class="qb-ni"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6M8 13h8M8 17h5"/></svg> Invoices</div>
+                <div class="qb-ni"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg> Safekeeping</div>
+                <div class="qb-sec">Studio</div>
+                <div class="qb-ni"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><path d="M21 8l-9-5-9 5 9 5 9-5z"/><path d="M3 8v8l9 5 9-5V8"/></svg> Stock</div>
+                <div class="qb-ni"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg> Reports</div>
+                <div class="qb-user"><div class="em"><span class="av">A</span> you@yourstudio.com</div><div class="so">SIGN OUT</div></div>
+              </aside>
+              <div class="qb-main">
+                <div class="db-eyebrow">Schedule</div>
+                <h1 class="db-h1" style="font-size:24px;margin-bottom:16px">Appointments</h1>
+                <div class="cal-toolbar">
+                  <span class="cal-nav">&#8249;</span><span class="cal-nav">Today</span><span class="cal-nav">&#8250;</span>
+                  <span class="cal-range">25 &ndash; 31 Aug 2026</span>
+                  <span class="cal-seg"><span>List</span><span class="on">Week</span><span>Month</span></span>
+                </div>
+                <div class="cal-grid">
+                  <div class="cal-day"><div class="cal-dl">Mon 25</div></div>
+                  <div class="cal-day"><div class="cal-dl">Tue 26</div><div class="cal-chip" style="border-left-color:#6E5B96"><span class="t">11:00</span><span class="n">First enquiry &middot; Elena Marsh</span></div></div>
+                  <div class="cal-day today"><div class="cal-dl">Wed 27</div><div class="cal-chip" style="border-left-color:#b56a5b"><span class="t">10:00</span><span class="n">Design consult &middot; Jordan Rivera</span></div><div class="cal-chip" style="border-left-color:#4E8B6A"><span class="t">2:30</span><span class="n">Collection &middot; Priya Nguyen</span></div></div>
+                  <div class="cal-day"><div class="cal-dl">Thu 28</div><div class="cal-chip" style="border-left-color:#3E8E8E"><span class="t">9:30</span><span class="n">Repair drop-off &middot; Tom Ford</span></div></div>
+                  <div class="cal-day"><div class="cal-dl">Fri 29</div><div class="cal-chip" style="border-left-color:#b56a5b"><span class="t">1:00</span><span class="n">Design consult &middot; Marcus Lee</span></div></div>
+                  <div class="cal-day"><div class="cal-dl">Sat 30</div><div class="cal-chip" style="border-left-color:#A0845C"><span class="t">9:30</span><span class="n">Ring sizing &middot; Chen</span></div><div class="cal-chip" style="border-left-color:#4E8B6A"><span class="t">11:30</span><span class="n">Collection &middot; Aisha Kaur</span></div></div>
+                  <div class="cal-day"><div class="cal-dl">Sun 31</div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <figcaption>Consults, collections and repair drop-offs in a week or month view, with one-tap add to Google, Apple or Outlook calendars.</figcaption>
+        </figure>
+          </div>
+
+          <div class="qbpanel qbpanel-clients">
+        <figure class="qbframe">
+          <div class="qbbar"><span></span><span></span><span></span></div>
+          <div class="qbscroll">
+            <div class="qb">
+              <aside class="qb-side">
+                <div class="qb-logo">WORKSHOP PILOT</div>
+                <div class="qb-ni"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/></svg> Dashboard</div>
+                <div class="qb-ni"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg> To-do</div>
+                <div class="qb-sec">Workflow</div>
+                <div class="qb-ni"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg> Appointments</div>
+                <div class="qb-ni on"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/></svg> Clients</div>
+                <div class="qb-ni"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><path d="M6 3h12l3 6-9 12L3 9z"/><path d="M3 9h18"/></svg> Jobs</div>
+                <div class="qb-ni"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/></svg> Quotes</div>
+                <div class="qb-ni"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6M8 13h8M8 17h5"/></svg> Invoices</div>
+                <div class="qb-ni"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg> Safekeeping</div>
+                <div class="qb-sec">Studio</div>
+                <div class="qb-ni"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><path d="M21 8l-9-5-9 5 9 5 9-5z"/><path d="M3 8v8l9 5 9-5V8"/></svg> Stock</div>
+                <div class="qb-ni"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg> Reports</div>
+                <div class="qb-user"><div class="em"><span class="av">A</span> you@yourstudio.com</div><div class="so">SIGN OUT</div></div>
+              </aside>
+              <div class="qb-main">
+                <div class="db-eyebrow">Client book</div>
+                <h1 class="db-h1" style="font-size:24px;margin-bottom:14px">Clients</h1>
+                <div class="cl-search">Search by name, partner or email&hellip;</div>
+                <div class="cl-card">
+                  <div class="cl-left"><span class="cl-av">J</span><div><div class="cl-nm"><b>Jordan &amp; Alex Rivera</b></div><div class="cl-contact">jordan.rivera@example.com &middot; 0412 345 678</div><div class="cl-recv">Received: <b>$3,725</b></div></div></div>
+                  <div class="cl-right"><span class="db-badge" style="border:1px solid var(--qbline);color:var(--qbmut);font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;border-radius:5px;padding:3px 8px">1 job</span><span class="ri-btn">Edit</span></div>
+                </div>
+                <div class="cl-card">
+                  <div class="cl-left"><span class="cl-av">P</span><div><div class="cl-nm"><b>Precious Metals Co</b><span class="cl-trade">Trade</span></div><div class="cl-contact">accounts@preciousmetals.com.au &middot; 03 9111 2222</div><div class="cl-recv">Received: <b>$41,200</b></div></div></div>
+                  <div class="cl-right"><span class="db-badge" style="border:1px solid var(--qbline);color:var(--qbmut);font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;border-radius:5px;padding:3px 8px">14 jobs</span><span class="ri-btn">Edit</span></div>
+                </div>
+                <div class="cl-card">
+                  <div class="cl-left"><span class="cl-av">P</span><div><div class="cl-nm"><b>Priya Nguyen</b></div><div class="cl-contact">priya.n@example.com &middot; 0433 111 222</div><div class="cl-recv">Received: <b>$6,180</b></div></div></div>
+                  <div class="cl-right"><span class="db-badge" style="border:1px solid var(--qbline);color:var(--qbmut);font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;border-radius:5px;padding:3px 8px">2 jobs</span><span class="ri-btn">Edit</span></div>
+                </div>
+                <div class="cl-card">
+                  <div class="cl-left"><span class="cl-av">M</span><div><div class="cl-nm"><b>Marcus Lee</b></div><div class="cl-contact">marcus.lee@example.com &middot; 0400 987 654</div></div></div>
+                  <div class="cl-right"><span class="db-badge" style="border:1px solid var(--qbline);color:var(--qbmut);font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;border-radius:5px;padding:3px 8px">1 job</span><span class="ri-btn">Edit</span></div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <figcaption>Every client with their contacts, jobs, lifetime spend and history in one place, retail or trade.</figcaption>
+        </figure>
+          </div>
+
+          <div class="qbpanel qbpanel-statements">
+        <figure class="qbframe">
+          <div class="qbbar"><span></span><span></span><span></span></div>
+          <div class="qbscroll">
+            <div class="qb">
+              <aside class="qb-side">
+                <div class="qb-logo">WORKSHOP PILOT</div>
+                <div class="qb-ni"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/></svg> Dashboard</div>
+                <div class="qb-ni"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg> To-do</div>
+                <div class="qb-sec">Workflow</div>
+                <div class="qb-ni"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg> Appointments</div>
+                <div class="qb-ni"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/></svg> Clients</div>
+                <div class="qb-ni"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><path d="M6 3h12l3 6-9 12L3 9z"/><path d="M3 9h18"/></svg> Jobs</div>
+                <div class="qb-ni"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/></svg> Quotes</div>
+                <div class="qb-ni"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6M8 13h8M8 17h5"/></svg> Invoices</div>
+                <div class="qb-ni"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg> Safekeeping</div>
+                <div class="qb-sec">Trade</div>
+                <div class="qb-ni on"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6M8 13h8M8 17h5"/></svg> Statements</div>
+                <div class="qb-sec">Studio</div>
+                <div class="qb-ni"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><path d="M21 8l-9-5-9 5 9 5 9-5z"/><path d="M3 8v8l9 5 9-5V8"/></svg> Stock</div>
+                <div class="qb-ni"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg> Reports</div>
+                <div class="qb-user"><div class="em"><span class="av">A</span> you@yourstudio.com</div><div class="so">SIGN OUT</div></div>
+              </aside>
+              <div class="qb-main">
+                <div class="db-eyebrow">Billing</div>
+                <h1 class="db-h1" style="font-size:24px">Trade statements</h1>
+                <div class="db-summary">One consolidated statement per trade account, with a live ledger and aged receivables (30/60/90).</div>
+                <div class="st-aging">
+                  <div class="st-agecard"><div class="l">Total owing</div><div class="v big warn">$12,480</div></div>
+                  <div class="st-agecard"><div class="l">Current</div><div class="v">$4,200</div></div>
+                  <div class="st-agecard"><div class="l">1&ndash;30 days</div><div class="v">$5,100</div></div>
+                  <div class="st-agecard"><div class="l">31&ndash;60 days</div><div class="v warn">$2,180</div></div>
+                  <div class="st-agecard"><div class="l">61&ndash;90 days</div><div class="v warn">$600</div></div>
+                  <div class="st-agecard"><div class="l">90+ days</div><div class="v danger">$400</div></div>
+                </div>
+                <div class="st-card">
+                  <div><div class="st-nm"><b>Precious Metals Co</b><span class="st-terms">Net 30</span></div><div class="st-sub">accounts@preciousmetals.com.au <span class="od">&middot; $2,180 overdue</span></div></div>
+                  <div class="st-right"><div class="st-amt"><div class="a">$8,300</div><div class="l">owing</div></div><span class="st-chev">&#8250;</span></div>
+                </div>
+                <div class="st-card">
+                  <div><div class="st-nm"><b>Lustre Wholesale</b><span class="st-terms">Net 14</span><span class="st-over">Over limit</span></div><div class="st-sub">buyer@lustre.com.au <span class="od" style="color:#c0392b">&middot; $400 over 90 days</span></div></div>
+                  <div class="st-right"><div class="st-amt"><div class="a">$3,180</div><div class="l">owing</div></div><span class="st-chev">&#8250;</span></div>
+                </div>
+                <div class="st-card">
+                  <div><div class="st-nm"><b>Halcyon Trade</b><span class="st-terms">EOM</span></div><div class="st-sub">orders@halcyon.com.au</div></div>
+                  <div class="st-right"><div class="st-amt"><div class="a" style="color:var(--qbok)">$0</div><div class="l">settled</div></div><span class="st-chev">&#8250;</span></div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <figcaption>Roll a trade account&rsquo;s jobs into one monthly statement with a running ledger and 30/60/90 aged receivables.</figcaption>
+        </figure>
+          </div>
+
+          <div class="qbpanel qbpanel-stock">
+        <figure class="qbframe">
+          <div class="qbbar"><span></span><span></span><span></span></div>
+          <div class="qbscroll">
+            <div class="qb">
+              <aside class="qb-side">
+                <div class="qb-logo">WORKSHOP PILOT</div>
+                <div class="qb-ni"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/></svg> Dashboard</div>
+                <div class="qb-ni"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg> To-do</div>
+                <div class="qb-sec">Workflow</div>
+                <div class="qb-ni"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg> Appointments</div>
+                <div class="qb-ni"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/></svg> Clients</div>
+                <div class="qb-ni"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><path d="M6 3h12l3 6-9 12L3 9z"/><path d="M3 9h18"/></svg> Jobs</div>
+                <div class="qb-ni"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/></svg> Quotes</div>
+                <div class="qb-ni"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6M8 13h8M8 17h5"/></svg> Invoices</div>
+                <div class="qb-ni"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg> Safekeeping</div>
+                <div class="qb-sec">Studio</div>
+                <div class="qb-ni on"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><path d="M21 8l-9-5-9 5 9 5 9-5z"/><path d="M3 8v8l9 5 9-5V8"/></svg> Stock</div>
+                <div class="qb-ni"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><ellipse cx="12" cy="5" rx="8" ry="3"/><path d="M4 5v14c0 1.66 3.58 3 8 3s8-1.34 8-3V5"/></svg> Pricing DB</div>
+                <div class="qb-ni"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg> Reports</div>
+                <div class="qb-user"><div class="em"><span class="av">A</span> you@yourstudio.com</div><div class="so">SIGN OUT</div></div>
+              </aside>
+              <div class="qb-main">
+                <div class="db-eyebrow">Studio</div>
+                <h1 class="db-h1" style="font-size:24px;margin-bottom:16px">Stock</h1>
+                <div class="stk-grid">
+                  <div class="stk-card"><div class="stk-img"><span class="stk-status avail">Available</span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2"><path d="M6 3h12l3 6-9 12L3 9z"/><path d="M3 9h18M9 3 6 9l6 12 6-12-3-6"/></svg></div><div class="stk-body"><div class="stk-title">Solitaire diamond ring</div><div class="stk-sku">SKU R-1042</div><div class="stk-meta">18ct white gold &middot; 0.70ct centre</div><div class="stk-price">$4,200</div></div></div>
+                  <div class="stk-card"><div class="stk-img"><span class="stk-status avail">Available</span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2"><path d="M6 3h12l3 6-9 12L3 9z"/><path d="M3 9h18M9 3 6 9l6 12 6-12-3-6"/></svg></div><div class="stk-body"><div class="stk-title">Tennis bracelet</div><div class="stk-sku">SKU B-2010</div><div class="stk-meta">Platinum &middot; 3.00ct total</div><div class="stk-price">$9,800</div></div></div>
+                  <div class="stk-card"><div class="stk-img"><span class="stk-status sold">Sold</span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2"><path d="M6 3h12l3 6-9 12L3 9z"/><path d="M3 9h18M9 3 6 9l6 12 6-12-3-6"/></svg></div><div class="stk-body"><div class="stk-title">Emerald pendant</div><div class="stk-sku">SKU P-3301</div><div class="stk-meta">18ct yellow gold &middot; 1.10ct emerald</div><div class="stk-price">$2,650</div></div></div>
+                  <div class="stk-card"><div class="stk-img"><span class="stk-status avail">Available</span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2"><path d="M6 3h12l3 6-9 12L3 9z"/><path d="M3 9h18M9 3 6 9l6 12 6-12-3-6"/></svg></div><div class="stk-body"><div class="stk-title">Diamond stud earrings</div><div class="stk-sku">SKU E-1188</div><div class="stk-meta">18ct white gold &middot; 1.00ct pair</div><div class="stk-price">$1,450</div></div></div>
+                  <div class="stk-card"><div class="stk-img"><span class="stk-status avail">Available</span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2"><path d="M6 3h12l3 6-9 12L3 9z"/><path d="M3 9h18M9 3 6 9l6 12 6-12-3-6"/></svg></div><div class="stk-body"><div class="stk-title">Signet ring</div><div class="stk-sku">SKU R-2205</div><div class="stk-meta">9ct yellow gold &middot; engraved</div><div class="stk-price">$890</div></div></div>
+                  <div class="stk-card"><div class="stk-img"><span class="stk-status avail">Available</span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2"><path d="M6 3h12l3 6-9 12L3 9z"/><path d="M3 9h18M9 3 6 9l6 12 6-12-3-6"/></svg></div><div class="stk-body"><div class="stk-title">Sapphire halo ring</div><div class="stk-sku">SKU R-3120</div><div class="stk-meta">Platinum &middot; 1.20ct sapphire</div><div class="stk-price">$6,400</div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <figcaption>Track finished pieces and loose stones, with photos, SKU, cost and retail price, then price one straight into a quote.</figcaption>
+        </figure>
+          </div>
+
+          <div class="qbpanel qbpanel-reports">
+        <figure class="qbframe">
+          <div class="qbbar"><span></span><span></span><span></span></div>
+          <div class="qbscroll">
+            <div class="qb">
+              <aside class="qb-side">
+                <div class="qb-logo">WORKSHOP PILOT</div>
+                <div class="qb-ni"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/></svg> Dashboard</div>
+                <div class="qb-ni"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg> To-do</div>
+                <div class="qb-sec">Workflow</div>
+                <div class="qb-ni"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg> Appointments</div>
+                <div class="qb-ni"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/></svg> Clients</div>
+                <div class="qb-ni"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><path d="M6 3h12l3 6-9 12L3 9z"/><path d="M3 9h18"/></svg> Jobs</div>
+                <div class="qb-ni"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/></svg> Quotes</div>
+                <div class="qb-ni"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6M8 13h8M8 17h5"/></svg> Invoices</div>
+                <div class="qb-ni"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg> Safekeeping</div>
+                <div class="qb-sec">Studio</div>
+                <div class="qb-ni"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><ellipse cx="12" cy="5" rx="8" ry="3"/><path d="M4 5v14c0 1.66 3.58 3 8 3s8-1.34 8-3V5"/></svg> Pricing DB</div>
+                <div class="qb-ni on"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg> Reports</div>
+                <div class="qb-user"><div class="em"><span class="av">A</span> you@yourstudio.com</div><div class="so">SIGN OUT</div></div>
+              </aside>
+              <div class="qb-main">
+                <div class="db-eyebrow">Business</div>
+                <h1 class="db-h1" style="font-size:24px;margin-bottom:16px">Reports</h1>
+                <div class="db-stats" style="margin-bottom:20px">
+                  <div class="db-stat"><div class="db-val">148</div><div class="db-lbl">Total clients</div></div>
+                  <div class="db-stat"><div class="db-val">312</div><div class="db-lbl">Total jobs</div></div>
+                  <div class="db-stat"><div class="db-val">$486k</div><div class="db-lbl">Total sales</div><div class="db-sub">agreed charges</div></div>
+                  <div class="db-stat"><div class="db-val">62%</div><div class="db-lbl">Quote conversion</div><div class="db-sub">193 of 312 approved</div></div>
+                  <div class="db-stat"><div class="db-val">$3,180</div><div class="db-lbl">Avg final price</div></div>
+                  <div class="db-stat"><div class="db-val" style="color:#b06a10">$9,275</div><div class="db-lbl">Outstanding</div><div class="db-sub">balance owed</div></div>
+                </div>
+                <div class="db-card" style="margin-bottom:16px">
+                  <div class="db-cardtitle" style="margin-bottom:14px">Received (cash + trade-ins) &middot; last 6 months</div>
+                  <div class="rp-chart">
+                    <div class="rp-bar"><span class="a">$28k</span><span class="tk"><span class="f" style="height:58%"></span></span><span class="m">Mar</span></div>
+                    <div class="rp-bar"><span class="a">$34k</span><span class="tk"><span class="f" style="height:70%"></span></span><span class="m">Apr</span></div>
+                    <div class="rp-bar"><span class="a">$41k</span><span class="tk"><span class="f" style="height:85%"></span></span><span class="m">May</span></div>
+                    <div class="rp-bar"><span class="a">$33k</span><span class="tk"><span class="f" style="height:68%"></span></span><span class="m">Jun</span></div>
+                    <div class="rp-bar"><span class="a">$45k</span><span class="tk"><span class="f" style="height:93%"></span></span><span class="m">Jul</span></div>
+                    <div class="rp-bar"><span class="a">$48k</span><span class="tk"><span class="f" style="height:100%"></span></span><span class="m">Aug</span></div>
+                  </div>
+                </div>
+                <div class="rp-2">
+                  <div class="db-card rp-card">
+                    <div class="db-cardtitle" style="margin-bottom:12px">Jobs by type</div>
+                    <div class="rp-brk"><span class="k">Engagement ring</span><span class="r"><span class="track"><i style="width:80%"></i></span><span class="v">96</span></span></div>
+                    <div class="rp-brk"><span class="k">Wedding band</span><span class="r"><span class="track"><i style="width:62%"></i></span><span class="v">74</span></span></div>
+                    <div class="rp-brk"><span class="k">Repair</span><span class="r"><span class="track"><i style="width:48%"></i></span><span class="v">58</span></span></div>
+                    <div class="rp-brk"><span class="k">Remodel</span><span class="r"><span class="track"><i style="width:30%"></i></span><span class="v">36</span></span></div>
+                    <div class="rp-brk"><span class="k">Eternity ring</span><span class="r"><span class="track"><i style="width:20%"></i></span><span class="v">24</span></span></div>
+                  </div>
+                  <div class="db-card rp-card">
+                    <div class="db-cardtitle" style="margin-bottom:12px">Jobs by stage</div>
+                    <div class="rp-brk"><span class="k"><span class="dot" style="background:#A0845C;display:inline-block;margin-right:8px"></span>Quoted</span><span class="v">18</span></div>
+                    <div class="rp-brk"><span class="k"><span class="dot" style="background:#4E8B6A;display:inline-block;margin-right:8px"></span>Approved</span><span class="v">9</span></div>
+                    <div class="rp-brk"><span class="k"><span class="dot" style="background:#3E8E8E;display:inline-block;margin-right:8px"></span>In production</span><span class="v">22</span></div>
+                    <div class="rp-brk"><span class="k"><span class="dot" style="background:#2D7A4F;display:inline-block;margin-right:8px"></span>Ready for collection</span><span class="v">5</span></div>
+                  </div>
+                </div>
+                <div class="db-card" style="margin-top:16px">
+                  <div class="db-cardtitle" style="margin-bottom:2px">Trade accounts</div>
+                  <div style="font-size:12px;color:var(--qbmut);margin-bottom:12px">Revenue, volume and turnaround per account, heaviest first.</div>
+                  <table class="rp-tbl">
+                    <thead><tr><th>Account</th><th>Jobs</th><th>Invoiced</th><th>Collected</th><th>Outstanding</th><th>Turnaround</th></tr></thead>
+                    <tbody>
+                      <tr><td>Precious Metals Co</td><td>14</td><td>$41,200</td><td class="ok">$32,900</td><td class="warn">$8,300</td><td>~9d</td></tr>
+                      <tr><td>Lustre Wholesale</td><td>9</td><td>$22,600</td><td class="ok">$19,420</td><td class="warn">$3,180</td><td>~12d</td></tr>
+                      <tr><td>Halcyon Trade</td><td>6</td><td>$14,050</td><td class="ok">$14,050</td><td>$0</td><td>~7d</td></tr>
+                      <tr class="tot"><td>All trade accounts</td><td>29</td><td>$77,850</td><td class="ok">$66,370</td><td class="warn">$11,480</td><td></td></tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          </div>
+          <figcaption>Sales, margins, quote conversion and per-account trade revenue at a glance, so you can see how the studio is really tracking.</figcaption>
+        </figure>
+          </div>
+
           <div class="qbpanel qbpanel-todo">
         <figure class="qbframe">
           <div class="qbbar"><span></span><span></span><span></span></div>
@@ -2723,7 +3140,7 @@
         <div class="sec-head reveal">
           <p class="eyebrow">What you send out</p>
           <h2>Polished, on-brand, ready to send.</h2>
-          <p>Every document your clients and your bench see, generated for you: quotes, tax invoices, online proposals your client accepts, workshop dockets and scannable tags. Your logo and details, the same across all of them.</p>
+          <p>Every document your clients and your bench see, generated for you: quotes, tax invoices, online proposals and repair approvals your client accepts, trade statements, workshop dockets and scannable tags. Your logo and details, the same across all of them.</p>
         </div>
         <div class="outtabs reveal">
           <input type="radio" name="outtab" id="out-quote" checked>
@@ -2733,6 +3150,8 @@
           <input type="radio" name="outtab" id="out-safekeep">
           <input type="radio" name="outtab" id="out-docket">
           <input type="radio" name="outtab" id="out-tags">
+          <input type="radio" name="outtab" id="out-statement">
+          <input type="radio" name="outtab" id="out-repairaccept">
           <div class="qbtabbar">
             <label for="out-quote">Quote</label>
             <label for="out-invoice">Invoice</label>
@@ -2741,6 +3160,8 @@
             <label for="out-safekeep">Safekeeping</label>
             <label for="out-docket">Docket</label>
             <label for="out-tags">Tags</label>
+            <label for="out-statement">Statement</label>
+            <label for="out-repairaccept">Repair accept</label>
           </div>
 
           <div class="outpanel outpanel-quote">
@@ -2966,6 +3387,74 @@
                 <div class="tag-card"><span class="bc"><i style="width:3px"></i><i style="width:1px"></i><i style="width:2px"></i><i style="width:1px"></i><i style="width:1px"></i><i style="width:3px"></i><i style="width:2px"></i><i style="width:1px"></i><i style="width:2px"></i><i style="width:1px"></i><i style="width:1px"></i><i style="width:3px"></i><i style="width:1px"></i><i style="width:2px"></i><i style="width:2px"></i><i style="width:1px"></i><i style="width:1px"></i><i style="width:2px"></i><i style="width:3px"></i><i style="width:1px"></i><i style="width:1px"></i><i style="width:2px"></i><i style="width:1px"></i><i style="width:3px"></i><i style="width:1px"></i><i style="width:2px"></i></span><div class="tag-ref">#A2C-01</div><div class="tag-who">Jordan &amp; Alex Rivera</div><div class="tag-meta">Engagement ring &middot; Due 3 Sep 2026</div><div class="tag-biz">Aurelia Fine Jewellery</div></div>
                 <div class="tag-card"><span class="bc"><i style="width:2px"></i><i style="width:1px"></i><i style="width:3px"></i><i style="width:1px"></i><i style="width:2px"></i><i style="width:1px"></i><i style="width:1px"></i><i style="width:2px"></i><i style="width:3px"></i><i style="width:1px"></i><i style="width:2px"></i><i style="width:1px"></i><i style="width:1px"></i><i style="width:3px"></i><i style="width:2px"></i><i style="width:1px"></i><i style="width:2px"></i><i style="width:1px"></i><i style="width:1px"></i><i style="width:3px"></i><i style="width:1px"></i><i style="width:2px"></i><i style="width:2px"></i><i style="width:1px"></i><i style="width:1px"></i><i style="width:3px"></i></span><div class="tag-ref">#A2C-02</div><div class="tag-who">Jordan &amp; Alex Rivera</div><div class="tag-meta">Wedding band &middot; Due 3 Sep 2026</div><div class="tag-biz">Aurelia Fine Jewellery</div></div>
                 <div class="tag-card"><span class="bc"><i style="width:1px"></i><i style="width:3px"></i><i style="width:1px"></i><i style="width:2px"></i><i style="width:1px"></i><i style="width:2px"></i><i style="width:3px"></i><i style="width:1px"></i><i style="width:1px"></i><i style="width:2px"></i><i style="width:1px"></i><i style="width:3px"></i><i style="width:2px"></i><i style="width:1px"></i><i style="width:1px"></i><i style="width:2px"></i><i style="width:3px"></i><i style="width:1px"></i><i style="width:2px"></i><i style="width:1px"></i><i style="width:1px"></i><i style="width:3px"></i><i style="width:1px"></i><i style="width:2px"></i><i style="width:2px"></i><i style="width:1px"></i></span><div class="tag-ref">#A2C-03</div><div class="tag-who">Jordan &amp; Alex Rivera</div><div class="tag-meta">Eternity ring &middot; Due 3 Sep 2026</div><div class="tag-biz">Aurelia Fine Jewellery</div></div>
+              </div>
+            </div>
+          </div>
+
+          <div class="outpanel outpanel-statement">
+            <div class="docwrap">
+              <div class="rc">
+                <div class="rc-head">
+                  <div><div class="rc-bname">Aurelia Fine Jewellery</div><div class="rc-bsub">hello@aurelia.com.au &middot; 03 9000 1234 &middot; ABN 12 345 678 901</div></div>
+                  <div><div class="rc-ql">Statement of Account</div><div class="rc-date">26 Aug 2026</div></div>
+                </div>
+                <div class="rc-to"><div class="rc-tolbl">Account</div><div class="rc-toname">Precious Metals Co</div><div class="rc-todet">accounts@preciousmetals.com.au &middot; 03 9111 2222</div><div class="rc-todet">Terms: Net 30</div></div>
+                <div style="font-size:11px;color:#6b6560;margin-bottom:14px">Statement period: <strong style="color:#1a1714">1 &ndash; 31 August 2026</strong></div>
+                <div class="sd-bal"><span class="l">Opening balance</span><span class="v">$6,120.00</span></div>
+                <table class="sd-tbl">
+                  <thead><tr><th>Date</th><th>Description</th><th>Charges</th><th>Payments / credits</th><th>Balance</th></tr></thead>
+                  <tbody>
+                    <tr><td>4 Aug</td><td>Invoice INV-1018 &middot; PO 4471<div style="font-size:10px;color:#6b6560">Due 3 Sep 2026</div></td><td>$2,180.00</td><td></td><td class="bal">$8,300.00</td></tr>
+                    <tr><td>11 Aug</td><td>Payment received &middot; thank you</td><td></td><td class="cr">$6,120.00</td><td class="bal">$2,180.00</td></tr>
+                    <tr><td>18 Aug</td><td>Invoice INV-1027 &middot; PO 4490<div style="font-size:10px;color:#6b6560">Due 17 Sep 2026</div></td><td>$6,120.00</td><td></td><td class="bal">$8,300.00</td></tr>
+                  </tbody>
+                </table>
+                <div class="sd-bal big"><span class="l">Closing balance owing</span><span class="v">$8,300.00</span></div>
+                <div class="rc-slbl" style="margin-bottom:8px">Aged receivables (as at 26 Aug 2026)</div>
+                <div class="sd-aging">
+                  <div><div class="l">Current</div><div class="v">$6,120.00</div></div>
+                  <div><div class="l">1&ndash;30 days</div><div class="v">$2,180.00</div></div>
+                  <div><div class="l">31&ndash;60 days</div><div class="v">$0.00</div></div>
+                  <div><div class="l">61&ndash;90 days</div><div class="v">$0.00</div></div>
+                  <div><div class="l">90+ days</div><div class="v">$0.00</div></div>
+                </div>
+                <div class="rc-foot">Aurelia Fine Jewellery &middot; ABN 12 345 678 901 &mdash; this statement supersedes any individual invoices for the period shown.</div>
+              </div>
+            </div>
+          </div>
+
+          <div class="outpanel outpanel-repairaccept">
+            <div class="docwrap">
+              <div class="doc">
+                <div class="doc-ink">
+                  <div>
+                    <div class="doc-eyebrow">Repair Receipt</div>
+                    <div class="doc-biz">Aurelia Fine Jewellery</div>
+                    <div class="doc-bmeta">03 9000 1234 &middot; hello@aurelia.com.au</div>
+                  </div>
+                </div>
+                <div class="doc-sec">
+                  <div class="ra-sum">
+                    <div><div class="l">Client</div><div class="v">Jordan &amp; Alex Rivera</div></div>
+                    <div><div class="l">Ready for collection</div><div class="v">20 Aug 2026</div></div>
+                    <div><div class="l">Repair total &middot; inc GST</div><div class="v gold">$340.00</div></div>
+                  </div>
+                </div>
+                <div class="doc-sec">
+                  <div class="doc-lbl">Work to be done</div>
+                  <div class="doc-row"><div><div class="t">18ct gold ring</div><div class="s">Re-tip the broken claw and re-set the centre stone.</div></div><div class="amt">$180.00</div></div>
+                  <div class="doc-row"><div><div class="t">Silver bracelet</div><div class="s">Replace the faulty clasp with a new lobster clasp.</div></div><div class="amt">$160.00</div></div>
+                  <div class="doc-accept" style="border-top:none;padding-top:16px">
+                    <div class="h">Approve this repair</div>
+                    <div class="doc-namefield">Type your full name to confirm</div>
+                    <div class="ra-btns">
+                      <div class="ra-accept">Approve &mdash; $340.00</div>
+                      <div class="ra-decline">Decline</div>
+                    </div>
+                    <div style="font-size:10px;color:#8b837c;margin-top:10px;line-height:1.5">Approving records your acceptance and notifies the studio to begin work. It is not a payment.</div>
+                  </div>
+                </div>
+                <div class="doc-foot">All prices inclusive of GST &middot; Quoted in AUD</div>
               </div>
             </div>
           </div>
