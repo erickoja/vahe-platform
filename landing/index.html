@@ -821,6 +821,130 @@
   @media(max-width:900px){.db-2col,.db-2colb{grid-template-columns:1fr}}
   @media(max-width:560px){.db-stats{grid-template-columns:1fr 1fr}.db-row{flex-wrap:wrap}}
 
+  /* ── "What you send out" output documents ── */
+  .outtabs{margin-top:34px}
+  .outtabs>input{position:absolute;width:1px;height:1px;opacity:0;pointer-events:none}
+  #out-quote:checked~.qbtabbar label[for="out-quote"],
+  #out-invoice:checked~.qbtabbar label[for="out-invoice"],
+  #out-proposal:checked~.qbtabbar label[for="out-proposal"],
+  #out-docket:checked~.qbtabbar label[for="out-docket"],
+  #out-tags:checked~.qbtabbar label[for="out-tags"]{background:var(--accent);color:#fff;border-color:var(--accent)}
+  #out-quote:focus-visible~.qbtabbar label[for="out-quote"],
+  #out-invoice:focus-visible~.qbtabbar label[for="out-invoice"],
+  #out-proposal:focus-visible~.qbtabbar label[for="out-proposal"],
+  #out-docket:focus-visible~.qbtabbar label[for="out-docket"],
+  #out-tags:focus-visible~.qbtabbar label[for="out-tags"]{outline:2px solid var(--accent);outline-offset:2px}
+  .outpanel{display:none;margin-top:24px}
+  #out-quote:checked~.outpanel-quote,
+  #out-invoice:checked~.outpanel-invoice,
+  #out-proposal:checked~.outpanel-proposal,
+  #out-docket:checked~.outpanel-docket,
+  #out-tags:checked~.outpanel-tags{display:block}
+  .docwrap{background:#181410;border-radius:16px;padding:30px 20px;display:flex;justify-content:center;overflow-x:auto}
+  .doc{width:100%;max-width:680px;background:#fff;border-radius:6px;box-shadow:0 24px 70px rgba(0,0,0,.5);overflow:hidden;text-align:left;color:#17130f;font-family:'Poppins',system-ui,'Segoe UI',Roboto,sans-serif;font-size:13px;line-height:1.5}
+  .doc-ink{background:#17130f;color:#fff;padding:30px 40px;display:flex;justify-content:space-between;align-items:flex-start;gap:20px}
+  .doc-eyebrow{font-size:9px;font-weight:700;letter-spacing:.2em;text-transform:uppercase;color:rgba(255,255,255,.55);margin-bottom:11px}
+  .doc-biz{font-size:22px;font-weight:800;color:#fff;line-height:1.1}
+  .doc-bmeta{margin-top:11px;font-size:10.5px;color:rgba(255,255,255,.45);line-height:1.7}
+  .doc-bmeta .faint{color:rgba(255,255,255,.28)}
+  .doc-rt{text-align:right;flex:none}
+  .doc-num{font-size:18px;font-weight:800;color:#fff;letter-spacing:.05em}
+  .doc-dates{margin-top:9px;font-size:10.5px;color:rgba(255,255,255,.45);line-height:1.8}
+  .doc-dates b{color:rgba(255,255,255,.82);font-weight:600}
+  .doc-2col{display:grid;grid-template-columns:1fr 1fr;border-bottom:1px solid #ece4db}
+  .doc-2col>div{padding:22px 28px}
+  .doc-2col>div:first-child{border-right:1px solid #ece4db}
+  .doc-lbl{font-size:8.5px;font-weight:700;letter-spacing:.16em;text-transform:uppercase;color:#8b837c;margin-bottom:10px}
+  .doc-forname{font-size:18px;font-weight:700;color:#17130f;margin-bottom:5px}
+  .doc-sub{font-size:11.5px;color:#8b837c;margin-top:2px}
+  .doc-piece{font-size:14px;font-weight:700;color:#17130f;margin-bottom:7px}
+  .doc-desc{font-size:12.5px;color:#444;line-height:1.7}
+  .doc-sec{padding:22px 28px;border-bottom:1px solid #ece4db}
+  .doc-imgs{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+  .doc-thumb{aspect-ratio:16/11;border-radius:6px;border:1px solid #ece4db;background:linear-gradient(135deg,#efeae4,#e2ddd5);display:flex;align-items:center;justify-content:center;color:#b9b0a6}
+  .doc-thumb svg{width:34px;height:34px}
+  .doc-row{display:flex;justify-content:space-between;align-items:flex-start;gap:20px;padding:13px 0;border-top:1px solid #ece4db}
+  .doc-row .t{font-size:13px;font-weight:600;color:#17130f}
+  .doc-row .s{font-size:11px;color:#8b837c;margin-top:3px;line-height:1.5}
+  .doc-row .amt{font-size:15px;font-weight:700;color:#17130f;white-space:nowrap}
+  .doc-total{margin:14px 0 0;background:#17130f;border-radius:5px;padding:16px 20px;color:#fff}
+  .doc-total .tr{display:flex;justify-content:space-between;align-items:center;font-size:12.5px;color:rgba(255,255,255,.65);padding:3px 0}
+  .doc-total .tr .v{color:#fff;font-weight:600}
+  .doc-total .grand{display:flex;justify-content:space-between;align-items:flex-end;border-top:1px solid rgba(255,255,255,.18);margin-top:10px;padding-top:12px}
+  .doc-total .grand .k{font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:rgba(255,255,255,.5)}
+  .doc-total .grand .g{font-size:28px;font-weight:800;letter-spacing:-.02em}
+  .doc-total .grand .g.ok{color:#7fd7a6}
+  .doc-terms{font-size:11px;color:#555;line-height:1.85}
+  .doc-foot{padding:16px 28px;text-align:center;font-size:9.5px;color:#8b837c;letter-spacing:.02em}
+  .doc-hl{background:#f4eee8;border:1px solid #ece4db;border-radius:5px;padding:14px 18px;margin:16px 0 0}
+  .doc-hl .r{display:flex;justify-content:space-between;font-size:12.5px;color:#8b837c;padding:3px 0}
+  .doc-hl .r .v{color:#17130f;font-weight:600}
+  .doc-hl .r.due{border-top:1px solid #ece4db;margin-top:8px;padding-top:10px}
+  .doc-hl .r.due .k{font-size:13px;font-weight:700;color:#17130f}
+  .doc-hl .r.due .v{font-size:17px;font-weight:800;color:#17130f}
+  /* proposal options + accept */
+  .doc-opt{position:relative;border:2px solid #ece4db;border-radius:6px;padding:16px 18px;margin-top:12px}
+  .doc-opt.rec{border-color:var(--accent)}
+  .doc-opt .rbadge{position:absolute;top:-9px;left:16px;background:var(--accent);color:#fff;font-size:8.5px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;padding:2px 10px;border-radius:3px}
+  .doc-opt .head{display:flex;justify-content:space-between;align-items:flex-start;gap:16px}
+  .doc-opt .ot{font-size:15px;font-weight:700;color:#17130f}
+  .doc-opt .od{font-size:12px;color:#8b837c;margin-top:5px;line-height:1.6}
+  .doc-opt .op{font-size:20px;font-weight:800;color:#17130f;white-space:nowrap}
+  .doc-opt .op small{display:block;font-size:9px;font-weight:600;color:#8b837c;text-align:right}
+  .doc-optimgs{display:flex;gap:8px;margin-top:12px}
+  .doc-optimgs .th{width:70px;height:70px;border-radius:5px;border:1px solid #ece4db;background:linear-gradient(135deg,#efeae4,#e2ddd5);display:flex;align-items:center;justify-content:center;color:#b9b0a6}
+  .doc-optimgs .th svg{width:22px;height:22px}
+  .doc-accept{margin-top:16px;border-top:1px solid #ece4db;padding-top:18px}
+  .doc-accept .h{font-size:13px;font-weight:700;color:#17130f;margin-bottom:10px}
+  .doc-namefield{border:1px solid #ece4db;border-radius:5px;padding:11px 13px;font-size:12px;color:#8b837c;margin-bottom:12px}
+  .doc-acceptbtn{background:#17130f;color:#fff;border-radius:5px;padding:14px;text-align:center;font-size:14px;font-weight:800;letter-spacing:.02em}
+  /* docket (gold accent print doc) */
+  .dk{background:#fff;color:#1a1714;font-family:'Poppins',system-ui,'Segoe UI',Roboto,sans-serif;max-width:600px;width:100%;padding:34px 40px;border-radius:6px;box-shadow:0 24px 70px rgba(0,0,0,.5)}
+  .dk-head{display:flex;justify-content:space-between;align-items:flex-start;gap:20px;border-bottom:2.5px solid #C9A84C;padding-bottom:16px;margin-bottom:20px}
+  .dk-bname{font-size:20px;font-weight:800}
+  .dk-bsub{font-size:11px;color:#6b6560;margin-top:3px}
+  .dk-ql{font-size:9px;font-weight:700;color:#C9A84C;letter-spacing:.12em;text-transform:uppercase;text-align:right}
+  .dk-printed{font-size:10px;color:#6b6560;margin-top:4px;text-align:right}
+  .dk-barc{margin-bottom:20px;text-align:center;border:1px solid #E8E2D9;border-radius:10px;padding:16px}
+  .dk-ref{font-size:28px;font-weight:800;letter-spacing:.05em;margin-top:8px}
+  .dk-block{border:1px solid #E8E2D9;border-radius:10px;padding:6px 18px;margin-bottom:16px}
+  .dk-idrow{display:flex;justify-content:space-between;gap:16px;padding:9px 0;border-bottom:1px solid #F0EBE3;font-size:12.5px}
+  .dk-idrow:last-child{border-bottom:none}
+  .dk-idl{color:#6b6560;font-weight:700;text-transform:uppercase;font-size:9px;letter-spacing:.08em;padding-top:2px}
+  .dk-idv{color:#1a1714;font-weight:700;text-align:right}
+  .dk-idv.po{color:#8b6914;font-size:14px}
+  .dk-grid4{display:grid;grid-template-columns:repeat(4,1fr);gap:1px;background:#E8E2D9;border:1px solid #E8E2D9;border-radius:10px;overflow:hidden;margin-bottom:16px}
+  .dk-grid4>div{background:#fff;padding:11px 14px}
+  .dk-gl{font-size:8px;font-weight:700;color:#6b6560;text-transform:uppercase;letter-spacing:.08em;margin-bottom:4px}
+  .dk-gv{font-size:12.5px;font-weight:700;color:#1a1714}
+  .dk-instr{font-size:12px;line-height:1.6;color:#1a1714;background:#FAF7F2;border-left:3px solid #C9A84C;border-radius:0 8px 8px 0;padding:12px 16px;margin-bottom:16px}
+  .dk-stlbl{font-size:9px;font-weight:700;color:#6b6560;text-transform:uppercase;letter-spacing:.08em;margin-bottom:9px}
+  .dk-stgs{display:flex;flex-wrap:wrap;gap:7px 16px;margin-bottom:20px}
+  .dk-stg{font-size:11px;color:#6b6560}
+  .dk-stg.on{color:#1a1714;font-weight:800}
+  .dk-sig{display:grid;grid-template-columns:1fr 1fr;gap:36px;margin-top:8px}
+  .dk-sigline{border-bottom:1px solid #1a1714;margin-top:24px;margin-bottom:5px}
+  .dk-siglbl{font-size:9px;color:#6b6560}
+  .bc{display:flex;align-items:flex-end;justify-content:center;gap:1.4px;height:52px}
+  .bc i{display:block;background:#111;height:100%}
+  /* tags */
+  .tags-wrap{display:flex;flex-wrap:wrap;gap:16px;justify-content:center}
+  .tag-card{width:230px;background:#fff;border:1px solid #111;border-radius:6px;padding:13px 15px;text-align:center;color:#111;font-family:'Poppins',system-ui,'Segoe UI',Roboto,sans-serif;box-shadow:0 12px 40px rgba(0,0,0,.28)}
+  .tag-card .bc{height:40px;margin-bottom:2px}
+  .tag-ref{font-size:15px;font-weight:800;letter-spacing:.06em;margin:4px 0 6px}
+  .tag-who{font-size:12px;font-weight:700;line-height:1.3}
+  .tag-meta{font-size:10px;color:#444;margin-top:3px;line-height:1.4}
+  .tag-biz{font-size:8px;color:#666;margin-top:7px;text-transform:uppercase;letter-spacing:.06em}
+  @media(max-width:560px){
+    .doc-ink{padding:22px 22px;flex-wrap:wrap}
+    .doc-2col{grid-template-columns:1fr}
+    .doc-2col>div:first-child{border-right:none;border-bottom:1px solid #ece4db}
+    .doc-2col>div,.doc-sec{padding:18px 20px}
+    .doc-imgs{grid-template-columns:1fr}
+    .dk{padding:24px 20px}
+    .dk-grid4{grid-template-columns:1fr 1fr}
+  }
+
   /* master job page rebuild (shares the .qb frame + sidebar) */
   .jb-head{display:flex;justify-content:space-between;align-items:flex-start;gap:14px 18px;flex-wrap:wrap}
   .jb-h1{font-size:20px;font-weight:800}
@@ -2352,6 +2476,187 @@
           </div>
           <figcaption>A shared board that keeps every bench job and its tasks moving, so nothing slips between the team.</figcaption>
         </figure>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- WHAT YOU SEND OUT -->
+    <section class="section shotshow">
+      <div class="wrap">
+        <div class="sec-head reveal">
+          <p class="eyebrow">What you send out</p>
+          <h2>Polished, on-brand, ready to send.</h2>
+          <p>Every document your clients and your bench see, generated for you: quotes, tax invoices, online proposals your client accepts, workshop dockets and scannable tags. Your logo and details, the same across all of them.</p>
+        </div>
+        <div class="outtabs reveal">
+          <input type="radio" name="outtab" id="out-quote" checked>
+          <input type="radio" name="outtab" id="out-invoice">
+          <input type="radio" name="outtab" id="out-proposal">
+          <input type="radio" name="outtab" id="out-docket">
+          <input type="radio" name="outtab" id="out-tags">
+          <div class="qbtabbar">
+            <label for="out-quote">Quote</label>
+            <label for="out-invoice">Invoice</label>
+            <label for="out-proposal">Proposal</label>
+            <label for="out-docket">Docket</label>
+            <label for="out-tags">Tags</label>
+          </div>
+
+          <div class="outpanel outpanel-quote">
+            <div class="docwrap">
+              <div class="doc">
+                <div class="doc-ink">
+                  <div>
+                    <div class="doc-eyebrow">Quote</div>
+                    <div class="doc-biz">Aurelia Fine Jewellery</div>
+                    <div class="doc-bmeta">24 Collins Street, Melbourne VIC 3000<br>03 9000 1234 &middot; hello@aurelia.com.au<br><span class="faint">ABN 12 345 678 901</span></div>
+                  </div>
+                  <div class="doc-rt">
+                    <div class="doc-num">QT-8F3A2C</div>
+                    <div class="doc-dates">Issued: <b>26 August 2026</b><br>Valid until: <b>25 September 2026</b></div>
+                  </div>
+                </div>
+                <div class="doc-2col">
+                  <div><div class="doc-lbl">Prepared for</div><div class="doc-forname">Jordan &amp; Alex Rivera</div><div class="doc-sub">jordan.rivera@example.com</div><div class="doc-sub">0412 345 678</div></div>
+                  <div><div class="doc-lbl">Piece</div><div class="doc-piece">Platinum solitaire engagement ring</div><div class="doc-desc">Hidden-halo solitaire set with a lab-grown emerald, finger size H, in platinum 950.</div></div>
+                </div>
+                <div class="doc-sec">
+                  <div class="doc-lbl">Design &amp; reference</div>
+                  <div class="doc-imgs">
+                    <div class="doc-thumb"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.3"><path d="M6 3h12l3 6-9 12L3 9z"/><path d="M3 9h18M9 3 6 9l6 12 6-12-3-6"/></svg></div>
+                    <div class="doc-thumb"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.3"><path d="M6 3h12l3 6-9 12L3 9z"/><path d="M3 9h18M9 3 6 9l6 12 6-12-3-6"/></svg></div>
+                  </div>
+                </div>
+                <div class="doc-sec">
+                  <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:6px"><div class="doc-lbl" style="margin:0">Price breakdown</div><div style="font-size:9.5px;color:#8b837c">All prices inclusive of GST</div></div>
+                  <div class="doc-row"><div><div class="t">Platinum solitaire, hidden halo</div><div class="s">Design, materials &amp; craftsmanship</div></div><div class="amt">$4,500.00</div></div>
+                  <div class="doc-row"><div><div class="t">Lab-Grown Emerald 1.5ct D VVS2</div><div class="s">Centre stone &middot; inc. GST</div></div><div class="amt">$2,950.00</div></div>
+                  <div class="doc-total">
+                    <div class="grand"><div><div class="k">Total quoted price</div><div style="font-size:9.5px;color:rgba(255,255,255,.3);margin-top:2px">Inc. GST &middot; Quoted in AUD</div></div><div style="text-align:right"><div class="g">$7,450.00</div><div style="font-size:10.5px;color:rgba(255,255,255,.5);margin-top:4px">30% deposit to commence: <b style="color:#fff">$2,235.00</b></div></div></div>
+                  </div>
+                </div>
+                <div class="doc-sec"><div class="doc-lbl">Terms &amp; conditions</div><div class="doc-terms">All custom jewellery requires a deposit before work commences. The final balance is due prior to collection. Quoted prices are valid for the period stated above. All pieces are handcrafted to order and cannot be returned unless faulty. Estimated completion times are indicative only.</div></div>
+                <div class="doc-foot">All prices inclusive of GST &middot; Quoted in AUD</div>
+              </div>
+            </div>
+          </div>
+
+          <div class="outpanel outpanel-invoice">
+            <div class="docwrap">
+              <div class="doc">
+                <div class="doc-ink">
+                  <div>
+                    <div class="doc-eyebrow">Tax Invoice</div>
+                    <div class="doc-biz">Aurelia Fine Jewellery</div>
+                    <div class="doc-bmeta">24 Collins Street, Melbourne VIC 3000<br>03 9000 1234 &middot; hello@aurelia.com.au<br><span class="faint">ABN 12 345 678 901</span></div>
+                  </div>
+                  <div class="doc-rt">
+                    <div class="doc-num">INV-00001025</div>
+                    <div class="doc-dates">Issued: <b>11 August 2026</b><br>Due: <b>25 August 2026</b></div>
+                  </div>
+                </div>
+                <div class="doc-2col">
+                  <div><div class="doc-lbl">Bill to</div><div class="doc-forname">Jordan &amp; Alex Rivera</div><div class="doc-sub">jordan.rivera@example.com</div><div class="doc-sub">0412 345 678</div></div>
+                  <div><div class="doc-lbl">Job</div><div class="doc-piece">Engagement ring</div><div class="doc-desc">Platinum solitaire with hidden halo, set with a lab-grown emerald.</div></div>
+                </div>
+                <div class="doc-sec">
+                  <div class="doc-lbl">Items</div>
+                  <div class="doc-row"><div><div class="t">Platinum 950</div><div class="s">5g &times; $143.34/g &middot; cast &middot; GST</div></div><div class="amt">$716.68</div></div>
+                  <div class="doc-row"><div><div class="t">Bench labour (casting assembly)</div><div class="s">3 hr &times; $70.00/hr &middot; GST</div></div><div class="amt">$210.00</div></div>
+                  <div class="doc-row"><div><div class="t">Lab-Grown Emerald 1.5ct D VVS2</div><div class="s">Cert LG821626079 &middot; GST</div></div><div class="amt">$1,100.00</div></div>
+                  <div class="doc-row"><div><div class="t">V-claw setting &middot; platinum</div><div class="s">2.02ct &middot; platinum +20% &middot; GST</div></div><div class="amt">$217.34</div></div>
+                  <div class="doc-row"><div><div class="t" style="color:#8b837c;font-weight:600">&hellip; and 14 more line items</div></div><div class="amt" style="color:#8b837c;font-weight:600"></div></div>
+                  <div class="doc-total">
+                    <div class="tr"><span>Includes GST</span><span class="v">$677.27</span></div>
+                    <div class="tr"><span>Paid to date</span><span class="v" style="color:#7fd7a6">&minus; $3,725.00</span></div>
+                    <div class="grand"><div><div class="k">Balance due</div><div style="font-size:9.5px;color:rgba(255,255,255,.3);margin-top:2px">Inc. GST &middot; AUD</div></div><div style="text-align:right"><div style="font-size:11px;color:rgba(255,255,255,.5)">Total $7,450.00</div><div class="g">$3,725.00</div></div></div>
+                  </div>
+                </div>
+                <div class="doc-foot">Please make payment by the due date &middot; All amounts in AUD, inclusive of GST</div>
+              </div>
+            </div>
+          </div>
+
+          <div class="outpanel outpanel-proposal">
+            <div class="docwrap">
+              <div class="doc">
+                <div class="doc-ink">
+                  <div>
+                    <div class="doc-eyebrow">Quote Proposal</div>
+                    <div class="doc-biz">Aurelia Fine Jewellery</div>
+                    <div class="doc-bmeta">03 9000 1234 &middot; hello@aurelia.com.au</div>
+                  </div>
+                </div>
+                <div class="doc-sec">
+                  <div class="doc-lbl">Prepared for</div>
+                  <div class="doc-forname" style="font-size:19px">Jordan &amp; Alex Rivera</div>
+                  <div class="doc-sub" style="margin-top:4px">Engagement ring &middot; Valid until 25 September 2026</div>
+                  <div class="doc-desc" style="margin-top:14px">Hi Jordan and Alex, thank you for coming in. Here are the two designs we talked through, with photos and a short render walk-through of each. My recommendation is the platinum solitaire, but both are ready to go.</div>
+                </div>
+                <div class="doc-sec">
+                  <div class="doc-lbl">Choose an option</div>
+                  <div class="doc-opt rec">
+                    <div class="rbadge">Recommended</div>
+                    <div class="head"><div><div class="ot">Platinum solitaire &middot; Lab-Grown Emerald 1.5ct</div><div class="od">Hidden-halo solitaire in platinum 950, D VVS2 emerald-cut centre.</div></div><div class="op">$7,450<small>inc GST</small></div></div>
+                    <div class="doc-optimgs">
+                      <div class="th"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.3"><path d="M6 3h12l3 6-9 12L3 9z"/><path d="M3 9h18M9 3 6 9l6 12 6-12-3-6"/></svg></div>
+                      <div class="th"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.3"><path d="M6 3h12l3 6-9 12L3 9z"/><path d="M3 9h18M9 3 6 9l6 12 6-12-3-6"/></svg></div>
+                    </div>
+                  </div>
+                  <div class="doc-opt">
+                    <div class="head"><div><div class="ot">18ct white gold &middot; Lab-Grown Emerald 1.2ct</div><div class="od">Classic solitaire in 18ct white gold, F VS1 centre.</div></div><div class="op">$6,180<small>inc GST</small></div></div>
+                  </div>
+                  <div class="doc-hl">
+                    <div class="r due"><span class="k">Deposit to proceed (30%)</span><span class="v">$2,235.00</span></div>
+                    <div class="r" style="padding-top:8px"><span style="font-size:11px">Balance due on completion</span><span></span></div>
+                  </div>
+                  <div class="doc-accept">
+                    <div class="h">Accept this proposal</div>
+                    <div class="doc-namefield">Type your full name to confirm</div>
+                    <div class="doc-acceptbtn">Accept &mdash; Platinum solitaire &middot; $7,450</div>
+                    <div style="font-size:10px;color:#8b837c;margin-top:10px;line-height:1.5">By accepting you agree to the terms. This records your selection and notifies the studio. It is not a payment.</div>
+                  </div>
+                </div>
+                <div class="doc-foot">All prices inclusive of GST &middot; Quoted in AUD</div>
+              </div>
+            </div>
+          </div>
+
+          <div class="outpanel outpanel-docket">
+            <div class="docwrap">
+              <div class="dk">
+                <div class="dk-head">
+                  <div><div class="dk-bname">Aurelia Fine Jewellery</div><div class="dk-bsub">Workshop job docket</div></div>
+                  <div><div class="dk-ql">Docket</div><div class="dk-printed">Printed 26 Aug 2026</div></div>
+                </div>
+                <div class="dk-barc"><span class="bc"><i style="width:3px"></i><i style="width:1px"></i><i style="width:2px"></i><i style="width:1px"></i><i style="width:1px"></i><i style="width:3px"></i><i style="width:2px"></i><i style="width:1px"></i><i style="width:2px"></i><i style="width:1px"></i><i style="width:1px"></i><i style="width:3px"></i><i style="width:1px"></i><i style="width:2px"></i><i style="width:2px"></i><i style="width:1px"></i><i style="width:1px"></i><i style="width:2px"></i><i style="width:3px"></i><i style="width:1px"></i><i style="width:1px"></i><i style="width:2px"></i><i style="width:1px"></i><i style="width:3px"></i><i style="width:1px"></i><i style="width:2px"></i><i style="width:1px"></i><i style="width:1px"></i><i style="width:3px"></i><i style="width:2px"></i><i style="width:1px"></i><i style="width:2px"></i></span><div class="dk-ref">#A2C-01</div></div>
+                <div class="dk-block">
+                  <div class="dk-idrow"><span class="dk-idl">Client</span><span class="dk-idv">Jordan &amp; Alex Rivera</span></div>
+                  <div class="dk-idrow"><span class="dk-idl">Contact</span><span class="dk-idv">0412 345 678 &middot; jordan.rivera@example.com</span></div>
+                </div>
+                <div class="dk-grid4">
+                  <div><div class="dk-gl">Job</div><div class="dk-gv">Engagement ring</div></div>
+                  <div><div class="dk-gl">Taken in</div><div class="dk-gv">6 Aug 2026</div></div>
+                  <div><div class="dk-gl">Due</div><div class="dk-gv">3 Sep 2026</div></div>
+                  <div><div class="dk-gl">Pickup</div><div class="dk-gv">&mdash;</div></div>
+                </div>
+                <div class="dk-instr"><strong>Job:</strong> Platinum solitaire, hidden halo, set with a lab-grown emerald 1.5ct D VVS2. Finger size H.</div>
+                <div class="dk-stlbl">Progress</div>
+                <div class="dk-stgs"><span class="dk-stg">&#9744; Enquiry</span><span class="dk-stg">&#9744; Quoted</span><span class="dk-stg">&#9744; Approved</span><span class="dk-stg">&#9744; Design / CAD</span><span class="dk-stg on">&#9745; 3D printing</span><span class="dk-stg">&#9744; Manufacturing</span><span class="dk-stg">&#9744; Stone setting</span><span class="dk-stg">&#9744; Polishing / Finish</span><span class="dk-stg">&#9744; QC check</span><span class="dk-stg">&#9744; Ready for collection</span></div>
+                <div class="dk-sig"><div><div class="dk-sigline"></div><div class="dk-siglbl">Completed / checked by</div></div><div><div class="dk-sigline"></div><div class="dk-siglbl">Collected by &middot; date</div></div></div>
+              </div>
+            </div>
+          </div>
+
+          <div class="outpanel outpanel-tags">
+            <div class="docwrap">
+              <div class="tags-wrap">
+                <div class="tag-card"><span class="bc"><i style="width:3px"></i><i style="width:1px"></i><i style="width:2px"></i><i style="width:1px"></i><i style="width:1px"></i><i style="width:3px"></i><i style="width:2px"></i><i style="width:1px"></i><i style="width:2px"></i><i style="width:1px"></i><i style="width:1px"></i><i style="width:3px"></i><i style="width:1px"></i><i style="width:2px"></i><i style="width:2px"></i><i style="width:1px"></i><i style="width:1px"></i><i style="width:2px"></i><i style="width:3px"></i><i style="width:1px"></i><i style="width:1px"></i><i style="width:2px"></i><i style="width:1px"></i><i style="width:3px"></i><i style="width:1px"></i><i style="width:2px"></i></span><div class="tag-ref">#A2C-01</div><div class="tag-who">Jordan &amp; Alex Rivera</div><div class="tag-meta">Engagement ring &middot; Due 3 Sep 2026</div><div class="tag-biz">Aurelia Fine Jewellery</div></div>
+                <div class="tag-card"><span class="bc"><i style="width:2px"></i><i style="width:1px"></i><i style="width:3px"></i><i style="width:1px"></i><i style="width:2px"></i><i style="width:1px"></i><i style="width:1px"></i><i style="width:2px"></i><i style="width:3px"></i><i style="width:1px"></i><i style="width:2px"></i><i style="width:1px"></i><i style="width:1px"></i><i style="width:3px"></i><i style="width:2px"></i><i style="width:1px"></i><i style="width:2px"></i><i style="width:1px"></i><i style="width:1px"></i><i style="width:3px"></i><i style="width:1px"></i><i style="width:2px"></i><i style="width:2px"></i><i style="width:1px"></i><i style="width:1px"></i><i style="width:3px"></i></span><div class="tag-ref">#A2C-02</div><div class="tag-who">Jordan &amp; Alex Rivera</div><div class="tag-meta">Wedding band &middot; Due 3 Sep 2026</div><div class="tag-biz">Aurelia Fine Jewellery</div></div>
+                <div class="tag-card"><span class="bc"><i style="width:1px"></i><i style="width:3px"></i><i style="width:1px"></i><i style="width:2px"></i><i style="width:1px"></i><i style="width:2px"></i><i style="width:3px"></i><i style="width:1px"></i><i style="width:1px"></i><i style="width:2px"></i><i style="width:1px"></i><i style="width:3px"></i><i style="width:2px"></i><i style="width:1px"></i><i style="width:1px"></i><i style="width:2px"></i><i style="width:3px"></i><i style="width:1px"></i><i style="width:2px"></i><i style="width:1px"></i><i style="width:1px"></i><i style="width:3px"></i><i style="width:1px"></i><i style="width:2px"></i><i style="width:2px"></i><i style="width:1px"></i></span><div class="tag-ref">#A2C-03</div><div class="tag-who">Jordan &amp; Alex Rivera</div><div class="tag-meta">Eternity ring &middot; Due 3 Sep 2026</div><div class="tag-biz">Aurelia Fine Jewellery</div></div>
+              </div>
+            </div>
           </div>
         </div>
       </div>
