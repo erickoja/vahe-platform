@@ -3573,18 +3573,19 @@ function Jobs({clients,jobs,setJobs,quotes,setQuotes,payments,setPayments,notes,
     {vMode==="board"&&(()=>{
       const byStage={};JOB_STAGES.forEach(s=>byStage[s]=[]);
       filtered.forEach(j=>{(byStage[j.stage]=byStage[j.stage]||[]).push(j);});
-      return <div style={{display:"flex",gap:14,overflowX:"auto",paddingBottom:18,width:"100%"}}>
+      return <div style={{display:"flex",gap:14,overflowX:"auto",overflowY:"hidden",paddingBottom:12,height:"calc(100vh - 260px)",minHeight:360}}>
         {JOB_STAGES.map(s=>{
           const col=byStage[s]||[];const isOver=dragOver===s;const sc=SC[s]||WG;
           return <div key={s}
             onDragOver={e=>{e.preventDefault();e.dataTransfer.dropEffect="move";if(dragOver!==s)setDragOver(s);}}
             onDragLeave={e=>{if(!e.currentTarget.contains(e.relatedTarget))setDragOver(d=>d===s?null:d);}}
             onDrop={e=>{e.preventDefault();const id=e.dataTransfer.getData("text/plain");if(id)moveJobToStage(id,s);setDragOver(null);}}
-            style={{width:264,flexShrink:0,background:isOver?sc+"18":PARCH,border:`1px solid ${isOver?sc:BD}`,borderRadius:5,padding:"12px 12px 14px",display:"flex",flexDirection:"column",gap:10,alignSelf:"flex-start"}}>
-            <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:8,padding:"0 2px 10px",borderBottom:`2px solid ${sc}`}}>
+            style={{width:264,flexShrink:0,background:isOver?sc+"18":PARCH,border:`1px solid ${isOver?sc:BD}`,borderRadius:5,padding:"12px 12px 14px",display:"flex",flexDirection:"column",gap:10,alignSelf:"stretch",maxHeight:"100%",overflow:"hidden"}}>
+            <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:8,padding:"0 2px 10px",borderBottom:`2px solid ${sc}`,flexShrink:0}}>
               <span style={{fontSize:12,fontWeight:800,color:sc,textTransform:"uppercase",letterSpacing:"0.03em",lineHeight:1.25}}>{s}</span>
               <span style={{fontSize:12,fontWeight:800,color:WG,background:WHITE,borderRadius:5,padding:"2px 10px",flexShrink:0}}>{col.length}</span>
             </div>
+            <div style={{flex:1,minHeight:0,overflowY:"auto",display:"flex",flexDirection:"column",gap:10,margin:"0 -4px",padding:"1px 4px"}}>
             {col.length===0&&<div style={{fontSize:12,color:"#C8C4BE",textAlign:"center",padding:"14px 0"}}>No jobs</div>}
             {col.map(j=>{
               const c=clients.find(x=>x.id===j.clientId);
@@ -3599,6 +3600,7 @@ function Jobs({clients,jobs,setJobs,quotes,setQuotes,payments,setPayments,notes,
                 {j.parked&&<div style={{fontSize:11,color:WARN,marginTop:6,fontWeight:700}}>⏸ Awaiting client</div>}
               </div>;
             })}
+            </div>
           </div>;
         })}
       </div>;
