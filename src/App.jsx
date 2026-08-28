@@ -7519,7 +7519,7 @@ function StatementsList({clients,jobs,invoices,payments,biz,setView}){
         <div style={{...SS.lbl,marginBottom:10,display:"flex",alignItems:"center"}}>Aged receivables — all trade accounts<InfoDot text="How much your trade accounts owe, split by how overdue it is — Current (not yet due) through 90+ days. The older a bucket, the more urgent to chase. Click any account below for its full statement and ledger."/></div>
         <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(122px,1fr))",gap:10,marginBottom:18}}>
           {[["Total owing",totals.total,totals.total>0?WARN:OK],...AGE_BUCKETS.map(([k,l])=>[l,totals[k],bucketColor(k)])].map(([l,v,col],i)=>(
-            <div key={l} style={{background:WHITE,border:`1px solid ${BD}`,borderRadius:8,padding:"13px 14px"}}>
+            <div key={l} style={{background:PARCH,border:`1px solid ${BD}`,borderRadius:8,padding:"13px 14px"}}>
               <div style={{fontSize:9.5,color:WG,fontWeight:700,textTransform:"uppercase",letterSpacing:"0.06em"}}>{l}</div>
               <div style={{fontSize:i===0?19:16,fontWeight:800,color:col,marginTop:4}}>{fmtR(v)}</div>
             </div>
