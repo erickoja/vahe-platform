@@ -10051,7 +10051,7 @@ function GemCustody({custody,setCustody,clients,biz}){
       : <>
           {/* Summary */}
           <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(180px,1fr))",gap:14,marginBottom:22}}>
-            <Stat label="Currently holding" value={holding.length} tint="slate"/>
+            <Stat label="Currently holding" value={holding.length}/>
             <Stat label="Declared value held" value={fmtR(totalHeldValue)} sub="client-declared, for reference"/>
             <Stat label="Returned" value={custody.length-holding.length}/>
           </div>
@@ -10059,7 +10059,7 @@ function GemCustody({custody,setCustody,clients,biz}){
           {/* Filters */}
           <div style={{display:"flex",gap:10,flexWrap:"wrap",alignItems:"center",marginBottom:16}}>
             {["Holding","Returned","All"].map(f=>(
-              <button key={f} onClick={()=>setFilter(f)} style={{padding:"7px 15px",borderRadius:2,border:`1px solid ${filter===f?INK:"#C9BFAE"}`,background:filter===f?INK:"transparent",color:filter===f?WHITE:INK,fontSize:11,fontWeight:700,letterSpacing:"0.08em",textTransform:"uppercase",cursor:"pointer",fontFamily:"inherit"}}>{f}</button>
+              <button key={f} onClick={()=>setFilter(f)} style={{padding:"7px 15px",borderRadius:8,border:`1px solid ${filter===f?GOLD:BD}`,background:filter===f?GOLD:WHITE,color:filter===f?WHITE:WG,fontSize:11,fontWeight:700,letterSpacing:"0.06em",textTransform:"uppercase",cursor:"pointer",fontFamily:"inherit"}}>{f}</button>
             ))}
             <input value={qStr} onChange={e=>setQStr(e.target.value)} placeholder="Search client, item or certificate…" style={{...SS.inp,marginTop:0,maxWidth:isMobile?"none":280,width:isMobile?"100%":undefined}}/>
           </div>
