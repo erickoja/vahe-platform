@@ -3727,6 +3727,8 @@ function JobImages({job,setJobs}){
     deleteJobImage(img.path);
   };
   const setCaption=(img,caption)=>saveImages(images.map(i=>i.id===img.id?{...i,caption}:i));
+  // Per-image "show on quote" flag. Defaults on (onQuote!==false) so existing jobs are unchanged.
+  const toggleQuote=img=>saveImages(images.map(i=>i.id===img.id?{...i,onQuote:i.onQuote===false}:i));
 
   if(!imagesEnabled())return <Card>
     <div style={{fontWeight:700,fontSize:15,color:INK,marginBottom:6}}>Images</div>
@@ -3752,6 +3754,10 @@ function JobImages({job,setJobs}){
           <div style={{padding:"7px 8px"}}>
             {img.name&&<div title={img.name} style={{fontSize:10.5,fontWeight:600,color:INK,marginBottom:6,lineHeight:1.35,wordBreak:"break-word"}}>{img.name}</div>}
             <input value={img.caption||""} onChange={e=>setCaption(img,e.target.value)} placeholder="Add caption…" style={{...SS.inp,marginTop:0,fontSize:11,padding:"4px 7px"}}/>
+            <label title="Include this image on the client's quote" style={{display:"flex",alignItems:"center",gap:6,fontSize:10.5,fontWeight:600,color:img.onQuote===false?WG:INK,cursor:"pointer",marginTop:6}}>
+              <input type="checkbox" checked={img.onQuote!==false} onChange={()=>toggleQuote(img)} style={{width:14,height:14,accentColor:GOLD,cursor:"pointer",flexShrink:0}}/>
+              Show on quote
+            </label>
             <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginTop:5}}>
               <span style={{fontSize:10,color:WG}}>{fmtDate(img.uploadedAt)}</span>
               <button onClick={()=>removeImg(img)} style={{background:"none",border:"none",cursor:"pointer",color:DANGER,fontSize:11,fontWeight:700,fontFamily:"inherit",padding:0}}>Remove</button>
@@ -6188,22 +6194,23 @@ function ProposalPreview({quote,job,clients=[],biz,calc,payments=[],reconcilePay
 
   const clientName=clientDisplayName(client);
 
-  // Pull the job's uploaded images into the proposal (secure signed URLs)
-  const jobImages=job?.images||[];
+  // Pull the job's uploaded images into the proposal (secure signed URLs). Only images marked
+  // "show on quote" (onQuote!==false, the default) are included; capped so the layout stays clean.
+  const quoteImages=(job?.images||[]).filter(i=>i.onQuote!==false).slice(0,6);
   const[imgUrls,setImgUrls]=useState([]);
   useEffect(()=>{
     let cancelled=false;
     (async()=>{
-      if(!imagesEnabled()||!jobImages.length){setImgUrls([]);return;}
+      if(!imagesEnabled()||!quoteImages.length){setImgUrls([]);return;}
       const urls=[];
-      for(const img of jobImages.slice(0,3)){
+      for(const img of quoteImages){
         const u=await signedImageUrl(img.path);
         if(u)urls.push({url:u,caption:img.caption||""});
       }
       if(!cancelled)setImgUrls(urls);
     })();
     return()=>{cancelled=true;};
-  },[job?.id,jobImages.map(i=>i.path).join(",")]);
+  },[job?.id,quoteImages.map(i=>i.path).join(",")]);
 
   // ── Email the quote as a formatted HTML email (via the send-email edge function) ──
   const[emailOpen,setEmailOpen]=useState(false);
