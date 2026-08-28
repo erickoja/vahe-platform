@@ -6186,43 +6186,6 @@ function ProposalPreview({quote,job,clients=[],biz,calc,payments=[],reconcilePay
   // Client-facing description — manual field takes priority over job description
   const description=quote.clientDescription||job?.description||"";
 
-  const copyEmailText=()=>{
-    const text=[
-      `Dear ${clientDisplayName(client)},`,
-      ``,
-      `Thank you for your enquiry. Please find your quote below.`,
-      ``,
-      `━━━━━━━━━━━━━━━━━━━━━━━━━`,
-      `QUOTE ${quoteNum}`,
-      `━━━━━━━━━━━━━━━━━━━━━━━━━`,
-      ``,
-      `${job?.type||"Custom Jewellery"}`,
-      description||"",  // client description only
-      ``,
-      `Total price: ${priceDisplay} (inc. ${TAX_LABEL})`,
-      ...((hasPaid||qTrade>0)?[
-        ...(qTrade>0?[`Gold trade-in credit: -${fmtR(qTrade)}`]:[]),
-        ...(hasPaid?[`Payments received: -${fmtR(paidTotal)}`]:[]),
-        paidInFull?`Balance now due: ${fmtR(0)} — paid in full. Thank you.`:`Balance now due: ${fmtR(outstanding)}`,
-      ]:[`Quote valid until: ${validUntil}`]),
-      ``,
-      ...((hasPaid||qTrade>0)?(paidInFull?[]:[`To proceed, please settle the outstanding balance of ${fmtR(outstanding)}.`]):[`To proceed, a ${deposit}% deposit of ${depositAmt||"—"} is required.`]),
-      ``,
-      `━━━━━━━━━━━━━━━━━━━━━━━━━`,
-      `TERMS & CONDITIONS`,
-      `━━━━━━━━━━━━━━━━━━━━━━━━━`,
-      terms,
-      ``,
-      `Kind regards,`,
-      biz.name||"",
-      biz.phone||"",
-      biz.email||"",
-    ].filter(l=>l!==undefined).join("\n");
-    navigator.clipboard?.writeText(text).then(()=>{}).catch(()=>{});
-    setCopied(true);setTimeout(()=>setCopied(false),2000);
-  };
-
-  const[copied,setCopied]=useState(false);
   const clientName=clientDisplayName(client);
 
   // Pull the job's uploaded images into the proposal (secure signed URLs)
@@ -6303,9 +6266,6 @@ function ProposalPreview({quote,job,clients=[],biz,calc,payments=[],reconcilePay
         <span style={{fontSize:13,fontWeight:700,color:"rgba(255,255,255,0.85)",letterSpacing:"0.05em"}}>Quote · {quoteNum}</span>
       </div>
       <div style={{display:"flex",gap:10}}>
-        <button onClick={copyEmailText} style={{background:copied?"#2D7A4F22":"rgba(255,255,255,0.06)",border:`1px solid ${copied?"#2D7A4F":"rgba(255,255,255,0.15)"}`,borderRadius:4,padding:"6px 16px",color:copied?"#4CAF84":"rgba(255,255,255,0.7)",fontSize:12,fontWeight:700,cursor:"pointer",fontFamily:"inherit",transition:"all 0.2s"}}>
-          {copied?"✓ Copied":"✉ Copy email text"}
-        </button>
         {supabaseEnabled&&<button onClick={openEmail} disabled={markupUndef} title={markupUndef?"Set a markup tier for this quote first":"Email this quote to the client"} style={{background:markupUndef?"rgba(255,255,255,0.35)":WHITE,border:"none",borderRadius:4,padding:"6px 16px",color:INK,fontSize:12,fontWeight:700,cursor:markupUndef?"default":"pointer",fontFamily:"inherit",letterSpacing:"0.02em",opacity:markupUndef?0.55:1}}>
           ✉ Email quote
         </button>}
