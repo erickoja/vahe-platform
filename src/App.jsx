@@ -9331,10 +9331,6 @@ function Appointments({appointments,setAppointments,clients,setClients,jobs=[],s
 
   return <div>
     <SectionHeader eyebrow="Calendar" title="Appointments" subtitle="Your bookings — consultations, fittings, repairs and pickups." action={<Btn onClick={()=>setModal("add")}>+ New appointment</Btn>}/>
-    <div style={{display:"flex",alignItems:"flex-start",gap:10,background:GOLD_L,border:`1px solid ${GOLD}55`,borderRadius:8,padding:"10px 14px",marginBottom:16,fontSize:12.5,color:GOLD_D,lineHeight:1.5}}>
-      <span style={{fontSize:15,lineHeight:1}}>💡</span>
-      <span>A subscribed calendar — <strong>especially Google</strong> — can take a day or more to show a new booking (it refreshes on Google's schedule, nothing we can speed up). For one to appear <strong>right away</strong>, open the appointment and tap <strong>📅 Add to Google Calendar</strong> (or the Apple / Outlook option). Set up the one-time subscription in <span onClick={()=>setView("settings")} style={{textDecoration:"underline",cursor:"pointer",fontWeight:700}}>Settings</span> for hands-off syncing after that.</span>
-    </div>
     <div style={{display:"flex",gap:6,marginBottom:18}}>{pill("list","List")}{pill("week","Week")}{pill("month","Month")}</div>
     {mode==="list"?renderList():mode==="week"?renderWeek():renderMonth()}
     {modal&&<Modal title={isEdit?"Edit appointment":"New appointment"} onClose={()=>setModal(null)}>
