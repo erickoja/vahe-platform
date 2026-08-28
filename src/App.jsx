@@ -6329,10 +6329,10 @@ function ProposalPreview({quote,job,clients=[],biz,calc,payments=[],reconcilePay
         {/* ── RENDER / IMAGE ── (only shown when the job has photos) */}
         {imgUrls.length>0&&<div style={{padding:"28px 52px",borderBottom:`1px solid ${BD}`}}>
           <div style={{fontSize:9,fontWeight:700,color:WG,letterSpacing:"0.16em",textTransform:"uppercase",marginBottom:14,fontFamily:"'Poppins',sans-serif"}}>Design &amp; reference</div>
-          <div style={{display:"grid",gridTemplateColumns:imgUrls.length===1?"1fr":"1fr 1fr",gap:12}}>
+          <div style={{display:"grid",gridTemplateColumns:imgUrls.length===1?"1fr":imgUrls.length===2?"1fr 1fr":"repeat(3,1fr)",gap:12}}>
             {imgUrls.map((im,i)=>(
-              <div key={i} style={{gridColumn:imgUrls.length===3&&i===0?"1 / -1":"auto"}}>
-                <img src={im.url} alt={im.caption||"Reference"} style={{width:"100%",height:imgUrls.length===1?320:220,objectFit:"cover",borderRadius:6,border:`1px solid ${BD}`,display:"block"}}/>
+              <div key={i}>
+                <img src={im.url} alt={im.caption||"Reference"} style={{width:"100%",aspectRatio:imgUrls.length===1?"3 / 2":"1 / 1",objectFit:"cover",borderRadius:6,border:`1px solid ${BD}`,display:"block",background:PARCH}}/>
                 {im.caption&&<div style={{fontSize:11,color:WG,marginTop:6,fontStyle:"italic",fontFamily:"'Poppins',sans-serif"}}>{im.caption}</div>}
               </div>
             ))}
