@@ -968,9 +968,6 @@ const fmt=n=>`${CUR_SYM}${Number(n||0).toLocaleString(LOCALE,{minimumFractionDig
 // Supabase gives functions an auto-generated URL slug separate from the display name;
 // this one's display name is "send-email" but its slug (used in the URL) is "smart-worker".
 const SEND_EMAIL_FN="smart-worker";
-// The calendar-feed edge function's URL slug (update to the real slug once deployed, like above).
-const CAL_FEED_FN="calendar-feed";
-const calFeedUrl=(token)=>token?`${(import.meta.env.VITE_SUPABASE_URL||"").replace(/\/$/,"")}/functions/v1/${CAL_FEED_FN}?token=${token}`:"";
 const _emlEsc=(s)=>String(s==null?"":s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
 // Branded, email-safe HTML: studio wordmark, greeting, message, a CTA button + raw link, footer.
 // Deliberately no <img>/data-URI logo — many mail clients block data URIs and show a broken image.
@@ -8655,7 +8652,7 @@ function Settings({biz,setBiz,markupTable,setMarkupTable,naturalStoneMarkup,setN
   const showToast=msg=>{setToast(msg);setTimeout(()=>setToast(null),2400);};
   // Preserve markup-table-owned settings (buffer / rounding) so saving business details can't wipe them.
   const saveBiz=()=>{
-    const nb={...bForm,calendarToken:biz.calendarToken,calendarTz:biz.calendarTz,markupBuffer:biz.markupBuffer||0,quoteRounding:biz.quoteRounding||0};
+    const nb={...bForm,markupBuffer:biz.markupBuffer||0,quoteRounding:biz.quoteRounding||0};
     setBiz(nb);persist(K.biz,nb);
     // Sync this studio's name + acceptance-notification email to the studios table, so the
     // server-side email function can reach the right studio. RLS lets an owner update its studio.
@@ -8669,12 +8666,6 @@ function Settings({biz,setBiz,markupTable,setMarkupTable,naturalStoneMarkup,setN
   // Region & currency: choosing a preset fills the currency + tax fields (still editable after).
   const applyPreset=key=>{const p=REGION_PRESETS[key];if(!p)return;setBForm(f=>({...f,region:key,currencySymbol:p.sym,currencyCode:p.code,taxLabel:p.taxLabel,taxRatePct:p.taxPct,locale:p.locale,taxIdLabel:p.taxId}));};
   const saveMt=()=>{setMarkupTable(mt);persist(K.mt,mt);const nb={...biz,markupBuffer:Number(buffer)||0,quoteRounding:Number(rounding)||0};setBiz(nb);persist(K.biz,nb);setMarkupBuffer(Number(buffer)||0);setQuoteRounding(Number(rounding)||0);showToast("Markup table saved");};
-  // Calendar subscription feed — a private token stored in biz settings; the calendar-feed edge fn serves the .ics.
-  const browserTz=(()=>{try{return Intl.DateTimeFormat().resolvedOptions().timeZone||"";}catch(e){return "";}})();
-  const genFeedToken=()=>{const t=(uid()+uid()+uid()+Date.now().toString(36)).replace(/[^a-z0-9]/gi,"").slice(0,32);const nb={...biz,calendarToken:t,calendarTz:browserTz||biz.calendarTz||""};setBiz(nb);persist(K.biz,nb);showToast("Calendar link created");};
-  // Backfill the timezone for a token created before we stored it, so the feed renders times correctly without a new URL.
-  useEffect(()=>{if(biz.calendarToken&&!biz.calendarTz&&browserTz){const nb={...biz,calendarTz:browserTz};setBiz(nb);persist(K.biz,nb);}},[biz.calendarToken,biz.calendarTz,browserTz]);
-  const feedUrl=calFeedUrl(biz.calendarToken);
   const saveSmNTable=()=>{setNaturalStoneMarkup(smn);persist(K.smn,smn);showToast("Natural stone markup saved");};
   const saveSmLTable=()=>{setLabStoneMarkup(sml);persist(K.sml,sml);showToast("Lab-grown stone markup saved");};
   // Trade markup profile — lower wholesale markups, applied to trade-account quotes.
@@ -8775,21 +8766,6 @@ function Settings({biz,setBiz,markupTable,setMarkupTable,naturalStoneMarkup,setN
       <div style={{fontSize:11.5,color:WG,marginTop:2,lineHeight:1.55}}>Off (default): the {bForm.taxLabel||"GST"} is <strong>added on top</strong> of the marked-up stone — cost × markup, then + {Number(bForm.taxRatePct??10)}%. On: the marked-up stone price <strong>already includes</strong> {bForm.taxLabel||"GST"}, and the tax is backed out as a component. Applies to all sourced &amp; accent stones.</div>
       <div style={{background:GOLD_L,border:`1px solid ${GOLD}55`,borderRadius:4,padding:"10px 14px",marginTop:12,fontSize:11.5,color:GOLD_D,lineHeight:1.5}}>Prices are tax-<strong>inclusive</strong> — the tax is shown as a component of the total (the way AU, UK, NZ and EU retail work). US-style sales tax added on top at checkout isn't supported yet.</div>
       <div style={{display:"flex",justifyContent:"flex-end",marginTop:14}}><Btn onClick={saveBiz}>Save region &amp; currency</Btn></div>
-    </Card>
-
-    {/* Calendar subscription feed */}
-    <Card>
-      <div style={{fontWeight:700,fontSize:15,color:INK,marginBottom:4}}>Subscribe to your appointments calendar</div>
-      <div style={{fontSize:13,color:WG,marginBottom:14,lineHeight:1.6}}>Add this one private link to Google Calendar, Apple Calendar or Outlook and your appointments appear automatically and keep updating — no logins. <span style={{color:INK}}>Google refreshes subscribed calendars slowly (often several hours);</span> Apple and Outlook are quicker. For an instant add, use the <strong style={{color:INK}}>Add to calendar</strong> buttons on each appointment instead.</div>
-      {feedUrl
-        ?<div>
-          <div style={{display:"flex",gap:8,alignItems:"center",flexWrap:"wrap",background:PARCH,border:`1px solid ${BD}`,borderRadius:8,padding:"10px 12px"}}>
-            <span style={{flex:1,minWidth:180,fontSize:12,color:WG,wordBreak:"break-all",fontFamily:"monospace"}}>{feedUrl}</span>
-            <Btn sm onClick={()=>{navigator.clipboard?.writeText(feedUrl).catch(()=>{});showToast("Feed link copied");}}>Copy link</Btn>
-          </div>
-          <div style={{fontSize:11.5,color:WG,marginTop:10,lineHeight:1.6}}>In <strong style={{color:INK}}>Google Calendar</strong>: Other calendars → <strong>+</strong> → <strong>From URL</strong> → paste. In <strong style={{color:INK}}>Apple Calendar</strong>: File → New Calendar Subscription. Keep this link private — anyone with it can see your appointments. <button onClick={genFeedToken} style={{background:"none",border:"none",padding:0,color:GOLD_D,fontWeight:700,cursor:"pointer",fontFamily:"inherit",fontSize:11.5,textDecoration:"underline"}}>Reset link</button></div>
-        </div>
-        :<Btn sm onClick={genFeedToken}>Generate my calendar link</Btn>}
     </Card>
 
     {/* Markup table editor */}
