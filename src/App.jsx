@@ -6242,6 +6242,56 @@ function ProposalPreview({quote,job,clients=[],biz,calc,payments=[],reconcilePay
     return()=>{cancelled=true;};
   },[job?.id,jobImages.map(i=>i.path).join(",")]);
 
+  // ── Email the quote as a formatted HTML email (via the send-email edge function) ──
+  const[emailOpen,setEmailOpen]=useState(false);
+  const[emailTo,setEmailTo]=useState("");
+  const[emailSubject,setEmailSubject]=useState("");
+  const[emailMsg,setEmailMsg]=useState("");
+  const[emailBusy,setEmailBusy]=useState(false);
+  const[emailSent,setEmailSent]=useState(false);
+  const[emailErr,setEmailErr]=useState("");
+  const pieceTitle=(quote.pieceTitle||"").trim()||job?.type||"Custom Jewellery";
+  const openEmail=()=>{
+    setEmailTo(client?.email||"");
+    setEmailSubject(`Your quote from ${biz.name||"us"}${quoteNum?` (${quoteNum})`:""}`);
+    setEmailMsg(`Thank you for your enquiry. Please find your quote for the ${job?.type||"piece"} below. I'd be glad to go ahead whenever you're ready — just let me know if you'd like any changes.`);
+    setEmailErr("");setEmailSent(false);setEmailOpen(true);
+  };
+  const sendQuoteEmail=async()=>{
+    if(!emailTo.trim())return setEmailErr("Add the client's email address.");
+    setEmailBusy(true);setEmailErr("");
+    try{
+      const esc=_emlEsc;
+      const row=(l,v,col)=>`<tr><td style="padding:7px 0;color:#666666;font-size:14px">${esc(l)}</td><td style="padding:7px 0;text-align:right;font-weight:700;font-size:14px${col?`;color:${col}`:""}">${esc(v)}</td></tr>`;
+      const moneyRows=(hasPaid||qTrade>0)
+        ? row(`Total (inc ${TAX_LABEL})`,priceDisplay)
+          +(qTrade>0?row("Gold trade-in credit","− "+fmtR(qTrade),"#2D7A4F"):"")
+          +(hasPaid?row("Payments received","− "+fmtR(paidTotal),"#2D7A4F"):"")
+          +row(paidInFull?"Paid in full":"Balance now due",fmtR(outstanding))
+        : row(`Total (inc ${TAX_LABEL})`,priceDisplay)
+          +(depositAmt?row(`${deposit}% deposit to proceed`,depositAmt):"")
+          +row("Valid until",validUntil);
+      const contact=[biz?.email,biz?.phone].filter(Boolean).map(esc).join(" &middot; ");
+      const html=`<div style="font-family:Arial,Helvetica,sans-serif;max-width:560px;margin:0 auto;color:#1a1a1a;padding:8px">`
+        +`<div style="border-bottom:2px solid #eeeeee;padding-bottom:14px;margin-bottom:20px"><div style="font-size:20px;font-weight:700;letter-spacing:0.02em">${esc(biz.name||"Your jeweller")}</div>${contact?`<div style="font-size:12px;color:#888888;margin-top:4px">${contact}</div>`:""}</div>`
+        +`<p style="font-size:15px;margin:0 0 14px">Hi ${esc(clientName||"there")},</p>`
+        +`<p style="font-size:15px;line-height:1.6;margin:0 0 20px">${esc(emailMsg).replace(/\n/g,"<br>")}</p>`
+        +`<div style="border:1px solid #e8e2d9;border-radius:8px;overflow:hidden;margin:0 0 20px">`
+          +`<div style="background:#1a1714;color:#ffffff;padding:14px 18px"><div style="font-size:10px;letter-spacing:0.16em;text-transform:uppercase;color:rgba(255,255,255,0.55)">Quote ${esc(quoteNum)}</div><div style="font-size:16px;font-weight:700;margin-top:4px">${esc(pieceTitle)}</div></div>`
+          +`<div style="padding:14px 18px">`
+            +(description?`<p style="font-size:13px;color:#555555;line-height:1.6;margin:0 0 12px">${esc(description)}</p>`:"")
+            +`<table style="width:100%;border-collapse:collapse">${moneyRows}</table>`
+          +`</div>`
+        +`</div>`
+        +(terms?`<div style="font-size:11px;color:#888888;line-height:1.6;margin:0 0 18px"><div style="font-weight:700;color:#666666;text-transform:uppercase;letter-spacing:0.08em;font-size:10px;margin-bottom:6px">Terms &amp; conditions</div>${esc(terms).replace(/\n/g,"<br>")}</div>`:"")
+        +`<div style="border-top:1px solid #eeeeee;margin-top:22px;padding-top:14px;font-size:12px;color:#999999">${esc(biz.name||"")}${contact?` &middot; ${contact}`:""}</div>`
+      +`</div>`;
+      await sendClientEmail({to:emailTo.trim(),replyTo:biz?.email||"",fromName:biz.name||"Your jeweller",subject:emailSubject,html});
+      setEmailSent(true);
+    }catch(e){setEmailErr(e.message||"Couldn't send the quote — please try again.");}
+    setEmailBusy(false);
+  };
+
   return <div style={{position:"fixed",inset:0,background:"rgba(10,10,10,0.88)",zIndex:500,display:"flex",flexDirection:"column"}}>
 
     {/* ── Toolbar ── */}
@@ -6254,7 +6304,10 @@ function ProposalPreview({quote,job,clients=[],biz,calc,payments=[],reconcilePay
         <button onClick={copyEmailText} style={{background:copied?"#2D7A4F22":"rgba(255,255,255,0.06)",border:`1px solid ${copied?"#2D7A4F":"rgba(255,255,255,0.15)"}`,borderRadius:4,padding:"6px 16px",color:copied?"#4CAF84":"rgba(255,255,255,0.7)",fontSize:12,fontWeight:700,cursor:"pointer",fontFamily:"inherit",transition:"all 0.2s"}}>
           {copied?"✓ Copied":"✉ Copy email text"}
         </button>
-        <button onClick={()=>window.print()} style={{background:WHITE,border:"none",borderRadius:4,padding:"6px 18px",color:INK,fontSize:12,fontWeight:700,cursor:"pointer",fontFamily:"inherit",letterSpacing:"0.02em"}}>
+        {supabaseEnabled&&<button onClick={openEmail} disabled={markupUndef} title={markupUndef?"Set a markup tier for this quote first":"Email this quote to the client"} style={{background:markupUndef?"rgba(255,255,255,0.35)":WHITE,border:"none",borderRadius:4,padding:"6px 16px",color:INK,fontSize:12,fontWeight:700,cursor:markupUndef?"default":"pointer",fontFamily:"inherit",letterSpacing:"0.02em",opacity:markupUndef?0.55:1}}>
+          ✉ Email quote
+        </button>}
+        <button onClick={()=>window.print()} style={{background:"rgba(255,255,255,0.06)",border:"1px solid rgba(255,255,255,0.15)",borderRadius:4,padding:"6px 16px",color:"rgba(255,255,255,0.7)",fontSize:12,fontWeight:700,cursor:"pointer",fontFamily:"inherit",letterSpacing:"0.02em"}}>
           Print / Save PDF
         </button>
       </div>
@@ -6448,6 +6501,33 @@ function ProposalPreview({quote,job,clients=[],biz,calc,payments=[],reconcilePay
         * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
       }
     `}</style>
+
+    {emailOpen&&<div onClick={()=>!emailBusy&&setEmailOpen(false)} style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.62)",zIndex:800,display:"flex",alignItems:"center",justifyContent:"center",padding:16,backdropFilter:"blur(3px)"}}>
+      <div onClick={e=>e.stopPropagation()} style={{background:WHITE,borderRadius:14,width:"100%",maxWidth:520,maxHeight:"92vh",overflowY:"auto",border:`1px solid ${BD}`,boxShadow:"0 24px 60px rgba(0,0,0,0.4)"}}>
+        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"16px 20px",borderBottom:`1px solid ${BD}`}}>
+          <h2 style={{margin:0,fontSize:17,fontWeight:800,color:INK}}>Email quote</h2>
+          <button onClick={()=>setEmailOpen(false)} aria-label="Close" style={{background:PARCH,border:`1px solid ${BD}`,borderRadius:8,width:30,height:30,cursor:"pointer",color:WG,fontSize:18,lineHeight:1,fontFamily:"inherit"}}>×</button>
+        </div>
+        <div style={{padding:"18px 20px"}}>
+          {emailSent
+            ?<div>
+              <div style={{fontSize:14,color:OK,fontWeight:700,padding:"6px 0 16px"}}>✓ Quote sent to {emailTo}</div>
+              <div style={{display:"flex",justifyContent:"flex-end"}}><Btn sm onClick={()=>setEmailOpen(false)}>Done</Btn></div>
+            </div>
+            :<>
+              <Input label="To" value={emailTo} onChange={setEmailTo} placeholder="client@example.com"/>
+              <Input label="Subject" value={emailSubject} onChange={setEmailSubject}/>
+              <Input label="Message" value={emailMsg} onChange={setEmailMsg} as="textarea" rows={4}/>
+              <div style={{fontSize:12,color:WG,margin:"2px 0 14px",lineHeight:1.5}}>Your quote — piece, total{depositAmt?`, ${deposit}% deposit`:""} and terms — is formatted into the email automatically below your message. Sent from <strong style={{color:INK}}>{biz?.name||"your studio"}</strong>{biz?.email?`, replies go to ${biz.email}`:""}.</div>
+              {emailErr&&<div style={{fontSize:13,color:DANGER,marginBottom:12,lineHeight:1.5}}>{emailErr}</div>}
+              <div style={{display:"flex",justifyContent:"flex-end",gap:10}}>
+                <Btn sm ghost onClick={()=>setEmailOpen(false)}>Cancel</Btn>
+                <Btn sm onClick={sendQuoteEmail} disabled={emailBusy}>{emailBusy?"Sending…":"Send quote"}</Btn>
+              </div>
+            </>}
+        </div>
+      </div>
+    </div>}
   </div>;
 }
 
