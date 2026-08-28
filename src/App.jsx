@@ -8527,14 +8527,14 @@ function Reports({jobs,clients,quotes,payments,invoices,markupTable,setView}){
   return <div>
     <SectionHeader eyebrow="Business" title="Reports" subtitle="How the studio's tracking — sales, margins and conversion at a glance."/>
     <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(176px,1fr))",gap:12,marginBottom:22}}>
-      <Stat label="Total clients" value={clients.length}/>
-      <Stat label="Total jobs" value={jobs.length}/>
-      <Stat label="Total sales" value={fmt(totalSales)} sub="agreed charges"/>
-      <Stat label="Quote conversion" value={`${conv}%`} sub={`${appQ} of ${totalQ} approved`}/>
-      <Stat label="Avg base cost" value={fmt(avgBase)}/>
-      <Stat label="Avg final price" value={fmt(avgFinal)}/>
-      <Stat label="Total received" value={fmt(totalPaid)} sub={totalTradeIn>0?"cash + gold trade-ins":undefined}/>
-      <Stat label="Outstanding" value={fmt(outstanding)} sub="balance owed" accent={outstanding>0}/>
+      <Stat label="Total clients" value={clients.length} tint="slate" icon={<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/></svg>}/>
+      <Stat label="Total jobs" value={jobs.length} tint="slate" icon={ICON_ALLJOBS}/>
+      <Stat label="Total sales" value={fmt(totalSales)} sub="agreed charges" tint="slate" icon={ICON_MONEY}/>
+      <Stat label="Quote conversion" value={`${conv}%`} sub={`${appQ} of ${totalQ} approved`} tint="mint" icon={ICON_CHECK}/>
+      <Stat label="Avg base cost" value={fmt(avgBase)} tint="slate" icon={ICON_DOLLAR}/>
+      <Stat label="Avg final price" value={fmt(avgFinal)} tint="slate" icon={ICON_DOLLAR}/>
+      <Stat label="Total received" value={fmt(totalPaid)} sub={totalTradeIn>0?"cash + gold trade-ins":undefined} tint="mint" icon={ICON_MONEY}/>
+      <Stat label="Outstanding" value={fmt(outstanding)} sub="balance owed" tint={outstanding>0?"peach":"mint"} icon={ICON_MONEY}/>
     </div>
     <Card>
       <div style={{fontWeight:700,fontSize:15,color:INK,marginBottom:18}}>Received (cash + trade-ins) — last 6 months</div>
@@ -10051,9 +10051,9 @@ function GemCustody({custody,setCustody,clients,biz}){
       : <>
           {/* Summary */}
           <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(180px,1fr))",gap:14,marginBottom:22}}>
-            <Stat label="Currently holding" value={holding.length}/>
-            <Stat label="Declared value held" value={fmtR(totalHeldValue)} sub="client-declared, for reference"/>
-            <Stat label="Returned" value={custody.length-holding.length}/>
+            <Stat label="Currently holding" value={holding.length} tint="slate" icon={<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>}/>
+            <Stat label="Declared value held" value={fmtR(totalHeldValue)} sub="client-declared, for reference" tint="slate" icon={ICON_MONEY}/>
+            <Stat label="Returned" value={custody.length-holding.length} tint="slate" icon={ICON_CHECK}/>
           </div>
 
           {/* Filters */}
