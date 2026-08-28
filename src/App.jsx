@@ -6159,7 +6159,7 @@ function PublicProposalPage({token}){
 }
 
 // ── Quote Proposal Preview ────────────────────────────────────────────────
-function ProposalPreview({quote,job,clients=[],biz,calc,payments=[],reconcilePayments=true,onClose}){
+function ProposalPreview({quote,job,clients=[],biz,calc,payments=[],reconcilePayments=true,onClose,autoEmail=false}){
   const client=clients.find(x=>x.id===job?.clientId)||null;
   const quoteNum="QT-"+quote.id.slice(-6).toUpperCase();
   const issuedDate=new Date(quote.createdAt).toLocaleDateString(LOCALE,{day:"numeric",month:"long",year:"numeric"});
@@ -6291,6 +6291,8 @@ function ProposalPreview({quote,job,clients=[],biz,calc,payments=[],reconcilePay
     }catch(e){setEmailErr(e.message||"Couldn't send the quote — please try again.");}
     setEmailBusy(false);
   };
+  // Opened straight from the quote's "Email quote" button → pop the compose dialog on mount.
+  useEffect(()=>{if(autoEmail&&supabaseEnabled&&!markupUndef)openEmail();},[]);   // eslint-disable-line react-hooks/exhaustive-deps
 
   return <div style={{position:"fixed",inset:0,background:"rgba(10,10,10,0.88)",zIndex:500,display:"flex",flexDirection:"column"}}>
 
@@ -6588,6 +6590,7 @@ function QuoteDetailView({quoteId,quotes,setQuotes,jobs,clients,biz,markupTable,
   };
   const dupQuote=()=>{const dup=duplicateQuoteObj(q);setQuotes(p=>{const n=[...p,dup];persist(K.qu,n);return n;});setView("editQuote_"+dup.id);};
   const[showProposal,setShowProposal]=useState(false);
+  const[autoEmailPreview,setAutoEmailPreview]=useState(false);
   // Only net job payments against this quote when it's the job's sole approved (billable) quote —
   // otherwise a multi-piece deposit would be misapplied to one piece. Multi-piece orders should be
   // printed from the job's Proposals section, which totals every piece together.
@@ -6595,7 +6598,7 @@ function QuoteDetailView({quoteId,quotes,setQuotes,jobs,clients,biz,markupTable,
   const soleBilled=jobApproved.length<=1&&(jobApproved.length===0||jobApproved[0].id===q.id);
 
   return <div>
-    {showProposal&&<ProposalPreview quote={q} job={job} clients={clients} biz={biz} calc={calc} payments={payments} reconcilePayments={soleBilled} onClose={()=>setShowProposal(false)}/>}
+    {showProposal&&<ProposalPreview quote={q} job={job} clients={clients} biz={biz} calc={calc} payments={payments} reconcilePayments={soleBilled} autoEmail={autoEmailPreview} onClose={()=>setShowProposal(false)}/>}
     <div style={{display:"flex",flexDirection:isMobile?"column":"row",justifyContent:"space-between",alignItems:isMobile?"stretch":"flex-start",gap:isMobile?14:10,marginBottom:20}}>
       <div style={{minWidth:0}}><h1 style={{margin:0,fontSize:isMobile?20:24,fontWeight:800,color:INK,letterSpacing:"-0.02em",wordBreak:"break-word",display:"flex",alignItems:"center",gap:10,flexWrap:"wrap"}}>{quoteLabel(q)}{tradeQ&&<span style={{fontSize:11,fontWeight:800,letterSpacing:"0.08em",color:"#4E8B6A",background:"#EDF5EF",border:"1px solid #A6CBB4",borderRadius:999,padding:"3px 9px",textTransform:"uppercase"}}>Trade priced</span>}</h1>
       <div style={{color:WG,fontSize:13,marginTop:3}}>Quote {quoteRef(q)} · {job?.type} · {clientDisplayName(c)} · {fmtDate(q.createdAt)}</div>
@@ -6605,7 +6608,8 @@ function QuoteDetailView({quoteId,quotes,setQuotes,jobs,clients,biz,markupTable,
         <Btn sm={!isMobile} xs={isMobile} ghost onClick={()=>setView("editQuote_"+q.id)}>✏ Edit quote</Btn>
         <Btn sm={!isMobile} xs={isMobile} ghost onClick={dupQuote}>⧉ Duplicate</Btn>
         <Btn sm={!isMobile} xs={isMobile} danger onClick={delQuote}>Delete</Btn>
-        <Btn sm={!isMobile} xs={isMobile} onClick={()=>setShowProposal(true)}>📄 Preview &amp; Print quote</Btn>
+        {supabaseEnabled&&!markupUndef&&<Btn sm={!isMobile} xs={isMobile} onClick={()=>{setAutoEmailPreview(true);setShowProposal(true);}}>✉ Email quote</Btn>}
+        <Btn sm={!isMobile} xs={isMobile} ghost onClick={()=>{setAutoEmailPreview(false);setShowProposal(true);}}>📄 Preview &amp; Print</Btn>
       </div>
     </div>
 
