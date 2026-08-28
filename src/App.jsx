@@ -9214,7 +9214,7 @@ function Appointments({appointments,setAppointments,clients,setClients,jobs=[],s
   const modalInitial=modal==="add"?{}:(modal&&modal.prefillDate?{date:modal.prefillDate}:(isEdit?modal:{}));
 
   // ── Toolbar ──
-  const pill=(val,label)=><button key={val} onClick={()=>setMode(val)} style={{padding:"6px 15px",borderRadius:3,border:`1px solid ${mode===val?GOLD:BD}`,background:mode===val?GOLD:"transparent",color:mode===val?WHITE:WG,fontSize:11,fontWeight:700,letterSpacing:"0.1em",textTransform:"uppercase",cursor:"pointer",fontFamily:"inherit"}}>{label}</button>;
+  const pill=(val,label)=><button key={val} onClick={()=>setMode(val)} style={{padding:"7px 15px",borderRadius:8,border:`1px solid ${mode===val?GOLD:BD}`,background:mode===val?GOLD:WHITE,color:mode===val?WHITE:WG,fontSize:11,fontWeight:700,letterSpacing:"0.06em",textTransform:"uppercase",cursor:"pointer",fontFamily:"inherit"}}>{label}</button>;
   const navBtn=(label,onClick)=><button onClick={onClick} style={{background:WHITE,border:`1px solid ${BD}`,borderRadius:4,padding:"6px 12px",fontSize:13,fontWeight:700,color:INK,cursor:"pointer",fontFamily:"inherit"}}>{label}</button>;
 
   const renderList=()=>{
