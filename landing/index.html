@@ -1400,13 +1400,18 @@
   .td-done{font-size:10px;font-weight:700;color:var(--qbmut);margin-top:13px}
   @media(max-width:560px){.td-stats{grid-template-columns:1fr 1fr}.td-cols{grid-template-columns:1fr}}
 
-  /* wide screens: let the "Inside the app" showcase (and its app frame) grow so it
-     doesn't sit small in the middle of a large monitor. Scoped to .shots-app so the
-     narrow "What you send out" document showcase is untouched. */
+  /* wide screens: let the whole page use more width so nothing sits small in the
+     middle of a large monitor. Bumps the shared container plus the app showcase frame
+     and the individually-capped section blocks. Text blocks stay ch-capped for reading. */
   @media(min-width:1180px){
-    .shots-app .wrap{max-width:1320px}
+    :root{--edge:1320px}
     .shots-app .qbframe{width:1242px}
     .shots-app .qb{width:1240px}
+    .appwin.wide{max-width:1040px}
+    .grid4{max-width:1200px}
+    .repl-list{max-width:1080px}
+    .contact-card{max-width:1080px}
+    footer .fwrap{max-width:1320px}
   }
 
   /* tablet + phone reflow for the fixed-width app-page tabs (job/quote/invoice/to-do):
