@@ -364,6 +364,25 @@
   .smargin{font-size:.74rem;font-weight:700;color:var(--ok)}
   @media (max-width:520px){.stockgrid{grid-template-columns:1fr 1fr;gap:12px}}
 
+  /* what it replaces — objection handler, before -> after rows */
+  .replaces .sec-head{max-width:82ch}
+  .repl-list{max-width:940px;margin:46px auto 0;display:flex;flex-direction:column;gap:12px}
+  .repl-row{display:grid;grid-template-columns:1fr 44px 1fr;align-items:center;gap:8px;background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:15px 20px;box-shadow:var(--shadow-sm);transition:transform .18s ease,box-shadow .18s ease,border-color .18s ease}
+  .repl-row:hover{transform:translateY(-2px);box-shadow:var(--shadow);border-color:color-mix(in srgb,var(--accent) 32%,var(--line))}
+  .repl-from{display:flex;align-items:center;gap:12px;font-size:.97rem;color:var(--muted);font-weight:500;min-width:0}
+  .repl-from .x{width:27px;height:27px;flex:none;border-radius:8px;display:grid;place-items:center;background:color-mix(in srgb,var(--muted) 12%,transparent);color:var(--muted)}
+  .repl-from .x svg{width:15px;height:15px}
+  .repl-ar{display:grid;place-items:center;color:var(--accent)}
+  .repl-ar svg{width:20px;height:20px}
+  .repl-to{display:flex;align-items:center;gap:12px;font-size:1rem;color:var(--strong);font-weight:600;min-width:0}
+  .repl-to .ck{width:27px;height:27px;flex:none;border-radius:8px;display:grid;place-items:center;background:color-mix(in srgb,var(--accent) 14%,transparent);color:var(--accent)}
+  .repl-to .ck svg{width:15px;height:15px}
+  @media(max-width:720px){
+    .repl-row{grid-template-columns:1fr;gap:9px;padding:15px 17px}
+    .repl-ar{justify-self:start;transform:rotate(90deg);margin:1px 0 1px 7px}
+    .repl-ar svg{width:17px;height:17px}
+  }
+
   /* stock summary tiles — mirrors the in-app inventory dashboard */
   .stockstats{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin:40px auto 0}
   .sstat{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:18px 20px;box-shadow:var(--shadow-sm)}
@@ -3957,6 +3976,49 @@
           <div class="scard"><div class="sphoto"><img src="shots/stock/v010.png" width="250" height="232" loading="lazy" decoding="async" alt="White natural diamond tennis bracelet"></div><div class="sbody"><div class="stitle">White Natural Diamond Tennis Bracelet</div><div class="ssku">V0-10 · Bracelet</div><span class="smade">Overseas made</span><div class="sfoot"><span class="sprice">$26,700</span><span class="smargin">45% margin</span></div></div></div>
           <div class="scard"><div class="sphoto"><img src="shots/stock/v143.png" width="250" height="232" loading="lazy" decoding="async" alt="White diamond and sapphire trilogy ring"></div><div class="sbody"><div class="stitle">White Diamond &amp; Sapphire Trilogy</div><div class="ssku">V-143 · Ring</div><span class="smade">Cast &amp; assembly made</span><div class="sfoot"><span class="sprice">$5,150</span><span class="smargin">44% margin</span></div></div></div>
           <div class="scard"><div class="sphoto"><img src="shots/stock/v142.png" width="250" height="232" loading="lazy" decoding="async" alt="Radiant-cut natural emerald ring"></div><div class="sbody"><div class="stitle">Radiant Cut Natural Emerald</div><div class="ssku">V-142 · Ring</div><span class="smade">Handmade</span><div class="sfoot"><span class="sprice">$6,800</span><span class="smargin">49% margin</span></div></div></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- WHAT IT REPLACES -->
+    <section class="section replaces">
+      <div class="wrap">
+        <div class="sec-head reveal">
+          <p class="eyebrow">One place for all of it</p>
+          <h2>Replace the whole tangle.</h2>
+          <p>Most studios run on a spreadsheet, a calculator, sticky notes and a few separate apps that never talk to each other. Workshop Pilot does the lot, in one place.</p>
+        </div>
+        <div class="repl-list reveal">
+          <div class="repl-row">
+            <div class="repl-from"><span class="x"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M6 6l12 12M18 6 6 18"/></svg></span> A spreadsheet of metal costs</div>
+            <div class="repl-ar"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12h14M13 6l6 6-6 6"/></svg></div>
+            <div class="repl-to"><span class="ck"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="m5 12 5 5L20 6"/></svg></span> Live metal prices, with margin on every quote</div>
+          </div>
+          <div class="repl-row">
+            <div class="repl-from"><span class="x"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M6 6l12 12M18 6 6 18"/></svg></span> A calculator for your markups</div>
+            <div class="repl-ar"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12h14M13 6l6 6-6 6"/></svg></div>
+            <div class="repl-to"><span class="ck"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="m5 12 5 5L20 6"/></svg></span> Markups worked out for you, automatically</div>
+          </div>
+          <div class="repl-row">
+            <div class="repl-from"><span class="x"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M6 6l12 12M18 6 6 18"/></svg></span> Sticky notes and a whiteboard of jobs</div>
+            <div class="repl-ar"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12h14M13 6l6 6-6 6"/></svg></div>
+            <div class="repl-to"><span class="ck"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="m5 12 5 5L20 6"/></svg></span> One production board, every job and stage</div>
+          </div>
+          <div class="repl-row">
+            <div class="repl-from"><span class="x"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M6 6l12 12M18 6 6 18"/></svg></span> PDF quotes emailed back and forth</div>
+            <div class="repl-ar"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12h14M13 6l6 6-6 6"/></svg></div>
+            <div class="repl-to"><span class="ck"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="m5 12 5 5L20 6"/></svg></span> Online proposals your client accepts in a tap</div>
+          </div>
+          <div class="repl-row">
+            <div class="repl-from"><span class="x"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M6 6l12 12M18 6 6 18"/></svg></span> A separate invoicing app</div>
+            <div class="repl-ar"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12h14M13 6l6 6-6 6"/></svg></div>
+            <div class="repl-to"><span class="ck"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="m5 12 5 5L20 6"/></svg></span> Invoices sent under your own studio name</div>
+          </div>
+          <div class="repl-row">
+            <div class="repl-from"><span class="x"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M6 6l12 12M18 6 6 18"/></svg></span> A paper diary of client drop-offs</div>
+            <div class="repl-ar"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12h14M13 6l6 6-6 6"/></svg></div>
+            <div class="repl-to"><span class="ck"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="m5 12 5 5L20 6"/></svg></span> Repairs and safekeeping logged, with receipts</div>
+          </div>
         </div>
       </div>
     </section>
