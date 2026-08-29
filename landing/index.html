@@ -1482,6 +1482,22 @@
   details summary:hover{color:var(--accent)}
   details .a{padding:0 20px 20px;color:var(--muted);font-size:.97rem;line-height:1.62}
 
+  /* contact — talk to a human, no form */
+  .contact{padding-bottom:20px}
+  .contact-card{max-width:940px;margin:0 auto;background:var(--surface);border:1px solid var(--line);border-radius:22px;box-shadow:var(--shadow-sm);padding:40px 44px;display:grid;grid-template-columns:1.5fr 1fr;gap:34px;align-items:center}
+  .contact-card .eyebrow{margin-bottom:12px}
+  .contact-card h2{font-size:clamp(1.6rem,3vw,2.1rem);line-height:1.1;margin:0}
+  .contact-copy>p{color:var(--muted);font-size:1.02rem;line-height:1.6;margin:14px 0 0;max-width:52ch}
+  .contact-trade{font-size:.94rem}
+  .contact-action{display:flex;flex-direction:column;align-items:flex-start;gap:14px}
+  .contact-action .btn{width:100%;justify-content:center;text-align:center}
+  .contact-note{display:flex;align-items:center;gap:8px;font-size:.86rem;color:var(--muted);font-weight:500;margin:0}
+  .contact-note svg{width:16px;height:16px;flex:none;color:var(--accent)}
+  @media(max-width:760px){
+    .contact-card{grid-template-columns:1fr;gap:24px;padding:32px 26px}
+    .contact-action .btn{width:100%}
+  }
+
   /* closing — soft gradient panel, light */
   .closing{padding:20px 0 96px}
   .closing .box{border-radius:26px;padding:66px 40px;text-align:center;position:relative;overflow:hidden;border:1px solid var(--line);background:
@@ -1557,6 +1573,7 @@
         <a class="lnk" href="#features">Features</a>
         <a class="lnk" href="#pricing">Pricing</a>
         <a class="lnk" href="#faq">FAQ</a>
+        <a class="lnk" href="#contact">Contact</a>
         <a class="btn btn-primary btn-sm" href="https://app.workshoppilot.app">Log in</a>
       </nav>
     </div>
@@ -4132,6 +4149,24 @@
           <details><summary>Do quotes use live metal prices?</summary><div class="a">Yes, metal prices update automatically, with cast vs fabricated rates and a white gold premium built in, so your quote reflects today's cost, not last month's.</div></details>
           <details><summary>Is my data mine?</summary><div class="a">Always. Export your invoices whenever you want, with no lock in and no exit fee. Each studio's data is isolated and private.</div></details>
           <details><summary>Who is it for?</summary><div class="a">Independent jewellers and small studios, from bespoke and custom work for the public to manufacturing jewellers who work for the trade. If you quote jobs, track them through the bench, and invoice, it's built for you.</div></details>
+        </div>
+      </div>
+    </section>
+
+    <!-- CONTACT -->
+    <section class="section contact" id="contact">
+      <div class="wrap">
+        <div class="contact-card reveal">
+          <div class="contact-copy">
+            <p class="eyebrow">Talk to a human</p>
+            <h2>Questions before you start?</h2>
+            <p>You'll reach Eric directly, the working jeweller who built Workshop Pilot and uses it at his own bench every day. Happy to talk through whether it fits how your studio runs, no sales script.</p>
+            <p class="contact-trade">Run a trade workshop, multiple benches, or moving off another system? Mention it and I'll help you get set up.</p>
+          </div>
+          <div class="contact-action">
+            <a class="btn btn-primary" href="mailto:eric@workshoppilot.app?subject=Question%20about%20Workshop%20Pilot">Email eric@workshoppilot.app</a>
+            <p class="contact-note"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg> Usually replies within a day, often the same one.</p>
+          </div>
         </div>
       </div>
     </section>
