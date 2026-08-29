@@ -210,6 +210,23 @@
   .checks li .ck{width:22px;height:22px;flex-shrink:0;border-radius:7px;background:color-mix(in srgb,var(--accent) 15%,transparent);display:grid;place-items:center;margin-top:1px}
   .checks li .ck svg{width:13px;height:13px;color:var(--accent)}
 
+  /* app-accurate browser-window chrome — shared by the hero + every feature mockup so the
+     whole page reads as the real product in a browser, matching the "Inside the app" screens */
+  .appwin{background:#fff;border:1px solid var(--line);border-radius:14px;box-shadow:var(--shadow);overflow:hidden;font-family:'Poppins',system-ui,'Segoe UI',Roboto,sans-serif}
+  .appwin-bar{display:flex;align-items:center;gap:7px;padding:10px 14px;background:var(--surface-2);border-bottom:1px solid var(--line)}
+  .appwin-bar i{width:10px;height:10px;border-radius:50%;background:var(--line);flex:none}
+  .appwin-url{margin-left:9px;flex:1;min-width:0;display:flex;align-items:center;gap:7px;background:#fff;border:1px solid var(--line);border-radius:8px;padding:5px 11px;font-size:.72rem;color:var(--muted);font-weight:500;overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
+  .appwin-url svg{width:11px;height:11px;flex:none;color:var(--ok)}
+  .appwin-url b{color:var(--strong);font-weight:600}
+  .appwin-body{padding:20px}
+  /* let mockups sit flush inside the window frame (the window supplies the border/shadow) */
+  .appwin .quote,.appwin .panel,.appwin .appcard,.appwin .doc{border:none;border-radius:0;box-shadow:none;max-width:none;margin:0}
+  .appwin.wide{max-width:880px;margin:44px auto 0}
+  .hero-demo .appwin{position:relative;z-index:1}
+  /* real ring photo dropped into the quote document's design-reference slot */
+  .doc-heroimg{border-radius:6px;border:1px solid #ece4db;overflow:hidden;aspect-ratio:16/10}
+  .doc-heroimg img{width:100%;height:100%;object-fit:cover;display:block}
+
   .panel{background:var(--surface);border:1px solid var(--line);border-radius:var(--rc);box-shadow:var(--shadow);padding:20px}
   .panel-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px}
   .panel-head .t{font-size:.72rem;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--muted)}
@@ -1529,19 +1546,37 @@
         </div>
 
         <div class="hero-demo reveal">
-          <div class="quote" role="img" aria-label="Example client quote for an engagement ring, total $6,090 including GST with a 50% deposit of $3,045">
-            <div class="quote-head"><span class="t">Quote · Engagement ring</span><span class="n">QT-1042</span></div>
-            <div class="quote-meta"><span>Prepared for <b>M. Harlow</b></span><span>Valid until 30 Aug 2026</span></div>
-            <div class="qpiece">
-              <div class="pt">Option #1</div>
-              <div class="ps">18ct yellow gold solitaire set with a 1.10ct D/VVS2 oval lab grown diamond · finger size &ldquo;O&rdquo;</div>
-              <div class="qphoto">
-                <span class="tag">Reference</span>
-                <img src="shots/hero-ring.jpg" width="820" height="820" loading="lazy" decoding="async" alt="18ct yellow gold oval solitaire engagement ring">
+          <div class="appwin" role="img" aria-label="Example client quote for an engagement ring, total $6,090 including GST with a 50% deposit of $3,045">
+            <div class="appwin-bar"><i></i><i></i><i></i><span class="appwin-url"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg> <b>app.workshoppilot.app</b>/quote/QT-1042</span></div>
+            <div class="doc">
+              <div class="doc-ink">
+                <div>
+                  <div class="doc-eyebrow">Quote</div>
+                  <div class="doc-biz">Aurelia Fine Jewellery</div>
+                  <div class="doc-bmeta">24 Collins Street, Melbourne VIC 3000<br><span class="faint">ABN 12 345 678 901</span></div>
+                </div>
+                <div class="doc-rt">
+                  <div class="doc-num">QT-1042</div>
+                  <div class="doc-dates">Valid until: <b>30 Sep 2026</b></div>
+                </div>
+              </div>
+              <div class="doc-2col">
+                <div><div class="doc-lbl">Prepared for</div><div class="doc-forname">Mia Harlow</div><div class="doc-sub">mia.harlow@example.com</div></div>
+                <div><div class="doc-lbl">Piece</div><div class="doc-piece">18ct yellow gold solitaire</div><div class="doc-desc">1.10ct D/VVS2 oval lab-grown diamond, finger size O.</div></div>
+              </div>
+              <div class="doc-sec">
+                <div class="doc-lbl">Design &amp; reference</div>
+                <div class="doc-heroimg"><img src="shots/hero-ring.jpg" width="820" height="820" loading="eager" decoding="async" alt="18ct yellow gold oval solitaire engagement ring"></div>
+              </div>
+              <div class="doc-sec">
+                <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:6px"><div class="doc-lbl" style="margin:0">Price breakdown</div><div style="font-size:9.5px;color:#8b837c">All prices inclusive of GST</div></div>
+                <div class="doc-row"><div><div class="t">18ct yellow gold solitaire</div><div class="s">Design, materials &amp; craftsmanship</div></div><div class="amt">$3,090.00</div></div>
+                <div class="doc-row"><div><div class="t">Oval lab-grown diamond 1.10ct</div><div class="s">Centre stone &middot; inc. GST</div></div><div class="amt">$3,000.00</div></div>
+                <div class="doc-total">
+                  <div class="grand"><div><div class="k">Total quoted price</div><div style="font-size:9.5px;color:rgba(255,255,255,.3);margin-top:2px">Inc. GST &middot; Quoted in AUD</div></div><div style="text-align:right"><div class="g">$6,090.00</div><div style="font-size:10.5px;color:rgba(255,255,255,.5);margin-top:4px">50% deposit to commence: <b style="color:#fff">$3,045.00</b></div></div></div>
+                </div>
               </div>
             </div>
-            <div class="quote-total"><span class="l">Total quoted price · inc GST</span><span class="v">$6,090</span></div>
-            <div class="quote-deposit"><span>50% deposit to commence</span><span class="tnum">$3,045</span></div>
           </div>
           <p class="fig-note">An illustrative quote. The polished version your client receives. Your metals, stones and markups, your numbers.</p>
         </div>
@@ -1618,6 +1653,8 @@
           </ul>
         </div>
         <div class="visual">
+          <div class="appwin">
+          <div class="appwin-bar"><i></i><i></i><i></i><span class="appwin-url"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg> <b>app.workshoppilot.app</b>/jobs/custom-pendant</span></div>
           <div class="appcard">
             <div class="appcard-h"><span>Cost breakdown</span><span class="tag">Custom pendant</span></div>
             <div class="cbtable">
@@ -1633,6 +1670,7 @@
               <div><span class="k">Markup total</span><span class="v mk">$1,456</span></div>
             </div>
             <div class="cbprofit"><span class="l">Your profit · excl GST</span><span class="r">$741.17 · 56% margin</span></div>
+          </div>
           </div>
         </div>
       </div>
@@ -1650,6 +1688,8 @@
           </ul>
         </div>
         <div class="visual">
+          <div class="appwin">
+          <div class="appwin-bar"><i></i><i></i><i></i><span class="appwin-url"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg> <b>app.workshoppilot.app</b>/proposal/PR-2048</span></div>
           <div class="panel">
             <div class="panel-head"><span class="t">Online proposal · sent to client</span><span class="b">3 options</span></div>
             <div class="opts">
@@ -1658,6 +1698,7 @@
               <div class="opt"><div><div class="lbl">Natural Marquise &amp; Round</div><div class="met">18ct yellow gold wedding ring</div></div><div class="pr">$3,400</div></div>
             </div>
             <div class="opt-btn">Approve this option</div>
+          </div>
           </div>
         </div>
       </div>
@@ -1675,6 +1716,8 @@
           </ul>
         </div>
         <div class="visual">
+          <div class="appwin">
+          <div class="appwin-bar"><i></i><i></i><i></i><span class="appwin-url"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg> <b>app.workshoppilot.app</b>/jobs</span></div>
           <div class="panel">
             <div class="panel-head"><span class="t">Jobs · Board</span><span class="b">Drag a card to move stage</span></div>
             <div class="board">
@@ -1703,6 +1746,7 @@
               </div>
             </div>
           </div>
+          </div>
         </div>
       </div>
 
@@ -1719,6 +1763,8 @@
           </ul>
         </div>
         <div class="visual">
+          <div class="appwin">
+          <div class="appwin-bar"><i></i><i></i><i></i><span class="appwin-url"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg> <b>app.workshoppilot.app</b>/invoices/00001025</span></div>
           <div class="panel">
             <div class="panel-head"><span class="t">Tax invoice · 00001025</span><span class="badge warn">Unpaid</span></div>
             <div class="cmeta"><b>Claire Whitfield</b> · engagement ring · 11 Aug 2026</div>
@@ -1730,6 +1776,7 @@
             </div>
             <div class="itot"><span>Includes GST</span><b>$677.27</b></div>
             <div class="itot grand"><span>Total (incl. GST)</span><b>$7,450.00</b></div>
+          </div>
           </div>
         </div>
       </div>
@@ -1747,6 +1794,8 @@
           </ul>
         </div>
         <div class="visual">
+          <div class="appwin">
+          <div class="appwin-bar"><i></i><i></i><i></i><span class="appwin-url"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg> <b>app.workshoppilot.app</b>/jobs/ready-to-collect</span></div>
           <div class="panel">
             <div class="panel-head"><span class="t">Client email</span><span class="badge ok">Ready for collection</span></div>
             <div class="emailrow"><span>To</span><b>Ava &amp; Daniel Hartley</b></div>
@@ -1754,6 +1803,7 @@
             <p class="emailbody">Hi Ava, wonderful news. Your pieces are finished and ready for collection at the studio whenever suits you.</p>
             <a class="revchip"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l2.9 6.3 6.9.6-5.2 4.5 1.6 6.7L12 17l-6.2 3.6 1.6-6.7L2.2 9.9l6.9-.6z"/></svg> Review us on Google</a>
             <div class="emailsend"><span>Send proposal</span><span>Send invoice</span><span>Send ready email</span></div>
+          </div>
           </div>
         </div>
       </div>
@@ -1767,7 +1817,9 @@
           <h2>Price the piece and the centre stone separately, then quote them as one.</h2>
           <p>The jewellery runs on your labour and metal markup, and the centre stone on its own tier with GST. Workshop Pilot then combines them into a single quoted total your client sees.</p>
         </div>
-        <div class="appcard reveal">
+        <div class="appwin wide reveal">
+          <div class="appwin-bar"><i></i><i></i><i></i><span class="appwin-url"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg> <b>app.workshoppilot.app</b>/jobs/nadia-costa/quote</span></div>
+        <div class="appcard">
           <div class="appcard-h"><span>Cost breakdown · Nadia Costa</span><span class="tag">Custom pendant</span></div>
           <div class="cbtable">
             <div class="cbrow"><div class="cbi"><b>9ct Yellow Gold Diamond Cut Oblong Trace</b><span>1 piece</span></div><div class="cbc">$250.00</div></div>
@@ -1803,6 +1855,7 @@
             <div class="st"><span class="k">Stone</span><span class="v">$750</span></div>
             <div class="ct"><span class="k">Combined total</span><span class="v">$2,200</span></div>
           </div>
+        </div>
         </div>
       </div>
     </section>
