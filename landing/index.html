@@ -1400,20 +1400,6 @@
   .td-done{font-size:10px;font-weight:700;color:var(--qbmut);margin-top:13px}
   @media(max-width:560px){.td-stats{grid-template-columns:1fr 1fr}.td-cols{grid-template-columns:1fr}}
 
-  /* wide screens: let the whole page use more width so nothing sits small in the
-     middle of a large monitor. Bumps the shared container plus the app showcase frame
-     and the individually-capped section blocks. Text blocks stay ch-capped for reading. */
-  @media(min-width:1180px){
-    :root{--edge:1320px}
-    .shots-app .qbframe{width:1242px}
-    .shots-app .qb{width:1240px}
-    .appwin.wide{max-width:1040px}
-    .grid4{max-width:1200px}
-    .repl-list{max-width:1080px}
-    .contact-card{max-width:1080px}
-    footer .fwrap{max-width:1320px}
-  }
-
   /* tablet + phone reflow for the fixed-width app-page tabs (job/quote/invoice/to-do):
      drop the 1040px frame to fluid so the sidebar + content fit, stack the line-item grids */
   @media(max-width:900px){
@@ -1555,6 +1541,20 @@
     .btn,.card,details summary::after{transition:none}
     .live .pip{animation:none}
     .mtrack{animation:none}
+  }
+
+  /* wide screens: let the whole page use more width so nothing sits small in the middle
+     of a large monitor. Placed last so it overrides the individually-capped section
+     blocks. Text blocks stay ch-capped for readability. */
+  @media(min-width:1180px){
+    :root{--edge:1320px}
+    .shots-app .qbframe{width:1242px}
+    .shots-app .qb{width:1240px}
+    .appwin.wide{max-width:1040px}
+    .grid4{max-width:1200px}
+    .repl-list{max-width:1080px}
+    .contact-card{max-width:1080px}
+    footer .fwrap{max-width:1320px}
   }
 </style>
 
