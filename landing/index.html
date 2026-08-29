@@ -1400,6 +1400,15 @@
   .td-done{font-size:10px;font-weight:700;color:var(--qbmut);margin-top:13px}
   @media(max-width:560px){.td-stats{grid-template-columns:1fr 1fr}.td-cols{grid-template-columns:1fr}}
 
+  /* wide screens: let the "Inside the app" showcase (and its app frame) grow so it
+     doesn't sit small in the middle of a large monitor. Scoped to .shots-app so the
+     narrow "What you send out" document showcase is untouched. */
+  @media(min-width:1180px){
+    .shots-app .wrap{max-width:1320px}
+    .shots-app .qbframe{width:1242px}
+    .shots-app .qb{width:1240px}
+  }
+
   /* tablet + phone reflow for the fixed-width app-page tabs (job/quote/invoice/to-do):
      drop the 1040px frame to fluid so the sidebar + content fit, stack the line-item grids */
   @media(max-width:900px){
@@ -1953,7 +1962,7 @@
     </section>
 
     <!-- APP SCREENS (tabbed: quote builder / invoice) -->
-    <section class="section shotshow">
+    <section class="section shotshow shots-app">
       <div class="wrap">
         <div class="sec-head reveal">
           <p class="eyebrow">Inside the app</p>
