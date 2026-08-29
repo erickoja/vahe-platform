@@ -113,6 +113,9 @@
   .lede{font-size:1.14rem;line-height:1.6;color:var(--text);max-width:42ch;margin:22px 0 0}
   .lede-sub{font-size:.98rem;line-height:1.62;color:var(--muted);max-width:48ch;margin:14px 0 0}
   .cta-row{display:flex;flex-wrap:wrap;gap:13px;margin:30px 0 0}
+  .hero-assure{list-style:none;padding:0;margin:18px 0 0;display:flex;flex-wrap:wrap;gap:8px 20px}
+  .hero-assure li{display:flex;align-items:center;gap:7px;font-size:.86rem;font-weight:600;color:var(--muted)}
+  .hero-assure svg{width:14px;height:14px;flex:none;color:var(--accent)}
   .trust-line{font-size:.84rem;color:var(--muted);margin:20px 0 0;display:flex;gap:9px;flex-wrap:wrap;align-items:center}
   .trust-line .dot{width:4px;height:4px;border-radius:50%;background:var(--peri);display:inline-block}
 
@@ -329,6 +332,19 @@
     .cbprofit{flex-direction:column;align-items:flex-start;gap:4px;padding:12px 16px}
     .cbcombined{padding-left:16px;padding-right:16px;gap:8px}
     .cbcombined .v{font-size:1.02rem}
+  }
+  /* in-window quote/proposal/invoice documents restack on phones (scoped so the
+     horizontally-scrolling "What you send out" docs are left as-is) */
+  @media (max-width:600px){
+    .appwin .doc-ink{padding:22px 20px;flex-wrap:wrap;gap:12px}
+    .appwin .doc-biz{font-size:18px}
+    .appwin .doc-2col{grid-template-columns:1fr}
+    .appwin .doc-2col>div{padding:16px 20px}
+    .appwin .doc-2col>div:first-child{border-right:none;border-bottom:1px solid #ece4db}
+    .appwin .doc-sec{padding:18px 20px}
+    .appwin .doc-total .grand .g{font-size:24px}
+    .appwin .doc-opt .head{flex-wrap:wrap;gap:8px}
+    .appwin .doc-opt .op{font-size:18px}
   }
 
   /* stock gallery — responsive product-card grid */
@@ -1543,6 +1559,11 @@
             <a class="btn btn-primary" href="https://app.workshoppilot.app/?signup=1">Start free trial</a>
             <a class="btn btn-ghost" href="#features">See how it works</a>
           </div>
+          <ul class="hero-assure">
+            <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="m5 12 5 5L20 6"/></svg> 14 day free trial</li>
+            <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="m5 12 5 5L20 6"/></svg> No card required</li>
+            <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="m5 12 5 5L20 6"/></svg> Cancel any time</li>
+          </ul>
         </div>
 
         <div class="hero-demo reveal">
@@ -1690,14 +1711,34 @@
         <div class="visual">
           <div class="appwin">
           <div class="appwin-bar"><i></i><i></i><i></i><span class="appwin-url"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg> <b>app.workshoppilot.app</b>/proposal/PR-2048</span></div>
-          <div class="panel">
-            <div class="panel-head"><span class="t">Online proposal · sent to client</span><span class="b">3 options</span></div>
-            <div class="opts">
-              <div class="opt"><div><div class="lbl">Lab Grown Marquise &amp; Round</div><div class="met">9ct yellow gold wedding ring</div></div><div class="pr">$2,300</div></div>
-              <div class="opt sel"><div><div class="lbl">Lab Grown Marquise &amp; Round</div><div class="met">18ct yellow gold wedding ring</div><div class="acc"><svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="3"><path d="m5 12 5 5L20 6"/></svg> Accepted</div></div><div class="pr">$2,700</div></div>
-              <div class="opt"><div><div class="lbl">Natural Marquise &amp; Round</div><div class="met">18ct yellow gold wedding ring</div></div><div class="pr">$3,400</div></div>
+          <div class="doc">
+            <div class="doc-ink">
+              <div>
+                <div class="doc-eyebrow">Quote Proposal</div>
+                <div class="doc-biz">Aurelia Fine Jewellery</div>
+                <div class="doc-bmeta">03 9000 1234 &middot; hello@aurelia.com.au</div>
+              </div>
             </div>
-            <div class="opt-btn">Approve this option</div>
+            <div class="doc-sec">
+              <div class="doc-lbl">Prepared for</div>
+              <div class="doc-forname" style="font-size:19px">Ava &amp; Daniel Hartley</div>
+              <div class="doc-sub" style="margin-top:4px">Wedding rings &middot; Valid until 25 September 2026</div>
+            </div>
+            <div class="doc-sec">
+              <div class="doc-lbl">Choose an option</div>
+              <div class="doc-opt rec">
+                <div class="rbadge">Recommended</div>
+                <div class="head"><div><div class="ot">18ct yellow gold &middot; Marquise &amp; Round</div><div class="od">Lab-grown marquise and round diamonds, matched pair.</div></div><div class="op">$2,700<small>inc GST</small></div></div>
+              </div>
+              <div class="doc-opt">
+                <div class="head"><div><div class="ot">9ct yellow gold &middot; Marquise &amp; Round</div><div class="od">Lab-grown diamonds, lighter weight band.</div></div><div class="op">$2,300<small>inc GST</small></div></div>
+              </div>
+              <div class="doc-accept">
+                <div class="h">Accept this proposal</div>
+                <div class="doc-namefield">Type your full name to confirm</div>
+                <div class="doc-acceptbtn">Accept &mdash; 18ct yellow gold &middot; $2,700</div>
+              </div>
+            </div>
           </div>
           </div>
         </div>
@@ -1765,17 +1806,32 @@
         <div class="visual">
           <div class="appwin">
           <div class="appwin-bar"><i></i><i></i><i></i><span class="appwin-url"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg> <b>app.workshoppilot.app</b>/invoices/00001025</span></div>
-          <div class="panel">
-            <div class="panel-head"><span class="t">Tax invoice · 00001025</span><span class="badge warn">Unpaid</span></div>
-            <div class="cmeta"><b>Claire Whitfield</b> · engagement ring · 11 Aug 2026</div>
-            <div class="ilines">
-              <div class="iline"><span class="d">Platinum 950<small>5g × $143.34/g · cast · GST</small></span><span class="v">$716.68</span></div>
-              <div class="iline"><span class="d">Bench Labour (Casting Assembly)<small>3 hr × $70.00/hr · GST</small></span><span class="v">$210.00</span></div>
-              <div class="iline"><span class="d">IGI Lab Grown Emerald 1.5ct<small>D VVS2 · Cert LG821626079 · GST</small></span><span class="v">$1,100.00</span></div>
-              <div class="iline"><span class="d">Prong / Claw setting · platinum<small>18 stones × 0.9mm · +20% · GST</small></span><span class="v">$87.48</span></div>
+          <div class="doc">
+            <div class="doc-ink">
+              <div>
+                <div class="doc-eyebrow">Tax Invoice</div>
+                <div class="doc-biz">Aurelia Fine Jewellery</div>
+                <div class="doc-bmeta">03 9000 1234 &middot; hello@aurelia.com.au<br><span class="faint">ABN 12 345 678 901</span></div>
+              </div>
+              <div class="doc-rt">
+                <div class="doc-num">INV-00001025</div>
+                <div class="doc-dates">Issued: <b>11 Aug 2026</b><br>Due: <b>25 Aug 2026</b></div>
+              </div>
             </div>
-            <div class="itot"><span>Includes GST</span><b>$677.27</b></div>
-            <div class="itot grand"><span>Total (incl. GST)</span><b>$7,450.00</b></div>
+            <div class="doc-2col">
+              <div><div class="doc-lbl">Bill to</div><div class="doc-forname">Claire Whitfield</div><div class="doc-sub">claire.whitfield@example.com</div></div>
+              <div><div class="doc-lbl">Job</div><div class="doc-piece">Engagement ring</div><div class="doc-desc">Platinum solitaire, hidden halo, lab-grown emerald.</div></div>
+            </div>
+            <div class="doc-sec">
+              <div class="doc-lbl">Items</div>
+              <div class="doc-row"><div><div class="t">Platinum solitaire engagement ring</div><div class="s">Hidden-halo solitaire, Lab-Grown Emerald 1.5ct D VVS2, platinum 950.</div></div><div class="amt">$4,500.00</div></div>
+              <div class="doc-row"><div><div class="t">Matching wedding band</div><div class="s">Platinum 950, 5 marquise and 10 round lab-grown diamonds.</div></div><div class="amt">$2,950.00</div></div>
+              <div class="doc-total">
+                <div class="tr"><span>Includes GST</span><span class="v">$677.27</span></div>
+                <div class="tr"><span>Deposit paid</span><span class="v" style="color:#7fd7a6">&minus; $3,725.00</span></div>
+                <div class="grand"><div><div class="k">Balance due</div><div style="font-size:9.5px;color:rgba(255,255,255,.3);margin-top:2px">Inc. GST &middot; AUD</div></div><div style="text-align:right"><div style="font-size:11px;color:rgba(255,255,255,.5)">Total $7,450.00</div><div class="g">$3,725.00</div></div></div>
+              </div>
+            </div>
           </div>
           </div>
         </div>
@@ -3989,8 +4045,8 @@
           </div>
           <div class="xcard reveal">
             <div class="xhead"><div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3.5" y="4.5" width="17" height="16" rx="2"/><path d="M3.5 9.5h17M8 3v3.5M16 3v3.5"/></svg></div><h3>Appointments &amp; calendar</h3></div>
-            <p>Book consultations, fittings, repairs and pickups in one calendar, then subscribe to a live feed so every booking appears automatically in the calendar you already use.</p>
-            <div class="xtags"><span class="xtag">Live feed</span><span class="xtag">Google</span><span class="xtag">Apple</span><span class="xtag">Outlook</span></div>
+            <p>Book consultations, fittings, repairs and pickups in one calendar, then add any booking straight to the calendar you already use with a single tap.</p>
+            <div class="xtags"><span class="xtag">One calendar</span><span class="xtag">Add to Google</span><span class="xtag">Apple</span><span class="xtag">Outlook</span></div>
           </div>
           <div class="xcard reveal">
             <div class="xhead"><div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M14.5 6.5a3.6 3.6 0 0 0-4.9 4.9l-6 6L6 20l6-6a3.6 3.6 0 0 0 4.9-4.9l-2.3 2.3-2.1-.5-.5-2.1z"/></svg></div><h3>Repairs &amp; small jobs</h3></div>
