@@ -974,7 +974,7 @@ const SEND_EMAIL_FN="smart-worker";
 const _emlEsc=(s)=>String(s==null?"":s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
 // Branded, email-safe HTML: studio wordmark, greeting, message, a CTA button + raw link, footer.
 // Deliberately no <img>/data-URI logo — many mail clients block data URIs and show a broken image.
-function buildClientEmailHtml({biz,clientName,message,ctaLabel,linkUrl,reviewUrl}){
+function buildClientEmailHtml({biz,clientName,message,ctaLabel,linkUrl,reviewUrl,detailsHtml}){
   const name=_emlEsc(biz?.name||"Your jeweller");
   const contact=[biz?.email,biz?.phone].filter(Boolean).map(_emlEsc).join(" · ");
   const greeting=clientName?`Hi ${_emlEsc(clientName)},`:"Hello,";
@@ -987,6 +987,10 @@ function buildClientEmailHtml({biz,clientName,message,ctaLabel,linkUrl,reviewUrl
       +`<p style="font-size:13px;color:#888888;line-height:1.6;margin:26px 0 0">Or open this link in your browser:<br><a href="${url}" style="color:#666666">${url}</a></p>`
     :"";
   // Optional "Review us on Google" CTA — only passed by the ready-for-collection email.
+  // Optional details table (e.g. a payment receipt summary). Caller supplies escaped <tr> rows.
+  const details=detailsHtml
+    ?`<table role="presentation" width="100%" style="border-collapse:collapse;margin:0 0 22px;border:1px solid #eeeeee;border-radius:6px">${detailsHtml}</table>`
+    :"";
   const revUrl=_emlEsc((reviewUrl||"").trim());
   const review=revUrl
     ?`<div style="margin-top:28px;text-align:center"><p style="font-size:14px;color:#555555;line-height:1.6;margin:0 0 12px">Happy with your piece? A quick Google review means the world to a small studio.</p><a href="${revUrl}" style="display:inline-block;background:#2D7A4F;color:#ffffff;text-decoration:none;padding:11px 24px;border-radius:6px;font-size:14px;font-weight:700">&#9733; Review us on Google</a></div>`
@@ -995,6 +999,7 @@ function buildClientEmailHtml({biz,clientName,message,ctaLabel,linkUrl,reviewUrl
     +`<div style="border-bottom:2px solid #eeeeee;padding-bottom:14px;margin-bottom:20px"><div style="font-size:20px;font-weight:700;letter-spacing:0.02em">${name}</div></div>`
     +`<p style="font-size:15px;margin:0 0 14px">${greeting}</p>`
     +`<p style="font-size:15px;line-height:1.6;margin:0 0 22px">${body}</p>`
+    +details
     +cta
     +review
     +`<div style="border-top:1px solid #eeeeee;margin-top:26px;padding-top:14px;font-size:12px;color:#999999">${name}${contact?` &middot; ${contact}`:""}</div>`
@@ -1101,6 +1106,59 @@ function EmailClientButton({to,clientName,biz,linkUrl,docType,defaultSubject,def
           <div style={{display:"flex",justifyContent:"flex-end",gap:10}}>
             <Btn sm ghost onClick={()=>setOpen(false)}>Cancel</Btn>
             <Btn sm onClick={send} disabled={busy}>{busy?"Sending…":"Send email"}</Btn>
+          </div>
+        </div>}
+    </Modal>}
+  </>;
+}
+
+// Email a client a confirmation that a payment has been received — most useful for bank transfers,
+// which have no automatic receipt. Link-free message plus an auto-built receipt summary table
+// (amount, date, method, balance remaining). Only offered for payments already marked Received.
+function PaymentReceiptButton({payment,job,client,biz,balance}){
+  const[open,setOpen]=useState(false);
+  const[email,setEmail]=useState("");
+  const[subject,setSubject]=useState("");
+  const[message,setMessage]=useState("");
+  const[busy,setBusy]=useState(false);
+  const[sent,setSent]=useState(false);
+  const[err,setErr]=useState("");
+  const to=client?.email||"";
+  const amt=Number(payment?.amount)||0;
+  const remaining=Math.max(0,Number(balance)||0);
+  const defSubject=`Payment received — ${biz?.name||"us"}`;
+  const defMessage=`Thank you — we've received your payment of ${fmt(amt)}. This confirms it has gone through successfully. The details are below for your records.`;
+  const openIt=()=>{setEmail(to);setSubject(defSubject);setMessage(defMessage);setErr("");setSent(false);setOpen(true);};
+  const send=async()=>{
+    if(!email.trim()){setErr("Enter the client's email address.");return;}
+    setBusy(true);setErr("");
+    try{
+      const row=(l,v,strong)=>`<tr><td style="padding:9px 14px;font-size:13px;color:#888888;border-bottom:1px solid #f0f0f0">${_emlEsc(l)}</td><td style="padding:9px 14px;font-size:14px;${strong?"font-weight:700;":""}color:#1a1a1a;text-align:right;border-bottom:1px solid #f0f0f0">${_emlEsc(v)}</td></tr>`;
+      const detailsHtml=row("Amount received",fmt(amt),true)
+        +(payment?.date?row("Date",fmtDate(payment.date)):"")
+        +(payment?.method?row("Method",payment.method):"")
+        +(job?.type?row("For",job.type):"")
+        +row("Balance remaining",remaining>0.005?fmt(remaining):"Paid in full",true);
+      const html=buildClientEmailHtml({biz,clientName:clientDisplayName(client),message,detailsHtml});
+      await sendClientEmail({to:email.trim(),replyTo:biz?.email||"",fromName:biz?.name||"Your jeweller",subject:subject.trim()||defSubject,html});
+      setSent(true);setTimeout(()=>setOpen(false),1400);
+    }catch(e){setErr(e?.message||"Couldn't send the email.");}
+    setBusy(false);
+  };
+  return <>
+    <button onClick={openIt} disabled={!to} title={to?"Email payment receipt":"Add an email to this client first"} style={{background:"none",border:"none",cursor:to?"pointer":"default",color:to?OK:BD,fontSize:14,padding:0}}>✉</button>
+    {open&&<Modal title="Email payment receipt" onClose={()=>setOpen(false)}>
+      {sent
+        ?<div style={{padding:"14px 2px",fontSize:14,color:OK,fontWeight:700}}>✓ Sent to {email}</div>
+        :<div>
+          <Input label="To" value={email} onChange={setEmail} placeholder="client@example.com"/>
+          <Input label="Subject" value={subject} onChange={setSubject}/>
+          <Input label="Message" value={message} onChange={setMessage} as="textarea" rows={4}/>
+          <div style={{fontSize:12,color:WG,margin:"4px 0 14px",lineHeight:1.5}}>A receipt summary (amount, date, method and balance remaining) is added automatically below your message. Sent from <strong style={{color:INK}}>{biz?.name||"your studio"}</strong>{biz?.email?`; replies go to ${biz.email}`:""}.</div>
+          {err&&<div style={{fontSize:13,color:DANGER,marginBottom:12,lineHeight:1.5}}>{err}</div>}
+          <div style={{display:"flex",justifyContent:"flex-end",gap:10}}>
+            <Btn sm ghost onClick={()=>setOpen(false)}>Cancel</Btn>
+            <Btn sm onClick={send} disabled={busy}>{busy?"Sending…":"Send receipt"}</Btn>
           </div>
         </div>}
     </Modal>}
@@ -4243,8 +4301,11 @@ function JobDetail({jobId,jobs,setJobs,clients,setClients,quotes,setQuotes,payme
           <div style={{display:"flex",gap:10,alignItems:"center",justifyContent:isMobile?"flex-start":"flex-end",flexShrink:0}}>
             <Badge label={p.status} color={p.status==="Received"?OK:WARN}/>
             <div style={{fontWeight:800,fontSize:14,color:INK,minWidth:76,textAlign:isMobile?"left":"right"}}>{fmt(p.amount)}</div>
-            <button onClick={()=>setEditPay(p)} title="Edit payment" style={{background:"none",border:"none",cursor:"pointer",color:GOLD_D,fontSize:14,padding:0,marginLeft:isMobile?"auto":0}}>✎</button>
-            <button onClick={()=>delPay(p.id)} title="Delete payment" style={{background:"none",border:"none",cursor:"pointer",color:DANGER,fontSize:16,padding:0}}>×</button>
+            <span style={{display:"flex",gap:10,alignItems:"center",marginLeft:isMobile?"auto":0}}>
+              {p.status==="Received"&&<PaymentReceiptButton payment={p} job={job} client={c} biz={biz} balance={balance}/>}
+              <button onClick={()=>setEditPay(p)} title="Edit payment" style={{background:"none",border:"none",cursor:"pointer",color:GOLD_D,fontSize:14,padding:0}}>✎</button>
+              <button onClick={()=>delPay(p.id)} title="Delete payment" style={{background:"none",border:"none",cursor:"pointer",color:DANGER,fontSize:16,padding:0}}>×</button>
+            </span>
           </div>
         </div>
       ))}
