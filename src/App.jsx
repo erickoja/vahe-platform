@@ -69,11 +69,14 @@ const ICON_DOLLAR=<svg width="20" height="20" viewBox="0 0 24 24" fill="none" st
 const JOB_TYPE_ICONS={"Engagement ring":ICON_RING,"Wedding band":ICON_WEDDING_RINGS,"Eternity ring":ICON_RING,"Dress ring":ICON_RING,"Custom pendant":ICON_PENDANT,"Necklace":ICON_PENDANT,"Earrings":ICON_EARRING,"Bracelet":"∞","Repair":ICON_REPAIR,"Remodelling":"⟳","Grillz":ICON_GRILLZ,"Chain":"◈","Trade / Wholesale":"⇄","Custom":ICON_CUSTOM,"Other":"◦"};
 // "On the bench" is the active-work stage — fits a repair being worked on (and any workshop job).
 const REPAIR_WIP_STAGE="On the bench";
-const JOB_STAGES=["Enquiry","Consultation","Quoted","Approved","Item ordered","On the bench","Design / CAD","3D printing","Manufacturing","Stone setting","Polishing / Finish","QC check","Ready for collection","In transit to customer","Collected"];
+const JOB_STAGES=["Enquiry","Consultation","Quoted","Approved","Item ordered","On the bench","Design / CAD","3D printing","Casting","Manufacturing","Stone setting","Polishing / Finish","QC check","Ready for collection","In transit to customer","Received by customer","Collected"];
 // Finished/awaiting-pickup jobs — never treated as urgent (sorted last, not flagged overdue).
-const DONE_STAGES=["Ready for collection","Collected"];
+const DONE_STAGES=["Ready for collection","Collected","Received by customer"];
 const jobIsDone=j=>DONE_STAGES.includes(j?.stage);
-const SC={"Enquiry":"#A0845C","Consultation":"#7A6C5D","Quoted":"#5E9078","Approved":"#4E8B6A","Item ordered":"#5E7CA6","On the bench":"#3E8E8E","Design / CAD":"#96627C","3D printing":"#8A6FA8","Manufacturing":"#B05C3A","Stone setting":"#C47A2E","Polishing / Finish":"#8B9E3A","QC check":"#4A8E6A","Ready for collection":"#2D7A4F","In transit to customer":"#3E86A0","Collected":"#1A5C3A"};
+// Fully closed — nothing left to hand over, so dropped from the active board / turnaround / owing counts.
+const CLOSED_STAGES=["Collected","Received by customer"];
+const jobIsClosed=j=>CLOSED_STAGES.includes(j?.stage);
+const SC={"Enquiry":"#A0845C","Consultation":"#7A6C5D","Quoted":"#5E9078","Approved":"#4E8B6A","Item ordered":"#5E7CA6","On the bench":"#3E8E8E","Design / CAD":"#96627C","3D printing":"#8A6FA8","Casting":"#B5763C","Manufacturing":"#B05C3A","Stone setting":"#C47A2E","Polishing / Finish":"#8B9E3A","QC check":"#4A8E6A","Ready for collection":"#2D7A4F","In transit to customer":"#3E86A0","Received by customer":"#1E6E5A","Collected":"#1A5C3A"};
 // Advance a job to "On the bench" only if it isn't already at/past that point (never pull it back).
 const advanceToBench=stage=>{const i=JOB_STAGES.indexOf(stage),b=JOB_STAGES.indexOf(REPAIR_WIP_STAGE);return i<0||i<b?REPAIR_WIP_STAGE:stage;};
 const PAY_TYPES=["Diamond deposit","Diamond balance","Setting deposit","Deposit","CAD / Design stage","Production deposit","Progress payment","Final balance","Trade-in credit","Lay-by payment","Other"];
@@ -1777,7 +1780,7 @@ const accountMetrics=(client,jobs,invoices,payments)=>{
   const clientJobs=(jobs||[]).filter(j=>j.clientId===client?.id);
   const turns=clientJobs.map(j=>(j.dateIn&&j.dateOut)?Math.round((parseISO(j.dateOut).getTime()-parseISO(j.dateIn).getTime())/86400000):null).filter(d=>d!=null&&d>=0);
   const avgTurnaround=turns.length?Math.round(turns.reduce((s,d)=>s+d,0)/turns.length):null;
-  return {invoiced,collected,outstanding,invoiceCount:accInv.length,jobCount:clientJobs.length,activeJobs:clientJobs.filter(j=>j.stage!=="Collected").length,completedCount:turns.length,avgTurnaround};
+  return {invoiced,collected,outstanding,invoiceCount:accInv.length,jobCount:clientJobs.length,activeJobs:clientJobs.filter(j=>!jobIsClosed(j)).length,completedCount:turns.length,avgTurnaround};
 };
 // Export a statement's ledger rows to CSV (same BOM/Excel handling as the invoice export).
 const STATEMENT_CSV_HEADER=["Date","Type","Reference","Description","PO / ref","Charge","Credit","Balance"];
@@ -2969,12 +2972,12 @@ function Dashboard({clients,jobs,quotes,payments,invoices,appointments=[],propos
   const acceptedUnseen=proposals.filter(p=>p.status==="accepted"&&p.seen===false);
   // Repair links a client accepted/declined that haven't been acknowledged yet
   const repairUnseen=jobs.filter(j=>j.repairResponse&&j.repairResponse.seen===false);
-  const active=jobs.filter(j=>j.stage!=="Collected"&&!j.parked&&!isFrozen(j));   // parked/frozen → dropped from active tracking
-  const frozenCount=jobs.filter(j=>j.stage!=="Collected"&&!j.parked&&isFrozen(j)).length;   // expired, ignored quotes
+  const active=jobs.filter(j=>!jobIsClosed(j)&&!j.parked&&!isFrozen(j));   // parked/frozen → dropped from active tracking
+  const frozenCount=jobs.filter(j=>!jobIsClosed(j)&&!j.parked&&isFrozen(j)).length;   // expired, ignored quotes
   // Rank active jobs by momentum so the ones that matter (money in, a proposal out awaiting a reply,
   // approved/in production, overdue) surface first — a stale sent-quote with no engagement sinks and
   // is dimmed. Each row also carries the signals we show (paid, owing, proposal status).
-  const PROD_STAGES=["Item ordered","On the bench","Design / CAD","3D printing","Manufacturing","Stone setting","Polishing / Finish","QC check"];
+  const PROD_STAGES=["Item ordered","On the bench","Design / CAD","3D printing","Casting","Manufacturing","Stone setting","Polishing / Finish","QC check"];
   const daysAgo=d=>{const n=Math.round((Date.now()-parseISO(d).getTime())/86400000);return n<=0?"today":n===1?"1 day ago":`${n} days ago`;};
   const activeRanked=active.map(j=>{
     const cash=payments.filter(p=>p.jobId===j.id&&p.status==="Received").reduce((s,p)=>s+Number(p.amount),0);
@@ -3444,7 +3447,7 @@ function Jobs({clients,jobs,setJobs,quotes,setQuotes,payments,setPayments,notes,
   const[chaseOnly,setChaseOnly]=useState(false);    // filter to quotes to chase (sent proposal 7+ days, no reply)
   // A job "to chase": a proposal sent 7+ days ago with no acceptance and no approved quote yet.
   const isChase=j=>{
-    if(j.stage==="Collected"||j.parked)return false;
+    if(jobIsClosed(j)||j.parked)return false;
     const jp=proposals.filter(p=>p.jobId===j.id);
     if(jp.some(p=>p.status==="accepted"))return false;
     if(quotes.some(q=>q.jobId===j.id&&q.status==="Approved"))return false;
@@ -3456,7 +3459,7 @@ function Jobs({clients,jobs,setJobs,quotes,setQuotes,payments,setPayments,notes,
   // A "frozen" job — the same set the dashboard hides: a sent proposal past its expiry (createdAt +
   // your quote-validity window), no acceptance, no approved quote and no money in.
   const jobFrozen=j=>{
-    if(j.stage==="Collected"||j.parked)return false;
+    if(jobIsClosed(j)||j.parked)return false;
     const jp=proposals.filter(p=>p.jobId===j.id);
     const sent=jp.filter(p=>p.status==="sent");
     if(!sent.length||jp.some(p=>p.status==="accepted"))return false;
