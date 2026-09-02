@@ -4108,6 +4108,7 @@ function JobDetail({jobId,jobs,setJobs,clients,setClients,quotes,setQuotes,payme
   const[editStage,setEditStage]=useState(false);
   const[editJobModal,setEditJobModal]=useState(false);
   const[payModal,setPayModal]=useState(false);
+  const[editPay,setEditPay]=useState(null);   // payment being edited (null = none)
   const[combineModal,setCombineModal]=useState(false);
   const[combineSel,setCombineSel]=useState([]);   // approved quote ids to combine into one invoice
   const moveStage=s=>{setJobs(p=>{const n=p.map(j=>j.id===jobId?{...j,stage:s}:j);persist(K.jo,n);return n;});setEditStage(false);};
@@ -4143,6 +4144,7 @@ function JobDetail({jobId,jobs,setJobs,clients,setClients,quotes,setQuotes,payme
     persist(K.qu,n);return n;
   });
   const addPay=f=>{if(!guardEdit())return;const n=[...payments,{...f,id:uid(),jobId,date:f.date||today()}];setPayments(n);persist(K.pa,n);refreshLinks(n);setPayModal(false);};
+  const updatePay=(id,f)=>{if(!guardEdit())return;const n=payments.map(x=>x.id===id?{...x,...f,id,jobId,date:f.date||today()}:x);setPayments(n);persist(K.pa,n);refreshLinks(n);setEditPay(null);};
   const delPay=id=>{if(!confirm("Delete this payment?"))return;const n=payments.filter(x=>x.id!==id);setPayments(n);persist(K.pa,n);refreshLinks(n);};
   const delJob=()=>{
     if(!confirm("Delete this job? This will also remove all related quotes, payments, notes and invoices."))return;
@@ -4238,7 +4240,8 @@ function JobDetail({jobId,jobs,setJobs,clients,setClients,quotes,setQuotes,payme
           <div style={{display:"flex",gap:10,alignItems:"center",justifyContent:isMobile?"flex-start":"flex-end",flexShrink:0}}>
             <Badge label={p.status} color={p.status==="Received"?OK:WARN}/>
             <div style={{fontWeight:800,fontSize:14,color:INK,minWidth:76,textAlign:isMobile?"left":"right"}}>{fmt(p.amount)}</div>
-            <button onClick={()=>delPay(p.id)} title="Delete payment" style={{background:"none",border:"none",cursor:"pointer",color:DANGER,fontSize:16,padding:0,marginLeft:isMobile?"auto":0}}>×</button>
+            <button onClick={()=>setEditPay(p)} title="Edit payment" style={{background:"none",border:"none",cursor:"pointer",color:GOLD_D,fontSize:14,padding:0,marginLeft:isMobile?"auto":0}}>✎</button>
+            <button onClick={()=>delPay(p.id)} title="Delete payment" style={{background:"none",border:"none",cursor:"pointer",color:DANGER,fontSize:16,padding:0}}>×</button>
           </div>
         </div>
       ))}
@@ -4297,6 +4300,9 @@ function JobDetail({jobId,jobs,setJobs,clients,setClients,quotes,setQuotes,payme
     {payModal&&<Modal title="Record payment" onClose={()=>setPayModal(false)}>
       <PaymentForm onSave={addPay} onCancel={()=>setPayModal(false)} suggestedAmount={balance>0?balance:""}/>
     </Modal>}
+    {editPay&&<Modal title="Edit payment" onClose={()=>setEditPay(null)}>
+      <PaymentForm initial={editPay} onSave={f=>updatePay(editPay.id,f)} onCancel={()=>setEditPay(null)}/>
+    </Modal>}
     {combineModal&&<Modal title="Combine quotes into one invoice" onClose={()=>setCombineModal(false)}>
       <div style={{fontSize:13,color:WG,lineHeight:1.6,marginBottom:14}}>Tick the quotes to bill together on a single invoice — each appears as its own line with its price. {isTrade?"Trade account — quotes don't need approving first; invoicing confirms them.":"Only approved quotes without an existing invoice are shown."}</div>
       {invoiceableUninvoiced.map(q=>{
@@ -4328,8 +4334,10 @@ function JobDetail({jobId,jobs,setJobs,clients,setClients,quotes,setQuotes,payme
   </div>;
 }
 
-function PaymentForm({onSave,onCancel,suggestedAmount}){
-  const[f,setF]=useState({type:PAY_TYPES[0],amount:suggestedAmount||"",date:today(),method:PAY_METHODS[0],notes:"",status:"Received"});
+function PaymentForm({onSave,onCancel,suggestedAmount,initial}){
+  const[f,setF]=useState(initial
+    ?{type:initial.type||PAY_TYPES[0],amount:initial.amount??"",date:initial.date||today(),method:initial.method||PAY_METHODS[0],notes:initial.notes||"",status:initial.status||"Received"}
+    :{type:PAY_TYPES[0],amount:suggestedAmount||"",date:today(),method:PAY_METHODS[0],notes:"",status:"Received"});
   const set=k=>v=>setF(p=>({...p,[k]:v}));
   const TRADEIN="Gold/Silver trade in";
   const isTradeIn=f.method===TRADEIN;
@@ -4349,7 +4357,7 @@ function PaymentForm({onSave,onCancel,suggestedAmount}){
     <Input label="Notes" value={f.notes} onChange={set("notes")} placeholder="e.g. deposit to begin design phase"/>
     <div style={{display:"flex",gap:10,justifyContent:"flex-end"}}>
       <Btn ghost onClick={onCancel}>Cancel</Btn>
-      <Btn onClick={()=>{if(!f.amount)return alert("Enter an amount");onSave(f);}}>Save payment</Btn>
+      <Btn onClick={()=>{if(!f.amount)return alert("Enter an amount");onSave(f);}}>{initial?"Save changes":"Save payment"}</Btn>
     </div>
   </div>;
 }
