@@ -1626,7 +1626,7 @@ const buildInvoiceSnapshot=({inv,job,client,biz,payments})=>{
   const invTradeIn=Number(inv.tradeInCredit)||0;const balance=Math.max(0,inv.totalIncGST-invTradeIn-paidTotal);
   const requestAmount=Number(inv.requestAmount)||0;
   const staged=requestAmount>0;
-  const dueNow=staged?Math.max(0,Math.min(requestAmount-paidTotal-invTradeIn,balance)):balance;   // credit payments/trade-in against the staged deposit
+  const dueNow=staged?Math.min(requestAmount,balance):balance;   // requestAmount = amount to request now, capped at the outstanding balance (which already nets off payments + trade-in)
   const remainingAfter=Math.max(0,balance-dueNow);
   return{
     kind:"invoice",
@@ -6872,7 +6872,7 @@ function InvoicePrintView({inv,job,client,biz,payments,onClose}){
   const invTradeIn=Number(inv.tradeInCredit)||0;const balance=Math.max(0,inv.totalIncGST-invTradeIn-paidTotal);
   const requestAmount=Number(inv.requestAmount)||0;
   const staged=requestAmount>0;
-  const dueNow=staged?Math.max(0,Math.min(requestAmount-paidTotal-invTradeIn,balance)):balance;   // credit payments/trade-in against the staged deposit
+  const dueNow=staged?Math.min(requestAmount,balance):balance;   // requestAmount = amount to request now, capped at the outstanding balance (which already nets off payments + trade-in)
   const remainingAfter=Math.max(0,balance-dueNow);
   const[copied,setCopied]=useState(false);
   const copyBank=()=>{
@@ -7143,7 +7143,7 @@ function InvoiceDetailView({invoiceId,invoices,setInvoices,jobs,clients,payments
   // with the rest noted as payable later. Blank = request the full outstanding balance.
   const requestAmount=Number(inv.requestAmount)||0;
   const staged=requestAmount>0;
-  const dueNow=staged?Math.max(0,Math.min(requestAmount-paidTotal-invTradeIn,balance)):balance;   // credit payments/trade-in against the staged deposit
+  const dueNow=staged?Math.min(requestAmount,balance):balance;   // requestAmount = amount to request now, capped at the outstanding balance (which already nets off payments + trade-in)
   const remainingAfter=Math.max(0,balance-dueNow);
   // Shareable client link — same public table/link mechanism as proposals. Re-snapshots
   // the invoice each time so the link always reflects current totals & balance.
