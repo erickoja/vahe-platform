@@ -7653,15 +7653,47 @@ function StatementsList({clients,jobs,invoices,payments,biz,setView}){
   </div>;
 }
 
+// Account-level payment entry (from the statement page). A payment always attaches to ONE job —
+// that's how the app tracks the account balance and aging — so when the account has more than one job
+// still owing, the user picks which; a single outstanding job is preselected. Only invoiced jobs can
+// take a statement payment (there has to be a charge for it to settle). Reuses PaymentForm for the
+// actual fields; the job selector sits above it and merges its id into the saved payment.
+function StatementPaymentForm({client,jobs,invoices,payments,onSave,onCancel}){
+  const {balMap}=invoicePaidBalanceMap(invoices,payments);
+  const rows=(jobs||[]).filter(j=>j.clientId===client?.id).map(j=>{
+    const ji=(invoices||[]).filter(i=>i.jobId===j.id);
+    return {job:j,invoiced:ji.length>0,bal:ji.reduce((s,i)=>s+(Number(balMap[i.id])||0),0),firstDate:ji.map(i=>String(i.date||"").slice(0,10)).sort()[0]||""};
+  }).filter(x=>x.invoiced);
+  const owing=rows.filter(x=>x.bal>0.005).sort((a,b)=>a.firstDate.localeCompare(b.firstDate));   // oldest debt first
+  const choices=owing.length?owing:rows;
+  const[jobId,setJobId]=useState(choices[0]?.job.id||"");
+  const sel=rows.find(x=>x.job.id===jobId);
+  const label=x=>`${x.job.type||"Job"}${x.job.description?" · "+x.job.description.slice(0,40):""} — ${x.bal>0.005?fmt(x.bal)+" owing":"settled"}`;
+  if(!rows.length)return <div>
+    <div style={{fontSize:13,color:WG,lineHeight:1.6,marginBottom:16}}>This account has no invoiced jobs yet, so there's nothing to record a payment against. Invoice a job first, then record the payment here or on the job itself.</div>
+    <div style={{display:"flex",justifyContent:"flex-end"}}><Btn ghost onClick={onCancel}>Close</Btn></div>
+  </div>;
+  return <div>
+    {choices.length>1
+      ?<div style={{marginBottom:14}}><label style={SS.lbl}>Apply to job</label>
+        <select value={jobId} onChange={e=>setJobId(e.target.value)} style={{...SS.inp,marginTop:6}}>{choices.map(x=><option key={x.job.id} value={x.job.id}>{label(x)}</option>)}</select>
+        <div style={{fontSize:11,color:WG,marginTop:5,lineHeight:1.5}}>The payment is credited to this job and its invoice(s), oldest first.</div>
+      </div>
+      :<div style={{marginBottom:14,fontSize:12.5,color:WG,lineHeight:1.5}}>Applying to <strong style={{color:INK}}>{sel?.job.type||"job"}{sel?.job.description?" · "+sel.job.description.slice(0,50):""}</strong>{sel&&sel.bal>0.005?` — ${fmt(sel.bal)} owing`:""}.</div>}
+    <PaymentForm key={jobId} suggestedAmount={sel&&sel.bal>0.005?sel.bal:""} onCancel={onCancel} onSave={f=>onSave({...f,jobId})}/>
+  </div>;
+}
+
 // Per-account statement of account: header, period picker, running-balance ledger, aged
 // receivables, and Print / CSV export. All figures derive from invoices+payments (no new entity).
-function StatementDetail({clientId,clients,jobs,invoices,payments,biz,setView}){
+function StatementDetail({clientId,clients,jobs,invoices,payments,setPayments,biz,setView}){
   const isMobile=useIsMobile();
   const isNarrow=useIsMobile(1024);   // tablet + phone: stack the fixed-column ledger table
   const c=(clients||[]).find(x=>x.id===clientId);
   const[preset,setPreset]=useState("all");
   const[from,setFrom]=useState("");
   const[to,setTo]=useState("");
+  const[payModal,setPayModal]=useState(false);
   const setRange=(p)=>{
     const now=new Date(),y=now.getFullYear(),m=now.getMonth(),iso=d=>toISO(d);
     if(p==="month"){setFrom(iso(new Date(y,m,1)));setTo(iso(new Date(y,m+1,0)));}
@@ -7701,6 +7733,7 @@ function StatementDetail({clientId,clients,jobs,invoices,payments,biz,setView}){
         <div style={{textAlign:isMobile?"left":"right",flexShrink:0}}>
           <div style={{fontSize:10,color:WG,fontWeight:700,textTransform:"uppercase",letterSpacing:"0.08em"}}>Balance owing</div>
           <div style={{fontSize:26,fontWeight:800,color:aging.total>0?INK:OK}}>{fmt(aging.total)}</div>
+          <div style={{marginTop:8,display:"flex",justifyContent:isMobile?"flex-start":"flex-end"}}><Btn sm onClick={()=>setPayModal(true)}>+ Record payment</Btn></div>
         </div>
       </div>
       {over&&<div style={{marginTop:14,background:DANGER+"12",border:`1px solid ${DANGER}55`,borderRadius:8,padding:"10px 14px",fontSize:13,color:DANGER,fontWeight:600}}>⚠ Over credit limit — owing {fmt(aging.total)} against a {fmt(Number(c.creditLimit))} limit.</div>}
@@ -7797,6 +7830,11 @@ function StatementDetail({clientId,clients,jobs,invoices,payments,biz,setView}){
         ))}
       </div>
     </Card>
+    {payModal&&<Modal title="Record payment" onClose={()=>setPayModal(false)}>
+      <StatementPaymentForm client={c} jobs={jobs} invoices={invoices} payments={payments}
+        onCancel={()=>setPayModal(false)}
+        onSave={f=>{if(!guardEdit())return;const n=[...(payments||[]),{...f,id:uid(),date:f.date||today()}];setPayments&&setPayments(n);persist(K.pa,n);setPayModal(false);}}/>
+    </Modal>}
   </div>;
 }
 
@@ -10972,7 +11010,7 @@ export default function App(){
     if(view==="invoices")return <InvoicesList invoices={invoices} jobs={jobs} clients={clients} quotes={quotes} setQuotes={setQuotes} payments={payments} setInvoices={setInvoices} markupTable={markupTable} setView={setView} biz={biz}/>;
     if(view.startsWith("invoiceDetail_"))return <InvoiceDetail invoiceId={view.split("_")[1]} invoices={invoices} setInvoices={setInvoices} jobs={jobs} clients={clients} payments={payments} biz={biz} setView={setView} quotes={quotes} markupTable={markupTable}/>;
     if(view==="statements")return <StatementsList clients={clients} jobs={jobs} invoices={invoices} payments={payments} biz={biz} setView={setView}/>;
-    if(view.startsWith("statementDetail_"))return <StatementDetail clientId={view.split("_")[1]} clients={clients} jobs={jobs} invoices={invoices} payments={payments} biz={biz} setView={setView}/>;
+    if(view.startsWith("statementDetail_"))return <StatementDetail clientId={view.split("_")[1]} clients={clients} jobs={jobs} invoices={invoices} payments={payments} setPayments={setPayments} biz={biz} setView={setView}/>;
     if(view==="stock")return <StockBoard stock={stock} setStock={setStock} setView={setView}/>;
     if(view==="gemcustody")return <GemCustody custody={gemCustody} setCustody={setGemCustody} clients={clients} biz={biz}/>;
     if(view.startsWith("stockPrice_"))return <QuoteBuilder stockId={view.split("_")[1]} stock={stock} setStock={setStock} jobs={jobs} clients={clients} quotes={quotes} setQuotes={setQuotes} pricing={pricing} setPricing={setPricing} markupTable={markupTable} naturalStoneMarkup={naturalStoneMarkup} labStoneMarkup={labStoneMarkup} tradeMarkupTable={tradeMarkupTable} tradeNatStoneMarkup={tradeNatStoneMarkup} tradeLabStoneMarkup={tradeLabStoneMarkup} centreRates={centreRates} setCentreRates={setCentreRates} setView={setView}/>;
