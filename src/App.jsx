@@ -1477,6 +1477,13 @@ const jobChargeTotal=(job,quotes,markupTable,invoices)=>{
 const jobTradeInCredit=(job,quotes)=>(quotes||[]).filter(q=>q.jobId===job?.id&&q.status==="Approved").reduce((s,q)=>s+(Number(q.tradeInCredit)||0),0)+(Number(job?.repairTradeIn)||0);
 // True if the job has any agreed charge (override or approved quote)
 const jobHasCharge=(job,quotes)=>Number(job?.totalOverride)>0||(quotes||[]).some(q=>q.jobId===job.id&&q.status==="Approved");
+// A trade repair whose charge is set ("Set as job charge") but which was never invoiced won't appear
+// on the client's statement — statements are built from invoices only (see accountLedger). The charge
+// still shows on the dashboard/amount-owing, so it's easy to miss that the account was never billed.
+// Flag it wherever the job or the trade account is shown. See [[project-billing]].
+const tradeRepairUninvoiced=(job,client,invoices)=>
+  client?.accountType==="trade"&&job?.type==="Repair"&&
+  Number(job?.totalOverride)>0&&!(invoices||[]).some(i=>i.jobId===job?.id);
 // Effective invoice status for display/aggregation. A manual "Paid" always wins. Otherwise, when
 // a job has a single invoice and its recorded payments cover the total, it auto-shows Paid.
 // Payments link to the job (not the invoice), so we only auto-pay when it's unambiguous — a job
@@ -1799,11 +1806,11 @@ const accountLedger=(client,jobs,invoices,payments)=>{
   const entries=[];
   accInv.forEach(inv=>{
     const job=jobOf(inv.jobId),d=String(inv.date||"").slice(0,10);
-    entries.push({date:d,kind:"invoice",id:inv.id,ref:inv.number||"",desc:(inv.descriptionOverride||job?.type||"Invoice").replace(/\s+/g," ").trim(),po:job?.po||"",charge:Number(inv.totalIncGST)||0,credit:0,due:invoiceDueDate(inv,client)});
+    entries.push({date:d,kind:"invoice",id:inv.id,jobId:inv.jobId,invoiceId:inv.id,ref:inv.number||"",desc:(inv.descriptionOverride||job?.type||"Invoice").replace(/\s+/g," ").trim(),po:job?.po||"",charge:Number(inv.totalIncGST)||0,credit:0,due:invoiceDueDate(inv,client)});
     const ti=Number(inv.tradeInCredit)||0;
-    if(ti>0)entries.push({date:d,kind:"tradein",id:inv.id+"_ti",ref:inv.number||"",desc:"Trade-in credit"+(inv.tradeInNote?" · "+inv.tradeInNote:""),po:"",charge:0,credit:ti});
+    if(ti>0)entries.push({date:d,kind:"tradein",id:inv.id+"_ti",jobId:inv.jobId,invoiceId:inv.id,ref:inv.number||"",desc:"Trade-in credit"+(inv.tradeInNote?" · "+inv.tradeInNote:""),po:"",charge:0,credit:ti});
   });
-  accPay.forEach(p=>entries.push({date:String(p.date||"").slice(0,10),kind:"payment",id:p.id,ref:"",desc:"Payment received"+(p.method?" · "+p.method:""),po:p.notes||"",charge:0,credit:Number(p.amount)||0}));
+  accPay.forEach(p=>entries.push({date:String(p.date||"").slice(0,10),kind:"payment",id:p.id,jobId:p.jobId,ref:"",desc:"Payment received"+(p.method?" · "+p.method:""),po:p.notes||"",charge:0,credit:Number(p.amount)||0}));
   const order={invoice:0,tradein:1,payment:2};
   entries.sort((a,b)=>String(a.date).localeCompare(String(b.date))||(order[a.kind]-order[b.kind]));
   let run=0;entries.forEach(e=>{run+=e.charge-e.credit;e.balance=run;});
@@ -3982,6 +3989,7 @@ function RepairIntakeCard({job,setJobs,biz,clients,markupTable,pricing=[],invoic
       </div>
     </div>
     {trade&&<div style={{background:"#4E8B6A14",border:"1px solid #4E8B6A55",borderRadius:4,padding:"9px 14px",marginBottom:16,fontSize:12.5,color:"#3B6E52",fontWeight:600}}>Trade account — <strong>{Math.round(GST_RATE*100)}% {TAX_LABEL} is added</strong> on top of repair prices.</div>}
+    {tradeRepairUninvoiced(job,c,invoices)&&<div style={{background:WARN+"14",border:`1px solid ${WARN}55`,borderRadius:4,padding:"10px 14px",marginBottom:16,fontSize:12.5,color:WARN,fontWeight:600,lineHeight:1.55}}>⚠ Charge set but not invoiced — this repair <strong>won't appear on {clientDisplayName(c)||"the client"}'s statement</strong> until you raise the invoice. Use <strong>Invoice this repair →</strong> below.</div>}
     {job.repairToken&&<div style={{background:GOLD_L+"55",border:`1px solid ${GOLD}55`,borderRadius:4,padding:"9px 14px",marginBottom:16,display:"flex",alignItems:"center",gap:12,flexWrap:"wrap"}}>
       <span style={{fontSize:12,fontWeight:700,color:GOLD_D,whiteSpace:"nowrap"}}>{ICON_LINK}Client link</span>
       <span style={{flex:1,minWidth:180,fontSize:12,color:WG,wordBreak:"break-all",fontFamily:"monospace"}}>{repairLink}</span>
@@ -7562,6 +7570,15 @@ function StatementsList({clients,jobs,invoices,payments,biz,setView}){
   const isMobile=useIsMobile();
   const asOf=today();
   const trade=(clients||[]).filter(c=>c.accountType==="trade");
+  // Trade repairs with a charge set but no invoice raised — they DON'T show in the statements/ledger
+  // below (those are built from invoices), so surface them here or they'd be silently unbilled. Keyed
+  // by client so an account that has ONLY uninvoiced repairs (and would otherwise be filtered out of
+  // the rows) is still reachable.
+  const unbilled=trade.map(c=>{
+    const js=(jobs||[]).filter(j=>tradeRepairUninvoiced(j,c,invoices));
+    return {c,jobs:js,amt:js.reduce((s,j)=>s+(Number(j.totalOverride)||0),0)};
+  }).filter(u=>u.jobs.length>0);
+  const unbilledIds=new Set(unbilled.map(u=>u.c.id));
   // Each trade account with its aged analysis, heaviest debtors first. Only accounts with billing
   // activity (any invoice, received payment, or a balance) are listed — a brand-new trade account,
   // or one whose jobs were all deleted, drops off rather than lingering at $0. Its statement is
@@ -7575,6 +7592,18 @@ function StatementsList({clients,jobs,invoices,payments,biz,setView}){
   const bucketColor=k=>k==="d90"?DANGER:k==="d61_90"?WARN:k==="d31_60"?WARN:INK;
   return <div>
     <SectionHeader eyebrow="Billing" title="Trade statements" subtitle="One consolidated statement per trade account — with a live account ledger and aged receivables (30/60/90)."/>
+    {unbilled.length>0&&<div style={{background:WARN+"12",border:`1px solid ${WARN}55`,borderRadius:8,padding:"13px 16px",marginBottom:18}}>
+      <div style={{fontSize:12.5,fontWeight:800,color:WARN,marginBottom:8,display:"flex",alignItems:"center",gap:7}}>⚠ Repairs charged but not invoiced — not on any statement yet</div>
+      <div style={{fontSize:12,color:WG,lineHeight:1.55,marginBottom:10}}>These trade repairs have a charge set but no invoice, so they won't roll up onto the account statement. Open each and use <strong>Invoice this repair</strong> to bill it.</div>
+      <div style={{display:"flex",flexDirection:"column",gap:6}}>
+        {unbilled.map(u=>u.jobs.map(j=>(
+          <div key={j.id} onClick={()=>setView("jobDetail_"+j.id)} style={{display:"flex",justifyContent:"space-between",alignItems:"center",gap:12,padding:"8px 12px",background:WHITE,border:`1px solid ${WARN}33`,borderRadius:6,cursor:"pointer"}}>
+            <div style={{minWidth:0}}><span style={{fontWeight:700,fontSize:13,color:INK}}>{clientDisplayName(u.c)}</span><span style={{fontSize:12,color:WG}}> · {(j.description||"Repair").slice(0,60)||"Repair"}</span></div>
+            <div style={{display:"flex",alignItems:"center",gap:10,flexShrink:0}}><span style={{fontWeight:800,fontSize:13,color:WARN}}>{fmt(Number(j.totalOverride)||0)}</span><span style={{fontSize:11,fontWeight:700,color:GOLD_D}}>Invoice →</span></div>
+          </div>
+        )))}
+      </div>
+    </div>}
     {rows.length===0
       ? <Card><div style={{color:WG,fontSize:14,textAlign:"center",padding:"24px 0"}}>
           <div style={{fontSize:32,marginBottom:10}}>🧾</div>
@@ -7604,6 +7633,7 @@ function StatementsList({clients,jobs,invoices,payments,biz,setView}){
                 <div style={{fontWeight:700,fontSize:15,color:INK,display:"flex",alignItems:"center",gap:8,flexWrap:"wrap"}}>{clientDisplayName(c)}
                   {c.terms&&<span style={{fontSize:9,fontWeight:800,letterSpacing:"0.08em",color:GOLD_D,background:GOLD_L,border:`1px solid ${GOLD}55`,borderRadius:999,padding:"2px 7px",textTransform:"uppercase"}}>{c.terms}</span>}
                   {over&&<span style={{fontSize:9,fontWeight:800,letterSpacing:"0.06em",color:"#fff",background:DANGER,borderRadius:999,padding:"2px 7px",textTransform:"uppercase"}}>Over limit</span>}
+                  {unbilledIds.has(c.id)&&<span title="A repair is charged but not invoiced — it won't appear on the statement until billed" style={{fontSize:9,fontWeight:800,letterSpacing:"0.06em",color:WARN,background:WARN+"1A",border:`1px solid ${WARN}55`,borderRadius:999,padding:"2px 7px",textTransform:"uppercase"}}>Repair not invoiced</span>}
                 </div>
                 <div style={{fontSize:12,color:WG,marginTop:3}}>{c.contactName||c.email||"—"}{aging.buckets.d90>0?<span style={{color:DANGER,fontWeight:600}}> · {fmtR(aging.buckets.d90)} over 90 days</span>:aging.total>aging.buckets.current?<span style={{color:WARN,fontWeight:600}}> · {fmtR(aging.total-aging.buckets.current)} overdue</span>:null}</div>
               </div>
@@ -7647,6 +7677,9 @@ function StatementDetail({clientId,clients,jobs,invoices,payments,biz,setView}){
   const aging=accountAging(c,jobs,invoices,payments,asOf);
   const m=accountMetrics(c,jobs,invoices,payments);
   const over=Number(c.creditLimit)>0&&aging.total>Number(c.creditLimit);
+  // Repairs on this account charged but never invoiced — absent from the ledger below until billed.
+  const unbilledJobs=(jobs||[]).filter(j=>tradeRepairUninvoiced(j,c,invoices));
+  const unbilledAmt=unbilledJobs.reduce((s,j)=>s+(Number(j.totalOverride)||0),0);
   const bucketColor=k=>k==="d90"?DANGER:k==="d61_90"||k==="d31_60"?WARN:INK;
   const doPrint=()=>printStatement(biz,c,{...st,aging,from,to});
   const doCsv=()=>{const span=from||to?`${from||"start"}_to_${to||"today"}`:"all";downloadStatementCsv(c,st.opening,st.period,st.closing,`statement-${(clientDisplayName(c)||"account").replace(/[^\w-]+/g,"-")}-${span}.csv`);};
@@ -7671,6 +7704,18 @@ function StatementDetail({clientId,clients,jobs,invoices,payments,biz,setView}){
         </div>
       </div>
       {over&&<div style={{marginTop:14,background:DANGER+"12",border:`1px solid ${DANGER}55`,borderRadius:8,padding:"10px 14px",fontSize:13,color:DANGER,fontWeight:600}}>⚠ Over credit limit — owing {fmt(aging.total)} against a {fmt(Number(c.creditLimit))} limit.</div>}
+      {unbilledJobs.length>0&&<div style={{marginTop:14,background:WARN+"12",border:`1px solid ${WARN}55`,borderRadius:8,padding:"11px 14px"}}>
+        <div style={{fontSize:13,color:WARN,fontWeight:700,marginBottom:6}}>⚠ {unbilledJobs.length} repair{unbilledJobs.length>1?"s":""} charged but not invoiced — {fmt(unbilledAmt)} not on this statement</div>
+        <div style={{fontSize:12,color:WG,lineHeight:1.55,marginBottom:unbilledJobs.length?8:0}}>The statement and ledger below are built from invoices only. Invoice each repair to bring it onto the account.</div>
+        <div style={{display:"flex",flexDirection:"column",gap:5}}>
+          {unbilledJobs.map(j=>(
+            <div key={j.id} onClick={()=>setView("jobDetail_"+j.id)} style={{display:"flex",justifyContent:"space-between",alignItems:"center",gap:12,padding:"7px 11px",background:WHITE,border:`1px solid ${WARN}33`,borderRadius:6,cursor:"pointer"}}>
+              <span style={{fontSize:12.5,color:INK,fontWeight:600,minWidth:0,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{(j.description||"Repair").slice(0,70)||"Repair"}{j.dateIn?<span style={{color:WG,fontWeight:400}}> · in {fmtDate(j.dateIn)}</span>:null}</span>
+              <span style={{display:"flex",alignItems:"center",gap:10,flexShrink:0}}><span style={{fontWeight:800,fontSize:13,color:WARN}}>{fmt(Number(j.totalOverride)||0)}</span><span style={{fontSize:11,fontWeight:700,color:GOLD_D}}>Invoice →</span></span>
+            </div>
+          ))}
+        </div>
+      </div>}
     </Card>
 
     <Card>
@@ -7720,20 +7765,20 @@ function StatementDetail({clientId,clients,jobs,invoices,payments,biz,setView}){
         <div>Date</div><div>Description</div><div style={{textAlign:"right"}}>Charges</div><div style={{textAlign:"right"}}>Payments</div><div style={{textAlign:"right"}}>Balance</div>
       </div>}
       {st.period.length===0&&<div style={{color:WG,fontSize:13,padding:"20px 14px",fontStyle:"italic",textAlign:"center"}}>No transactions in this period.</div>}
-      {st.period.map((e,i)=>(
-        <div key={e.id} style={isNarrow
+      {st.period.map((e,i)=>{const goJob=e.jobId?()=>setView("jobDetail_"+e.jobId):null;return(
+        <div key={e.id} onClick={goJob||undefined} title={goJob?"Open the job":undefined} style={{...(isNarrow
           ?{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:10,padding:"12px 14px",borderTop:i>0?`1px solid ${BD}`:"none"}
-          :{display:"grid",gridTemplateColumns:"90px 1fr 110px 130px 120px",gap:8,padding:"12px 14px",borderTop:`1px solid ${BD}`,alignItems:"center"}}>
+          :{display:"grid",gridTemplateColumns:"90px 1fr 110px 130px 120px",gap:8,padding:"12px 14px",borderTop:`1px solid ${BD}`,alignItems:"center"}),...(goJob?{cursor:"pointer"}:{})}}>
           <div style={{fontSize:12,color:WG,whiteSpace:"nowrap"}}>{fmtDate(e.date)}</div>
           <div style={{minWidth:0,order:isNarrow?3:0,flexBasis:isNarrow?"100%":"auto"}}>
-            <div style={{fontSize:13,color:INK,fontWeight:600}}>{e.desc}{e.ref&&<span style={{color:WG,fontWeight:400}}> · {e.ref}</span>}</div>
+            <div style={{fontSize:13,color:INK,fontWeight:600}}>{e.desc}{e.ref&&<span style={{color:WG,fontWeight:400}}> · {e.ref}</span>}{goJob&&<span style={{color:GOLD_D,fontWeight:700,marginLeft:6}}>→</span>}</div>
             {(e.po||(e.kind==="invoice"&&e.due))&&<div style={{fontSize:11,color:WG,marginTop:1}}>{e.po?`PO ${e.po}`:""}{e.po&&e.kind==="invoice"&&e.due?" · ":""}{e.kind==="invoice"&&e.due?`Due ${fmtDate(e.due)}`:""}</div>}
           </div>
           <div style={{fontSize:13,textAlign:"right",color:INK,fontWeight:e.charge?700:400}}>{e.charge?fmt(e.charge):(isNarrow?"":"—")}</div>
           <div style={{fontSize:13,textAlign:"right",color:e.credit?OK:WG,fontWeight:e.credit?700:400}}>{e.credit?fmt(e.credit):(isNarrow?"":"—")}</div>
           <div style={{fontSize:13,textAlign:"right",fontWeight:700,color:INK}}>{fmt(e.balance)}</div>
         </div>
-      ))}
+      );})}
       {(()=>{const settled=st.closing<=0.005;return(
       <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",gap:10,padding:"15px 16px",marginTop:10,background:settled?OK:INK,borderRadius:10}}>
         <span style={{fontSize:11.5,fontWeight:800,color:"#fff",textTransform:"uppercase",letterSpacing:"0.07em"}}>{settled?"Balance settled":"Closing balance owing"}</span>
