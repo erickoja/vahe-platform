@@ -1482,7 +1482,7 @@ const jobHasCharge=(job,quotes)=>Number(job?.totalOverride)>0||(quotes||[]).some
 // still shows on the dashboard/amount-owing, so it's easy to miss that the account was never billed.
 // Flag it wherever the job or the trade account is shown. See [[project-billing]].
 const tradeRepairUninvoiced=(job,client,invoices)=>
-  client?.accountType==="trade"&&job?.type==="Repair"&&
+  client?.accountType==="trade"&&job?.clientId===client?.id&&job?.type==="Repair"&&
   Number(job?.totalOverride)>0&&!(invoices||[]).some(i=>i.jobId===job?.id);
 // Effective invoice status for display/aggregation. A manual "Paid" always wins. Otherwise, when
 // a job has a single invoice and its recorded payments cover the total, it auto-shows Paid.
