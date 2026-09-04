@@ -1368,6 +1368,93 @@ function ReadyForCollectionCard({job,client,biz,setJobs,setClients}){
     </Modal>}
   </Card>;
 }
+// Aftercare care-guide block, passed to buildClientEmailHtml as detailsHtml (rendered inside its
+// bordered table). Fixed content — care tips plus a highlighted "6 month check up" note that sets the
+// expectation that misuse/accidental damage is not a free lifetime repair, so clients come in for the
+// paid regular check instead. Kept as one place to edit the studio's care advice.
+const _careTip=t=>`<tr><td style="padding:9px 16px;border-bottom:1px solid #f0f0f0;font-size:14px;line-height:1.55;color:#333333">${t}</td></tr>`;
+function buildAftercareDetailsHtml({insurerName,insurerUrl}={}){
+  const insName=_emlEsc((insurerName||"").trim());
+  const insUrl=_emlEsc((insurerUrl||"").trim());
+  // Insurance recommendation — only when the studio has set an insurer in Settings. This is how the
+  // studio steers wear/accidental-damage repairs onto the client's cover instead of an expected free fix.
+  const insurance=insUrl
+    ?`<tr><td style="padding:14px 16px;background:#eef4ff;border-top:2px solid #c7d8f5;font-size:14px;line-height:1.6;color:#1f2b45"><strong style="display:block;font-size:14px;margin-bottom:5px;color:#1a1a1a">Protect your piece with insurance</strong>Everyday wear and accidental knocks are a normal part of owning jewellery, and over time they can call for repair work. We highly recommend insuring your piece${insName?` with ${insName}`:""}. The premiums are very affordable and the excess is small, so repairs from accidental damage and wear can be covered rather than an unexpected cost.<div style="margin-top:12px"><a href="${insUrl}" style="display:inline-block;background:#1a3a6b;color:#ffffff;text-decoration:none;padding:11px 24px;border-radius:6px;font-size:14px;font-weight:700">Insure${insName?` with ${insName}`:" your jewellery"}</a></div></td></tr>`
+    :"";
+  return `<tr><td style="padding:12px 16px;background:#faf6f2;border-bottom:1px solid #eeeeee;font-size:13px;font-weight:700;color:#1a1a1a;text-transform:uppercase;letter-spacing:0.04em">Caring for your jewellery</td></tr>`
+    +_careTip("Take your jewellery off before showering, swimming, cleaning, or applying perfume, moisturiser and hairspray. These chemicals dull metal and can loosen stones over time.")
+    +_careTip("Avoid wearing rings for heavy or manual work, at the gym, or while gardening. Knocks bend claws and chip stones.")
+    +_careTip("Store each piece on its own in a soft pouch or a lined box so pieces do not scratch one another.")
+    +_careTip("Clean gently at home with warm water, a drop of mild soap and a soft brush, then pat dry with a soft cloth.")
+    +_careTip("Put your jewellery on last when getting ready, and take it off first when you get home.")
+    +`<tr><td style="padding:14px 16px;background:#fbf3e6;border-top:2px solid #e7d3ad;font-size:14px;line-height:1.6;color:#3a2f1a"><strong style="display:block;font-size:14px;margin-bottom:5px;color:#1a1a1a">Your 6 month check up and clean</strong>We recommend bringing your piece in every 6 months so we can check the claws, settings and clasps, tighten anything that has worked loose, and give it a professional clean. Regular checks are the best way to catch a loose stone before it is lost.</td></tr>`
+    +insurance;
+}
+// Aftercare / thank-you email. Shown on a job once the client has the piece (Collected or Received by
+// customer). Sends a link-free branded email: a thank-you note, the care guide above, the 6 month
+// check up reminder, and (if set) the Google review CTA. Records aftercareEmailedAt on the job.
+function AftercareCard({job,client,biz,setJobs,setClients}){
+  const[open,setOpen]=useState(false);
+  const[email,setEmail]=useState("");
+  const[subject,setSubject]=useState("");
+  const[message,setMessage]=useState("");
+  const[busy,setBusy]=useState(false);
+  const[sent,setSent]=useState(false);
+  const[err,setErr]=useState("");
+  const who=clientDisplayName(client);
+  const isRepair=job.type==="Repair";
+  const hasInsurer=!!(biz?.insurerUrl||"").trim();
+  const protectLine=hasInsurer?", along with a note about the regular check up and how to protect your piece with insurance":", along with a note about the regular check up that keeps your jewellery in top condition";
+  const defSubject=`Thank you, and caring for your jewellery`;
+  const defMessage=isRepair
+    ?`Thank you for trusting us with your repair. It was a pleasure to look after your piece for you.\n\nSo you can keep it in great condition, here is a short care guide below${protectLine}.`
+    :`Thank you so much for your purchase. It was a real pleasure creating your ${job.type} for you.\n\nSo you can keep it looking its best, here is a short care guide below${protectLine}.`;
+  const openIt=()=>{setEmail(client?.email||"");setSubject(defSubject);setMessage(defMessage);setErr("");setSent(false);setOpen(true);};
+  const send=async()=>{
+    if(!guardEdit())return;
+    if(!email.trim()){setErr("Enter an email address.");return;}
+    setBusy(true);setErr("");
+    try{
+      const html=buildClientEmailHtml({biz,clientName:who,message,detailsHtml:buildAftercareDetailsHtml({insurerName:biz?.insurerName,insurerUrl:biz?.insurerUrl}),reviewUrl:(biz?.googleReviewUrl||"").trim()});
+      await sendClientEmail({to:email.trim(),replyTo:biz?.email||"",fromName:biz?.name||"Your jeweller",subject:subject.trim()||defSubject,html});
+      setJobs(p=>{const n=p.map(j=>j.id===job.id?{...j,aftercareEmailedAt:today(),aftercareEmailedTo:email.trim()}:j);persist(K.jo,n);return n;});
+      if((biz?.googleReviewUrl||"").trim()&&setClients&&client?.id)setClients(p=>{const n=p.map(c=>c.id===client.id?{...c,reviewRequestedAt:today()}:c);persist(K.cl,n);return n;});
+      setSent(true);setTimeout(()=>setOpen(false),1400);
+    }catch(e){setErr(e?.message||"Couldn't send the email.");}
+    setBusy(false);
+  };
+  const doneAt=job.aftercareEmailedAt;
+  return <Card style={{border:`1px solid ${GOLD}66`,background:GOLD_L+"55"}}>
+    <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:12}}>
+      <div style={{minWidth:0}}>
+        <div style={{fontWeight:800,fontSize:15,color:INK}}>💍 Aftercare &amp; thank you</div>
+        <div style={{fontSize:13,color:WG,marginTop:3,lineHeight:1.5}}>
+          {doneAt
+            ?<>✓ Sent on <strong style={{color:INK}}>{fmtDate(job.aftercareEmailedAt)}</strong>{job.aftercareEmailedTo?<> · {job.aftercareEmailedTo}</>:null}</>
+            :client?.email
+              ?<>Thank {who} and send them the jewellery care guide plus the 6 month check up reminder.</>
+              :<>Add an email address to this client to send the aftercare guide.</>}
+        </div>
+      </div>
+      <Btn sm ghost onClick={openIt} disabled={!client?.email}>{doneAt?"Send again":"✉️ Send aftercare email"}</Btn>
+    </div>
+    {open&&<Modal title="Send aftercare & thank you" onClose={()=>setOpen(false)}>
+      {sent
+        ?<div style={{padding:"14px 2px",fontSize:14,color:OK,fontWeight:700}}>✓ Sent to {email}</div>
+        :<div>
+          <Input label="To" value={email} onChange={setEmail} placeholder="client@example.com"/>
+          <Input label="Subject" value={subject} onChange={setSubject}/>
+          <Input label="Your note" value={message} onChange={setMessage} as="textarea" rows={5}/>
+          <div style={{fontSize:12,color:WG,margin:"4px 0 14px",lineHeight:1.5}}>The <strong style={{color:INK}}>jewellery care guide</strong>{hasInsurer?<>, the <strong style={{color:INK}}>{(biz?.insurerName||"insurance").trim()} recommendation</strong>,</>:null} and the <strong style={{color:INK}}>6 month check up reminder</strong> are added automatically below your note. Sent from <strong style={{color:INK}}>{biz?.name||"your studio"}</strong>{biz?.email?`, replies go to ${biz.email}`:""}.{(biz?.googleReviewUrl||"").trim()?<> Your <strong style={{color:INK}}>Review us on Google</strong> button is included.</>:null}{!hasInsurer?<> Add an insurer in Settings to include an insurance recommendation.</>:null}</div>
+          {err&&<div style={{fontSize:13,color:DANGER,marginBottom:12,lineHeight:1.5}}>{err}</div>}
+          <div style={{display:"flex",justifyContent:"flex-end",gap:10}}>
+            <Btn sm ghost onClick={()=>setOpen(false)}>Cancel</Btn>
+            <Btn sm onClick={send} disabled={busy}>{busy?"Sending…":"Send email"}</Btn>
+          </div>
+        </div>}
+    </Modal>}
+  </Card>;
+}
 const fmtR=n=>`${CUR_SYM}${Math.round(Number(n||0)).toLocaleString(LOCALE)}`;
 const today=()=>new Date().toISOString().slice(0,10);
 const fmtDate=d=>d?new Date(d).toLocaleDateString(LOCALE,{day:"numeric",month:"short",year:"numeric"}):"—";
@@ -4271,6 +4358,7 @@ function JobDetail({jobId,jobs,setJobs,clients,setClients,quotes,setQuotes,payme
       </div>
     </div>
     {job.stage==="Ready for collection"&&<ReadyForCollectionCard job={job} client={c} biz={biz} setJobs={setJobs} setClients={setClients}/>}
+    {(job.stage==="Collected"||job.stage==="Received by customer")&&<AftercareCard job={job} client={c} biz={biz} setJobs={setJobs} setClients={setClients}/>}
     {editStage&&<Card style={{background:PARCH}}>
       <div style={{...SS.lbl,marginBottom:10}}>Move to stage</div>
       <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
@@ -8898,6 +8986,11 @@ function Settings({biz,setBiz,markupTable,setMarkupTable,naturalStoneMarkup,setN
         <div style={{fontSize:10,fontWeight:700,color:WG,letterSpacing:"0.1em",textTransform:"uppercase",marginBottom:14}}>Client emails</div>
         <Input label="Google review link (optional)" value={bForm.googleReviewUrl||""} onChange={setBF("googleReviewUrl")} placeholder="https://g.page/r/…  or your Google review short link"/>
         <div style={{fontSize:11,color:WG,marginTop:2,lineHeight:1.5}}>When set, a <strong style={{color:INK}}>Review us on Google</strong> button is added to the "ready for collection" email you send clients. You'll find the link in your Google Business Profile under "Ask for reviews".</div>
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1.4fr",gap:"0 14px",marginTop:16}}>
+          <Input label="Recommended insurer (optional)" value={bForm.insurerName||""} onChange={setBF("insurerName")} placeholder="e.g. Q Report"/>
+          <Input label="Insurer link (optional)" value={bForm.insurerUrl||""} onChange={setBF("insurerUrl")} placeholder="https://www.qreport.com.au/…"/>
+        </div>
+        <div style={{fontSize:11,color:WG,marginTop:2,lineHeight:1.5}}>When set, the <strong style={{color:INK}}>aftercare email</strong> recommends insuring the piece with a button linking here, so wear and accidental damage can be covered rather than an unexpected repair bill.</div>
       </div>
       <div style={{display:"flex",justifyContent:"flex-end"}}><Btn onClick={saveBiz}>Save business details</Btn></div>
     </Card>
