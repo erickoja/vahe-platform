@@ -1032,6 +1032,18 @@ async function sendClientEmail({to,cc,replyTo,fromName,subject,html}){
 const BILLING_HOSTS=["vahe-testers.vercel.app","prongstudio.app","www.prongstudio.app","app.prongstudio.app","app.workshoppilot.app","workshoppilot.app"];   // customer-facing domains (billing launched; all studios comped active before enabling the new workshoppilot.app domain)
 const BILLING_ENABLED=import.meta.env.VITE_BILLING_ENABLED==="true"
   ||(typeof window!=="undefined"&&BILLING_HOSTS.includes(window.location.hostname));
+// Recommended jewellery insurer used in the aftercare email. The OWNER'S own app (billing disabled
+// here; customer studios have billing on) defaults to Q Report via the owner's affiliate link, so
+// their aftercare emails carry it with no setup. Customer studios set their own in Settings, and
+// anyone (owner included) can override by saving different values. See [[project-aftercare-email]].
+const OWNER_DEFAULT_INSURER={name:"Q Report",url:"https://www.qreport.com.au/4001"};
+const resolveInsurer=(biz)=>{
+  const url=(biz?.insurerUrl||"").trim();
+  if(url)return {insurerName:(biz?.insurerName||"").trim(),insurerUrl:url};
+  // Unset: fall back to the owner default on the owner's own app only (never on customer studios).
+  if(biz?.insurerUrl===undefined&&!BILLING_ENABLED)return {insurerName:OWNER_DEFAULT_INSURER.name,insurerUrl:OWNER_DEFAULT_INSURER.url};
+  return {insurerName:"",insurerUrl:""};
+};
 // Call the `billing` edge fn (checkout | portal) and send the browser to the Stripe URL it returns.
 async function goBilling(action,plan){
   if(!supabaseEnabled||!supabase)throw new Error("Billing needs the cloud.");
@@ -1403,7 +1415,8 @@ function AftercareCard({job,client,biz,setJobs,setClients}){
   const[err,setErr]=useState("");
   const who=clientDisplayName(client);
   const isRepair=job.type==="Repair";
-  const hasInsurer=!!(biz?.insurerUrl||"").trim();
+  const ins=resolveInsurer(biz);
+  const hasInsurer=!!ins.insurerUrl;
   const protectLine=hasInsurer?", along with a note about the regular check up and how to protect your piece with insurance":", along with a note about the regular check up that keeps your jewellery in top condition";
   const defSubject=`Thank you, and caring for your jewellery`;
   const defMessage=isRepair
@@ -1415,7 +1428,7 @@ function AftercareCard({job,client,biz,setJobs,setClients}){
     if(!email.trim()){setErr("Enter an email address.");return;}
     setBusy(true);setErr("");
     try{
-      const html=buildClientEmailHtml({biz,clientName:who,message,detailsHtml:buildAftercareDetailsHtml({insurerName:biz?.insurerName,insurerUrl:biz?.insurerUrl}),reviewUrl:(biz?.googleReviewUrl||"").trim()});
+      const html=buildClientEmailHtml({biz,clientName:who,message,detailsHtml:buildAftercareDetailsHtml(ins),reviewUrl:(biz?.googleReviewUrl||"").trim()});
       await sendClientEmail({to:email.trim(),replyTo:biz?.email||"",fromName:biz?.name||"Your jeweller",subject:subject.trim()||defSubject,html});
       setJobs(p=>{const n=p.map(j=>j.id===job.id?{...j,aftercareEmailedAt:today(),aftercareEmailedTo:email.trim()}:j);persist(K.jo,n);return n;});
       if((biz?.googleReviewUrl||"").trim()&&setClients&&client?.id)setClients(p=>{const n=p.map(c=>c.id===client.id?{...c,reviewRequestedAt:today()}:c);persist(K.cl,n);return n;});
@@ -1445,7 +1458,7 @@ function AftercareCard({job,client,biz,setJobs,setClients}){
           <Input label="To" value={email} onChange={setEmail} placeholder="client@example.com"/>
           <Input label="Subject" value={subject} onChange={setSubject}/>
           <Input label="Your note" value={message} onChange={setMessage} as="textarea" rows={5}/>
-          <div style={{fontSize:12,color:WG,margin:"4px 0 14px",lineHeight:1.5}}>The <strong style={{color:INK}}>jewellery care guide</strong>{hasInsurer?<>, the <strong style={{color:INK}}>{(biz?.insurerName||"insurance").trim()} recommendation</strong>,</>:null} and the <strong style={{color:INK}}>6 month check up reminder</strong> are added automatically below your note. Sent from <strong style={{color:INK}}>{biz?.name||"your studio"}</strong>{biz?.email?`, replies go to ${biz.email}`:""}.{(biz?.googleReviewUrl||"").trim()?<> Your <strong style={{color:INK}}>Review us on Google</strong> button is included.</>:null}{!hasInsurer?<> Add an insurer in Settings to include an insurance recommendation.</>:null}</div>
+          <div style={{fontSize:12,color:WG,margin:"4px 0 14px",lineHeight:1.5}}>The <strong style={{color:INK}}>jewellery care guide</strong>{hasInsurer?<>, the <strong style={{color:INK}}>{(ins.insurerName||"insurance")} recommendation</strong>,</>:null} and the <strong style={{color:INK}}>6 month check up reminder</strong> are added automatically below your note. Sent from <strong style={{color:INK}}>{biz?.name||"your studio"}</strong>{biz?.email?`, replies go to ${biz.email}`:""}.{(biz?.googleReviewUrl||"").trim()?<> Your <strong style={{color:INK}}>Review us on Google</strong> button is included.</>:null}{!hasInsurer?<> Add an insurer in Settings to include an insurance recommendation.</>:null}</div>
           {err&&<div style={{fontSize:13,color:DANGER,marginBottom:12,lineHeight:1.5}}>{err}</div>}
           <div style={{display:"flex",justifyContent:"flex-end",gap:10}}>
             <Btn sm ghost onClick={()=>setOpen(false)}>Cancel</Btn>
@@ -8877,7 +8890,8 @@ function BracketEditor({rows,setRows,accent=GOLD_D}){
 // ── Settings ──────────────────────────────────────────────────────────────
 function Settings({biz,setBiz,markupTable,setMarkupTable,naturalStoneMarkup,setNaturalStoneMarkup,labStoneMarkup,setLabStoneMarkup,tradeMarkupTable=[],setTradeMarkupTable,tradeNatStoneMarkup=[],setTradeNatStoneMarkup,tradeLabStoneMarkup=[],setTradeLabStoneMarkup,dataSafety,billing}){
   const isMobile=useIsMobile();
-  const[bForm,setBForm]=useState({name:"",email:"",phone:"",abn:"",address:"",depositPercent:50,quoteValidityDays:30,quoteTerms:"",bankName:"Commonwealth Bank of Australia",bankAccountName:"",bankBSB:"",bankAccount:"",...biz});
+  const _insSeed=resolveInsurer(biz);   // owner's app pre-fills Q Report when the insurer is unset
+  const[bForm,setBForm]=useState({name:"",email:"",phone:"",abn:"",address:"",depositPercent:50,quoteValidityDays:30,quoteTerms:"",bankName:"Commonwealth Bank of Australia",bankAccountName:"",bankBSB:"",bankAccount:"",...biz,insurerName:biz.insurerName??_insSeed.insurerName,insurerUrl:biz.insurerUrl??_insSeed.insurerUrl});
   const setBF=k=>v=>setBForm(p=>({...p,[k]:v}));
   const[mt,setMt]=useState(markupTable.map(b=>({...b})));
   const[buffer,setBuffer]=useState(String(biz.markupBuffer||0));
