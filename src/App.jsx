@@ -1385,7 +1385,7 @@ function ReadyForCollectionCard({job,client,biz,setJobs,setClients}){
 // expectation that misuse/accidental damage is not a free lifetime repair, so clients come in for the
 // paid regular check instead. Kept as one place to edit the studio's care advice.
 const _careTip=t=>`<tr><td style="padding:9px 16px;border-bottom:1px solid #f0f0f0;font-size:14px;line-height:1.55;color:#333333">${t}</td></tr>`;
-function buildAftercareDetailsHtml({insurerName,insurerUrl}={}){
+function buildAftercareDetailsHtml({insurerName,insurerUrl,isRepair}={}){
   const insName=_emlEsc((insurerName||"").trim());
   const insUrl=_emlEsc((insurerUrl||"").trim());
   // Insurance recommendation — only when the studio has set an insurer in Settings. This is how the
@@ -1393,14 +1393,18 @@ function buildAftercareDetailsHtml({insurerName,insurerUrl}={}){
   const insurance=insUrl
     ?`<tr><td style="padding:14px 16px;background:#eef4ff;border-top:2px solid #c7d8f5;font-size:14px;line-height:1.6;color:#1f2b45"><strong style="display:block;font-size:14px;margin-bottom:5px;color:#1a1a1a">Protect your piece with insurance</strong>Everyday wear and accidental knocks are a normal part of owning jewellery, and over time they can call for repair work. We highly recommend insuring your piece${insName?` with ${insName}`:""}. The premiums are very affordable and the excess is small, so repairs from accidental damage and wear can be covered rather than an unexpected cost.<div style="margin-top:12px"><a href="${insUrl}" style="display:inline-block;background:#1a3a6b;color:#ffffff;text-decoration:none;padding:11px 24px;border-radius:6px;font-size:14px;font-weight:700">Insure${insName?` with ${insName}`:" your jewellery"}</a></div></td></tr>`
     :"";
-  return `<tr><td style="padding:12px 16px;background:#faf6f2;border-bottom:1px solid #eeeeee;font-size:13px;font-weight:700;color:#1a1a1a;text-transform:uppercase;letter-spacing:0.04em">Caring for your jewellery</td></tr>`
+  // For a REPAIR we don't imply free cleaning/maintenance or take responsibility for the piece: drop
+  // the "leave cleaning to us" tip and swap the 6 month check up for a plain-terms repair note.
+  const tips=`<tr><td style="padding:12px 16px;background:#faf6f2;border-bottom:1px solid #eeeeee;font-size:13px;font-weight:700;color:#1a1a1a;text-transform:uppercase;letter-spacing:0.04em">Caring for your jewellery</td></tr>`
     +_careTip("Take your jewellery off before showering, swimming, cleaning, or applying perfume, moisturiser and hairspray.")
     +_careTip("Avoid wearing rings for heavy or manual work, at the gym, or while gardening. Knocks bend claws and chip stones.")
     +_careTip("Store each piece on its own in a soft pouch or a lined box so pieces do not scratch one another.")
-    +_careTip("Please leave all cleaning to us. Bring your piece in for a professional clean rather than cleaning it yourself at home, so it is looked after properly.")
-    +_careTip("Put your jewellery on last when getting ready, and take it off first when you get home.")
-    +`<tr><td style="padding:14px 16px;background:#fbf3e6;border-top:2px solid #e7d3ad;font-size:14px;line-height:1.6;color:#3a2f1a"><strong style="display:block;font-size:14px;margin-bottom:5px;color:#1a1a1a">Your 6 month check up and clean</strong>We recommend bringing your piece in every 6 months so we can check the claws, settings and clasps, tighten anything that has worked loose, and give it a professional clean. Regular checks are the best way to catch a loose stone before it is lost.</td></tr>`
-    +insurance;
+    +(isRepair?"":_careTip("Please leave all cleaning to us. Bring your piece in for a professional clean rather than cleaning it yourself at home, so it is looked after properly."))
+    +_careTip("Put your jewellery on last when getting ready, and take it off first when you get home.");
+  const middle=isRepair
+    ?`<tr><td style="padding:14px 16px;background:#fdeeee;border-top:2px solid #e6bcbc;font-size:14px;line-height:1.6;color:#5a2a2a"><strong style="display:block;font-size:14px;margin-bottom:5px;color:#1a1a1a">About your repair</strong>Please note that this repair does not include free cleaning or ongoing maintenance, and we do not accept responsibility for the future condition of pieces we have repaired. Insuring your jewellery is the best way to stay protected against future wear or accidental damage.</td></tr>`
+    :`<tr><td style="padding:14px 16px;background:#fbf3e6;border-top:2px solid #e7d3ad;font-size:14px;line-height:1.6;color:#3a2f1a"><strong style="display:block;font-size:14px;margin-bottom:5px;color:#1a1a1a">Your 6 month check up and clean</strong>We recommend bringing your piece in every 6 months so we can check the claws, settings and clasps, tighten anything that has worked loose, and give it a professional clean. Regular checks are the best way to catch a loose stone before it is lost.</td></tr>`;
+  return tips+middle+insurance;
 }
 // Aftercare / thank-you email. Shown on a job once the client has the piece (Collected or Received by
 // customer). Sends a link-free branded email: a thank-you note, the care guide above, the 6 month
@@ -1425,7 +1429,7 @@ function AftercareCard({job,client,biz,setJobs,setClients}){
   const protectLine=hasInsurer?", along with a note about the regular check up and how to protect your piece with insurance":", along with a note about the regular check up that keeps your jewellery in top condition";
   const defSubject=`Thank you, and caring for your jewellery`;
   const defMessage=isRepair
-    ?`Thank you for trusting us with your repair. It was a pleasure to look after your piece for you.\n\nSo you can keep it in great condition, here is a short care guide below${protectLine}.`
+    ?`Thank you for trusting us with your repair. It was a pleasure to look after your piece for you.\n\nPlease take a moment to read the care guide and the important note about your repair below.`
     :`Thank you so much for your purchase. It was a real pleasure creating your ${itemPhrase} for you.\n\nSo you can keep it looking its best, here is a short care guide below${protectLine}.`;
   const openIt=()=>{setEmail(client?.email||"");setSubject(defSubject);setMessage(defMessage);setErr("");setSent(false);setOpen(true);};
   const send=async()=>{
@@ -1433,7 +1437,7 @@ function AftercareCard({job,client,biz,setJobs,setClients}){
     if(!email.trim()){setErr("Enter an email address.");return;}
     setBusy(true);setErr("");
     try{
-      const html=buildClientEmailHtml({biz,clientName:who,message,detailsHtml:buildAftercareDetailsHtml(ins),reviewUrl:(biz?.googleReviewUrl||"").trim()});
+      const html=buildClientEmailHtml({biz,clientName:who,message,detailsHtml:buildAftercareDetailsHtml({...ins,isRepair}),reviewUrl:(biz?.googleReviewUrl||"").trim()});
       await sendClientEmail({to:email.trim(),replyTo:biz?.email||"",fromName:biz?.name||"Your jeweller",subject:subject.trim()||defSubject,html});
       setJobs(p=>{const n=p.map(j=>j.id===job.id?{...j,aftercareEmailedAt:today(),aftercareEmailedTo:email.trim()}:j);persist(K.jo,n);return n;});
       if((biz?.googleReviewUrl||"").trim()&&setClients&&client?.id)setClients(p=>{const n=p.map(c=>c.id===client.id?{...c,reviewRequestedAt:today()}:c);persist(K.cl,n);return n;});
@@ -1463,7 +1467,7 @@ function AftercareCard({job,client,biz,setJobs,setClients}){
           <Input label="To" value={email} onChange={setEmail} placeholder="client@example.com"/>
           <Input label="Subject" value={subject} onChange={setSubject}/>
           <Input label="Your note" value={message} onChange={setMessage} as="textarea" rows={5}/>
-          <div style={{fontSize:12,color:WG,margin:"4px 0 14px",lineHeight:1.5}}>The <strong style={{color:INK}}>jewellery care guide</strong>{hasInsurer?<>, the <strong style={{color:INK}}>{(ins.insurerName||"insurance")} recommendation</strong>,</>:null} and the <strong style={{color:INK}}>6 month check up reminder</strong> are added automatically below your note. Sent from <strong style={{color:INK}}>{biz?.name||"your studio"}</strong>{biz?.email?`, replies go to ${biz.email}`:""}.{(biz?.googleReviewUrl||"").trim()?<> Your <strong style={{color:INK}}>Review us on Google</strong> button is included.</>:null}{!hasInsurer?<> Add an insurer in Settings to include an insurance recommendation.</>:null}</div>
+          <div style={{fontSize:12,color:WG,margin:"4px 0 14px",lineHeight:1.5}}>The <strong style={{color:INK}}>jewellery care guide</strong>{hasInsurer?<>, the <strong style={{color:INK}}>{(ins.insurerName||"insurance")} recommendation</strong>,</>:null} and the <strong style={{color:INK}}>{isRepair?"repair note (no free cleaning or maintenance, no liability)":"6 month check up reminder"}</strong> are added automatically below your note. Sent from <strong style={{color:INK}}>{biz?.name||"your studio"}</strong>{biz?.email?`, replies go to ${biz.email}`:""}.{(biz?.googleReviewUrl||"").trim()?<> Your <strong style={{color:INK}}>Review us on Google</strong> button is included.</>:null}{!hasInsurer?<> Add an insurer in Settings to include an insurance recommendation.</>:null}</div>
           {err&&<div style={{fontSize:13,color:DANGER,marginBottom:12,lineHeight:1.5}}>{err}</div>}
           <div style={{display:"flex",justifyContent:"flex-end",gap:10}}>
             <Btn sm ghost onClick={()=>setOpen(false)}>Cancel</Btn>
