@@ -3511,6 +3511,19 @@ function ClientDetail({clientId,clients,setClients,jobs,setJobs,quotes,payments,
   const charged=cj.reduce((s,j)=>s+jobChargeTotal(j,quotes,markupTable,invoices),0);
   const tradeIn=cj.reduce((s,j)=>s+jobTradeInCredit(j,quotes),0);
   const owing=Math.max(0,charged-spent-tradeIn);   // trade-in credits count toward what's covered
+  // Funds held = money RECEIVED against a job but not yet INVOICED (deposits taken before billing, or
+  // an overpayment). Floored per job so a job you owe money ON never nets against one you're holding.
+  // Surfaces a deposit that's been sitting untouched (e.g. a client who went quiet) so it isn't lost.
+  const heldByJob=cj.map(j=>{
+    const jp=payments.filter(p=>p.jobId===j.id&&p.status==="Received");
+    const rec=jp.reduce((s,p)=>s+Number(p.amount||0),0);
+    const inv=invoices.filter(i=>i.jobId===j.id).reduce((s,i)=>s+(Number(i.totalIncGST)||0),0);
+    const lastPay=jp.map(p=>String(p.date||"").slice(0,10)).filter(Boolean).sort().slice(-1)[0]||"";
+    return {job:j,held:Math.max(0,rec-inv),lastPay};
+  }).filter(x=>x.held>0.005).sort((a,b)=>String(a.lastPay).localeCompare(String(b.lastPay)));   // oldest first
+  const totalHeld=heldByJob.reduce((s,x)=>s+x.held,0);
+  const _daysAgo=iso=>iso?Math.round((Date.now()-new Date(iso).getTime())/86400000):0;
+  const _ageLabel=iso=>{const d=_daysAgo(iso);if(d>=60)return `about ${Math.round(d/30)} months ago`;if(d>=1)return `${d} day${d>1?"s":""} ago`;return "today";};
   return <div>
     <div style={{display:"flex",alignItems:"center",gap:14,marginBottom:20}}>
       <div style={{width:isMobile?42:50,height:isMobile?42:50,borderRadius:"50%",background:GOLD_L,display:"flex",alignItems:"center",justifyContent:"center",fontSize:isMobile?17:20,fontWeight:800,color:GOLD_D,flexShrink:0}}>{c.name.charAt(0)}</div>
@@ -3529,7 +3542,23 @@ function ClientDetail({clientId,clients,setClients,jobs,setJobs,quotes,payments,
         </div>
       ))}
     </div>}
-    <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:14,marginBottom:14}}>
+    {totalHeld>0&&<Card style={{border:`1px solid ${WARN}66`,background:WARN+"0D",marginTop:0}}>
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"baseline",flexWrap:"wrap",gap:8,marginBottom:4}}>
+        <div style={{fontWeight:800,fontSize:15,color:INK}}>💰 Funds held for this client</div>
+        <div style={{fontSize:20,fontWeight:800,color:WARN}}>{fmt(totalHeld)}</div>
+      </div>
+      <div style={{fontSize:12.5,color:WG,lineHeight:1.5,marginBottom:heldByJob.length?12:0}}>Money you've received but not yet invoiced — deposits and credits you're holding. Invoice the job to clear it.</div>
+      {heldByJob.map(x=>{const stale=_daysAgo(x.lastPay)>=90;return(
+        <div key={x.job.id} onClick={()=>{setSelJob(x.job.id);setView("jobDetail");}} style={{display:"flex",justifyContent:"space-between",alignItems:"center",gap:12,padding:"9px 12px",background:WHITE,border:`1px solid ${(stale?DANGER:WARN)}33`,borderRadius:6,cursor:"pointer",marginBottom:6}}>
+          <div style={{minWidth:0}}>
+            <div style={{fontWeight:700,fontSize:13.5,color:INK}}>{x.job.type}<span style={{fontWeight:400,color:WG}}> · {x.job.stage}</span></div>
+            <div style={{fontSize:11.5,color:stale?DANGER:WG,marginTop:2,fontWeight:stale?700:400}}>{x.lastPay?<>Deposit taken {fmtDate(x.lastPay)} · {_ageLabel(x.lastPay)}</>:"Deposit on file"}</div>
+          </div>
+          <div style={{display:"flex",alignItems:"center",gap:10,flexShrink:0}}><span style={{fontWeight:800,fontSize:14,color:WARN}}>{fmt(x.held)}</span><span style={{fontSize:11,fontWeight:700,color:GOLD_D}}>Open →</span></div>
+        </div>
+      );})}
+    </Card>}
+    <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:14,marginBottom:14,marginTop:14}}>
       <Card style={{margin:0}}>
         <div style={SS.lbl}>Contact</div>
         {[
