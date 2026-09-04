@@ -1415,13 +1415,18 @@ function AftercareCard({job,client,biz,setJobs,setClients}){
   const[err,setErr]=useState("");
   const who=clientDisplayName(client);
   const isRepair=job.type==="Repair";
+  // Natural noun for the piece in the thank-you line. job.type is the item category (Engagement ring,
+  // Earrings, Necklace…): lowercase it mid-sentence, and fall back to "piece" for the vague/non-item
+  // types so it never reads "creating your Custom/Other/Trade for you".
+  const _t=(job.type||"").trim().toLowerCase();
+  const itemPhrase=(!_t||["custom","other","trade / wholesale","remodelling"].includes(_t))?"piece":_t;
   const ins=resolveInsurer(biz);
   const hasInsurer=!!ins.insurerUrl;
   const protectLine=hasInsurer?", along with a note about the regular check up and how to protect your piece with insurance":", along with a note about the regular check up that keeps your jewellery in top condition";
   const defSubject=`Thank you, and caring for your jewellery`;
   const defMessage=isRepair
     ?`Thank you for trusting us with your repair. It was a pleasure to look after your piece for you.\n\nSo you can keep it in great condition, here is a short care guide below${protectLine}.`
-    :`Thank you so much for your purchase. It was a real pleasure creating your ${job.type} for you.\n\nSo you can keep it looking its best, here is a short care guide below${protectLine}.`;
+    :`Thank you so much for your purchase. It was a real pleasure creating your ${itemPhrase} for you.\n\nSo you can keep it looking its best, here is a short care guide below${protectLine}.`;
   const openIt=()=>{setEmail(client?.email||"");setSubject(defSubject);setMessage(defMessage);setErr("");setSent(false);setOpen(true);};
   const send=async()=>{
     if(!guardEdit())return;
