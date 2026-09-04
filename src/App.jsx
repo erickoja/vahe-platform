@@ -974,7 +974,7 @@ const SEND_EMAIL_FN="smart-worker";
 const _emlEsc=(s)=>String(s==null?"":s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
 // Branded, email-safe HTML: studio wordmark, greeting, message, a CTA button + raw link, footer.
 // Deliberately no <img>/data-URI logo — many mail clients block data URIs and show a broken image.
-function buildClientEmailHtml({biz,clientName,message,ctaLabel,linkUrl,reviewUrl,detailsHtml}){
+function buildClientEmailHtml({biz,clientName,message,ctaLabel,linkUrl,reviewUrl,detailsHtml,extraHtml}){
   const name=_emlEsc(biz?.name||"Your jeweller");
   const contact=[biz?.email,biz?.phone].filter(Boolean).map(_emlEsc).join(" · ");
   const greeting=clientName?`Hi ${_emlEsc(clientName)},`:"Hello,";
@@ -1000,6 +1000,7 @@ function buildClientEmailHtml({biz,clientName,message,ctaLabel,linkUrl,reviewUrl
     +`<p style="font-size:15px;margin:0 0 14px">${greeting}</p>`
     +`<p style="font-size:15px;line-height:1.6;margin:0 0 22px">${body}</p>`
     +details
+    +(extraHtml||"")
     +cta
     +review
     +`<div style="border-top:1px solid #eeeeee;margin-top:26px;padding-top:14px;font-size:12px;color:#999999">${name}${contact?` &middot; ${contact}`:""}</div>`
@@ -1384,27 +1385,37 @@ function ReadyForCollectionCard({job,client,biz,setJobs,setClients}){
 // bordered table). Fixed content — care tips plus a highlighted "6 month check up" note that sets the
 // expectation that misuse/accidental damage is not a free lifetime repair, so clients come in for the
 // paid regular check instead. Kept as one place to edit the studio's care advice.
-const _careTip=t=>`<tr><td style="padding:9px 16px;border-bottom:1px solid #f0f0f0;font-size:14px;line-height:1.55;color:#333333">${t}</td></tr>`;
-function buildAftercareDetailsHtml({insurerName,insurerUrl,isRepair}={}){
+// One care tip as a two-column row: a small gold diamond marker + the text. Reads as a clean list
+// rather than a paragraph. Email-safe (table layout, inline styles, no images).
+const _careTip=t=>`<tr><td width="24" valign="top" style="padding:7px 0 7px 2px;font-size:12px;color:#ba7067;line-height:1.6">&#9670;</td><td style="padding:7px 0;font-size:14px;line-height:1.55;color:#3a3a3a">${t}</td></tr>`;
+// A standalone rounded "card" (its own table) so sections read as separate blocks with breathing room
+// between them, instead of one dense bordered box. accent = left border + heading colour.
+const _careCard=(inner,{bg="#ffffff",border="#ece4db"}={})=>`<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse:separate;border:1px solid ${border};border-radius:12px;background:${bg};margin:0 0 14px"><tr><td style="padding:16px 18px">${inner}</td></tr></table>`;
+const _careHeading=(t,color="#1a1a1a")=>`<div style="font-size:15px;font-weight:700;color:${color};margin:0 0 8px">${t}</div>`;
+function buildAftercareSectionsHtml({insurerName,insurerUrl,isRepair}={}){
   const insName=_emlEsc((insurerName||"").trim());
   const insUrl=_emlEsc((insurerUrl||"").trim());
-  // Insurance recommendation — only when the studio has set an insurer in Settings. This is how the
-  // studio steers wear/accidental-damage repairs onto the client's cover instead of an expected free fix.
-  const insurance=insUrl
-    ?`<tr><td style="padding:14px 16px;background:#eef4ff;border-top:2px solid #c7d8f5;font-size:14px;line-height:1.6;color:#1f2b45"><strong style="display:block;font-size:14px;margin-bottom:5px;color:#1a1a1a">Protect your piece with insurance</strong>Everyday wear and accidental knocks are a normal part of owning jewellery, and over time they can call for repair work. We highly recommend insuring your piece${insName?` with ${insName}`:""}. The premiums are very affordable and the excess is small, so repairs from accidental damage and wear can be covered rather than an unexpected cost.<div style="margin-top:12px"><a href="${insUrl}" style="display:inline-block;background:#1a3a6b;color:#ffffff;text-decoration:none;padding:11px 24px;border-radius:6px;font-size:14px;font-weight:700">Insure${insName?` with ${insName}`:" your jewellery"}</a></div></td></tr>`
-    :"";
-  // For a REPAIR we don't imply free cleaning/maintenance or take responsibility for the piece: drop
-  // the "leave cleaning to us" tip and swap the 6 month check up for a plain-terms repair note.
-  const tips=`<tr><td style="padding:12px 16px;background:#faf6f2;border-bottom:1px solid #eeeeee;font-size:13px;font-weight:700;color:#1a1a1a;text-transform:uppercase;letter-spacing:0.04em">Caring for your jewellery</td></tr>`
-    +_careTip("Take your jewellery off before showering, swimming, cleaning, or applying perfume, moisturiser and hairspray.")
+  // Care guide card — the general wear tips. For a REPAIR we drop the "leave cleaning to us" tip so
+  // we don't imply a free cleaning service.
+  const tipsRows=_careTip("Take your jewellery off before showering, swimming, cleaning, or applying perfume, moisturiser and hairspray.")
     +_careTip("Avoid wearing rings for heavy or manual work, at the gym, or while gardening. Knocks bend claws and chip stones.")
     +_careTip("Store each piece on its own in a soft pouch or a lined box so pieces do not scratch one another.")
     +(isRepair?"":_careTip("Please leave all cleaning to us. Bring your piece in for a professional clean rather than cleaning it yourself at home, so it is looked after properly."))
     +_careTip("Put your jewellery on last when getting ready, and take it off first when you get home.");
-  const middle=isRepair
-    ?`<tr><td style="padding:14px 16px;background:#fdeeee;border-top:2px solid #e6bcbc;font-size:14px;line-height:1.6;color:#5a2a2a"><strong style="display:block;font-size:14px;margin-bottom:5px;color:#1a1a1a">About your repair</strong>Please note that this repair does not include free cleaning or ongoing maintenance, and we do not accept responsibility for the future condition of pieces we have repaired. Insuring your jewellery is the best way to stay protected against future wear or accidental damage.</td></tr>`
-    :`<tr><td style="padding:14px 16px;background:#fbf3e6;border-top:2px solid #e7d3ad;font-size:14px;line-height:1.6;color:#3a2f1a"><strong style="display:block;font-size:14px;margin-bottom:5px;color:#1a1a1a">Your 6 month check up and clean</strong>We recommend bringing your piece in every 6 months so we can check the claws, settings and clasps, tighten anything that has worked loose, and give it a professional clean. Regular checks are the best way to catch a loose stone before it is lost.</td></tr>`;
-  return tips+middle+insurance;
+  const careCard=_careCard(
+    `<div style="font-size:11px;font-weight:700;color:#a07a6c;text-transform:uppercase;letter-spacing:0.09em;margin:0 0 8px">Caring for your jewellery</div>`
+    +`<table role="presentation" width="100%" cellpadding="0" cellspacing="0">${tipsRows}</table>`,
+    {bg:"#faf6f2",border:"#ecdfd6"});
+  // Middle card — repair terms note, or the 6 month check up for a purchase.
+  const middleCard=isRepair
+    ?_careCard(_careHeading("&#9888;&#65039; About your repair")+`<div style="font-size:14px;line-height:1.6;color:#5a2a2a">Please note that this repair does not include free cleaning or ongoing maintenance, and we do not accept responsibility for the future condition of pieces we have repaired. Insuring your jewellery is the best way to stay protected against future wear or accidental damage.</div>`,{bg:"#fdf1f1",border:"#e6bcbc"})
+    :_careCard(_careHeading("&#128197; Your 6 month check up and clean")+`<div style="font-size:14px;line-height:1.6;color:#3a2f1a">We recommend bringing your piece in every 6 months so we can check the claws, settings and clasps, tighten anything that has worked loose, and give it a professional clean. Regular checks are the best way to catch a loose stone before it is lost.</div>`,{bg:"#fdf7ec",border:"#e7d3ad"});
+  // Insurance card — only when the studio has set an insurer. Steers wear/accidental-damage repairs
+  // onto the client's cover instead of an expected free fix.
+  const insuranceCard=insUrl
+    ?_careCard(_careHeading("&#128737;&#65039; Protect your piece with insurance")+`<div style="font-size:14px;line-height:1.6;color:#1f2b45">Everyday wear and accidental knocks are a normal part of owning jewellery, and over time they can call for repair work. We highly recommend insuring your piece${insName?` with ${insName}`:""}. The premiums are very affordable and the excess is small, so repairs from accidental damage and wear can be covered rather than an unexpected cost.</div><div style="margin-top:14px"><a href="${insUrl}" style="display:inline-block;background:#1a3a6b;color:#ffffff;text-decoration:none;padding:11px 24px;border-radius:6px;font-size:14px;font-weight:700">Insure${insName?` with ${insName}`:" your jewellery"}</a></div>`,{bg:"#eef4ff",border:"#c7d8f5"})
+    :"";
+  return careCard+middleCard+insuranceCard;
 }
 // Aftercare / thank-you email. Shown on a job once the client has the piece (Collected or Received by
 // customer). Sends a link-free branded email: a thank-you note, the care guide above, the 6 month
@@ -1437,7 +1448,7 @@ function AftercareCard({job,client,biz,setJobs,setClients}){
     if(!email.trim()){setErr("Enter an email address.");return;}
     setBusy(true);setErr("");
     try{
-      const html=buildClientEmailHtml({biz,clientName:who,message,detailsHtml:buildAftercareDetailsHtml({...ins,isRepair}),reviewUrl:(biz?.googleReviewUrl||"").trim()});
+      const html=buildClientEmailHtml({biz,clientName:who,message,extraHtml:buildAftercareSectionsHtml({...ins,isRepair}),reviewUrl:(biz?.googleReviewUrl||"").trim()});
       await sendClientEmail({to:email.trim(),replyTo:biz?.email||"",fromName:biz?.name||"Your jeweller",subject:subject.trim()||defSubject,html});
       setJobs(p=>{const n=p.map(j=>j.id===job.id?{...j,aftercareEmailedAt:today(),aftercareEmailedTo:email.trim()}:j);persist(K.jo,n);return n;});
       if((biz?.googleReviewUrl||"").trim()&&setClients&&client?.id)setClients(p=>{const n=p.map(c=>c.id===client.id?{...c,reviewRequestedAt:today()}:c);persist(K.cl,n);return n;});
