@@ -1306,9 +1306,16 @@ function BulkReviewButton({clients,jobs,payments,biz,setClients}){
                     </label>
                   ))}
                 </div>}
+             {recent.length>0&&sel.size===0&&!busy&&<div style={{fontSize:12,color:WARN,marginTop:10,lineHeight:1.5}}>Nothing is ticked because everyone here was already asked in the last 90 days. Tick anyone you'd like to ask again, or use <strong>Select all</strong>.</div>}
              {busy&&prog&&<div style={{fontSize:12.5,color:WG,marginTop:10}}>Sending {prog.done} of {prog.total}…</div>}
-             <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",gap:10,marginTop:14}}>
-               <div style={{fontSize:12.5,color:WG}}>{sel.size} selected</div>
+             <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",gap:10,marginTop:14,flexWrap:"wrap"}}>
+               <div style={{display:"flex",alignItems:"center",gap:12}}>
+                 <span style={{fontSize:12.5,color:WG}}>{sel.size} of {recent.length} selected</span>
+                 {recent.length>0&&<>
+                   <button onClick={()=>setSel(new Set(recent.map(r=>r.id)))} disabled={busy||sel.size===recent.length} style={{background:"none",border:"none",padding:0,fontFamily:"inherit",fontSize:12,fontWeight:700,cursor:busy||sel.size===recent.length?"default":"pointer",color:busy||sel.size===recent.length?BD:GOLD_D}}>Select all</button>
+                   <button onClick={()=>setSel(new Set())} disabled={busy||sel.size===0} style={{background:"none",border:"none",padding:0,fontFamily:"inherit",fontSize:12,fontWeight:700,cursor:busy||sel.size===0?"default":"pointer",color:busy||sel.size===0?BD:GOLD_D}}>Clear</button>
+                 </>}
+               </div>
                <div style={{display:"flex",gap:10}}>
                  <Btn sm ghost onClick={()=>setOpen(false)} disabled={busy}>Cancel</Btn>
                  <Btn sm onClick={run} disabled={busy||sel.size===0}>{busy?"Sending…":`Send to ${sel.size}`}</Btn>
