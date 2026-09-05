@@ -3518,15 +3518,22 @@ function ClientDetail({clientId,clients,setClients,jobs,setJobs,quotes,payments,
   const charged=cj.reduce((s,j)=>s+jobChargeTotal(j,quotes,markupTable,invoices),0);
   const tradeIn=cj.reduce((s,j)=>s+jobTradeInCredit(j,quotes),0);
   const owing=Math.max(0,charged-spent-tradeIn);   // trade-in credits count toward what's covered
-  // Funds held = money RECEIVED against a job but not yet INVOICED (deposits taken before billing, or
-  // an overpayment). Floored per job so a job you owe money ON never nets against one you're holding.
-  // Surfaces a deposit that's been sitting untouched (e.g. a client who went quiet) so it isn't lost.
+  // Funds held = money RECEIVED that hasn't been EARNED yet. Once a job is delivered (a done stage),
+  // its agreed charge is earned even if it was billed by proposal and never invoiced in-app — so only
+  // a genuine overpayment beyond the charge is still credit. Before delivery, money received but not
+  // invoiced is a deposit we're holding (surfaces a deposit sitting untouched, e.g. a client who went
+  // quiet). Floored per job so a job you owe money ON never nets against one you're holding.
   const heldByJob=cj.map(j=>{
     const jp=payments.filter(p=>p.jobId===j.id&&p.status==="Received");
     const rec=jp.reduce((s,p)=>s+Number(p.amount||0),0);
     const inv=invoices.filter(i=>i.jobId===j.id).reduce((s,i)=>s+(Number(i.totalIncGST)||0),0);
+    const charge=jobChargeTotal(j,quotes,markupTable,invoices);
+    const delivered=DONE_STAGES.includes(j.stage);
+    // Delivered: earned = the charge (or invoice) — but if neither was ever recorded, treat what was
+    // received as earned so a finished job isn't wrongly flagged. In progress: only invoices are earned.
+    const earned=delivered?((charge>0||inv>0)?Math.max(inv,charge):rec):inv;
     const lastPay=jp.map(p=>String(p.date||"").slice(0,10)).filter(Boolean).sort().slice(-1)[0]||"";
-    return {job:j,held:Math.max(0,rec-inv),lastPay};
+    return {job:j,held:Math.max(0,rec-earned),lastPay};
   }).filter(x=>x.held>0.005).sort((a,b)=>String(a.lastPay).localeCompare(String(b.lastPay)));   // oldest first
   const totalHeld=heldByJob.reduce((s,x)=>s+x.held,0);
   const _daysAgo=iso=>iso?Math.round((Date.now()-new Date(iso).getTime())/86400000):0;
@@ -3554,7 +3561,7 @@ function ClientDetail({clientId,clients,setClients,jobs,setJobs,quotes,payments,
         <div style={{fontWeight:800,fontSize:15,color:INK}}>💰 Funds held for this client</div>
         <div style={{fontSize:20,fontWeight:800,color:WARN}}>{fmt(totalHeld)}</div>
       </div>
-      <div style={{fontSize:12.5,color:WG,lineHeight:1.5,marginBottom:heldByJob.length?12:0}}>Money you've received but not yet invoiced — deposits and credits you're holding. Invoice the job to clear it.</div>
+      <div style={{fontSize:12.5,color:WG,lineHeight:1.5,marginBottom:heldByJob.length?12:0}}>Money received that hasn't been earned yet — a deposit on work still in progress, or an overpayment. Finishing and handing over the job (or invoicing it) clears it.</div>
       {heldByJob.map(x=>{const stale=_daysAgo(x.lastPay)>=90;return(
         <div key={x.job.id} onClick={()=>{setSelJob(x.job.id);setView("jobDetail");}} style={{display:"flex",justifyContent:"space-between",alignItems:"center",gap:12,padding:"9px 12px",background:WHITE,border:`1px solid ${(stale?DANGER:WARN)}33`,borderRadius:6,cursor:"pointer",marginBottom:6}}>
           <div style={{minWidth:0}}>
