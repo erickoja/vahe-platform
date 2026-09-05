@@ -1246,7 +1246,7 @@ function BulkReviewButton({clients,jobs,payments,biz,setClients}){
       const cj=jobs.filter(j=>j.clientId===c.id);
       const doneJobs=cj.filter(j=>DONE_STAGES.includes(j.stage));
       if(!doneJobs.length)return null;   // only clients who have completed work with us
-      const ds=[...doneJobs.map(j=>j.readyNotifiedAt||j.createdAt),
+      const ds=[...doneJobs.map(j=>j.completedAt||j.readyNotifiedAt||j.createdAt),
                 ...payments.filter(p=>p.status==="Received"&&cj.some(j=>j.id===p.jobId)).map(p=>p.date)]
         .map(d=>new Date(d).getTime()).filter(t=>!isNaN(t));
       if(!ds.length)return null;
@@ -4329,7 +4329,9 @@ function JobDetail({jobId,jobs,setJobs,clients,setClients,quotes,setQuotes,payme
   const[editPay,setEditPay]=useState(null);   // payment being edited (null = none)
   const[combineModal,setCombineModal]=useState(false);
   const[combineSel,setCombineSel]=useState([]);   // approved quote ids to combine into one invoice
-  const moveStage=s=>{setJobs(p=>{const n=p.map(j=>j.id===jobId?{...j,stage:s}:j);persist(K.jo,n);return n;});setEditStage(false);};
+  // Stamp completedAt when the job moves into a done/handover stage, so "recently completed" logic
+  // (e.g. the review-request list) counts the completion itself, not just createdAt/payment dates.
+  const moveStage=s=>{setJobs(p=>{const n=p.map(j=>j.id===jobId?{...j,stage:s,...(DONE_STAGES.includes(s)?{completedAt:today()}:{})}:j);persist(K.jo,n);return n;});setEditStage(false);};
   // "Awaiting client" park toggle — a manual flag (orthogonal to stage) that drops the job out of
   // the dashboard's active tracking until the client responds. parkedAt is kept for reference.
   const togglePark=()=>{setJobs(p=>{const n=p.map(j=>j.id===jobId?{...j,parked:!j.parked,parkedAt:j.parked?null:today()}:j);persist(K.jo,n);return n;});};
