@@ -10805,6 +10805,12 @@ export default function App(){
   // Which studio (tenant) this user belongs to. null = not resolved yet,
   // "none" = signed in but linked to no studio (→ onboarding, phase 2).
   const[studioId,setStudioId]=useState(null);
+  // Last studio resolved for this session, and the user it belongs to. Guards against a transient
+  // membership-lookup failure (network blip / mid-session token refresh) being mistaken for "no
+  // studio" and bouncing the user into the onboarding gate — which risks creating a duplicate, empty
+  // studio. Tied to the user id so a remembered studio can never leak across an account switch.
+  const lastStudioIdRef=useRef(null);
+  const lastStudioUserRef=useRef(null);
 
   // Auth: track Supabase session (no-op when Supabase isn't configured → local mode)
   useEffect(()=>{
@@ -10819,6 +10825,10 @@ export default function App(){
   },[]);
 
   // Resolve the user's studio once we have a session, before any data loads.
+  // A transient failure here (network blip, or an auth token refresh mid-session) must NEVER be
+  // mistaken for "this account has no studio" — that would drop the user into the onboarding gate
+  // and risk creating a duplicate, empty studio. So: remember the studio once resolved, retry a
+  // transient error a few times, and only ever show onboarding on a clean, first-time empty read.
   useEffect(()=>{
     if(!supabaseEnabled||!userId){setStudioIdModule(null);setStudioId(null);return;}
     // Hold the loading screen until THIS account's studio is resolved and its data has
@@ -10826,32 +10836,44 @@ export default function App(){
     // gets written into the new studio) during an account switch on the same browser.
     setStorageReady(false);
     let cancelled=false;
+    // Only trust a remembered studio if it belongs to THIS user (never carry one across accounts).
+    const knownGood=lastStudioUserRef.current===userId?lastStudioIdRef.current:null;
+    const applyStudio=sid=>{
+      lastStudioIdRef.current=sid;lastStudioUserRef.current=userId;setStudioIdModule(sid);setStudioId(sid);
+      // Load the studio's subscription status (billing fields). Absent columns/rows → null = full access.
+      if(BILLING_ENABLED)supabase.from("studios").select("sub_status,plan,trial_ends_at,current_period_end").eq("id",sid).maybeSingle().then(({data:s})=>{if(!cancelled)setSubscription(s||null);}).catch(()=>{});
+    };
     (async()=>{
-      try{
-        const{data}=await supabase.from("studio_members").select("studio_id").eq("user_id",userId).limit(1).maybeSingle();
-        if(cancelled)return;
-        if(data&&data.studio_id){
-          setStudioIdModule(data.studio_id);setStudioId(data.studio_id);
-          // Load the studio's subscription status (billing fields). Absent columns/rows → null = full access.
-          if(BILLING_ENABLED)supabase.from("studios").select("sub_status,plan,trial_ends_at,current_period_end").eq("id",data.studio_id).maybeSingle().then(({data:s})=>{if(!cancelled)setSubscription(s||null);}).catch(()=>{});
-        }
-        else{
-          // No studio yet — if they followed a teammate invite link, join that studio instead of onboarding.
+      for(let attempt=0;attempt<4&&!cancelled;attempt++){
+        try{
+          const{data,error}=await supabase.from("studio_members").select("studio_id").eq("user_id",userId).limit(1).maybeSingle();
+          if(cancelled)return;
+          if(error)throw error;                 // route to the transient-failure handler below
+          if(data&&data.studio_id){applyStudio(data.studio_id);return;}
+          // Clean success with no membership row — follow a pending teammate invite if there is one.
           let joined=false;
           try{
             const token=localStorage.getItem("pendingInvite");
             if(token){
-              const{data:sid,error}=await supabase.rpc("accept_studio_invite",{p_token:token});
+              const{data:sid,error:invErr}=await supabase.rpc("accept_studio_invite",{p_token:token});
               try{localStorage.removeItem("pendingInvite");}catch(_){}
-              if(!cancelled&&sid&&!error){
-                joined=true;setStudioIdModule(sid);setStudioId(sid);
-                if(BILLING_ENABLED)supabase.from("studios").select("sub_status,plan,trial_ends_at,current_period_end").eq("id",sid).maybeSingle().then(({data:s})=>{if(!cancelled)setSubscription(s||null);}).catch(()=>{});
-              }
+              if(!cancelled&&sid&&!invErr){joined=true;applyStudio(sid);}
             }
           }catch(_){try{localStorage.removeItem("pendingInvite");}catch(__){}}
-          if(!joined&&!cancelled){setStudioIdModule(null);setStudioId("none");}
+          if(joined||cancelled)return;
+          // Never demote this user's already-resolved studio to onboarding on a spurious empty read.
+          if(knownGood){applyStudio(knownGood);return;}
+          setStudioIdModule(null);setStudioId("none");
+          return;
+        }catch(e){
+          if(cancelled)return;
+          // Transient failure: keep this user's known-good studio if we have one; else back off and retry.
+          if(knownGood){applyStudio(knownGood);return;}
+          if(attempt<3){await new Promise(r=>setTimeout(r,600*(attempt+1)));continue;}
+          setStudioIdModule(null);setStudioId("none");   // could not resolve after retries, and never had a studio
+          return;
         }
-      }catch(e){if(!cancelled){setStudioIdModule(null);setStudioId("none");}}
+      }
     })();
     return()=>{cancelled=true;};
   },[userId]);
