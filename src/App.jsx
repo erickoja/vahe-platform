@@ -9934,6 +9934,7 @@ function TaskRow({it,ch,doingIt,pr,accent,job,jobClient,onOpenJob,onToggleDone,o
       </div>}
       {job&&<div onClick={jumpJob} title="Open linked job" style={{fontSize:11.5,color:GOLD_D,fontWeight:600,marginTop:hasChips?6:3,cursor:"pointer",display:"flex",alignItems:"center",gap:4,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}><span style={{opacity:0.65}}>→</span>{job.type}{jobClient?` · ${jobClient}`:""}</div>}
       {it.notes&&it.notes.trim()&&<div style={{fontSize:11.5,color:WG,marginTop:(hasChips||job)?6:3,lineHeight:1.4,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{it.notes.trim()}</div>}
+      {it.done&&it.completedAt&&<div style={{fontSize:11,color:OK,fontWeight:600,marginTop:(hasChips||job||(it.notes&&it.notes.trim()))?6:3}}>✓ Completed {new Date(it.completedAt).toLocaleDateString(LOCALE,{day:"numeric",month:"short",year:"numeric"})}</div>}
     </div>
     <button onClick={onRemove} title="Delete task" style={{flexShrink:0,alignSelf:"center",background:"none",border:"none",cursor:"pointer",color:WG,fontSize:17,lineHeight:1,padding:"0 2px",opacity:h?0.85:0.25,transition:"opacity 0.14s"}}>×</button>
   </div>;
@@ -10018,14 +10019,14 @@ function TodoBoard({todos,setTodos,jobs=[],clients=[],setView,setSelJob}){
   const addItem=pid=>{const t=(draft[pid]||"").trim();if(!t)return;save({people,items:[...items,{id:uid(),personId:pid,text:t,notes:"",due:"",done:false,status:"open",priority:"med",createdAt:new Date().toISOString()}]});setDraftFor(pid,"");};
   // Two independent controls: the square box marks done; the round dot flags in progress.
   const isDoing=i=>!i.done&&i.status==="doing";
-  const toggleDone=id=>{const it=items.find(i=>i.id===id);if(it&&!it.done&&!confirm("Mark this task as complete?"))return;save({people,items:items.map(i=>i.id===id?{...i,done:!i.done,status:i.done?"open":"done"}:i)});};
+  const toggleDone=id=>{const it=items.find(i=>i.id===id);if(it&&!it.done&&!confirm("Mark this task as complete?"))return;save({people,items:items.map(i=>i.id===id?{...i,done:!i.done,status:i.done?"open":"done",completedAt:i.done?"":new Date().toISOString()}:i)});};
   const toggleDoing=id=>save({people,items:items.map(i=>i.id!==id||i.done?i:{...i,status:i.status==="doing"?"open":"doing"})});
   const removeItem=id=>save({people,items:items.filter(i=>i.id!==id)});
   const clearDone=pid=>save({people,items:items.filter(i=>!(i.personId===pid&&i.done))});
   // Detail editor (title + longer notes + due date)
   const openEdit=it=>{setEditId(it.id);setEditText(it.text||"");setEditNotes(it.notes||"");setEditDue(it.due||"");setEditStatus(it.done?"done":it.status==="doing"?"doing":"open");setEditPriority(it.priority||"med");setEditPerson(it.personId);setEditJob(it.jobId||"");};
   const closeEdit=()=>setEditId(null);
-  const saveEdit=()=>{const t=editText.trim();if(!t)return;save({people,items:items.map(i=>i.id===editId?{...i,text:t,notes:editNotes.trim(),due:editDue||"",done:editStatus==="done",status:editStatus,priority:editPriority,personId:editPerson||i.personId,jobId:editJob||""}:i)});setEditId(null);};
+  const saveEdit=()=>{const t=editText.trim();if(!t)return;const nowDone=editStatus==="done";save({people,items:items.map(i=>i.id===editId?{...i,text:t,notes:editNotes.trim(),due:editDue||"",done:nowDone,status:editStatus,priority:editPriority,personId:editPerson||i.personId,jobId:editJob||"",completedAt:nowDone?(i.completedAt||new Date().toISOString()):""}:i)});setEditId(null);};
   const openJob=id=>{if(setSelJob&&setView){setSelJob(id);setView("jobDetail");}};
   const editingItem=items.find(i=>i.id===editId)||null;
   const editingPerson=editingItem?people.find(p=>p.id===editingItem.personId):null;
@@ -10132,7 +10133,8 @@ function TodoBoard({todos,setTodos,jobs=[],clients=[],setView,setSelJob}){
               const pct=list.length?Math.round(fullDone.length/list.length*100):0;
               // Visible rows honour the search + status filter; header stats stay true to the full list.
               const open=sortOpen(fullOpen.filter(matches));
-              const done=fullDone.filter(matches);
+              // Completed list: most recently finished at the top (ISO strings sort chronologically).
+              const done=fullDone.filter(matches).sort((a,b)=>(b.completedAt||"").localeCompare(a.completedAt||""));
               const doneCount=filterActive?done.length:fullDone.length;
               const showCompleted=(!!showDone[person.id]||statusFilter==="done"||!!q)&&done.length>0;
               // With a filter active, drop cards that have nothing matching.
