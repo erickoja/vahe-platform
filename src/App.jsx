@@ -10850,6 +10850,19 @@ export default function App(){
       // Load the studio's subscription status (billing fields). Absent columns/rows → null = full access.
       if(BILLING_ENABLED)supabase.from("studios").select("sub_status,plan,trial_ends_at,current_period_end").eq("id",sid).maybeSingle().then(({data:s})=>{if(!cancelled)setSubscription(s||null);}).catch(()=>{});
     };
+    // Only ever reach the onboarding gate after confirming the session actually works server-side.
+    // A stale/failed-refresh token makes membership reads come back empty, which looks identical to
+    // "no studio" — but the right response is to re-authenticate (fresh tokens), NOT to offer studio
+    // creation (which risks a duplicate, empty studio). getUser() validates the token against the
+    // server; if it fails, sign out cleanly so the app shows the sign-in screen instead of onboarding.
+    const finishNoStudio=async()=>{
+      if(cancelled)return;
+      let validUser=false;
+      try{const{data:u,error:ue}=await supabase.auth.getUser();validUser=!ue&&!!u?.user;}catch(_){validUser=false;}
+      if(cancelled)return;
+      if(!validUser){try{await supabase.auth.signOut();}catch(_){}return;}   // broken session → back to sign-in
+      setStudioIdModule(null);setStudioId("none");                          // valid session, genuinely no studio → onboarding
+    };
     (async()=>{
       for(let attempt=0;attempt<4&&!cancelled;attempt++){
         try{
@@ -10872,16 +10885,16 @@ export default function App(){
           if(knownGood){applyStudio(knownGood);return;}
           // No known studio and a clean-empty read — could be a brand-new account, OR an auth-not-ready
           // empty right after load (token not yet attached / RLS sees no user). Retry before concluding
-          // there is genuinely no studio; only the last attempt shows onboarding.
+          // there is genuinely no studio; the last attempt validates the session before onboarding.
           if(attempt<3){await new Promise(r=>setTimeout(r,600*(attempt+1)));continue;}
-          setStudioIdModule(null);setStudioId("none");
+          await finishNoStudio();
           return;
         }catch(e){
           if(cancelled)return;
           // Transient failure: keep this user's known-good studio if we have one; else back off and retry.
           if(knownGood){applyStudio(knownGood);return;}
           if(attempt<3){await new Promise(r=>setTimeout(r,600*(attempt+1)));continue;}
-          setStudioIdModule(null);setStudioId("none");   // could not resolve after retries, and never had a studio
+          await finishNoStudio();   // could not resolve after retries — validate session, else re-auth
           return;
         }
       }
