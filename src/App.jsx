@@ -10836,10 +10836,17 @@ export default function App(){
     // gets written into the new studio) during an account switch on the same browser.
     setStorageReady(false);
     let cancelled=false;
-    // Only trust a remembered studio if it belongs to THIS user (never carry one across accounts).
-    const knownGood=lastStudioUserRef.current===userId?lastStudioIdRef.current:null;
+    // Trust a studio previously resolved for THIS user — from this session (ref) or a prior load on
+    // this device (localStorage, so it survives a full page reload). Data access stays RLS-gated on
+    // the server, so this only prevents a spurious onboarding flash; it never grants access. Tied to
+    // the user id so it can never carry across an account switch.
+    const cacheKey="resolvedStudio:"+userId;
+    let knownGood=lastStudioUserRef.current===userId?lastStudioIdRef.current:null;
+    if(!knownGood){try{knownGood=localStorage.getItem(cacheKey)||null;}catch(_){}}
     const applyStudio=sid=>{
-      lastStudioIdRef.current=sid;lastStudioUserRef.current=userId;setStudioIdModule(sid);setStudioId(sid);
+      lastStudioIdRef.current=sid;lastStudioUserRef.current=userId;
+      try{localStorage.setItem(cacheKey,sid);}catch(_){}
+      setStudioIdModule(sid);setStudioId(sid);
       // Load the studio's subscription status (billing fields). Absent columns/rows → null = full access.
       if(BILLING_ENABLED)supabase.from("studios").select("sub_status,plan,trial_ends_at,current_period_end").eq("id",sid).maybeSingle().then(({data:s})=>{if(!cancelled)setSubscription(s||null);}).catch(()=>{});
     };
@@ -10863,6 +10870,10 @@ export default function App(){
           if(joined||cancelled)return;
           // Never demote this user's already-resolved studio to onboarding on a spurious empty read.
           if(knownGood){applyStudio(knownGood);return;}
+          // No known studio and a clean-empty read — could be a brand-new account, OR an auth-not-ready
+          // empty right after load (token not yet attached / RLS sees no user). Retry before concluding
+          // there is genuinely no studio; only the last attempt shows onboarding.
+          if(attempt<3){await new Promise(r=>setTimeout(r,600*(attempt+1)));continue;}
           setStudioIdModule(null);setStudioId("none");
           return;
         }catch(e){
@@ -11246,7 +11257,7 @@ export default function App(){
     // Resolving which studio this user belongs to — hold before showing any data
     if(studioId===null)return <div style={{display:"flex",alignItems:"center",justifyContent:"center",minHeight:"100vh",background:CREAM,fontFamily:"'Poppins',sans-serif",color:WG,fontSize:14}}>Loading…</div>;
     // Signed in but not linked to any studio (onboarding comes in phase 2)
-    if(studioId==="none")return <StudioOnboarding defaultName={session?.user?.user_metadata?.studio_name||""} onCreated={id=>{setStudioIdModule(id);setStudioId(id);}}/>;
+    if(studioId==="none")return <StudioOnboarding defaultName={session?.user?.user_metadata?.studio_name||""} onCreated={id=>{lastStudioIdRef.current=id;lastStudioUserRef.current=userId;try{localStorage.setItem("resolvedStudio:"+userId,id);}catch(_){}setStudioIdModule(id);setStudioId(id);}}/>;
     // Cloud load failed — block the app so stale/seed data can't be saved over good cloud data
     if(loadError)return <div style={{display:"flex",alignItems:"center",justifyContent:"center",minHeight:"100vh",background:CREAM,fontFamily:"'Poppins',sans-serif",padding:20}}>
       <div style={{maxWidth:420,textAlign:"center",background:WHITE,border:`1px solid ${BD}`,borderRadius:RADIUS,padding:"32px 30px",boxShadow:SHADOW}}>
