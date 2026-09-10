@@ -1178,6 +1178,77 @@ function PaymentReceiptButton({payment,job,client,biz,balance}){
   </>;
 }
 
+// Email a client a summary of the safekeeping receipt — the item(s) held, when received, expected
+// return and declared value. No hosted page or PDF exists for this doc, so the summary is built into
+// the email body (same approach as the payment-receipt email). The signed printable copy stays a
+// separate "Print / Save PDF" action.
+function SafekeepingEmailButton({record,client,biz,isMobile}){
+  const[open,setOpen]=useState(false);
+  const[email,setEmail]=useState("");
+  const[subject,setSubject]=useState("");
+  const[message,setMessage]=useState("");
+  const[busy,setBusy]=useState(false);
+  const[sent,setSent]=useState(false);
+  const[err,setErr]=useState("");
+  const r=record;
+  const items=r.items||[];
+  const ref=r.id.slice(-6).toUpperCase();
+  const clientName=clientDisplayName(client)||r.clientName||"";
+  const many=items.length!==1;
+  // Recipient: the client's saved email, else the first email-looking token in the stored contact.
+  const contactEmail=client?.email||((String(r.clientContact||"").match(/[^\s·,;]+@[^\s·,;]+/)||[])[0]||"");
+  const totalVal=items.reduce((s,it)=>s+(Number(it.estValue)||0),0);
+  const itemLabel=it=>it.kind==="piece"
+    ?[it.metal,it.type,it.stones?`with ${it.stones}`:""].filter(Boolean).join(" ")||it.type||"Piece"
+    :[it.carat?`${it.carat}ct`:"",it.shape,it.type].filter(Boolean).join(" ")||it.type||"Gem";
+  const itemDetail=it=>it.kind==="piece"
+    ?[it.stones?"Set with "+it.stones:"",it.measurements,it.condition?"Condition: "+it.condition:""].filter(Boolean).join(" · ")
+    :[it.colour?"Colour "+it.colour:"",it.clarity?"Clarity "+it.clarity:"",it.measurements,it.cert?"Cert "+it.cert:""].filter(Boolean).join(" · ");
+  const defSubject=`Safekeeping receipt #${ref} — ${biz?.name||"us"}`;
+  const defMessage=`This confirms we're holding the item${many?"s":""} listed below in safekeeping on your behalf. ${many?"They remain":"It remains"} entirely your property — we hold ${many?"them":"it"} as custodian only, and ${many?"they'll":"it'll"} be returned to you on request. Please keep this for your records.`;
+  const openIt=()=>{setEmail(contactEmail);setSubject(defSubject);setMessage(defMessage);setErr("");setSent(false);setOpen(true);};
+  const send=async()=>{
+    if(!email.trim()){setErr("Enter the client's email address.");return;}
+    setBusy(true);setErr("");
+    try{
+      const row=(l,v,strong)=>`<tr><td style="padding:9px 14px;font-size:13px;color:#888888;border-bottom:1px solid #f0f0f0">${_emlEsc(l)}</td><td style="padding:9px 14px;font-size:14px;${strong?"font-weight:700;":""}color:#1a1a1a;text-align:right;border-bottom:1px solid #f0f0f0">${_emlEsc(v)}</td></tr>`;
+      const itemRows=items.map(it=>{
+        const d=itemDetail(it),v=Number(it.estValue)||0;
+        return `<tr><td style="padding:9px 14px;font-size:13px;color:#1a1a1a;border-bottom:1px solid #f0f0f0"><strong>${_emlEsc(itemLabel(it))}</strong>${d?`<br><span style="font-size:12px;color:#888888">${_emlEsc(d)}</span>`:""}</td><td style="padding:9px 14px;font-size:14px;color:#1a1a1a;text-align:right;border-bottom:1px solid #f0f0f0;white-space:nowrap">${v>0?_emlEsc(fmt(v)):""}</td></tr>`;
+      }).join("");
+      const detailsHtml=row("Receipt",`#${ref}`)
+        +row("Held for",clientName||"—")
+        +row("Received on",r.dateReceived?fmtDate(r.dateReceived):fmtDate(r.createdAt))
+        +row("Expected return",r.expectedReturn?fmtDate(r.expectedReturn):"On request")
+        +itemRows
+        +(totalVal>0?row("Total declared value",fmt(totalVal),true):"");
+      const noteHtml=r.reason?`<p style="font-size:13px;line-height:1.6;color:#555555;margin:0 0 22px"><strong>Reason held / instructions:</strong> ${_emlEsc(r.reason).replace(/\n/g,"<br>")}</p>`:"";
+      const html=buildClientEmailHtml({biz,clientName,message,detailsHtml,extraHtml:noteHtml});
+      await sendClientEmail({to:email.trim(),replyTo:biz?.email||"",fromName:biz?.name||"Your jeweller",subject:subject.trim()||defSubject,html});
+      setSent(true);setTimeout(()=>setOpen(false),1400);
+    }catch(e){setErr(e?.message||"Couldn't send the email.");}
+    setBusy(false);
+  };
+  return <>
+    <Btn sm={!isMobile} xs={isMobile} ghost onClick={openIt}>✉️ Email</Btn>
+    {open&&<Modal title="Email safekeeping receipt to client" onClose={()=>setOpen(false)}>
+      {sent
+        ?<div style={{padding:"14px 2px",fontSize:14,color:OK,fontWeight:700}}>✓ Sent to {email}</div>
+        :<div>
+          <Input label="To" value={email} onChange={setEmail} placeholder="client@example.com"/>
+          <Input label="Subject" value={subject} onChange={setSubject}/>
+          <Input label="Message" value={message} onChange={setMessage} as="textarea" rows={4}/>
+          <div style={{fontSize:12,color:WG,margin:"4px 0 14px",lineHeight:1.5}}>A summary of the item{many?"s":""} held (received date, expected return and declared value) is added automatically below your message. Sent from <strong style={{color:INK}}>{biz?.name||"your studio"}</strong>{biz?.email?`; replies go to ${biz.email}`:""}. For the signed copy, use <strong style={{color:INK}}>Print / Save PDF</strong>.</div>
+          {err&&<div style={{fontSize:13,color:DANGER,marginBottom:12,lineHeight:1.5}}>{err}</div>}
+          <div style={{display:"flex",justifyContent:"flex-end",gap:10}}>
+            <Btn sm ghost onClick={()=>setOpen(false)}>Cancel</Btn>
+            <Btn sm onClick={send} disabled={busy}>{busy?"Sending…":"Send email"}</Btn>
+          </div>
+        </div>}
+    </Modal>}
+  </>;
+}
+
 // Google "G" logo (inline SVG, brand colours) — used on the review-request buttons so it's clear
 // these ask for a GOOGLE review. No external load (CSP-safe).
 const ICON_GOOGLE=<svg width="13" height="13" viewBox="0 0 48 48" aria-hidden="true" style={{verticalAlign:"-2px",marginRight:6,flexShrink:0}}><path fill="#4285F4" d="M45.12 24.5c0-1.56-.14-3.06-.4-4.5H24v8.51h11.84c-.51 2.75-2.06 5.08-4.39 6.64v5.52h7.11c4.16-3.83 6.56-9.47 6.56-16.17z"/><path fill="#34A853" d="M24 46c5.94 0 10.92-1.97 14.56-5.33l-7.11-5.52c-1.97 1.32-4.49 2.1-7.45 2.1-5.73 0-10.58-3.87-12.31-9.07H4.34v5.7C7.96 41.07 15.4 46 24 46z"/><path fill="#FBBC05" d="M11.69 28.18C11.25 26.86 11 25.45 11 24s.25-2.86.69-4.18v-5.7H4.34C2.85 17.09 2 20.45 2 24s.85 6.91 2.34 9.88l7.35-5.7z"/><path fill="#EA4335" d="M24 10.75c3.23 0 6.13 1.11 8.41 3.29l6.31-6.31C34.91 4.18 29.93 2 24 2 15.4 2 7.96 6.93 4.34 14.12l7.35 5.7c1.73-5.2 6.58-9.07 12.31-9.07z"/></svg>;
@@ -10455,6 +10526,7 @@ function GemCustody({custody,setCustody,clients,biz}){
                     </div>
                     <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
                       <Btn sm={!isMobile} xs={isMobile} onClick={()=>printGemCustodyReceipt(biz||{},c,r)}>Print / Save PDF</Btn>
+                      <SafekeepingEmailButton record={r} client={c} biz={biz} isMobile={isMobile}/>
                       <Btn sm={!isMobile} xs={isMobile} ghost onClick={()=>toggleReturned(r)}>{returned?"Reopen":"Mark returned"}</Btn>
                       <Btn sm={!isMobile} xs={isMobile} ghost onClick={()=>openEdit(r)}>Edit</Btn>
                     </div>
