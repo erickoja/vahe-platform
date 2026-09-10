@@ -10011,10 +10011,14 @@ function TodoBoard({todos,setTodos,jobs=[],clients=[],setView,setSelJob}){
   const[query,setQuery]=useState("");                  // free-text search across all lists
   const[statusFilter,setStatusFilter]=useState("all"); // all / open / doing / done / overdue
   const[showDone,setShowDone]=useState({});            // per-person: is the Completed section expanded
+  const[renameId,setRenameId]=useState(null);          // person whose name is being edited inline
+  const[renameText,setRenameText]=useState("");
   const toggleShowDone=pid=>setShowDone(s=>({...s,[pid]:!s[pid]}));
   const save=next=>{if(!guardEdit())return;setTodos(next);persist(K.td,next);};
   const addPerson=()=>{const name=newPerson.trim();if(!name)return;save({people:[...people,{id:uid(),name}],items});setNewPerson("");};
   const removePerson=id=>{const p=people.find(x=>x.id===id);if(!confirm(`Remove ${p?.name||"this person"} and their whole list?`))return;save({people:people.filter(x=>x.id!==id),items:items.filter(i=>i.personId!==id)});};
+  const startRename=p=>{setRenameId(p.id);setRenameText(p.name||"");};
+  const saveRename=()=>{const n=renameText.trim();if(n)save({people:people.map(p=>p.id===renameId?{...p,name:n}:p),items});setRenameId(null);};
   const setDraftFor=(pid,v)=>setDraft(d=>({...d,[pid]:v}));
   const addItem=pid=>{const t=(draft[pid]||"").trim();if(!t)return;save({people,items:[...items,{id:uid(),personId:pid,text:t,notes:"",due:"",done:false,status:"open",priority:"med",createdAt:new Date().toISOString()}]});setDraftFor(pid,"");};
   // Two independent controls: the square box marks done; the round dot flags in progress.
@@ -10144,7 +10148,16 @@ function TodoBoard({todos,setTodos,jobs=[],clients=[],setView,setSelJob}){
                 <div style={{display:"flex",alignItems:"center",gap:12,marginBottom:16,paddingBottom:16,borderBottom:`1px solid ${BD_SOFT}`}}>
                   <div style={{width:38,height:38,borderRadius:"50%",background:GOLD_L,color:GOLD_D,display:"flex",alignItems:"center",justifyContent:"center",fontSize:15,fontWeight:800,flexShrink:0}}>{(person.name||"?").slice(0,1).toUpperCase()}</div>
                   <div style={{flex:1,minWidth:0}}>
-                    <div style={{fontWeight:800,fontSize:16,color:INK,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{person.name}</div>
+                    {renameId===person.id
+                      ?<div style={{display:"flex",alignItems:"center",gap:6}}>
+                          <input autoFocus value={renameText} onChange={e=>setRenameText(e.target.value)} onKeyDown={e=>{if(e.key==="Enter")saveRename();if(e.key==="Escape")setRenameId(null);}} style={{...SS.inp,marginTop:0,flex:1,minWidth:0,padding:"6px 10px",fontSize:15,fontWeight:800}}/>
+                          <button onClick={saveRename} title="Save name" style={{background:"none",border:"none",cursor:"pointer",color:OK,fontSize:16,lineHeight:1,padding:0,flexShrink:0}}>✓</button>
+                          <button onClick={()=>setRenameId(null)} title="Cancel" style={{background:"none",border:"none",cursor:"pointer",color:WG,fontSize:16,lineHeight:1,padding:0,flexShrink:0}}>×</button>
+                        </div>
+                      :<div style={{display:"flex",alignItems:"center",gap:6}}>
+                          <div style={{fontWeight:800,fontSize:16,color:INK,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{person.name}</div>
+                          <button onClick={()=>startRename(person)} title="Edit name" style={{background:"none",border:"none",cursor:"pointer",color:WG,fontSize:12,lineHeight:1,padding:0,flexShrink:0}}>✎</button>
+                        </div>}
                     <div style={{fontSize:11,color:WG,marginTop:1}}>{fullOpen.length} open{fullDoing.length?<span style={{color:WARN,fontWeight:700}}> · {fullDoing.length} in progress</span>:""}{fullDone.length?` · ${fullDone.length} done`:""}{overdueCount>0&&<span style={{color:DANGER,fontWeight:700}}> · {overdueCount} overdue</span>}</div>
                   </div>
                   <button onClick={()=>removePerson(person.id)} title="Remove person" style={{background:"none",border:"none",cursor:"pointer",color:WG,fontSize:18,lineHeight:1,padding:0,flexShrink:0}}>×</button>
