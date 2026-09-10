@@ -9909,7 +9909,7 @@ function StudioOnboarding({defaultName,onCreated}){
 }
 
 // A single task row — hover lifts the row and fades in the delete control.
-function TaskRow({it,ch,doingIt,pr,accent,job,jobClient,onOpenJob,onToggleDone,onToggleDoing,onOpen,onRemove}){
+function TaskRow({it,ch,doingIt,pr,accent,job,jobClient,onOpenJob,onSetDue,onTogglePriority,onToggleDone,onToggleDoing,onOpen,onRemove}){
   const[h,setH]=useState(false);
   const borderCol=ch?.overdue?DANGER+"55":doingIt?WARN+"55":BD;
   const chip={display:"inline-block",fontSize:11,fontWeight:700,borderRadius:5,padding:"3px 8px",letterSpacing:"0.02em",lineHeight:1.3};
@@ -9936,6 +9936,12 @@ function TaskRow({it,ch,doingIt,pr,accent,job,jobClient,onOpenJob,onToggleDone,o
       {it.notes&&it.notes.trim()&&<div style={{fontSize:11.5,color:WG,marginTop:(hasChips||job)?6:3,lineHeight:1.4,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{it.notes.trim()}</div>}
       {it.done&&it.completedAt&&<div style={{fontSize:11,color:OK,fontWeight:600,marginTop:(hasChips||job||(it.notes&&it.notes.trim()))?6:3}}>✓ Completed {new Date(it.completedAt).toLocaleDateString(LOCALE,{day:"numeric",month:"short",year:"numeric"})}</div>}
     </div>
+    {!it.done&&(onTogglePriority||onSetDue)&&<div style={{display:"flex",alignItems:"center",gap:2,flexShrink:0,alignSelf:"center",opacity:h?1:0,pointerEvents:h?"auto":"none",transition:"opacity 0.14s"}}>
+      {onTogglePriority&&<button onClick={e=>{e.stopPropagation();onTogglePriority();}} title={it.priority==="high"?"Remove high priority":"Mark high priority"} style={{background:"none",border:"none",cursor:"pointer",color:it.priority==="high"?DANGER:WG,fontSize:14,lineHeight:1,padding:"0 3px"}}>⚑</button>}
+      {onSetDue&&<label onClick={e=>e.stopPropagation()} title={it.due?"Change due date":"Set due date"} style={{position:"relative",display:"inline-flex",cursor:"pointer",color:it.due?GOLD_D:WG,fontSize:13,lineHeight:1,padding:"0 3px"}}>📅
+        <input type="date" value={it.due||""} onChange={e=>onSetDue(e.target.value)} style={{position:"absolute",inset:0,width:"100%",height:"100%",opacity:0,cursor:"pointer",border:"none",padding:0}}/>
+      </label>}
+    </div>}
     <button onClick={onRemove} title="Delete task" style={{flexShrink:0,alignSelf:"center",background:"none",border:"none",cursor:"pointer",color:WG,fontSize:17,lineHeight:1,padding:"0 2px",opacity:h?0.85:0.25,transition:"opacity 0.14s"}}>×</button>
   </div>;
 }
@@ -10027,6 +10033,9 @@ function TodoBoard({todos,setTodos,jobs=[],clients=[],setView,setSelJob}){
   const toggleDoing=id=>save({people,items:items.map(i=>i.id!==id||i.done?i:{...i,status:i.status==="doing"?"open":"doing"})});
   const removeItem=id=>save({people,items:items.filter(i=>i.id!==id)});
   const clearDone=pid=>save({people,items:items.filter(i=>!(i.personId===pid&&i.done))});
+  // Quick edits straight from the card (no modal): set/clear a due date, toggle high priority.
+  const setItemDue=(id,due)=>save({people,items:items.map(i=>i.id===id?{...i,due:due||""}:i)});
+  const toggleItemPriority=id=>save({people,items:items.map(i=>i.id===id?{...i,priority:i.priority==="high"?"med":"high"}:i)});
   // Detail editor (title + longer notes + due date)
   const openEdit=it=>{setEditId(it.id);setEditText(it.text||"");setEditNotes(it.notes||"");setEditDue(it.due||"");setEditStatus(it.done?"done":it.status==="doing"?"doing":"open");setEditPriority(it.priority||"med");setEditPerson(it.personId);setEditJob(it.jobId||"");};
   const closeEdit=()=>setEditId(null);
@@ -10064,6 +10073,7 @@ function TodoBoard({todos,setTodos,jobs=[],clients=[],setView,setSelJob}){
     if(statusFilter==="doing")return isDoing(it);
     if(statusFilter==="done")return it.done;
     if(statusFilter==="overdue")return !it.done&&!!it.due&&it.due<tISO;
+    if(statusFilter==="high")return !it.done&&it.priority==="high";
     return true;
   };
 
@@ -10071,6 +10081,15 @@ function TodoBoard({todos,setTodos,jobs=[],clients=[],setView,setSelJob}){
   const totalTodo=items.filter(i=>!i.done&&!isDoing(i)).length;
   const totalDone=items.filter(i=>i.done).length;
   const totalHigh=items.filter(i=>!i.done&&i.priority==="high").length;
+  const totalOverdue=items.filter(i=>!i.done&&!!i.due&&i.due<tISO).length;
+  // Clicking a summary tile applies its filter; clicking the active one clears back to "all".
+  const tileFilter=f=>setStatusFilter(s=>s===f?"all":f);
+  // Column order: people with open work first (those with overdue tasks lead), empty lists sink to the
+  // bottom — keeps active columns together instead of stranding empty ones in the middle.
+  const orderedPeople=[...people].map((p,idx)=>{
+    const openL=items.filter(i=>i.personId===p.id&&!i.done);
+    return {p,idx,hasOpen:openL.length>0,overdue:openL.some(i=>i.due&&i.due<tISO)};
+  }).sort((a,b)=>(b.hasOpen-a.hasOpen)||(b.overdue-a.overdue)||(a.idx-b.idx)).map(x=>x.p);
 
   // Single shared task-row renderer (used for both the open and completed lists)
   const renderRow=it=>{
@@ -10080,6 +10099,7 @@ function TodoBoard({todos,setTodos,jobs=[],clients=[],setView,setSelJob}){
     const jobClient=job?clientDisplayName(clients.find(c=>c.id===job.clientId)):"";
     return <TaskRow key={it.id} it={it} ch={ch} doingIt={isDoing(it)} pr={pr} accent={!it.done&&it.priority==="high"}
       job={job} jobClient={jobClient} onOpenJob={job?()=>openJob(job.id):null}
+      onSetDue={due=>setItemDue(it.id,due)} onTogglePriority={()=>toggleItemPriority(it.id)}
       onToggleDone={()=>toggleDone(it.id)} onToggleDoing={()=>toggleDoing(it.id)} onOpen={()=>openEdit(it)} onRemove={()=>removeItem(it.id)}/>;
   };
 
@@ -10106,29 +10126,36 @@ function TodoBoard({todos,setTodos,jobs=[],clients=[],setView,setSelJob}){
       : <>
           {/* Summary tiles */}
           <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(176px,1fr))",gap:14,marginBottom:18}}>
-            <Stat label="People" value={people.length} tint="slate" icon={<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round"><path d="m14.5 16.5l3.716 1.118a4.07 4.07 0 0 1 2.76 2.892c.136.536-.327.99-.882.99H3.906c-.555 0-1.018-.454-.882-.99a4.07 4.07 0 0 1 2.76-2.892L9.5 16.5v-1.938c-1.78-1.393-3-3.062-3-6.645c0-3.59 1.955-5.417 4.992-5.417c2.151 0 3.047 1 3.047 1c2.538 0 2.961 2.097 2.961 4.417c0 3.583-1.22 5.252-3 6.645z"/></svg>}/>
-            <Stat label="To do" value={totalTodo} tint="slate" icon={<svg width="20" height="20" viewBox="0 0 297 297" fill="currentColor"><path d="M237.333,33h-50.14c-2.558-18.613-18.556-33-37.86-33s-35.303,14.387-37.86,33h-51.14C50.408,33,42,41.075,42,51v228c0,9.925,8.408,18,18.333,18h177c9.925,0,17.667-8.075,17.667-18V51C255,41.075,247.258,33,237.333,33z M93.052,48c3.432,18.033,19.084,31,38.092,31h36.379c19.008,0,34.66-12.967,38.092-31H223v216H75V48H93.052z M149.333,16c10.456,0,19.242,7.259,21.601,17h-43.201C130.091,23.259,138.877,16,149.333,16z"/><rect x="99" y="109" width="50" height="15"/><polygon points="200.689,105.076 189.645,94.924 175.427,110.39 169.237,105.347 159.763,116.976 176.907,130.944"/><rect x="99" y="157" width="50" height="15"/><polygon points="200.689,153.076 189.645,142.924 175.427,158.39 169.237,153.347 159.763,164.976 176.907,178.944"/><rect x="99" y="205" width="50" height="15"/><polygon points="200.689,201.076 189.645,190.924 175.427,206.39 169.237,201.347 159.763,212.976 176.907,226.944"/></svg>}/>
-            <Stat label="In progress" value={totalDoing} tint="slate" icon={<svg width="20" height="20" viewBox="0 0 32 32" fill="currentColor"><path d="M16,2A14,14,0,1,0,30,16,14.0158,14.0158,0,0,0,16,2Zm0,26A12,12,0,0,1,16,4V16l8.4812,8.4814A11.9625,11.9625,0,0,1,16,28Z"/></svg>}/>
-            <Stat label="High priority" value={totalHigh} tint={totalHigh>0?"rose":"slate"} icon={<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M11.5757 1.42426C11.81 1.18995 12.1899 1.18995 12.4243 1.42426L22.5757 11.5757C22.81 11.81 22.8101 12.1899 22.5757 12.4243L12.4243 22.5757C12.19 22.81 11.8101 22.8101 11.5757 22.5757L1.42426 12.4243C1.18995 12.19 1.18995 11.8101 1.42426 11.5757L11.5757 1.42426Z"/><path d="M12 8L12 12"/><path d="M12 16.01L12.01 15.9989"/></svg>}/>
-            <Stat label="Completed" value={totalDone} tint="slate" icon={<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M17 3.338A9.95 9.95 0 0 0 12 2C6.477 2 2 6.477 2 12s4.477 10 10 10s10-4.477 10-10q-.002-1.03-.2-2"/><path d="M8 12.5s1.5 0 3.5 3.5c0 0 5.559-9.167 10.5-11"/></svg>}/>
+            <Stat label="People" value={people.length} tint="slate" accent={statusFilter==="all"&&!q} onClick={()=>{setStatusFilter("all");setQuery("");}} icon={<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round"><path d="m14.5 16.5l3.716 1.118a4.07 4.07 0 0 1 2.76 2.892c.136.536-.327.99-.882.99H3.906c-.555 0-1.018-.454-.882-.99a4.07 4.07 0 0 1 2.76-2.892L9.5 16.5v-1.938c-1.78-1.393-3-3.062-3-6.645c0-3.59 1.955-5.417 4.992-5.417c2.151 0 3.047 1 3.047 1c2.538 0 2.961 2.097 2.961 4.417c0 3.583-1.22 5.252-3 6.645z"/></svg>}/>
+            <Stat label="To do" value={totalTodo} tint="slate" accent={statusFilter==="open"} onClick={()=>tileFilter("open")} icon={<svg width="20" height="20" viewBox="0 0 297 297" fill="currentColor"><path d="M237.333,33h-50.14c-2.558-18.613-18.556-33-37.86-33s-35.303,14.387-37.86,33h-51.14C50.408,33,42,41.075,42,51v228c0,9.925,8.408,18,18.333,18h177c9.925,0,17.667-8.075,17.667-18V51C255,41.075,247.258,33,237.333,33z M93.052,48c3.432,18.033,19.084,31,38.092,31h36.379c19.008,0,34.66-12.967,38.092-31H223v216H75V48H93.052z M149.333,16c10.456,0,19.242,7.259,21.601,17h-43.201C130.091,23.259,138.877,16,149.333,16z"/><rect x="99" y="109" width="50" height="15"/><polygon points="200.689,105.076 189.645,94.924 175.427,110.39 169.237,105.347 159.763,116.976 176.907,130.944"/><rect x="99" y="157" width="50" height="15"/><polygon points="200.689,153.076 189.645,142.924 175.427,158.39 169.237,153.347 159.763,164.976 176.907,178.944"/><rect x="99" y="205" width="50" height="15"/><polygon points="200.689,201.076 189.645,190.924 175.427,206.39 169.237,201.347 159.763,212.976 176.907,226.944"/></svg>}/>
+            <Stat label="In progress" value={totalDoing} tint="slate" accent={statusFilter==="doing"} onClick={()=>tileFilter("doing")} icon={<svg width="20" height="20" viewBox="0 0 32 32" fill="currentColor"><path d="M16,2A14,14,0,1,0,30,16,14.0158,14.0158,0,0,0,16,2Zm0,26A12,12,0,0,1,16,4V16l8.4812,8.4814A11.9625,11.9625,0,0,1,16,28Z"/></svg>}/>
+            <Stat label="Overdue" value={totalOverdue} tint={totalOverdue>0?"rose":"slate"} accent={statusFilter==="overdue"} onClick={()=>tileFilter("overdue")} icon={<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>}/>
+            <Stat label="High priority" value={totalHigh} tint={totalHigh>0?"rose":"slate"} accent={statusFilter==="high"} onClick={()=>tileFilter("high")} icon={<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M11.5757 1.42426C11.81 1.18995 12.1899 1.18995 12.4243 1.42426L22.5757 11.5757C22.81 11.81 22.8101 12.1899 22.5757 12.4243L12.4243 22.5757C12.19 22.81 11.8101 22.8101 11.5757 22.5757L1.42426 12.4243C1.18995 12.19 1.18995 11.8101 1.42426 11.5757L11.5757 1.42426Z"/><path d="M12 8L12 12"/><path d="M12 16.01L12.01 15.9989"/></svg>}/>
+            <Stat label="Completed" value={totalDone} tint="slate" accent={statusFilter==="done"} onClick={()=>tileFilter("done")} icon={<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M17 3.338A9.95 9.95 0 0 0 12 2C6.477 2 2 6.477 2 12s4.477 10 10 10s10-4.477 10-10q-.002-1.03-.2-2"/><path d="M8 12.5s1.5 0 3.5 3.5c0 0 5.559-9.167 10.5-11"/></svg>}/>
           </div>
 
           {/* Search + status filter */}
           <div style={{display:"flex",gap:10,flexWrap:"wrap",alignItems:"center",marginBottom:22}}>
             <input value={query} onChange={e=>setQuery(e.target.value)} placeholder="Search tasks…" style={{...SS.inp,marginTop:0,flex:"1 1 220px",maxWidth:340}}/>
             <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
-              {[["all","All"],["open","To do"],["doing","In progress"],["done","Done"],["overdue","Overdue"]].map(([v,l])=>{
+              {[["all","All"],["open","To do"],["doing","In progress"],["done","Done"],["overdue","Overdue"],["high","High"]].map(([v,l])=>{
                 const on=statusFilter===v;
-                const c=v==="overdue"?DANGER:GOLD,cl=v==="overdue"?"#FBEBE9":GOLD_L,cd=v==="overdue"?DANGER:GOLD_D;
+                const urgent=v==="overdue"||v==="high";
+                const c=urgent?DANGER:GOLD,cl=urgent?"#FBEBE9":GOLD_L,cd=urgent?DANGER:GOLD_D;
                 return <button key={v} onClick={()=>setStatusFilter(v)} style={{padding:"7px 13px",borderRadius:20,fontSize:12,fontWeight:700,fontFamily:"inherit",cursor:"pointer",border:`1.5px solid ${on?c:BD}`,background:on?cl:WHITE,color:on?cd:WG}}>{l}</button>;
               })}
             </div>
             {filterActive&&<button onClick={()=>{setQuery("");setStatusFilter("all");}} style={{background:"none",border:"none",cursor:"pointer",color:WG,fontSize:12.5,fontWeight:700,fontFamily:"inherit",textDecoration:"underline",padding:"4px 2px"}}>Clear</button>}
+            {/* Legend — the two row controls aren't self-explanatory, and their tooltips never show on touch. */}
+            <div style={{display:"flex",alignItems:"center",gap:14,marginLeft:"auto",fontSize:11.5,color:WG,fontWeight:600}}>
+              <span style={{display:"inline-flex",alignItems:"center",gap:5}}><span style={{width:13,height:13,borderRadius:4,border:`2px solid ${OK}`,display:"inline-block"}}/>Done</span>
+              <span style={{display:"inline-flex",alignItems:"center",gap:5}}><span style={{width:13,height:13,borderRadius:"50%",border:`2px solid ${WARN}`,display:"inline-block"}}/>In progress</span>
+            </div>
           </div>
 
           {/* Person cards — flex-wrap so cards grow to a comfortable width and fill each row evenly */}
           <div style={{display:"flex",flexWrap:"wrap",gap:20,alignItems:"flex-start"}}>
-            {people.map(person=>{
+            {orderedPeople.map(person=>{
               const list=items.filter(i=>i.personId===person.id);
               const fullOpen=list.filter(i=>!i.done);
               const fullDone=list.filter(i=>i.done);
