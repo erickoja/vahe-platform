@@ -1223,7 +1223,20 @@ function SafekeepingEmailButton({record,client,biz,isMobile}){
         +itemRows
         +(totalVal>0?row("Total declared value",fmt(totalVal),true):"");
       const noteHtml=r.reason?`<p style="font-size:13px;line-height:1.6;color:#555555;margin:0 0 22px"><strong>Reason held / instructions:</strong> ${_emlEsc(r.reason).replace(/\n/g,"<br>")}</p>`:"";
-      const html=buildClientEmailHtml({biz,clientName,message,detailsHtml,extraHtml:noteHtml});
+      // Full terms folded into the body so the email is a self-contained receipt — issued digitally,
+      // valid without a signature (mirrors the "Terms of safekeeping" block on the printable PDF).
+      const bn=_emlEsc(biz?.name||"our studio");
+      const clause=(h,t)=>`<p style="font-size:12px;line-height:1.55;color:#666666;margin:0 0 10px"><strong style="color:#1a1a1a">${h}:</strong> ${t}</p>`;
+      const termsHtml=`<div style="border-top:1px solid #eeeeee;margin:0 0 22px;padding-top:16px">`
+        +`<div style="font-size:11px;font-weight:700;color:#888888;text-transform:uppercase;letter-spacing:.08em;margin:0 0 12px">Terms of safekeeping</div>`
+        +clause("Acknowledgement",`${bn} confirms it has received the item(s) described above from the client named and holds them in safekeeping on the client's behalf.`)
+        +clause("Ownership",`The item(s) remain the property of the client at all times. ${bn} takes no ownership interest and holds the item(s) solely as custodian.`)
+        +clause("Return",`The item(s) will be returned to the client, or handled per the client's written instructions, on presentation of this receipt and reasonable proof of identity.`)
+        +clause("Declared value",`Any value shown is as declared by the client for identification purposes only and does not constitute a valuation or appraisal by ${bn}.`)
+        +clause("Care &amp; liability",`${bn} will take reasonable care of the item(s) while in its custody. The client is encouraged to maintain their own insurance; to the extent permitted by law, ${bn}'s liability is limited to the declared value shown above.`)
+        +`<p style="font-size:11.5px;line-height:1.55;color:#999999;margin:6px 0 0;font-style:italic">This receipt is issued electronically by ${bn} and is valid without a signature.</p>`
+        +`</div>`;
+      const html=buildClientEmailHtml({biz,clientName,message,detailsHtml,extraHtml:noteHtml+termsHtml});
       await sendClientEmail({to:email.trim(),replyTo:biz?.email||"",fromName:biz?.name||"Your jeweller",subject:subject.trim()||defSubject,html});
       setSent(true);setTimeout(()=>setOpen(false),1400);
     }catch(e){setErr(e?.message||"Couldn't send the email.");}
@@ -1238,7 +1251,7 @@ function SafekeepingEmailButton({record,client,biz,isMobile}){
           <Input label="To" value={email} onChange={setEmail} placeholder="client@example.com"/>
           <Input label="Subject" value={subject} onChange={setSubject}/>
           <Input label="Message" value={message} onChange={setMessage} as="textarea" rows={4}/>
-          <div style={{fontSize:12,color:WG,margin:"4px 0 14px",lineHeight:1.5}}>A summary of the item{many?"s":""} held (received date, expected return and declared value) is added automatically below your message. Sent from <strong style={{color:INK}}>{biz?.name||"your studio"}</strong>{biz?.email?`; replies go to ${biz.email}`:""}. For the signed copy, use <strong style={{color:INK}}>Print / Save PDF</strong>.</div>
+          <div style={{fontSize:12,color:WG,margin:"4px 0 14px",lineHeight:1.5}}>A summary of the item{many?"s":""} held (received date, expected return and declared value) plus your full safekeeping terms are added automatically below your message, so the email stands on its own as the receipt — issued digitally, no signature needed. Sent from <strong style={{color:INK}}>{biz?.name||"your studio"}</strong>{biz?.email?`; replies go to ${biz.email}`:""}. A printable signed copy is still available under <strong style={{color:INK}}>Print / Save PDF</strong>.</div>
           {err&&<div style={{fontSize:13,color:DANGER,marginBottom:12,lineHeight:1.5}}>{err}</div>}
           <div style={{display:"flex",justifyContent:"flex-end",gap:10}}>
             <Btn sm ghost onClick={()=>setOpen(false)}>Cancel</Btn>
