@@ -971,6 +971,33 @@ const fmt=n=>`${CUR_SYM}${Number(n||0).toLocaleString(LOCALE,{minimumFractionDig
 // Supabase gives functions an auto-generated URL slug separate from the display name;
 // this one's display name is "send-email" but its slug (used in the URL) is "smart-worker".
 const SEND_EMAIL_FN="smart-worker";
+// True when a Supabase error is an expired/invalid auth token (a stale session) rather than a
+// network/connection failure. PostgREST returns HTTP 401 / code PGRST301 with messages like
+// "JWT expired" or "Invalid JWT"; the edge function surfaces the same text. Lets the app tell a
+// recoverable stale session apart from a genuinely unreachable cloud.
+const _isAuthError=(e)=>{
+  if(!e)return false;
+  const msg=`${e.message||e.error_description||e.error||""}`.toLowerCase();
+  const code=`${e.code||""}`.toUpperCase();
+  const status=Number(e.status||e.statusCode||0);
+  return status===401||code==="PGRST301"||code==="401"
+    ||msg.includes("invalid jwt")||msg.includes("jwt expired")||/\bjwt\b/.test(msg)
+    ||(msg.includes("token")&&msg.includes("expir"))||msg.includes("not authenticated");
+};
+// Try to mint a fresh access token from the stored refresh token. Returns true on success, so a
+// stale-but-refreshable session heals silently; a truly dead session returns false and the caller
+// sends the user back to sign-in.
+const _tryRefreshSession=async()=>{
+  try{const{data,error}=await supabase.auth.refreshSession();return !error&&!!data?.session;}catch(_){return false;}
+};
+// invoke() only surfaces a generic "non-2xx" message; the function returns the real reason in its
+// JSON body ({error:"…"}). Read that so we can show it (and detect an auth failure inside it).
+const _fnErrDetail=async(error)=>{
+  let detail="";
+  try{const b=await error?.context?.json?.();detail=b?.error||b?.message||"";}catch(_){}
+  if(!detail){try{detail=(await error?.context?.text?.())||"";}catch(_){}}
+  return detail;
+};
 const _emlEsc=(s)=>String(s==null?"":s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
 // Branded, email-safe HTML: studio wordmark, greeting, message, a CTA button + raw link, footer.
 // Deliberately no <img>/data-URI logo — many mail clients block data URIs and show a broken image.
@@ -1011,16 +1038,25 @@ async function sendClientEmail({to,cc,replyTo,fromName,subject,html,attachments}
   if(!supabaseEnabled||!supabase) throw new Error("Email needs the cloud — you're in local-only mode.");
   const _bare=(String(to||"").trim().match(/<([^>]+)>/)||[,String(to||"").trim()])[1].trim();
   if(!isEmail(_bare)) throw new Error(`That email address doesn't look valid: "${String(to||"").trim()||"(blank)"}". Check the client's email and try again.`);
-  const{data,error}=await supabase.functions.invoke(SEND_EMAIL_FN,{body:{to,cc,replyTo,fromName,subject,html,attachments}});
+  const _invoke=()=>supabase.functions.invoke(SEND_EMAIL_FN,{body:{to,cc,replyTo,fromName,subject,html,attachments}});
+  let{data,error}=await _invoke();
   if(error){
-    // invoke() only gives a generic "non-2xx" message; the function returns the real reason in its
-    // JSON body ({error:"…"}), so read it from the error's response context and surface that.
-    let detail="";
-    try{const b=await error?.context?.json?.();detail=b?.error||b?.message||"";}catch(_){}
-    if(!detail){try{detail=(await error?.context?.text?.())||"";}catch(_){}}
-    throw new Error(detail||error.message||"Couldn't reach the email service — is the send-email function deployed?");
+    let detail=await _fnErrDetail(error);
+    // A stale session (e.g. a tab left open a long time) makes the function reject the request with
+    // "Invalid JWT". Refresh the token once and resend before surfacing anything to the user.
+    if((_isAuthError(error)||_isAuthError({message:detail}))&&await _tryRefreshSession()){
+      ({data,error}=await _invoke());
+      detail=error?await _fnErrDetail(error):"";
+    }
+    if(error){
+      if(_isAuthError(error)||_isAuthError({message:detail})) throw new Error("Your session has expired. Please reload the page and log in again, then resend.");
+      throw new Error(detail||error.message||"Couldn't reach the email service — is the send-email function deployed?");
+    }
   }
-  if(data&&data.error) throw new Error(data.error);
+  if(data&&data.error){
+    if(_isAuthError({message:data.error})) throw new Error("Your session has expired. Please reload the page and log in again, then resend.");
+    throw new Error(data.error);
+  }
   return data;
 }
 
@@ -10942,6 +10978,7 @@ export default function App(){
   const[selJob,setSelJob]=useState(null);
   const[storageReady,setStorageReady]=useState(false);
   const[loadError,setLoadError]=useState(false);
+  const[authExpired,setAuthExpired]=useState(false);   // load failed specifically because the session is stale (vs no connection)
   const[loadNonce,setLoadNonce]=useState(0);
   const isMobile=useIsMobile();
   const[drawerOpen,setDrawerOpen]=useState(false);
@@ -11150,13 +11187,13 @@ export default function App(){
       setStorageReady(true);
     },9000);
     const init=async()=>{
-      setLoadError(false);
+      setLoadError(false);setAuthExpired(false);
       // Load the user's deleted built-in items before the pricing reconcile, so they aren't re-added.
       try{const dl=await (cloudMode?_cloudGet(K.delpr):_localGet(K.delpr));_deletedSeedIds.clear();if(Array.isArray(dl))dl.forEach(id=>_deletedSeedIds.add(id));}catch(e){}
       if(cloudMode){
         // Strict load: ALL keys must read from the cloud before we allow any cloud writes.
         // If the cloud can't be reached, we block the app instead of risking an overwrite.
-        try{
+        const loadAllKeys=async()=>{
           const entries=Object.entries(keyToSetter);
           const values=await Promise.all(entries.map(([k])=>_cloudGet(k)));
           entries.forEach(([k,setter],i)=>{
@@ -11164,14 +11201,26 @@ export default function App(){
             if(v===null||v===undefined){if(k in studioDefaults){_known[k]=studioDefaults[k];setter(studioDefaults[k]);}}   // empty studio → clean default, never the prior studio's data
             else applyLoaded(k,v,setter);
           });
+        };
+        try{
+          await loadAllKeys();
           setCloudLoaded(true);   // ✅ now safe to persist to the cloud
         }catch(e){
-          clearTimeout(giveUp);
-          // First load failing blocks the app (don't boot/write on seed data). A later background
-          // refresh (cloud already loaded once) failing is harmless — keep the data we have and
-          // stay writable, so a flaky reconnect never throws up the error screen.
-          if(!_cloudLoaded){setCloudLoaded(false);setLoadError(true);setStorageReady(true);}
-          return;
+          // A stale session (expired/invalid token) reads as an auth error, not a connection failure.
+          // It's recoverable: refresh the token once and retry the load before blocking the app.
+          let recovered=false;
+          if(_isAuthError(e)&&await _tryRefreshSession()){
+            try{await loadAllKeys();setCloudLoaded(true);recovered=true;}catch(_){}
+          }
+          if(!recovered){
+            clearTimeout(giveUp);
+            // First load failing blocks the app (don't boot/write on seed data). A later background
+            // refresh (cloud already loaded once) failing is harmless — keep the data we have and
+            // stay writable, so a flaky reconnect never throws up the error screen. authExpired steers
+            // the error screen toward "log in again" when the token, not the connection, is the problem.
+            if(!_cloudLoaded){setCloudLoaded(false);setAuthExpired(_isAuthError(e));setLoadError(true);setStorageReady(true);}
+            return;
+          }
         }
       }else{
         for(const[k,setter] of Object.entries(keyToSetter)){
@@ -11419,14 +11468,24 @@ export default function App(){
     // Signed in but not linked to any studio (onboarding comes in phase 2)
     if(studioId==="none")return <StudioOnboarding defaultName={session?.user?.user_metadata?.studio_name||""} onCreated={id=>{lastStudioIdRef.current=id;lastStudioUserRef.current=userId;try{localStorage.setItem("resolvedStudio:"+userId,id);}catch(_){}setStudioIdModule(id);setStudioId(id);}}/>;
     // Cloud load failed — block the app so stale/seed data can't be saved over good cloud data
-    if(loadError)return <div style={{display:"flex",alignItems:"center",justifyContent:"center",minHeight:"100vh",background:CREAM,fontFamily:"'Poppins',sans-serif",padding:20}}>
+    if(loadError){
+      const retry=()=>{setLoadError(false);setAuthExpired(false);setStorageReady(false);setLoadNonce(n=>n+1);};
+      const logInAgain=()=>{setLoadError(false);setAuthExpired(false);try{supabase.auth.signOut();}catch(_){}};
+      return <div style={{display:"flex",alignItems:"center",justifyContent:"center",minHeight:"100vh",background:CREAM,fontFamily:"'Poppins',sans-serif",padding:20}}>
       <div style={{maxWidth:420,textAlign:"center",background:WHITE,border:`1px solid ${BD}`,borderRadius:RADIUS,padding:"32px 30px",boxShadow:SHADOW}}>
         <div style={{fontSize:32,marginBottom:12}}>⚠️</div>
-        <div style={{fontSize:17,fontWeight:800,color:INK,marginBottom:8}}>Couldn't load your data</div>
-        <div style={{fontSize:13,color:WG,lineHeight:1.6,marginBottom:22}}>We couldn't reach the cloud, so the app is paused to protect your saved data from being overwritten. Check your connection and try again.</div>
-        <Btn onClick={()=>{setLoadError(false);setStorageReady(false);setLoadNonce(n=>n+1);}}>Retry</Btn>
+        <div style={{fontSize:17,fontWeight:800,color:INK,marginBottom:8}}>{authExpired?"Please log in again":"Couldn't load your data"}</div>
+        <div style={{fontSize:13,color:WG,lineHeight:1.6,marginBottom:22}}>{authExpired
+          ?"Your session expired, so the app paused to keep your saved data safe. Log in again to pick up right where you left off."
+          :"We couldn't reach the cloud, so the app is paused to protect your saved data from being overwritten. Check your connection and try again."}</div>
+        <div style={{display:"flex",gap:10,justifyContent:"center"}}>
+          {authExpired
+            ?<><Btn onClick={logInAgain}>Log in again</Btn><Btn ghost onClick={retry}>Retry</Btn></>
+            :<><Btn onClick={retry}>Retry</Btn><Btn ghost onClick={logInAgain}>Log in again</Btn></>}
+        </div>
       </div>
     </div>;
+    }
     // Data still loading — hold on a spinner rather than flash seed/placeholder figures
     // (e.g. wrong "balance owing by job" for a moment before real data arrives).
     if(!storageReady)return <div style={{display:"flex",alignItems:"center",justifyContent:"center",minHeight:"100vh",background:CREAM,fontFamily:"'Poppins',sans-serif",color:WG,fontSize:14}}>Loading…</div>;
