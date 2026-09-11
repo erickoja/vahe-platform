@@ -1007,11 +1007,11 @@ function buildClientEmailHtml({biz,clientName,message,ctaLabel,linkUrl,reviewUrl
     +`</div>`;
 }
 const isEmail=x=>/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(x||"").trim());
-async function sendClientEmail({to,cc,replyTo,fromName,subject,html}){
+async function sendClientEmail({to,cc,replyTo,fromName,subject,html,attachments}){
   if(!supabaseEnabled||!supabase) throw new Error("Email needs the cloud — you're in local-only mode.");
   const _bare=(String(to||"").trim().match(/<([^>]+)>/)||[,String(to||"").trim()])[1].trim();
   if(!isEmail(_bare)) throw new Error(`That email address doesn't look valid: "${String(to||"").trim()||"(blank)"}". Check the client's email and try again.`);
-  const{data,error}=await supabase.functions.invoke(SEND_EMAIL_FN,{body:{to,cc,replyTo,fromName,subject,html}});
+  const{data,error}=await supabase.functions.invoke(SEND_EMAIL_FN,{body:{to,cc,replyTo,fromName,subject,html,attachments}});
   if(error){
     // invoke() only gives a generic "non-2xx" message; the function returns the real reason in its
     // JSON body ({error:"…"}), so read it from the error's response context and surface that.
@@ -1236,8 +1236,23 @@ function SafekeepingEmailButton({record,client,biz,isMobile}){
         +clause("Care &amp; liability",`${bn} will take reasonable care of the item(s) while in its custody. The client is encouraged to maintain their own insurance; to the extent permitted by law, ${bn}'s liability is limited to the declared value shown above.`)
         +`<p style="font-size:11.5px;line-height:1.55;color:#999999;margin:6px 0 0;font-style:italic">This receipt is issued electronically by ${bn} and is valid without a signature.</p>`
         +`</div>`;
-      const html=buildClientEmailHtml({biz,clientName,message,detailsHtml,extraHtml:noteHtml+termsHtml});
-      await sendClientEmail({to:email.trim(),replyTo:biz?.email||"",fromName:biz?.name||"Your jeweller",subject:subject.trim()||defSubject,html});
+      // Photos on intake: pull them in as base64 and attach with a content_id so the HTML can embed
+      // them inline via <img src="cid:…">. Expiring signed URLs and Gmail-stripped data-URIs are both
+      // unreliable in email, so real attachments are the only robust path. Skip any that won't decode.
+      const photos=await jobImagesForPrint(r,6);
+      const attachments=[];
+      photos.forEach((p,i)=>{
+        const m=/^data:(image\/[a-zA-Z0-9.+-]+);base64,(.*)$/.exec(p.url||"");
+        if(!m)return;
+        const cid=`sk-photo-${i+1}`;
+        const ext=(m[1].split("/")[1]||"jpg").replace("jpeg","jpg").replace(/[^a-z0-9]/gi,"")||"jpg";
+        attachments.push({filename:`${cid}.${ext}`,content:m[2],content_id:cid});
+      });
+      const photosHtml=attachments.length
+        ?`<div style="margin:0 0 22px"><div style="font-size:11px;font-weight:700;color:#888888;text-transform:uppercase;letter-spacing:.08em;margin:0 0 10px">Photos on intake</div>${attachments.map(a=>`<img src="cid:${a.content_id}" alt="Item photo" width="150" style="width:150px;height:auto;border:1px solid #eeeeee;border-radius:8px;margin:0 8px 8px 0;display:inline-block;vertical-align:top"/>`).join("")}</div>`
+        :"";
+      const html=buildClientEmailHtml({biz,clientName,message,detailsHtml,extraHtml:photosHtml+noteHtml+termsHtml});
+      await sendClientEmail({to:email.trim(),replyTo:biz?.email||"",fromName:biz?.name||"Your jeweller",subject:subject.trim()||defSubject,html,attachments});
       setSent(true);setTimeout(()=>setOpen(false),1400);
     }catch(e){setErr(e?.message||"Couldn't send the email.");}
     setBusy(false);
@@ -1251,7 +1266,7 @@ function SafekeepingEmailButton({record,client,biz,isMobile}){
           <Input label="To" value={email} onChange={setEmail} placeholder="client@example.com"/>
           <Input label="Subject" value={subject} onChange={setSubject}/>
           <Input label="Message" value={message} onChange={setMessage} as="textarea" rows={4}/>
-          <div style={{fontSize:12,color:WG,margin:"4px 0 14px",lineHeight:1.5}}>A summary of the item{many?"s":""} held (received date, expected return and declared value) plus your full safekeeping terms are added automatically below your message, so the email stands on its own as the receipt — issued digitally, no signature needed. Sent from <strong style={{color:INK}}>{biz?.name||"your studio"}</strong>{biz?.email?`; replies go to ${biz.email}`:""}. A printable signed copy is still available under <strong style={{color:INK}}>Print / Save PDF</strong>.</div>
+          <div style={{fontSize:12,color:WG,margin:"4px 0 14px",lineHeight:1.5}}>A summary of the item{many?"s":""} held (received date, expected return and declared value){(r.images||[]).length?`, the ${(r.images||[]).length} intake photo${(r.images||[]).length!==1?"s":""}`:""} plus your full safekeeping terms are added automatically below your message, so the email stands on its own as the receipt — issued digitally, no signature needed. Sent from <strong style={{color:INK}}>{biz?.name||"your studio"}</strong>{biz?.email?`; replies go to ${biz.email}`:""}. A printable signed copy is still available under <strong style={{color:INK}}>Print / Save PDF</strong>.</div>
           {err&&<div style={{fontSize:13,color:DANGER,marginBottom:12,lineHeight:1.5}}>{err}</div>}
           <div style={{display:"flex",justifyContent:"flex-end",gap:10}}>
             <Btn sm ghost onClick={()=>setOpen(false)}>Cancel</Btn>
