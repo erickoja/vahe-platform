@@ -10413,6 +10413,7 @@ function GemCustody({custody,setCustody,clients,biz}){
   const[modalUrls,setModalUrls]=useState({});   // path → signed url for the open record's photos
   const[busy,setBusy]=useState(false);
   const[imgErr,setImgErr]=useState("");
+  const[zoom,setZoom]=useState(null);           // full-size photo URL shown in the lightbox
 
   const openNew=()=>setDraft(blank());
   const openEdit=r=>setDraft(JSON.parse(JSON.stringify(r)));   // deep clone so item edits don't mutate state
@@ -10568,8 +10569,8 @@ function GemCustody({custody,setCustody,clients,biz}){
       <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:14}}>
         <Input label="Existing client" value={draft.clientId} onChange={pickClient} as="select" options={[{value:"",label:"— Not a saved client —"},...clients.map(c=>({value:c.id,label:clientDisplayName(c)}))]}/>
         <Input label="Client name (on receipt)" value={draft.clientName} onChange={setF("clientName")} placeholder="Jane Smith"/>
-        <Input label="Client contact (optional)" value={draft.clientContact} onChange={setF("clientContact")} placeholder="email · phone"/>
-        <div/>
+        <div style={{gridColumn:"1 / -1",fontSize:11.5,color:WG,marginTop:-8,marginBottom:2,lineHeight:1.5}}>Pick a saved client to fill the name and contact automatically. Edit the name only if the receipt should read differently.</div>
+        <div style={{gridColumn:"1 / -1"}}><Input label="Client contact (optional)" value={draft.clientContact} onChange={setF("clientContact")} placeholder="email · phone — the email is used when you email this receipt"/></div>
         <Input label="Date received" value={draft.dateReceived} onChange={setF("dateReceived")} type="date"/>
         <Input label="Expected return (optional)" value={draft.expectedReturn} onChange={setF("expectedReturn")} type="date"/>
       </div>
@@ -10584,11 +10585,11 @@ function GemCustody({custody,setCustody,clients,biz}){
       </div>
       {draft.items.map((it,i)=>{
         const piece=it.kind==="piece";
-        return <div key={it.id} style={{border:`1px solid ${BD}`,borderRadius:5,padding:"14px 16px",marginBottom:12,background:PARCH}}>
+        return <div key={it.id} style={{border:`1px solid ${BD}`,borderRadius:10,padding:"14px 16px",marginBottom:12,background:PARCH}}>
           <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10,gap:10,flexWrap:"wrap"}}>
             <div style={{display:"flex",alignItems:"center",gap:8,flexWrap:"wrap"}}>
               <span style={{fontSize:11,fontWeight:700,color:WG,textTransform:"uppercase",letterSpacing:"0.06em"}}>{piece?"Piece":"Stone"} {i+1}</span>
-              <div style={{display:"inline-flex",border:`1px solid ${BD}`,borderRadius:3,overflow:"hidden"}}>
+              <div style={{display:"inline-flex",border:`1px solid ${BD}`,borderRadius:8,overflow:"hidden"}}>
                 {[["stone","Loose stone"],["piece","Jewellery piece"]].map(([k,lbl])=>(
                   <button key={k} onClick={()=>setKind(it.id,k)} style={{padding:"4px 10px",border:"none",background:it.kind===k?INK:WHITE,color:it.kind===k?WHITE:INK,fontSize:10.5,fontWeight:700,letterSpacing:"0.04em",cursor:"pointer",fontFamily:"inherit"}}>{lbl}</button>
                 ))}
@@ -10620,34 +10621,40 @@ function GemCustody({custody,setCustody,clients,biz}){
               </div>}
         </div>;
       })}
+      {draft.items.length>1&&<div style={{display:"flex",justifyContent:"flex-end",alignItems:"baseline",gap:10,margin:"0 2px 8px",fontSize:12.5,color:WG}}>Total declared value <strong style={{color:INK,fontSize:14}}>{fmtR(draft.items.reduce((s,it)=>s+(Number(it.estValue)||0),0))}</strong></div>}
 
       <label style={{...SS.lbl,marginTop:6,marginBottom:0}}>Photos of the item(s)</label>
       {!imagesEnabled()
         ? <div style={{fontSize:12,color:WG,lineHeight:1.55,marginTop:4}}>Photo uploads need the cloud backend — sign in on the deployed app to add photos.</div>
         : <div style={{marginTop:6}}>
-            <label style={{display:"inline-block",background:GOLD,color:WHITE,borderRadius:4,padding:"7px 15px",fontSize:12,fontWeight:700,cursor:busy?"default":"pointer",letterSpacing:"0.02em",opacity:busy?0.6:1}}>
+            <label style={{display:"inline-block",background:GOLD,color:WHITE,borderRadius:8,padding:"7px 15px",fontSize:12,fontWeight:700,cursor:busy?"default":"pointer",letterSpacing:"0.02em",opacity:busy?0.6:1}}>
               {busy?"Uploading…":"+ Upload photos"}
               <input type="file" accept="image/*" multiple disabled={busy} onChange={e=>{onFiles(e.target.files);e.target.value="";}} style={{display:"none"}}/>
             </label>
             {imgErr&&<div style={{color:DANGER,fontSize:12,marginTop:8}}>{imgErr}</div>}
             {(draft.images||[]).length>0&&<div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(84px,1fr))",gap:8,marginTop:10}}>
               {(draft.images||[]).map(img=>(
-                <div key={img.id} style={{position:"relative",aspectRatio:"1 / 1",borderRadius:4,overflow:"hidden",border:`1px solid ${BD}`,background:`${PARCH} center/cover no-repeat`,backgroundImage:modalUrls[img.path]?`url(${modalUrls[img.path]})`:"none"}}>
+                <div key={img.id} onClick={()=>modalUrls[img.path]&&setZoom(modalUrls[img.path])} title={modalUrls[img.path]?"View full size":""} style={{position:"relative",aspectRatio:"1 / 1",borderRadius:8,overflow:"hidden",border:`1px solid ${BD}`,cursor:modalUrls[img.path]?"zoom-in":"default",background:`${PARCH} center/cover no-repeat`,backgroundImage:modalUrls[img.path]?`url(${modalUrls[img.path]})`:"none"}}>
                   {!modalUrls[img.path]&&<span style={{position:"absolute",inset:0,display:"flex",alignItems:"center",justifyContent:"center",fontSize:10,color:WG}}>loading…</span>}
-                  <button onClick={()=>removeImg(img)} title="Remove photo" style={{position:"absolute",top:3,right:3,width:20,height:20,borderRadius:"50%",border:"none",background:"rgba(0,0,0,0.55)",color:WHITE,fontSize:13,lineHeight:1,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",padding:0}}>×</button>
+                  <button onClick={e=>{e.stopPropagation();removeImg(img);}} title="Remove photo" style={{position:"absolute",top:3,right:3,width:20,height:20,borderRadius:"50%",border:"none",background:"rgba(0,0,0,0.55)",color:WHITE,fontSize:13,lineHeight:1,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",padding:0}}>×</button>
                 </div>
               ))}
             </div>}
           </div>}
 
       <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",gap:12,marginTop:18,flexWrap:"wrap"}}>
-        <div>{custody.some(r=>r.id===draft.id)&&<Btn sm danger onClick={()=>del(draft.id)}>Delete</Btn>}</div>
+        <div>{custody.some(r=>r.id===draft.id)&&<button onClick={()=>del(draft.id)} style={{background:"none",border:`1px solid ${DANGER}`,color:DANGER,borderRadius:10,padding:"8px 17px",fontSize:12.5,fontWeight:600,cursor:"pointer",fontFamily:"inherit",letterSpacing:"0.01em"}}>Delete</button>}</div>
         <div style={{display:"flex",gap:10}}>
           <Btn sm ghost onClick={close}>Cancel</Btn>
           <Btn sm onClick={commit}>Save receipt</Btn>
         </div>
       </div>
     </Modal>}
+
+    {/* Photo lightbox — click a thumbnail in the editor to check it full size (sits above the modal) */}
+    {zoom&&<div onClick={()=>setZoom(null)} style={{position:"fixed",inset:0,zIndex:1000,background:"rgba(0,0,0,0.82)",display:"flex",alignItems:"center",justifyContent:"center",padding:24,cursor:"zoom-out"}}>
+      <img src={zoom} alt="Item photo" style={{maxWidth:"100%",maxHeight:"100%",borderRadius:8,boxShadow:"0 10px 40px rgba(0,0,0,0.5)"}}/>
+    </div>}
   </div>;
 }
 
