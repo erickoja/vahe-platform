@@ -2507,10 +2507,11 @@ const SS={inp:{width:"100%",padding:"11px 14px",borderRadius:10,border:`1px soli
 
 
 function StoneMarkupSummary({calc}){
+  const isMobile=useIsMobile();
   if(!calc)return null;
   if(!calc.bracket&&!calc.overridden)return <div style={{background:"#FFF3CD",border:"1px solid #F0C040",borderRadius:6,padding:"12px 16px",fontSize:13,color:WARN}}>Stone cost is outside your stone markup table range — check your table in Settings, or set a manual multiplier below.</div>;
   return <div style={{background:PARCH,border:`1px solid ${BD}`,borderRadius:4,overflow:"hidden"}}>
-    <div style={{display:"grid",gridTemplateColumns:"repeat(5,1fr)",borderBottom:`1px solid ${BD}`}}>
+    <div style={{display:"grid",gridTemplateColumns:isMobile?"repeat(2,1fr)":"repeat(5,1fr)",borderBottom:`1px solid ${BD}`}}>
       {[
         ["Your cost",fmt(calc.totalCost),WG],
         ["Bracket",calc.bracket?`${fmt(calc.bracket.low)}–${fmt(calc.bracket.high)}`:"—",WG],
@@ -5477,14 +5478,14 @@ function QuoteBuilder({jobId:jobIdProp,editQuoteId,stockId,stock,setStock,jobs,c
       {stoneAccents.length>0&&<div style={{borderTop:`1px solid ${BD}`,margin:"8px 0 20px",paddingTop:20}}>
         <div style={{fontSize:11,fontWeight:700,color:"#96627C",textTransform:"uppercase",letterSpacing:"0.08em",display:"flex",alignItems:"center"}}>Accent stones on stone markup<InfoDot text="Small / melee stones priced on your stone markup (cost × tier + tax), like the centre stone — separate from the jewellery markup. Switch one to 'Mfg markup' to fold it into the jewellery costs instead."/></div>
         <div style={{fontSize:11,color:WG,margin:"3px 0 12px",lineHeight:1.55}}>These are priced like the centre stone — your cost × the natural/lab stone tier + {TAX_LABEL} — not the jewellery markup. Switch one back to <strong>Mfg markup</strong> to fold it into the jewellery costs above.</div>
-        <div style={{display:"grid",gridTemplateColumns:"1.3fr 1fr 150px 110px 36px",gap:8,marginBottom:6,padding:"0 2px"}}>
+        {!isMobile&&<div style={{display:"grid",gridTemplateColumns:"1.3fr 1fr 150px 110px 36px",gap:8,marginBottom:6,padding:"0 2px"}}>
           {["Stone","Notes / detail","Markup","Your cost",""].map(h=><div key={h} style={{fontSize:10,fontWeight:700,color:WG,textTransform:"uppercase",letterSpacing:"0.04em"}}>{h}</div>)}
-        </div>
+        </div>}
         {stoneAccents.map(li=>{
           const cost=Number(li.costLow)||0;
           const mode=li.markupMode||"mfg";
           const sc=cost>0?calcStoneQuote([{cost:li.costLow}],mode==="lab"?labTable:natTable):null;
-          return <div key={li.id} style={{display:"grid",gridTemplateColumns:"1.3fr 1fr 150px 110px 36px",gap:8,marginBottom:8,alignItems:"center"}}>
+          return <div key={li.id} style={{display:"grid",gridTemplateColumns:isMobile?"1fr 1fr":"1.3fr 1fr 150px 110px 36px",gap:8,marginBottom:isMobile?14:8,paddingBottom:isMobile?12:0,borderBottom:isMobile?`1px solid ${BD}`:"none",alignItems:"center"}}>
             <div style={{fontSize:13,fontWeight:600,color:INK,padding:"7px 0"}}>{li.description||<span style={{color:WG,fontStyle:"italic"}}>—</span>}
               <div style={{fontSize:10,color:sc?(sc.bracket?"#96627C":WARN):WG,marginTop:1}}>{sc?(sc.bracket?`→ ${fmtR(sc.clientTotal)} to client (×${sc.mult} + ${TAX_LABEL})`:"cost outside stone table"):""}</div>
             </div>
@@ -9633,6 +9634,7 @@ function Appointments({appointments,setAppointments,clients,setClients,jobs=[],s
   const[mode,setMode]=useState("list");     // list | week | month
   const[anchor,setAnchor]=useState(localToday());
   const[showPast,setShowPast]=useState(false);
+  const isMobile=useIsMobile();
 
   const save=(form,id)=>{
     if(!guardEdit())return;
@@ -9749,10 +9751,10 @@ function Appointments({appointments,setAppointments,clients,setClients,jobs=[],s
         <div style={{fontSize:15,fontWeight:800,color:INK,marginLeft:6}}>{fmtDayShort(ws)} – {fmtDayShort(days[6])}</div>
       </div>
       <ApptLegend/>
-      <div style={{display:"grid",gridTemplateColumns:"repeat(7,1fr)",gap:8,alignItems:"start"}}>
+      <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"repeat(7,1fr)",gap:8,alignItems:"start"}}>
         {days.map(d=>{
           const isT=d===tISO;const list=byDay[d]||[];
-          return <div key={d} onClick={()=>setModal({prefillDate:d})} style={{background:WHITE,border:`1px solid ${isT?GOLD:BD_SOFT}`,borderRadius:5,minHeight:160,padding:"10px 9px",cursor:"pointer"}}>
+          return <div key={d} onClick={()=>setModal({prefillDate:d})} style={{background:WHITE,border:`1px solid ${isT?GOLD:BD_SOFT}`,borderRadius:5,minHeight:isMobile?"auto":160,padding:"10px 9px",cursor:"pointer"}}>
             <div style={{fontSize:11,fontWeight:700,textTransform:"uppercase",letterSpacing:"0.04em",color:isT?GOLD:WG,marginBottom:8}}>{parseISO(d).toLocaleDateString(LOCALE,{weekday:"short"})} {parseISO(d).getDate()}</div>
             {list.map(a=><ApptChip key={a.id} a={a} clients={clients} onClick={()=>setModal(a)}/>)}
           </div>;
@@ -10933,8 +10935,10 @@ function StockBoard({stock,setStock,setView}){
   </div>;
 }
 
-// True when the viewport is phone-width. Drives the shell's drawer nav + tighter padding.
-function useIsMobile(bp=768){
+// True when the viewport is phone or small-tablet width (default 900px, so iPad portrait gets the
+// roomier stacked layout too). Drives the shell's drawer nav + tighter padding. Wider tables pass
+// a larger bp (e.g. 1024) to stack even sooner.
+function useIsMobile(bp=900){
   const[m,setM]=useState(typeof window!=="undefined"&&window.innerWidth<bp);
   useEffect(()=>{
     const on=()=>setM(window.innerWidth<bp);
@@ -11492,21 +11496,25 @@ export default function App(){
   }
 
   return <div style={{display:"flex",minHeight:"100vh",background:CREAM,fontFamily:"'Poppins',sans-serif"}}>
-    {/* Mobile Phase 2: collapse the common multi-column inline grids to a single column below
-        768px. The [style*=…] selector matches React's serialized inline style, and !important
-        beats the (non-important) inline value — so no per-element edits are needed. Grids that
-        start "1fr 1fr…" (2/3-col forms + most tile rows) and the 220px sidebar splits collapse;
-        fixed-width data-table rows keep their columns (those get horizontal scroll in Phase 3). */}
+    {/* Collapse the common multi-column inline grids as the viewport narrows. The [style*=…]
+        selector matches React's serialized inline style, and !important beats the (non-important)
+        inline value, so no per-element edits are needed. Below 900px the shell switches to the
+        drawer + fixed top bar (see useIsMobile), so .mainpad gains a top offset for the bar and the
+        grids drop to a single column. Grids starting "1fr 1fr…" (2/3-col forms + tile rows), the
+        220px sidebar splits, and repeat(3,1fr) forms collapse; fixed-width data tables keep their
+        columns (those stack via their own isNarrow card layout, or scroll inside .mainpad). */}
     <style>{`
       .mainpad{padding:40px 56px}
-      @media(max-width:1080px){.mainpad{padding:30px 30px}}
-      @media(max-width:900px){
+      @media(max-width:1080px){
+        .mainpad{padding:30px 30px}
         [style*="grid-template-columns: 1fr 1fr 1fr"]{grid-template-columns:1fr 1fr!important}
       }
-      @media(max-width:767px){
+      @media(max-width:899.98px){
         .mainpad{padding:68px 14px 24px}
         [style*="grid-template-columns: 1fr 1fr"]{grid-template-columns:1fr!important}
         [style*="grid-template-columns: 220px 1fr"]{grid-template-columns:1fr!important}
+        [style*="grid-template-columns: repeat(3, 1fr)"]{grid-template-columns:1fr!important}
+        [style*="grid-template-columns: repeat(3,1fr)"]{grid-template-columns:1fr!important}
       }
     `}</style>
     {/* Mobile top bar — hamburger opens the nav drawer (desktop keeps the fixed sidebar) */}
