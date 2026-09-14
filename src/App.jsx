@@ -1758,7 +1758,7 @@ const tradeRepairUninvoiced=(job,client,invoices)=>
 const invoicePaidByPayments=(inv,payments,invoices)=>{
   if(!inv||inv.status==="Paid")return inv?.status==="Paid";
   if((invoices||[]).filter(i=>i.jobId===inv.jobId).length>1)return false;
-  const paid=(payments||[]).filter(p=>p.jobId===inv.jobId&&p.status==="Received").reduce((s,p)=>s+Number(p.amount),0);
+  const paid=(payments||[]).filter(p=>p.jobId===inv.jobId&&p.status==="Received").reduce((s,p)=>s+Number(p.amount||0),0);
   return Number(inv.totalIncGST)>0&&paid>=Number(inv.totalIncGST)-0.5;
 };
 const invoiceEffectiveStatus=(inv,payments,invoices)=>{
@@ -1909,7 +1909,7 @@ const resyncInvoiceWithQuotes=(inv,allQuotes,job,markupTable)=>{
 const buildProposalSnapshot=({proposal,job,client,biz,quotes,markupTable,payments,photoMap})=>{
   const validityDays=biz?.quoteValidityDays||30;
   const created=proposal.createdAt||today();
-  const paidTotal=(payments||[]).filter(p=>p.jobId===job?.id&&p.status==="Received").reduce((s,p)=>s+Number(p.amount),0);
+  const paidTotal=(payments||[]).filter(p=>p.jobId===job?.id&&p.status==="Received").reduce((s,p)=>s+Number(p.amount||0),0);
   const optPhotos=proposal.optionPhotos||{};
   const optVideos=proposal.optionVideos||{};
   const options=(proposal.optionIds||[]).map(qid=>{
@@ -1957,7 +1957,7 @@ const buildProposalSnapshot=({proposal,job,client,biz,quotes,markupTable,payment
 // same public table (kind:"invoice"). Re-written each time the link is shared so it
 // reflects the invoice's current totals/balance.
 const buildInvoiceSnapshot=({inv,job,client,biz,payments})=>{
-  const paidTotal=(payments||[]).filter(p=>p.jobId===inv.jobId&&p.status==="Received").reduce((s,p)=>s+Number(p.amount),0);
+  const paidTotal=(payments||[]).filter(p=>p.jobId===inv.jobId&&p.status==="Received").reduce((s,p)=>s+Number(p.amount||0),0);
   const invTradeIn=Number(inv.tradeInCredit)||0;const balance=Math.max(0,inv.totalIncGST-invTradeIn-paidTotal);
   const requestAmount=Number(inv.requestAmount)||0;
   const staged=requestAmount>0;
@@ -1992,7 +1992,9 @@ const buildInvoiceSnapshot=({inv,job,client,biz,payments})=>{
 };
 
 // ── Invoice CSV export (shared by the Invoices list range-export and single-invoice export) ──
-const _csvCell=v=>{const s=String(v==null?"":v);return /[",\r\n]/.test(s)?'"'+s.replace(/"/g,'""')+'"':s;};
+// Quote separators/newlines, and neutralise spreadsheet formula injection: a cell that starts with
+// = + - @ (or tab/CR) is prefixed with an apostrophe so Excel/Sheets treat it as text, not a formula.
+const _csvCell=v=>{let s=String(v==null?"":v);if(/^[=+\-@\t\r]/.test(s))s="'"+s;return /[",\r\n]/.test(s)?'"'+s.replace(/"/g,'""')+'"':s;};
 const invoiceCsvHeader=()=>["Invoice","Date","Customer","Description",`Subtotal (ex ${TAX_LABEL})`,TAX_LABEL,`Total (inc ${TAX_LABEL})`,"Trade-in credit","Amount received","Balance","Status"];
 // Per-invoice paid/balance: distribute each job's received cash across its invoices oldest-first
 // (payments are job-level), so figures reconcile with the summary tiles.
@@ -2000,7 +2002,7 @@ const invoicePaidBalanceMap=(invoices,payments)=>{
   const paidMap={},balMap={},byJob={};
   (invoices||[]).forEach(i=>{(byJob[i.jobId]=byJob[i.jobId]||[]).push(i);});
   Object.keys(byJob).forEach(jid=>{
-    let cash=(payments||[]).filter(p=>p.jobId===jid&&p.status==="Received").reduce((s,p)=>s+Number(p.amount),0);
+    let cash=(payments||[]).filter(p=>p.jobId===jid&&p.status==="Received").reduce((s,p)=>s+Number(p.amount||0),0);
     byJob[jid].slice().sort((a,b)=>String(a.date).localeCompare(String(b.date))).forEach(inv=>{
       const gross=Number(inv.totalIncGST)||0,afterTradeIn=Math.max(0,gross-(Number(inv.tradeInCredit)||0));
       const cashApplied=Math.min(cash,afterTradeIn);cash-=cashApplied;
@@ -2077,7 +2079,7 @@ const accountLedger=(client,jobs,invoices,payments)=>{
     const ti=Number(inv.tradeInCredit)||0;
     if(ti>0)entries.push({date:d,kind:"tradein",id:inv.id+"_ti",jobId:inv.jobId,invoiceId:inv.id,ref:inv.number||"",desc:"Trade-in credit"+(inv.tradeInNote?" · "+inv.tradeInNote:""),po:"",charge:0,credit:ti});
   });
-  accPay.forEach(p=>entries.push({date:String(p.date||"").slice(0,10),kind:"payment",id:p.id,jobId:p.jobId,ref:"",desc:"Payment received"+(p.method?" · "+p.method:""),po:p.notes||"",charge:0,credit:Number(p.amount)||0}));
+  accPay.forEach(p=>entries.push({date:String(p.date||"").slice(0,10),kind:"payment",id:p.id,jobId:p.jobId,ref:"",desc:"Payment received"+(p.method?" · "+p.method:""),po:p.notes||"",charge:0,credit:Number(p.amount||0)||0}));
   const order={invoice:0,tradein:1,payment:2};
   entries.sort((a,b)=>String(a.date).localeCompare(String(b.date))||(order[a.kind]-order[b.kind]));
   let run=0;entries.forEach(e=>{run+=e.charge-e.credit;e.balance=run;});
@@ -3297,7 +3299,7 @@ function Dashboard({clients,jobs,quotes,payments,invoices,appointments=[],propos
     const sent=jp.filter(p=>p.status==="sent");
     if(!sent.length||jp.some(p=>p.status==="accepted"))return false;
     if(quotes.some(q=>q.jobId===j.id&&q.status==="Approved"))return false;
-    const cash=payments.filter(p=>p.jobId===j.id&&p.status==="Received").reduce((s,p)=>s+Number(p.amount),0);
+    const cash=payments.filter(p=>p.jobId===j.id&&p.status==="Received").reduce((s,p)=>s+Number(p.amount||0),0);
     if(cash>0||jobTradeInCredit(j,quotes)>0)return false;
     return sent.every(propExpired);
   };
@@ -3313,7 +3315,7 @@ function Dashboard({clients,jobs,quotes,payments,invoices,appointments=[],propos
   const PROD_STAGES=["Item ordered","On the bench","Design / CAD","3D printing","Casting","Manufacturing","Stone setting","Polishing / Finish","QC check"];
   const daysAgo=d=>{const n=Math.round((Date.now()-parseISO(d).getTime())/86400000);return n<=0?"today":n===1?"1 day ago":`${n} days ago`;};
   const activeRanked=active.map(j=>{
-    const cash=payments.filter(p=>p.jobId===j.id&&p.status==="Received").reduce((s,p)=>s+Number(p.amount),0);
+    const cash=payments.filter(p=>p.jobId===j.id&&p.status==="Received").reduce((s,p)=>s+Number(p.amount||0),0);
     const tradeIn=jobTradeInCredit(j,quotes);            // gold trade-in credit — also value received
     const received=cash+tradeIn;                         // "money in" = cash + trade-in
     const jp=proposals.filter(p=>p.jobId===j.id);
@@ -3352,12 +3354,12 @@ function Dashboard({clients,jobs,quotes,payments,invoices,appointments=[],propos
   // Cash-received view: actual payments received this month (deposits included), regardless of invoicing
   // Value received this month = cash payments dated this month + gold trade-in credits on approved
   // quotes whose most recent activity was this month (trade-ins have no date of their own).
-  const monthReceived=payments.filter(p=>p.status==="Received"&&p.date?.startsWith(thisMonth)).reduce((s,p)=>s+Number(p.amount),0)
+  const monthReceived=payments.filter(p=>p.status==="Received"&&p.date?.startsWith(thisMonth)).reduce((s,p)=>s+Number(p.amount||0),0)
     +quotes.filter(q=>q.status==="Approved"&&(Number(q.tradeInCredit)||0)>0&&String(q.updatedAt||q.createdAt||"").slice(0,7)===thisMonth).reduce((s,q)=>s+Number(q.tradeInCredit),0);
   const balanceOwing=jobs.map(j=>{
     if(!jobHasCharge(j,quotes))return null;
     const total=jobChargeTotal(j,quotes,markupTable,invoices);
-    const paid=payments.filter(p=>p.jobId===j.id&&p.status==="Received").reduce((s,p)=>s+Number(p.amount),0);
+    const paid=payments.filter(p=>p.jobId===j.id&&p.status==="Received").reduce((s,p)=>s+Number(p.amount||0),0);
     const bal=total-paid-jobTradeInCredit(j,quotes);   // trade-in is a credit received
     return bal>1?{job:j,balance:bal}:null;
   }).filter(Boolean);
@@ -3365,7 +3367,7 @@ function Dashboard({clients,jobs,quotes,payments,invoices,appointments=[],propos
   const outstanding=balanceOwing.reduce((s,b)=>s+b.balance,0);
 
   // ── Revenue trend (6 months) + month-over-month comparison ──
-  const receivedForMonth=mk=>payments.filter(p=>p.status==="Received"&&p.date?.startsWith(mk)).reduce((s,p)=>s+Number(p.amount),0)
+  const receivedForMonth=mk=>payments.filter(p=>p.status==="Received"&&p.date?.startsWith(mk)).reduce((s,p)=>s+Number(p.amount||0),0)
     +quotes.filter(q=>q.status==="Approved"&&(Number(q.tradeInCredit)||0)>0&&String(q.updatedAt||q.createdAt||"").slice(0,7)===mk).reduce((s,q)=>s+Number(q.tradeInCredit),0);
   const revSeries=[...Array(6)].map((_,i)=>{const d=new Date();d.setDate(1);d.setMonth(d.getMonth()-(5-i));const mk=d.toISOString().slice(0,7);return {mk,label:new Date(mk+"-01").toLocaleDateString(LOCALE,{month:"short"}),value:receivedForMonth(mk)};});
   const lastMonthReceived=revSeries.length>1?revSeries[revSeries.length-2].value:0;
@@ -3393,7 +3395,7 @@ function Dashboard({clients,jobs,quotes,payments,invoices,appointments=[],propos
     const c=clients.find(x=>x.id===j.clientId);
     const sentQs=quotes.filter(q=>q.jobId===j.id&&q.status==="Sent"&&(!q.validUntil||String(q.validUntil)>=today()));
     const approved=jobHasCharge(j,quotes);
-    const paid=approved?payments.filter(p=>p.jobId===j.id&&p.status==="Received").reduce((s,p)=>s+Number(p.amount),0)+jobTradeInCredit(j,quotes):0;
+    const paid=approved?payments.filter(p=>p.jobId===j.id&&p.status==="Received").reduce((s,p)=>s+Number(p.amount||0),0)+jobTradeInCredit(j,quotes):0;
     const detail=approved?"approved total":sentQs.length>1?`avg of ${sentQs.length} sent quotes`:sentQs.length===1?"1 sent quote":"—";
     return {id:j.id,name:`${j.type} · ${clientDisplayName(c)}`,amt,detail,approved,paid};
   }).filter(x=>x.amt>0).sort((a,b)=>b.amt-a.amt);
@@ -3618,7 +3620,7 @@ function Clients({clients,setClients,jobs,payments,setView,setSelClient,quotes=[
     {filtered.length===0&&<Card><div style={{color:WG,fontSize:14,textAlign:"center",padding:"14px 0"}}>No clients found.</div></Card>}
     {filtered.map(c=>{
       const cj=jobs.filter(j=>j.clientId===c.id);
-      const spent=cj.flatMap(j=>payments.filter(p=>p.jobId===j.id&&p.status==="Received")).reduce((s,p)=>s+Number(p.amount),0);
+      const spent=cj.flatMap(j=>payments.filter(p=>p.jobId===j.id&&p.status==="Received")).reduce((s,p)=>s+Number(p.amount||0),0);
       const received=spent+cj.reduce((s,j)=>s+jobTradeInCredit(j,quotes),0);   // cash + gold trade-in
       return <Card key={c.id} onClick={()=>{setSelClient(c.id);setView("clientDetail");}}>
         <div style={{display:"flex",flexDirection:isMobile?"column":"row",justifyContent:"space-between",alignItems:isMobile?"stretch":"flex-start",gap:isMobile?12:0}}>
@@ -3655,7 +3657,7 @@ function ClientDetail({clientId,clients,setClients,jobs,setJobs,quotes,payments,
   if(!c)return null;
   const addJob=f=>{if(!guardEdit())return;const id=uid();setJobs(p=>{const n=[...p,{...f,id,createdAt:today()}];persist(K.jo,n);return n;});setJobModal(false);setSelJob(id);setView("jobDetail");};
   const cj=jobs.filter(j=>j.clientId===clientId);
-  const spent=cj.flatMap(j=>payments.filter(p=>p.jobId===j.id&&p.status==="Received")).reduce((s,p)=>s+Number(p.amount),0);
+  const spent=cj.flatMap(j=>payments.filter(p=>p.jobId===j.id&&p.status==="Received")).reduce((s,p)=>s+Number(p.amount||0),0);
   const charged=cj.reduce((s,j)=>s+jobChargeTotal(j,quotes,markupTable,invoices),0);
   const tradeIn=cj.reduce((s,j)=>s+jobTradeInCredit(j,quotes),0);
   const owing=Math.max(0,charged-spent-tradeIn);   // trade-in credits count toward what's covered
@@ -3833,7 +3835,7 @@ function Jobs({clients,jobs,setJobs,quotes,setQuotes,payments,setPayments,notes,
     const sent=jp.filter(p=>p.status==="sent");
     if(!sent.length||jp.some(p=>p.status==="accepted"))return false;
     if(quotes.some(q=>q.jobId===j.id&&q.status==="Approved"))return false;
-    const cash=payments.filter(p=>p.jobId===j.id&&p.status==="Received").reduce((s,p)=>s+Number(p.amount),0);
+    const cash=payments.filter(p=>p.jobId===j.id&&p.status==="Received").reduce((s,p)=>s+Number(p.amount||0),0);
     if(cash>0||jobTradeInCredit(j,quotes)>0)return false;
     const vd=biz?.quoteValidityDays||30;
     return sent.every(p=>p.createdAt&&addDays(String(p.createdAt).slice(0,10),vd)<today());
@@ -3868,7 +3870,7 @@ function Jobs({clients,jobs,setJobs,quotes,setQuotes,payments,setPayments,notes,
     if(overdueOnly&&!(j.deadline&&j.deadline<today()&&!jobIsDone(j)))return false;
     if(chaseOnly&&!isChase(j))return false;
     if(frozenOnly&&!jobFrozen(j))return false;
-    if(owingOnly){const total=jobHasCharge(j,quotes)?jobChargeTotal(j,quotes,markupTable,invoices):0;const paid=payments.filter(p=>p.jobId===j.id&&p.status==="Received").reduce((s,p)=>s+Number(p.amount),0)+jobTradeInCredit(j,quotes);if(total-paid<=0.5)return false;}
+    if(owingOnly){const total=jobHasCharge(j,quotes)?jobChargeTotal(j,quotes,markupTable,invoices):0;const paid=payments.filter(p=>p.jobId===j.id&&p.status==="Received").reduce((s,p)=>s+Number(p.amount||0),0)+jobTradeInCredit(j,quotes);if(total-paid<=0.5)return false;}
     if(tf!=="All"&&j.type!==tf)return false;
     if(q){
       const c=clients.find(x=>x.id===j.clientId);
@@ -3895,6 +3897,7 @@ function Jobs({clients,jobs,setJobs,quotes,setQuotes,payments,setPayments,notes,
   const add=f=>{if(!guardEdit())return;setJobs(p=>{const n=[...p,{...f,id:uid(),createdAt:today()}];persist(K.jo,n);return n;});setModal(null);};
   const delJob=(id,e)=>{
     e.stopPropagation();
+    if(!guardEdit())return;
     if(!confirm("Delete this job? This will also remove all related quotes, payments, notes and invoices."))return;
     setJobs(p=>{const n=p.filter(j=>j.id!==id);persist(K.jo,n);return n;});
     setQuotes(p=>{const n=p.filter(q=>q.jobId!==id);persist(K.qu,n);return n;});
@@ -3980,7 +3983,7 @@ function Jobs({clients,jobs,setJobs,quotes,setQuotes,payments,setPayments,notes,
       const c=clients.find(x=>x.id===j.clientId);
       const od=j.deadline&&j.deadline<today()&&!jobIsDone(j);
       const total=jobChargeTotal(j,quotes,markupTable,invoices);
-      const paid=payments.filter(p=>p.jobId===j.id&&p.status==="Received").reduce((s,p)=>s+Number(p.amount),0);
+      const paid=payments.filter(p=>p.jobId===j.id&&p.status==="Received").reduce((s,p)=>s+Number(p.amount||0),0);
       const tradeIn=jobTradeInCredit(j,quotes);            // gold trade-in credit (value received)
       const owing=total-paid-tradeIn;
       const isOverride=Number(j.totalOverride)>0;
@@ -4473,7 +4476,7 @@ function JobDetail({jobId,jobs,setJobs,clients,setClients,quotes,setQuotes,payme
   // Promote the given quote ids to Approved as part of invoicing (no-op for already-approved retail quotes).
   const approveForInvoice=ids=>setQuotes(p=>{const s=new Set(ids);const n=p.map(q=>s.has(q.id)&&q.status!=="Approved"?{...q,status:"Approved"}:q);persist(K.qu,n);return n;});
   const ji=invoices.filter(i=>i.jobId===jobId);
-  const paidTotal=jp.filter(p=>p.status==="Received").reduce((s,p)=>s+Number(p.amount),0);
+  const paidTotal=jp.filter(p=>p.status==="Received").reduce((s,p)=>s+Number(p.amount||0),0);
   const usingOverride=Number(job.totalOverride)>0;
   const jobTotal=jobChargeTotal(job,quotes,markupTable,invoices);
   const jobTradeIn=jobTradeInCredit(job,quotes);            // gold trade-in credit received
@@ -4520,8 +4523,9 @@ function JobDetail({jobId,jobs,setJobs,clients,setClients,quotes,setQuotes,payme
   });
   const addPay=f=>{if(!guardEdit())return;const n=[...payments,{...f,id:uid(),jobId,date:f.date||today()}];setPayments(n);persist(K.pa,n);refreshLinks(n);setPayModal(false);};
   const updatePay=(id,f)=>{if(!guardEdit())return;const n=payments.map(x=>x.id===id?{...x,...f,id,jobId,date:f.date||today()}:x);setPayments(n);persist(K.pa,n);refreshLinks(n);setEditPay(null);};
-  const delPay=id=>{if(!confirm("Delete this payment?"))return;const n=payments.filter(x=>x.id!==id);setPayments(n);persist(K.pa,n);refreshLinks(n);};
+  const delPay=id=>{if(!guardEdit())return;if(!confirm("Delete this payment?"))return;const n=payments.filter(x=>x.id!==id);setPayments(n);persist(K.pa,n);refreshLinks(n);};
   const delJob=()=>{
+    if(!guardEdit())return;
     if(!confirm("Delete this job? This will also remove all related quotes, payments, notes and invoices."))return;
     setJobs(p=>{const n=p.filter(j=>j.id!==jobId);persist(K.jo,n);return n;});
     setQuotes(p=>{const n=p.filter(q=>q.jobId!==jobId);persist(K.qu,n);return n;});
@@ -5917,10 +5921,20 @@ function JobProposals({job,client,quotes,proposals,setProposals,setQuotes,biz,ma
     if(!silent)setChecking("");
     if(error||!data)return;
     if(data.status==="accepted"&&p.status!=="accepted"){
-      const acceptedQuoteId=data.accepted_option;
-      setProposals(prev=>{const n=prev.map(x=>x.id===p.id?{...x,status:"accepted",acceptedQuoteId,acceptedName:data.accepted_name||"",acceptedAt:data.accepted_at||today()}:x);persist(K.pp,n);return n;});
-      // Same safeguard as reconcileAccept: never demote an invoiced quote.
-      setQuotes(prev=>{const n=prev.map(q=>q.id===acceptedQuoteId?{...q,status:"Approved"}:(q.jobId===job.id&&q.status==="Approved"&&!quoteHasInvoice(invoices,q.id)?{...q,status:"Declined"}:q));persist(K.qu,n);return n;});
+      // accepted_option is one id (single) or several comma-joined ids (a multi-option bundle). Mirror the
+      // canonical reconcileAccept handler so accepting a bundle approves EVERY chosen quote, not a phantom
+      // combined id — and only the RIGHT quotes get declined.
+      const acceptedIds=String(data.accepted_option||"").split(",").map(s=>s.trim()).filter(Boolean);
+      const multi=p.selectMode==="multi";
+      setProposals(prev=>{const n=prev.map(x=>x.id===p.id?{...x,status:"accepted",acceptedQuoteId:data.accepted_option,acceptedName:data.accepted_name||"",acceptedAt:data.accepted_at||today()}:x);persist(K.pp,n);return n;});
+      // Approve every accepted quote. Multi: decline only this proposal's non-selected options. Single: demote
+      // the job's other approved quotes. Never demote a quote that's already on an invoice.
+      setQuotes(prev=>{const n=prev.map(q=>{
+        if(acceptedIds.includes(q.id))return{...q,status:"Approved"};
+        if(quoteHasInvoice(invoices,q.id))return q;
+        if(multi)return (p.optionIds||[]).includes(q.id)?{...q,status:"Declined"}:q;
+        return (q.jobId===job.id&&q.status==="Approved")?{...q,status:"Declined"}:q;
+      });persist(K.qu,n);return n;});
     }else if(!silent&&data.status!=="accepted"){
       alert("No acceptance yet — the client hasn't accepted this proposal.");
     }
@@ -5943,6 +5957,7 @@ function JobProposals({job,client,quotes,proposals,setProposals,setQuotes,biz,ma
   },[job?.id]);   // eslint-disable-line
 
   const delProposal=async p=>{
+    if(!guardEdit())return;
     if(!confirm("Delete this proposal? The client's link will stop working."))return;
     if(supabaseEnabled)try{await supabase.from(PUBLIC_PROPOSALS_TABLE).delete().eq("token",p.token);}catch(e){}
     save(proposals.filter(x=>x.id!==p.id));
@@ -5955,7 +5970,7 @@ function JobProposals({job,client,quotes,proposals,setProposals,setQuotes,biz,ma
   const proposalState=pp=>{
     const opts={};
     (pp.optionIds||[]).forEach(id=>{const q=quotes.find(x=>x.id===id);opts[id]={t:q?Math.round(quoteGrandTotal(q,markupTable)*100):null,ti:q?Math.round((Number(q.tradeInCredit)||0)*100):0};});
-    const paid=Math.round((payments||[]).filter(pm=>pm.jobId===pp.jobId&&pm.status==="Received").reduce((s,pm)=>s+Number(pm.amount),0)*100);
+    const paid=Math.round((payments||[]).filter(pm=>pm.jobId===pp.jobId&&pm.status==="Received").reduce((s,pm)=>s+Number(pm.amount||0),0)*100);
     return{opts,paid};
   };
   const proposalChanges=pp=>{
@@ -6588,7 +6603,7 @@ function ProposalPreview({quote,job,clients=[],biz,calc,payments=[],reconcilePay
   // Payments already recorded against this job → outstanding balance to request. Payments are
   // job-level, so we only net them against THIS quote when it's the job's sole billable quote —
   // otherwise a multi-piece deposit would be wrongly credited against one piece's total.
-  const paidTotal=reconcilePayments?(payments||[]).filter(p=>p.jobId===job?.id&&p.status==="Received").reduce((s,p)=>s+Number(p.amount),0):0;
+  const paidTotal=reconcilePayments?(payments||[]).filter(p=>p.jobId===job?.id&&p.status==="Received").reduce((s,p)=>s+Number(p.amount||0),0):0;
   const hasPaid=paidTotal>0.005;
   const qTrade=Number(quote.tradeInCredit)||0;                       // gold trade-in credit (received)
   const outstanding=Math.max(0,grandProposalTotal-qTrade-paidTotal);
@@ -6951,6 +6966,7 @@ function QuoteDetailView({quoteId,quotes,setQuotes,jobs,clients,biz,markupTable,
     });
   };
   const delQuote=()=>{
+    if(!guardEdit())return;
     if(invoiceFor){
       alert(`This quote is on invoice ${invoiceFor.number||""} — deleting it would orphan that invoice.\n\nDelete the invoice first (Invoices page), then delete the quote.`);
       return;
@@ -7271,7 +7287,7 @@ const nextInvoiceNumber=(invoices,biz)=>{
 
 // ── Invoice print view ───────────────────────────────────────────────────
 function InvoicePrintView({inv,job,client,biz,payments,onClose}){
-  const paidTotal=(payments||[]).filter(p=>p.jobId===inv.jobId&&p.status==="Received").reduce((s,p)=>s+Number(p.amount),0);
+  const paidTotal=(payments||[]).filter(p=>p.jobId===inv.jobId&&p.status==="Received").reduce((s,p)=>s+Number(p.amount||0),0);
   const invDiscount=Number(inv.discount)||0;
   const invSubtotal=inv.subtotalIncGST??inv.totalIncGST;
   const invTradeIn=Number(inv.tradeInCredit)||0;const balance=Math.max(0,inv.totalIncGST-invTradeIn-paidTotal);
@@ -7488,6 +7504,7 @@ function InvoiceDetailView({invoiceId,invoices,setInvoices,jobs,clients,payments
   const[resyncMsg,setResyncMsg]=useState("");
   const setStatus=s=>setInvoices(p=>{const n=p.map(x=>x.id===invoiceId?{...x,status:s}:x);persist(K.inv,n);return n;});
   const del=()=>{
+    if(!guardEdit())return;
     if(!confirm(`Delete invoice ${inv.number}? This can't be undone. Payments recorded against the job are not affected, and the quote stays so you can re-invoice it.`))return;
     setInvoices(p=>{const n=p.filter(x=>x.id!==invoiceId);persist(K.inv,n);return n;});
     setView("invoices");
@@ -7542,7 +7559,7 @@ function InvoiceDetailView({invoiceId,invoices,setInvoices,jobs,clients,payments
   });persist(K.inv,n);return n;});
   const subtotalIncGST=inv.subtotalIncGST??inv.totalIncGST;
   const discount=Number(inv.discount)||0;
-  const paidTotal=(payments||[]).filter(p=>p.jobId===inv.jobId&&p.status==="Received").reduce((s,p)=>s+Number(p.amount),0);
+  const paidTotal=(payments||[]).filter(p=>p.jobId===inv.jobId&&p.status==="Received").reduce((s,p)=>s+Number(p.amount||0),0);
   const invTradeIn=Number(inv.tradeInCredit)||0;const balance=Math.max(0,inv.totalIncGST-invTradeIn-paidTotal);
   // Staged request: optionally request only a specific amount now (e.g. the diamond balance),
   // with the rest noted as payable later. Blank = request the full outstanding balance.
@@ -7750,7 +7767,7 @@ function InvoicesList({invoices,jobs,clients,quotes,setQuotes,payments,setInvoic
     setModal(false);
     setView("invoiceDetail_"+inv.id);
   };
-  const delInv=(id,e)=>{e.stopPropagation();const iv=invoices.find(x=>x.id===id);if(!confirm(`Delete invoice ${iv?.number||""}? This can't be undone. Payments and the quote are not affected.`))return;setInvoices(p=>{const n=p.filter(x=>x.id!==id);persist(K.inv,n);return n;});};
+  const delInv=(id,e)=>{e.stopPropagation();if(!guardEdit())return;const iv=invoices.find(x=>x.id===id);if(!confirm(`Delete invoice ${iv?.number||""}? This can't be undone. Payments and the quote are not affected.`))return;setInvoices(p=>{const n=p.filter(x=>x.id!==id);persist(K.inv,n);return n;});};
   // True net invoice figures. Payments are job-level, so distribute each job's received cash
   // across its invoices (oldest first), netting each invoice's gold trade-in credit first.
   // Result: Total invoiced = Collected (cash + trade-ins) + Outstanding, so the three reconcile.
@@ -7759,7 +7776,7 @@ function InvoicesList({invoices,jobs,clients,quotes,setQuotes,payments,setInvoic
     const byJob={};
     invoices.forEach(i=>{(byJob[i.jobId]=byJob[i.jobId]||[]).push(i);});
     Object.keys(byJob).forEach(jid=>{
-      let cash=payments.filter(p=>p.jobId===jid&&p.status==="Received").reduce((s,p)=>s+Number(p.amount),0);
+      let cash=payments.filter(p=>p.jobId===jid&&p.status==="Received").reduce((s,p)=>s+Number(p.amount||0),0);
       byJob[jid].slice().sort((a,b)=>String(a.date).localeCompare(String(b.date))).forEach(inv=>{
         const gross=Number(inv.totalIncGST)||0;
         const afterTradeIn=Math.max(0,gross-(Number(inv.tradeInCredit)||0));
@@ -7818,7 +7835,7 @@ function InvoicesList({invoices,jobs,clients,quotes,setQuotes,payments,setInvoic
     {invoices.slice().reverse().map(inv=>{
       const job=jobs.find(j=>j.id===inv.jobId);
       const cl=job?clients.find(x=>x.id===job.clientId):null;
-      const paid=(payments||[]).filter(p=>p.jobId===inv.jobId&&p.status==="Received").reduce((s,p)=>s+Number(p.amount),0);
+      const paid=(payments||[]).filter(p=>p.jobId===inv.jobId&&p.status==="Received").reduce((s,p)=>s+Number(p.amount||0),0);
       const bal=Math.max(0,inv.totalIncGST-(Number(inv.tradeInCredit)||0)-paid);   // net of gold trade-in
       const es=invoiceEffectiveStatus(inv,payments,invoices);
       return <Card key={inv.id} onClick={()=>setView("invoiceDetail_"+inv.id)}>
@@ -8983,7 +9000,7 @@ function Reports({jobs,clients,quotes,payments,invoices,markupTable,setView}){
   const months=Array.from({length:6},(_,i)=>{const d=new Date();d.setMonth(d.getMonth()-i);return d.toISOString().slice(0,7);}).reverse();
   const monthData=months.map(m=>({
     month:new Date(m+"-01").toLocaleDateString(LOCALE,{month:"short",year:"numeric"}),
-    paid:payments.filter(p=>p.date?.startsWith(m)&&p.status==="Received").reduce((s,p)=>s+Number(p.amount),0)
+    paid:payments.filter(p=>p.date?.startsWith(m)&&p.status==="Received").reduce((s,p)=>s+Number(p.amount||0),0)
       +quotes.filter(q=>q.status==="Approved"&&(Number(q.tradeInCredit)||0)>0&&String(q.updatedAt||q.createdAt||"").slice(0,7)===m).reduce((s,q)=>s+Number(q.tradeInCredit),0),
   }));
   const maxPaid=Math.max(...monthData.map(m=>m.paid),1);
@@ -8994,13 +9011,13 @@ function Reports({jobs,clients,quotes,payments,invoices,markupTable,setView}){
   const conv=totalQ>0?Math.round(appQ/totalQ*100):0;
   const avgBase=totalQ>0?quotes.reduce((s,q)=>s+calcQuote(q.lineItems,markupTable,effMarkupOverride(q),gstOnMarkupFor(q)).baseLow,0)/totalQ:0;
   const avgFinal=totalQ>0?quotes.reduce((s,q)=>{if(quoteIsManual(q))return s+Number(q.manualTotal);const c=calcQuote(q.lineItems,markupTable,effMarkupOverride(q),gstOnMarkupFor(q));return s+(c.bracket?(c.isRange?c.finalHigh:c.finalLow):0);},0)/totalQ:0;
-  const cashPaid=payments.filter(p=>p.status==="Received").reduce((s,p)=>s+Number(p.amount),0);
+  const cashPaid=payments.filter(p=>p.status==="Received").reduce((s,p)=>s+Number(p.amount||0),0);
   const totalTradeIn=jobs.reduce((s,j)=>s+jobTradeInCredit(j,quotes),0);   // gold trade-in credits = value received
   const totalPaid=cashPaid+totalTradeIn;                                    // total value received (cash + trade-in)
   // Sales = agreed charge across all jobs (override or approved quotes)
   const totalSales=jobs.reduce((s,j)=>s+jobChargeTotal(j,quotes,markupTable,invoices),0);
   const outstanding=jobs.reduce((s,j)=>{
-    const bal=jobChargeTotal(j,quotes,markupTable,invoices)-payments.filter(p=>p.jobId===j.id&&p.status==="Received").reduce((a,p)=>a+Number(p.amount),0)-jobTradeInCredit(j,quotes);
+    const bal=jobChargeTotal(j,quotes,markupTable,invoices)-payments.filter(p=>p.jobId===j.id&&p.status==="Received").reduce((a,p)=>a+Number(p.amount||0),0)-jobTradeInCredit(j,quotes);
     return s+(bal>1?bal:0);
   },0);
   return <div>
@@ -9644,7 +9661,7 @@ function Appointments({appointments,setAppointments,clients,setClients,jobs=[],s
     setAppointments(p=>{const n=id?p.map(a=>a.id===id?{...a,...form}:a):[...p,{...form,id:uid(),createdAt:today()}];persist(K.ap,n);return n;});
     setModal(null);
   };
-  const del=id=>{if(!confirm("Delete this appointment?"))return;setAppointments(p=>{const n=p.filter(a=>a.id!==id);persist(K.ap,n);return n;});setModal(null);};
+  const del=id=>{if(!guardEdit())return;if(!confirm("Delete this appointment?"))return;setAppointments(p=>{const n=p.filter(a=>a.id!==id);persist(K.ap,n);return n;});setModal(null);};
   const setStatus=(id,status)=>{setAppointments(p=>{const n=p.map(a=>a.id===id?{...a,status}:a);persist(K.ap,n);return n;});};
   const convertToClient=a=>{
     const name=(a.clientName||"").trim();if(!name)return;
@@ -10510,7 +10527,7 @@ function GemCustody({custody,setCustody,clients,biz}){
     save(custody.some(r=>r.id===d.id)?custody.map(r=>r.id===d.id?clean:r):[clean,...custody]);
     close();
   };
-  const del=id=>{if(!confirm("Delete this safekeeping receipt? This can't be undone."))return;save(custody.filter(r=>r.id!==id));close();};
+  const del=id=>{if(!guardEdit())return;if(!confirm("Delete this safekeeping receipt? This can't be undone."))return;save(custody.filter(r=>r.id!==id));close();};
   const toggleReturned=r=>save(custody.map(x=>x.id===r.id?{...x,status:x.status==="Returned"?"Holding":"Returned",returnedAt:x.status==="Returned"?"":today()}:x));
 
   const itemsValue=r=>(r.items||[]).reduce((s,it)=>s+(Number(it.estValue)||0),0);
@@ -10756,6 +10773,7 @@ function StockBoard({stock,setStock,setView}){
   // Commit the piece, then hand off to the quote-engine builder to price it
   const goPrice=()=>{save(prev=>prev.map(x=>x.id===editId?{...x,...draftFields(draft)}:x));setIsNew(false);setView("stockPrice_"+editId);};
   const deletePiece=()=>{
+    if(!guardEdit())return;
     const item=stock.find(x=>x.id===editId);
     if(!confirm("Delete this stock piece? This can't be undone."))return;
     (item?.images||[]).forEach(img=>deleteJobImage(img.path));
