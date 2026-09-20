@@ -971,10 +971,37 @@ const fmt=n=>`${CUR_SYM}${Number(n||0).toLocaleString(LOCALE,{minimumFractionDig
 // Supabase gives functions an auto-generated URL slug separate from the display name;
 // this one's display name is "send-email" but its slug (used in the URL) is "smart-worker".
 const SEND_EMAIL_FN="smart-worker";
+// True when a Supabase error is an expired/invalid auth token (a stale session) rather than a
+// network/connection failure. PostgREST returns HTTP 401 / code PGRST301 with messages like
+// "JWT expired" or "Invalid JWT"; the edge function surfaces the same text. Lets the app tell a
+// recoverable stale session apart from a genuinely unreachable cloud.
+const _isAuthError=(e)=>{
+  if(!e)return false;
+  const msg=`${e.message||e.error_description||e.error||""}`.toLowerCase();
+  const code=`${e.code||""}`.toUpperCase();
+  const status=Number(e.status||e.statusCode||0);
+  return status===401||code==="PGRST301"||code==="401"
+    ||msg.includes("invalid jwt")||msg.includes("jwt expired")||/\bjwt\b/.test(msg)
+    ||(msg.includes("token")&&msg.includes("expir"))||msg.includes("not authenticated");
+};
+// Try to mint a fresh access token from the stored refresh token. Returns true on success, so a
+// stale-but-refreshable session heals silently; a truly dead session returns false and the caller
+// sends the user back to sign-in.
+const _tryRefreshSession=async()=>{
+  try{const{data,error}=await supabase.auth.refreshSession();return !error&&!!data?.session;}catch(_){return false;}
+};
+// invoke() only surfaces a generic "non-2xx" message; the function returns the real reason in its
+// JSON body ({error:"…"}). Read that so we can show it (and detect an auth failure inside it).
+const _fnErrDetail=async(error)=>{
+  let detail="";
+  try{const b=await error?.context?.json?.();detail=b?.error||b?.message||"";}catch(_){}
+  if(!detail){try{detail=(await error?.context?.text?.())||"";}catch(_){}}
+  return detail;
+};
 const _emlEsc=(s)=>String(s==null?"":s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
 // Branded, email-safe HTML: studio wordmark, greeting, message, a CTA button + raw link, footer.
 // Deliberately no <img>/data-URI logo — many mail clients block data URIs and show a broken image.
-function buildClientEmailHtml({biz,clientName,message,ctaLabel,linkUrl,reviewUrl,detailsHtml}){
+function buildClientEmailHtml({biz,clientName,message,ctaLabel,linkUrl,reviewUrl,detailsHtml,extraHtml}){
   const name=_emlEsc(biz?.name||"Your jeweller");
   const contact=[biz?.email,biz?.phone].filter(Boolean).map(_emlEsc).join(" · ");
   const greeting=clientName?`Hi ${_emlEsc(clientName)},`:"Hello,";
@@ -1000,26 +1027,36 @@ function buildClientEmailHtml({biz,clientName,message,ctaLabel,linkUrl,reviewUrl
     +`<p style="font-size:15px;margin:0 0 14px">${greeting}</p>`
     +`<p style="font-size:15px;line-height:1.6;margin:0 0 22px">${body}</p>`
     +details
+    +(extraHtml||"")
     +cta
     +review
     +`<div style="border-top:1px solid #eeeeee;margin-top:26px;padding-top:14px;font-size:12px;color:#999999">${name}${contact?` &middot; ${contact}`:""}</div>`
     +`</div>`;
 }
 const isEmail=x=>/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(x||"").trim());
-async function sendClientEmail({to,cc,replyTo,fromName,subject,html}){
+async function sendClientEmail({to,cc,replyTo,fromName,subject,html,attachments}){
   if(!supabaseEnabled||!supabase) throw new Error("Email needs the cloud — you're in local-only mode.");
   const _bare=(String(to||"").trim().match(/<([^>]+)>/)||[,String(to||"").trim()])[1].trim();
   if(!isEmail(_bare)) throw new Error(`That email address doesn't look valid: "${String(to||"").trim()||"(blank)"}". Check the client's email and try again.`);
-  const{data,error}=await supabase.functions.invoke(SEND_EMAIL_FN,{body:{to,cc,replyTo,fromName,subject,html}});
+  const _invoke=()=>supabase.functions.invoke(SEND_EMAIL_FN,{body:{to,cc,replyTo,fromName,subject,html,attachments}});
+  let{data,error}=await _invoke();
   if(error){
-    // invoke() only gives a generic "non-2xx" message; the function returns the real reason in its
-    // JSON body ({error:"…"}), so read it from the error's response context and surface that.
-    let detail="";
-    try{const b=await error?.context?.json?.();detail=b?.error||b?.message||"";}catch(_){}
-    if(!detail){try{detail=(await error?.context?.text?.())||"";}catch(_){}}
-    throw new Error(detail||error.message||"Couldn't reach the email service — is the send-email function deployed?");
+    let detail=await _fnErrDetail(error);
+    // A stale session (e.g. a tab left open a long time) makes the function reject the request with
+    // "Invalid JWT". Refresh the token once and resend before surfacing anything to the user.
+    if((_isAuthError(error)||_isAuthError({message:detail}))&&await _tryRefreshSession()){
+      ({data,error}=await _invoke());
+      detail=error?await _fnErrDetail(error):"";
+    }
+    if(error){
+      if(_isAuthError(error)||_isAuthError({message:detail})) throw new Error("Your session has expired. Please reload the page and log in again, then resend.");
+      throw new Error(detail||error.message||"Couldn't reach the email service — is the send-email function deployed?");
+    }
   }
-  if(data&&data.error) throw new Error(data.error);
+  if(data&&data.error){
+    if(_isAuthError({message:data.error})) throw new Error("Your session has expired. Please reload the page and log in again, then resend.");
+    throw new Error(data.error);
+  }
   return data;
 }
 
@@ -1032,6 +1069,18 @@ async function sendClientEmail({to,cc,replyTo,fromName,subject,html}){
 const BILLING_HOSTS=["vahe-testers.vercel.app","prongstudio.app","www.prongstudio.app","app.prongstudio.app","app.workshoppilot.app","workshoppilot.app"];   // customer-facing domains (billing launched; all studios comped active before enabling the new workshoppilot.app domain)
 const BILLING_ENABLED=import.meta.env.VITE_BILLING_ENABLED==="true"
   ||(typeof window!=="undefined"&&BILLING_HOSTS.includes(window.location.hostname));
+// Recommended jewellery insurer used in the aftercare email. The OWNER'S own app (billing disabled
+// here; customer studios have billing on) defaults to Q Report via the owner's affiliate link, so
+// their aftercare emails carry it with no setup. Customer studios set their own in Settings, and
+// anyone (owner included) can override by saving different values. See [[project-aftercare-email]].
+const OWNER_DEFAULT_INSURER={name:"Q Report",url:"https://www.qreport.com.au/4001"};
+const resolveInsurer=(biz)=>{
+  const url=(biz?.insurerUrl||"").trim();
+  if(url)return {insurerName:(biz?.insurerName||"").trim(),insurerUrl:url};
+  // Unset: fall back to the owner default on the owner's own app only (never on customer studios).
+  if(biz?.insurerUrl===undefined&&!BILLING_ENABLED)return {insurerName:OWNER_DEFAULT_INSURER.name,insurerUrl:OWNER_DEFAULT_INSURER.url};
+  return {insurerName:"",insurerUrl:""};
+};
 // Call the `billing` edge fn (checkout | portal) and send the browser to the Stripe URL it returns.
 async function goBilling(action,plan){
   if(!supabaseEnabled||!supabase)throw new Error("Billing needs the cloud.");
@@ -1165,6 +1214,105 @@ function PaymentReceiptButton({payment,job,client,biz,balance}){
   </>;
 }
 
+// Email a client a summary of the safekeeping receipt — the item(s) held, when received, expected
+// return and declared value. No hosted page or PDF exists for this doc, so the summary is built into
+// the email body (same approach as the payment-receipt email). The signed printable copy stays a
+// separate "Print / Save PDF" action.
+function SafekeepingEmailButton({record,client,biz,isMobile}){
+  const[open,setOpen]=useState(false);
+  const[email,setEmail]=useState("");
+  const[subject,setSubject]=useState("");
+  const[message,setMessage]=useState("");
+  const[busy,setBusy]=useState(false);
+  const[sent,setSent]=useState(false);
+  const[err,setErr]=useState("");
+  const r=record;
+  const items=r.items||[];
+  const ref=r.id.slice(-6).toUpperCase();
+  const clientName=clientDisplayName(client)||r.clientName||"";
+  const many=items.length!==1;
+  // Recipient: the client's saved email, else the first email-looking token in the stored contact.
+  const contactEmail=client?.email||((String(r.clientContact||"").match(/[^\s·,;]+@[^\s·,;]+/)||[])[0]||"");
+  const totalVal=items.reduce((s,it)=>s+(Number(it.estValue)||0),0);
+  const itemLabel=it=>it.kind==="piece"
+    ?[it.metal,it.type,it.stones?`with ${it.stones}`:""].filter(Boolean).join(" ")||it.type||"Piece"
+    :[it.carat?`${it.carat}ct`:"",it.shape,it.type].filter(Boolean).join(" ")||it.type||"Gem";
+  const itemDetail=it=>it.kind==="piece"
+    ?[it.stones?"Set with "+it.stones:"",it.measurements,it.condition?"Condition: "+it.condition:""].filter(Boolean).join(" · ")
+    :[it.colour?"Colour "+it.colour:"",it.clarity?"Clarity "+it.clarity:"",it.measurements,it.cert?"Cert "+it.cert:""].filter(Boolean).join(" · ");
+  const defSubject=`Safekeeping receipt #${ref} — ${biz?.name||"us"}`;
+  const defMessage=`This confirms we're holding the item${many?"s":""} listed below in safekeeping on your behalf. ${many?"They remain":"It remains"} entirely your property — we hold ${many?"them":"it"} as custodian only, and ${many?"they'll":"it'll"} be returned to you on request. Please keep this for your records.`;
+  const openIt=()=>{setEmail(contactEmail);setSubject(defSubject);setMessage(defMessage);setErr("");setSent(false);setOpen(true);};
+  const send=async()=>{
+    if(!email.trim()){setErr("Enter the client's email address.");return;}
+    setBusy(true);setErr("");
+    try{
+      const row=(l,v,strong)=>`<tr><td style="padding:9px 14px;font-size:13px;color:#888888;border-bottom:1px solid #f0f0f0">${_emlEsc(l)}</td><td style="padding:9px 14px;font-size:14px;${strong?"font-weight:700;":""}color:#1a1a1a;text-align:right;border-bottom:1px solid #f0f0f0">${_emlEsc(v)}</td></tr>`;
+      const itemRows=items.map(it=>{
+        const d=itemDetail(it),v=Number(it.estValue)||0;
+        return `<tr><td style="padding:9px 14px;font-size:13px;color:#1a1a1a;border-bottom:1px solid #f0f0f0"><strong>${_emlEsc(itemLabel(it))}</strong>${d?`<br><span style="font-size:12px;color:#888888">${_emlEsc(d)}</span>`:""}</td><td style="padding:9px 14px;font-size:14px;color:#1a1a1a;text-align:right;border-bottom:1px solid #f0f0f0;white-space:nowrap">${v>0?_emlEsc(fmt(v)):""}</td></tr>`;
+      }).join("");
+      const detailsHtml=row("Receipt",`#${ref}`)
+        +row("Held for",clientName||"—")
+        +row("Received on",r.dateReceived?fmtDate(r.dateReceived):fmtDate(r.createdAt))
+        +row("Expected return",r.expectedReturn?fmtDate(r.expectedReturn):"On request")
+        +itemRows
+        +(totalVal>0?row("Total declared value",fmt(totalVal),true):"");
+      const noteHtml=r.reason?`<p style="font-size:13px;line-height:1.6;color:#555555;margin:0 0 22px"><strong>Reason held / instructions:</strong> ${_emlEsc(r.reason).replace(/\n/g,"<br>")}</p>`:"";
+      // Full terms folded into the body so the email is a self-contained receipt — issued digitally,
+      // valid without a signature (mirrors the "Terms of safekeeping" block on the printable PDF).
+      const bn=_emlEsc(biz?.name||"our studio");
+      const clause=(h,t)=>`<p style="font-size:12px;line-height:1.55;color:#666666;margin:0 0 10px"><strong style="color:#1a1a1a">${h}:</strong> ${t}</p>`;
+      const termsHtml=`<div style="border-top:1px solid #eeeeee;margin:0 0 22px;padding-top:16px">`
+        +`<div style="font-size:11px;font-weight:700;color:#888888;text-transform:uppercase;letter-spacing:.08em;margin:0 0 12px">Terms of safekeeping</div>`
+        +clause("Acknowledgement",`${bn} confirms it has received the item(s) described above from the client named and holds them in safekeeping on the client's behalf.`)
+        +clause("Ownership",`The item(s) remain the property of the client at all times. ${bn} takes no ownership interest and holds the item(s) solely as custodian.`)
+        +clause("Return",`The item(s) will be returned to the client, or handled per the client's written instructions, on presentation of this receipt and reasonable proof of identity.`)
+        +clause("Declared value",`Any value shown is as declared by the client for identification purposes only and does not constitute a valuation or appraisal by ${bn}.`)
+        +clause("Care &amp; liability",`${bn} will take reasonable care of the item(s) while in its custody. The client is encouraged to maintain their own insurance; to the extent permitted by law, ${bn}'s liability is limited to the declared value shown above.`)
+        +`<p style="font-size:11.5px;line-height:1.55;color:#999999;margin:6px 0 0;font-style:italic">This receipt is issued electronically by ${bn} and is valid without a signature.</p>`
+        +`</div>`;
+      // Photos on intake: pull them in as base64 and attach with a content_id so the HTML can embed
+      // them inline via <img src="cid:…">. Expiring signed URLs and Gmail-stripped data-URIs are both
+      // unreliable in email, so real attachments are the only robust path. Skip any that won't decode.
+      const photos=await jobImagesForPrint(r,6);
+      const attachments=[];
+      photos.forEach((p,i)=>{
+        const m=/^data:(image\/[a-zA-Z0-9.+-]+);base64,(.*)$/.exec(p.url||"");
+        if(!m)return;
+        const cid=`sk-photo-${i+1}`;
+        const ext=(m[1].split("/")[1]||"jpg").replace("jpeg","jpg").replace(/[^a-z0-9]/gi,"")||"jpg";
+        attachments.push({filename:`${cid}.${ext}`,content:m[2],content_id:cid});
+      });
+      const photosHtml=attachments.length
+        ?`<div style="margin:0 0 22px"><div style="font-size:11px;font-weight:700;color:#888888;text-transform:uppercase;letter-spacing:.08em;margin:0 0 10px">Photos on intake</div>${attachments.map(a=>`<img src="cid:${a.content_id}" alt="Item photo" width="150" style="width:150px;height:auto;border:1px solid #eeeeee;border-radius:8px;margin:0 8px 8px 0;display:inline-block;vertical-align:top"/>`).join("")}</div>`
+        :"";
+      const html=buildClientEmailHtml({biz,clientName,message,detailsHtml,extraHtml:photosHtml+noteHtml+termsHtml});
+      await sendClientEmail({to:email.trim(),replyTo:biz?.email||"",fromName:biz?.name||"Your jeweller",subject:subject.trim()||defSubject,html,attachments});
+      setSent(true);setTimeout(()=>setOpen(false),1400);
+    }catch(e){setErr(e?.message||"Couldn't send the email.");}
+    setBusy(false);
+  };
+  return <>
+    <Btn sm={!isMobile} xs={isMobile} ghost onClick={openIt}>✉️ Email</Btn>
+    {open&&<Modal title="Email safekeeping receipt to client" onClose={()=>setOpen(false)}>
+      {sent
+        ?<div style={{padding:"14px 2px",fontSize:14,color:OK,fontWeight:700}}>✓ Sent to {email}</div>
+        :<div>
+          <Input label="To" value={email} onChange={setEmail} placeholder="client@example.com"/>
+          <Input label="Subject" value={subject} onChange={setSubject}/>
+          <Input label="Message" value={message} onChange={setMessage} as="textarea" rows={4}/>
+          <div style={{fontSize:12,color:WG,margin:"4px 0 14px",lineHeight:1.5}}>A summary of the item{many?"s":""} held (received date, expected return and declared value){(r.images||[]).length?`, the ${(r.images||[]).length} intake photo${(r.images||[]).length!==1?"s":""}`:""} plus your full safekeeping terms are added automatically below your message, so the email stands on its own as the receipt — issued digitally, no signature needed. Sent from <strong style={{color:INK}}>{biz?.name||"your studio"}</strong>{biz?.email?`; replies go to ${biz.email}`:""}. A printable signed copy is still available under <strong style={{color:INK}}>Print / Save PDF</strong>.</div>
+          {err&&<div style={{fontSize:13,color:DANGER,marginBottom:12,lineHeight:1.5}}>{err}</div>}
+          <div style={{display:"flex",justifyContent:"flex-end",gap:10}}>
+            <Btn sm ghost onClick={()=>setOpen(false)}>Cancel</Btn>
+            <Btn sm onClick={send} disabled={busy}>{busy?"Sending…":"Send email"}</Btn>
+          </div>
+        </div>}
+    </Modal>}
+  </>;
+}
+
 // Google "G" logo (inline SVG, brand colours) — used on the review-request buttons so it's clear
 // these ask for a GOOGLE review. No external load (CSP-safe).
 const ICON_GOOGLE=<svg width="13" height="13" viewBox="0 0 48 48" aria-hidden="true" style={{verticalAlign:"-2px",marginRight:6,flexShrink:0}}><path fill="#4285F4" d="M45.12 24.5c0-1.56-.14-3.06-.4-4.5H24v8.51h11.84c-.51 2.75-2.06 5.08-4.39 6.64v5.52h7.11c4.16-3.83 6.56-9.47 6.56-16.17z"/><path fill="#34A853" d="M24 46c5.94 0 10.92-1.97 14.56-5.33l-7.11-5.52c-1.97 1.32-4.49 2.1-7.45 2.1-5.73 0-10.58-3.87-12.31-9.07H4.34v5.7C7.96 41.07 15.4 46 24 46z"/><path fill="#FBBC05" d="M11.69 28.18C11.25 26.86 11 25.45 11 24s.25-2.86.69-4.18v-5.7H4.34C2.85 17.09 2 20.45 2 24s.85 6.91 2.34 9.88l7.35-5.7z"/><path fill="#EA4335" d="M24 10.75c3.23 0 6.13 1.11 8.41 3.29l6.31-6.31C34.91 4.18 29.93 2 24 2 15.4 2 7.96 6.93 4.34 14.12l7.35 5.7c1.73-5.2 6.58-9.07 12.31-9.07z"/></svg>;
@@ -1233,7 +1381,7 @@ function BulkReviewButton({clients,jobs,payments,biz,setClients}){
       const cj=jobs.filter(j=>j.clientId===c.id);
       const doneJobs=cj.filter(j=>DONE_STAGES.includes(j.stage));
       if(!doneJobs.length)return null;   // only clients who have completed work with us
-      const ds=[...doneJobs.map(j=>j.readyNotifiedAt||j.createdAt),
+      const ds=[...doneJobs.map(j=>j.completedAt||j.readyNotifiedAt||j.createdAt),
                 ...payments.filter(p=>p.status==="Received"&&cj.some(j=>j.id===p.jobId)).map(p=>p.date)]
         .map(d=>new Date(d).getTime()).filter(t=>!isNaN(t));
       if(!ds.length)return null;
@@ -1293,9 +1441,16 @@ function BulkReviewButton({clients,jobs,payments,biz,setClients}){
                     </label>
                   ))}
                 </div>}
+             {recent.length>0&&sel.size===0&&!busy&&<div style={{fontSize:12,color:WARN,marginTop:10,lineHeight:1.5}}>Nothing is ticked because everyone here was already asked in the last 90 days. Tick anyone you'd like to ask again, or use <strong>Select all</strong>.</div>}
              {busy&&prog&&<div style={{fontSize:12.5,color:WG,marginTop:10}}>Sending {prog.done} of {prog.total}…</div>}
-             <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",gap:10,marginTop:14}}>
-               <div style={{fontSize:12.5,color:WG}}>{sel.size} selected</div>
+             <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",gap:10,marginTop:14,flexWrap:"wrap"}}>
+               <div style={{display:"flex",alignItems:"center",gap:12}}>
+                 <span style={{fontSize:12.5,color:WG}}>{sel.size} of {recent.length} selected</span>
+                 {recent.length>0&&<>
+                   <button onClick={()=>setSel(new Set(recent.map(r=>r.id)))} disabled={busy||sel.size===recent.length} style={{background:"none",border:"none",padding:0,fontFamily:"inherit",fontSize:12,fontWeight:700,cursor:busy||sel.size===recent.length?"default":"pointer",color:busy||sel.size===recent.length?BD:GOLD_D}}>Select all</button>
+                   <button onClick={()=>setSel(new Set())} disabled={busy||sel.size===0} style={{background:"none",border:"none",padding:0,fontFamily:"inherit",fontSize:12,fontWeight:700,cursor:busy||sel.size===0?"default":"pointer",color:busy||sel.size===0?BD:GOLD_D}}>Clear</button>
+                 </>}
+               </div>
                <div style={{display:"flex",gap:10}}>
                  <Btn sm ghost onClick={()=>setOpen(false)} disabled={busy}>Cancel</Btn>
                  <Btn sm onClick={run} disabled={busy||sel.size===0}>{busy?"Sending…":`Send to ${sel.size}`}</Btn>
@@ -1363,6 +1518,113 @@ function ReadyForCollectionCard({job,client,biz,setJobs,setClients}){
           <div style={{display:"flex",justifyContent:"flex-end",gap:10}}>
             <Btn sm ghost onClick={()=>setOpen(false)}>Cancel</Btn>
             <Btn sm onClick={send} disabled={busy}>{busy?"Sending…":"Send notification"}</Btn>
+          </div>
+        </div>}
+    </Modal>}
+  </Card>;
+}
+// Aftercare care-guide block, passed to buildClientEmailHtml as detailsHtml (rendered inside its
+// bordered table). Fixed content — care tips plus a highlighted "6 month check up" note that sets the
+// expectation that misuse/accidental damage is not a free lifetime repair, so clients come in for the
+// paid regular check instead. Kept as one place to edit the studio's care advice.
+// One care tip as a two-column row: a small gold diamond marker + the text. Reads as a clean list
+// rather than a paragraph. Email-safe (table layout, inline styles, no images).
+const _careTip=t=>`<tr><td width="24" valign="top" style="padding:7px 0 7px 2px;font-size:12px;color:#ba7067;line-height:1.6">&#9670;</td><td style="padding:7px 0;font-size:14px;line-height:1.55;color:#3a3a3a">${t}</td></tr>`;
+// A standalone rounded "card" (its own table) so sections read as separate blocks with breathing room
+// between them, instead of one dense bordered box. accent = left border + heading colour.
+const _careCard=(inner,{bg="#ffffff",border="#ece4db"}={})=>`<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse:separate;border:1px solid ${border};border-radius:12px;background:${bg};margin:0 0 14px"><tr><td style="padding:16px 18px">${inner}</td></tr></table>`;
+const _careHeading=(t,color="#1a1a1a")=>`<div style="font-size:15px;font-weight:700;color:${color};margin:0 0 8px">${t}</div>`;
+function buildAftercareSectionsHtml({insurerName,insurerUrl,isRepair}={}){
+  const insName=_emlEsc((insurerName||"").trim());
+  const insUrl=_emlEsc((insurerUrl||"").trim());
+  // Care guide card — the general wear tips. For a REPAIR we drop the "leave cleaning to us" tip so
+  // we don't imply a free cleaning service.
+  const tipsRows=_careTip("Take your jewellery off before showering, swimming, cleaning, or applying perfume, moisturiser and hairspray.")
+    +_careTip("Avoid wearing rings for heavy or manual work, at the gym, or while gardening. Knocks bend claws and chip stones.")
+    +_careTip("Store each piece on its own in a soft pouch or a lined box so pieces do not scratch one another.")
+    +(isRepair?"":_careTip("Please leave all cleaning to us. Bring your piece in for a professional clean rather than cleaning it yourself at home, so it is looked after properly."))
+    +_careTip("Put your jewellery on last when getting ready, and take it off first when you get home.");
+  const careCard=_careCard(
+    `<div style="font-size:11px;font-weight:700;color:#a07a6c;text-transform:uppercase;letter-spacing:0.09em;margin:0 0 8px">Caring for your jewellery</div>`
+    +`<table role="presentation" width="100%" cellpadding="0" cellspacing="0">${tipsRows}</table>`,
+    {bg:"#faf6f2",border:"#ecdfd6"});
+  // Middle card — repair terms note, or the 6 month check up for a purchase.
+  const middleCard=isRepair
+    ?_careCard(_careHeading("&#9888;&#65039; About your repair")+`<div style="font-size:14px;line-height:1.6;color:#5a2a2a">Please note that this repair does not include free cleaning or ongoing maintenance, and we do not accept responsibility for the future condition of pieces we have repaired. Insuring your jewellery is the best way to stay protected against future wear or accidental damage.</div>`,{bg:"#fdf1f1",border:"#e6bcbc"})
+    :_careCard(_careHeading("&#128197; Your 6 month check up and clean")+`<div style="font-size:14px;line-height:1.6;color:#3a2f1a">We recommend bringing your piece in every 6 months so we can check the claws, settings and clasps, tighten anything that has worked loose, and give it a professional clean. Regular checks are the best way to catch a loose stone before it is lost.</div>`,{bg:"#fdf7ec",border:"#e7d3ad"});
+  // Insurance card — only when the studio has set an insurer. Steers wear/accidental-damage repairs
+  // onto the client's cover instead of an expected free fix.
+  const insuranceCard=insUrl
+    ?_careCard(_careHeading("&#128737;&#65039; Protect your piece with insurance")+`<div style="font-size:14px;line-height:1.6;color:#1f2b45">Everyday wear and accidental knocks are a normal part of owning jewellery, and over time they can call for repair work. We highly recommend insuring your piece${insName?` with ${insName}`:""}. The premiums are very affordable and the excess is small, so repairs from accidental damage and wear can be covered rather than an unexpected cost.</div><div style="margin-top:14px"><a href="${insUrl}" style="display:inline-block;background:#1a3a6b;color:#ffffff;text-decoration:none;padding:11px 24px;border-radius:6px;font-size:14px;font-weight:700">Insure${insName?` with ${insName}`:" your jewellery"}</a></div>`,{bg:"#eef4ff",border:"#c7d8f5"})
+    :"";
+  return careCard+middleCard+insuranceCard;
+}
+// Aftercare / thank-you email. Shown on a job once the client has the piece (Collected or Received by
+// customer). Sends a link-free branded email: a thank-you note, the care guide above, the 6 month
+// check up reminder, and (if set) the Google review CTA. Records aftercareEmailedAt on the job.
+function AftercareCard({job,client,biz,setJobs,setClients}){
+  const[open,setOpen]=useState(false);
+  const[email,setEmail]=useState("");
+  const[subject,setSubject]=useState("");
+  const[message,setMessage]=useState("");
+  const[busy,setBusy]=useState(false);
+  const[sent,setSent]=useState(false);
+  const[err,setErr]=useState("");
+  const who=clientDisplayName(client);
+  const isRepair=job.type==="Repair";
+  // Natural noun for the piece in the thank-you line. job.type is the item category (Engagement ring,
+  // Earrings, Necklace…): lowercase it mid-sentence, and fall back to "piece" for the vague/non-item
+  // types so it never reads "creating your Custom/Other/Trade for you".
+  const _t=(job.type||"").trim().toLowerCase();
+  const itemPhrase=(!_t||["custom","other","trade / wholesale","remodelling"].includes(_t))?"piece":_t;
+  const ins=resolveInsurer(biz);
+  const hasInsurer=!!ins.insurerUrl;
+  const protectLine=hasInsurer?", along with a note about the regular check up and how to protect your piece with insurance":", along with a note about the regular check up that keeps your jewellery in top condition";
+  const defSubject=`Thank you, and caring for your jewellery`;
+  const defMessage=isRepair
+    ?`Thank you for trusting us with your repair. It was a pleasure to look after your piece for you.\n\nPlease take a moment to read the care guide and the important note about your repair below.`
+    :`Thank you so much for your purchase. It was a real pleasure creating your ${itemPhrase} for you.\n\nSo you can keep it looking its best, here is a short care guide below${protectLine}.`;
+  const openIt=()=>{setEmail(client?.email||"");setSubject(defSubject);setMessage(defMessage);setErr("");setSent(false);setOpen(true);};
+  const send=async()=>{
+    if(!guardEdit())return;
+    if(!email.trim()){setErr("Enter an email address.");return;}
+    setBusy(true);setErr("");
+    try{
+      const html=buildClientEmailHtml({biz,clientName:who,message,extraHtml:buildAftercareSectionsHtml({...ins,isRepair}),reviewUrl:(biz?.googleReviewUrl||"").trim()});
+      await sendClientEmail({to:email.trim(),replyTo:biz?.email||"",fromName:biz?.name||"Your jeweller",subject:subject.trim()||defSubject,html});
+      setJobs(p=>{const n=p.map(j=>j.id===job.id?{...j,aftercareEmailedAt:today(),aftercareEmailedTo:email.trim()}:j);persist(K.jo,n);return n;});
+      if((biz?.googleReviewUrl||"").trim()&&setClients&&client?.id)setClients(p=>{const n=p.map(c=>c.id===client.id?{...c,reviewRequestedAt:today()}:c);persist(K.cl,n);return n;});
+      setSent(true);setTimeout(()=>setOpen(false),1400);
+    }catch(e){setErr(e?.message||"Couldn't send the email.");}
+    setBusy(false);
+  };
+  const doneAt=job.aftercareEmailedAt;
+  return <Card style={{border:`1px solid ${GOLD}66`,background:GOLD_L+"55"}}>
+    <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:12}}>
+      <div style={{minWidth:0}}>
+        <div style={{fontWeight:800,fontSize:15,color:INK}}>💍 Aftercare &amp; thank you</div>
+        <div style={{fontSize:13,color:WG,marginTop:3,lineHeight:1.5}}>
+          {doneAt
+            ?<>✓ Sent on <strong style={{color:INK}}>{fmtDate(job.aftercareEmailedAt)}</strong>{job.aftercareEmailedTo?<> · {job.aftercareEmailedTo}</>:null}</>
+            :client?.email
+              ?<>Thank {who} and send them the jewellery care guide plus the 6 month check up reminder.</>
+              :<>Add an email address to this client to send the aftercare guide.</>}
+        </div>
+      </div>
+      <Btn sm ghost onClick={openIt} disabled={!client?.email}>{doneAt?"Send again":"✉️ Send aftercare email"}</Btn>
+    </div>
+    {open&&<Modal title="Send aftercare & thank you" onClose={()=>setOpen(false)}>
+      {sent
+        ?<div style={{padding:"14px 2px",fontSize:14,color:OK,fontWeight:700}}>✓ Sent to {email}</div>
+        :<div>
+          <Input label="To" value={email} onChange={setEmail} placeholder="client@example.com"/>
+          <Input label="Subject" value={subject} onChange={setSubject}/>
+          <Input label="Your note" value={message} onChange={setMessage} as="textarea" rows={5}/>
+          <div style={{fontSize:12,color:WG,margin:"4px 0 14px",lineHeight:1.5}}>The <strong style={{color:INK}}>jewellery care guide</strong>{hasInsurer?<>, the <strong style={{color:INK}}>{(ins.insurerName||"insurance")} recommendation</strong>,</>:null} and the <strong style={{color:INK}}>{isRepair?"repair note (no free cleaning or maintenance, no liability)":"6 month check up reminder"}</strong> are added automatically below your note. Sent from <strong style={{color:INK}}>{biz?.name||"your studio"}</strong>{biz?.email?`, replies go to ${biz.email}`:""}.{(biz?.googleReviewUrl||"").trim()?<> Your <strong style={{color:INK}}>Review us on Google</strong> button is included.</>:null}{!hasInsurer?<> Add an insurer in Settings to include an insurance recommendation.</>:null}</div>
+          {err&&<div style={{fontSize:13,color:DANGER,marginBottom:12,lineHeight:1.5}}>{err}</div>}
+          <div style={{display:"flex",justifyContent:"flex-end",gap:10}}>
+            <Btn sm ghost onClick={()=>setOpen(false)}>Cancel</Btn>
+            <Btn sm onClick={send} disabled={busy}>{busy?"Sending…":"Send email"}</Btn>
           </div>
         </div>}
     </Modal>}
@@ -1457,10 +1719,15 @@ const quoteHasInvoice=(invoices,qid)=>(invoices||[]).some(i=>(i.quoteIds||(i.quo
 // trade-priced quote (pricingMode==="trade") uses its snapshot trade multiplier. Retail = 0
 // (calcQuote then uses the auto bracket), so existing retail quotes are unchanged.
 const effMarkupOverride=q=>{const mo=Number(q?.markupOverride)||0;if(mo>0)return mo;if(q?.pricingMode==="trade")return Number(q?.tradeMult)||0;return 0;};
+// Whether a quote adds tax on top of the marked-up jewellery total. Trade quotes always do (lean
+// cost-plus multipliers). A retail quote can opt in per-quote with taxOnTop for a bought-in finished
+// piece (e.g. a necklace bought wholesale) where the retail multiplier shouldn't bake the tax in.
+// It's a single boolean, so trade + taxOnTop never double-charges tax. Stones are unaffected.
+const gstOnMarkupFor=q=>q?.pricingMode==="trade"||!!q?.taxOnTop;
 // Grand total for a quote, inc GST — manual price wins; else jewellery + centre stone + stone-markup accents.
 const quoteGrandTotal=(q,markupTable)=>{
   if(quoteIsManual(q))return Number(q.manualTotal);
-  const c=calcQuote(q.lineItems,markupTable,effMarkupOverride(q),q.pricingMode==="trade");
+  const c=calcQuote(q.lineItems,markupTable,effMarkupOverride(q),gstOnMarkupFor(q));
   return (c.isRange?c.finalHigh:c.finalLow)+(q.stoneClientTotal||0)+(q.accentStoneTotal||0);
 };
 // Total agreed charge for a job, used by every financial view.
@@ -1477,6 +1744,13 @@ const jobChargeTotal=(job,quotes,markupTable,invoices)=>{
 const jobTradeInCredit=(job,quotes)=>(quotes||[]).filter(q=>q.jobId===job?.id&&q.status==="Approved").reduce((s,q)=>s+(Number(q.tradeInCredit)||0),0)+(Number(job?.repairTradeIn)||0);
 // True if the job has any agreed charge (override or approved quote)
 const jobHasCharge=(job,quotes)=>Number(job?.totalOverride)>0||(quotes||[]).some(q=>q.jobId===job.id&&q.status==="Approved");
+// A trade repair whose charge is set ("Set as job charge") but which was never invoiced won't appear
+// on the client's statement — statements are built from invoices only (see accountLedger). The charge
+// still shows on the dashboard/amount-owing, so it's easy to miss that the account was never billed.
+// Flag it wherever the job or the trade account is shown. See [[project-billing]].
+const tradeRepairUninvoiced=(job,client,invoices)=>
+  client?.accountType==="trade"&&job?.clientId===client?.id&&job?.type==="Repair"&&
+  Number(job?.totalOverride)>0&&!(invoices||[]).some(i=>i.jobId===job?.id);
 // Effective invoice status for display/aggregation. A manual "Paid" always wins. Otherwise, when
 // a job has a single invoice and its recorded payments cover the total, it auto-shows Paid.
 // Payments link to the job (not the invoice), so we only auto-pay when it's unambiguous — a job
@@ -1484,7 +1758,7 @@ const jobHasCharge=(job,quotes)=>Number(job?.totalOverride)>0||(quotes||[]).some
 const invoicePaidByPayments=(inv,payments,invoices)=>{
   if(!inv||inv.status==="Paid")return inv?.status==="Paid";
   if((invoices||[]).filter(i=>i.jobId===inv.jobId).length>1)return false;
-  const paid=(payments||[]).filter(p=>p.jobId===inv.jobId&&p.status==="Received").reduce((s,p)=>s+Number(p.amount),0);
+  const paid=(payments||[]).filter(p=>p.jobId===inv.jobId&&p.status==="Received").reduce((s,p)=>s+Number(p.amount||0),0);
   return Number(inv.totalIncGST)>0&&paid>=Number(inv.totalIncGST)-0.5;
 };
 const invoiceEffectiveStatus=(inv,payments,invoices)=>{
@@ -1570,7 +1844,7 @@ function videoEmbed(url){
 // Build an invoice's content (line items, totals, trade-in) from a single quote. Shared by
 // invoice creation and the "Update from quote" re-sync so the two always produce the same result.
 const invoiceContentFromQuote=(q,job,markupTable)=>{
-  const calc=calcQuote(q.lineItems,markupTable,effMarkupOverride(q),q.pricingMode==="trade");
+  const calc=calcQuote(q.lineItems,markupTable,effMarkupOverride(q),gstOnMarkupFor(q));
   const totalIncGST=quoteGrandTotal(q,markupTable);
   const gst=totalIncGST-totalIncGST/(1+GST_RATE);
   const exGST=totalIncGST-gst;
@@ -1635,13 +1909,13 @@ const resyncInvoiceWithQuotes=(inv,allQuotes,job,markupTable)=>{
 const buildProposalSnapshot=({proposal,job,client,biz,quotes,markupTable,payments,photoMap})=>{
   const validityDays=biz?.quoteValidityDays||30;
   const created=proposal.createdAt||today();
-  const paidTotal=(payments||[]).filter(p=>p.jobId===job?.id&&p.status==="Received").reduce((s,p)=>s+Number(p.amount),0);
+  const paidTotal=(payments||[]).filter(p=>p.jobId===job?.id&&p.status==="Received").reduce((s,p)=>s+Number(p.amount||0),0);
   const optPhotos=proposal.optionPhotos||{};
   const optVideos=proposal.optionVideos||{};
   const options=(proposal.optionIds||[]).map(qid=>{
     const q=quotes.find(x=>x.id===qid);
     if(!q)return null;
-    const calc=calcQuote(q.lineItems,markupTable,effMarkupOverride(q),q.pricingMode==="trade");
+    const calc=calcQuote(q.lineItems,markupTable,effMarkupOverride(q),gstOnMarkupFor(q));
     const priceKnown=quoteIsManual(q)||!(calc.base>0&&!calc.bracket&&!calc.overridden);
     // Chosen photo path(s) resolved to inline data URLs via photoMap at build time.
     // Back-compat: older proposals stored a single path string instead of an array.
@@ -1683,7 +1957,7 @@ const buildProposalSnapshot=({proposal,job,client,biz,quotes,markupTable,payment
 // same public table (kind:"invoice"). Re-written each time the link is shared so it
 // reflects the invoice's current totals/balance.
 const buildInvoiceSnapshot=({inv,job,client,biz,payments})=>{
-  const paidTotal=(payments||[]).filter(p=>p.jobId===inv.jobId&&p.status==="Received").reduce((s,p)=>s+Number(p.amount),0);
+  const paidTotal=(payments||[]).filter(p=>p.jobId===inv.jobId&&p.status==="Received").reduce((s,p)=>s+Number(p.amount||0),0);
   const invTradeIn=Number(inv.tradeInCredit)||0;const balance=Math.max(0,inv.totalIncGST-invTradeIn-paidTotal);
   const requestAmount=Number(inv.requestAmount)||0;
   const staged=requestAmount>0;
@@ -1718,7 +1992,9 @@ const buildInvoiceSnapshot=({inv,job,client,biz,payments})=>{
 };
 
 // ── Invoice CSV export (shared by the Invoices list range-export and single-invoice export) ──
-const _csvCell=v=>{const s=String(v==null?"":v);return /[",\r\n]/.test(s)?'"'+s.replace(/"/g,'""')+'"':s;};
+// Quote separators/newlines, and neutralise spreadsheet formula injection: a cell that starts with
+// = + - @ (or tab/CR) is prefixed with an apostrophe so Excel/Sheets treat it as text, not a formula.
+const _csvCell=v=>{let s=String(v==null?"":v);if(/^[=+\-@\t\r]/.test(s))s="'"+s;return /[",\r\n]/.test(s)?'"'+s.replace(/"/g,'""')+'"':s;};
 const invoiceCsvHeader=()=>["Invoice","Date","Customer","Description",`Subtotal (ex ${TAX_LABEL})`,TAX_LABEL,`Total (inc ${TAX_LABEL})`,"Trade-in credit","Amount received","Balance","Status"];
 // Per-invoice paid/balance: distribute each job's received cash across its invoices oldest-first
 // (payments are job-level), so figures reconcile with the summary tiles.
@@ -1726,7 +2002,7 @@ const invoicePaidBalanceMap=(invoices,payments)=>{
   const paidMap={},balMap={},byJob={};
   (invoices||[]).forEach(i=>{(byJob[i.jobId]=byJob[i.jobId]||[]).push(i);});
   Object.keys(byJob).forEach(jid=>{
-    let cash=(payments||[]).filter(p=>p.jobId===jid&&p.status==="Received").reduce((s,p)=>s+Number(p.amount),0);
+    let cash=(payments||[]).filter(p=>p.jobId===jid&&p.status==="Received").reduce((s,p)=>s+Number(p.amount||0),0);
     byJob[jid].slice().sort((a,b)=>String(a.date).localeCompare(String(b.date))).forEach(inv=>{
       const gross=Number(inv.totalIncGST)||0,afterTradeIn=Math.max(0,gross-(Number(inv.tradeInCredit)||0));
       const cashApplied=Math.min(cash,afterTradeIn);cash-=cashApplied;
@@ -1799,11 +2075,11 @@ const accountLedger=(client,jobs,invoices,payments)=>{
   const entries=[];
   accInv.forEach(inv=>{
     const job=jobOf(inv.jobId),d=String(inv.date||"").slice(0,10);
-    entries.push({date:d,kind:"invoice",id:inv.id,ref:inv.number||"",desc:(inv.descriptionOverride||job?.type||"Invoice").replace(/\s+/g," ").trim(),po:job?.po||"",charge:Number(inv.totalIncGST)||0,credit:0,due:invoiceDueDate(inv,client)});
+    entries.push({date:d,kind:"invoice",id:inv.id,jobId:inv.jobId,invoiceId:inv.id,ref:inv.number||"",desc:(inv.descriptionOverride||job?.type||"Invoice").replace(/\s+/g," ").trim(),po:job?.po||"",charge:Number(inv.totalIncGST)||0,credit:0,due:invoiceDueDate(inv,client)});
     const ti=Number(inv.tradeInCredit)||0;
-    if(ti>0)entries.push({date:d,kind:"tradein",id:inv.id+"_ti",ref:inv.number||"",desc:"Trade-in credit"+(inv.tradeInNote?" · "+inv.tradeInNote:""),po:"",charge:0,credit:ti});
+    if(ti>0)entries.push({date:d,kind:"tradein",id:inv.id+"_ti",jobId:inv.jobId,invoiceId:inv.id,ref:inv.number||"",desc:"Trade-in credit"+(inv.tradeInNote?" · "+inv.tradeInNote:""),po:"",charge:0,credit:ti});
   });
-  accPay.forEach(p=>entries.push({date:String(p.date||"").slice(0,10),kind:"payment",id:p.id,ref:"",desc:"Payment received"+(p.method?" · "+p.method:""),po:p.notes||"",charge:0,credit:Number(p.amount)||0}));
+  accPay.forEach(p=>entries.push({date:String(p.date||"").slice(0,10),kind:"payment",id:p.id,jobId:p.jobId,ref:"",desc:"Payment received"+(p.method?" · "+p.method:""),po:p.notes||"",charge:0,credit:Number(p.amount||0)||0}));
   const order={invoice:0,tradein:1,payment:2};
   entries.sort((a,b)=>String(a.date).localeCompare(String(b.date))||(order[a.kind]-order[b.kind]));
   let run=0;entries.forEach(e=>{run+=e.charge-e.credit;e.balance=run;});
@@ -2233,10 +2509,11 @@ const SS={inp:{width:"100%",padding:"11px 14px",borderRadius:10,border:`1px soli
 
 
 function StoneMarkupSummary({calc}){
+  const isMobile=useIsMobile();
   if(!calc)return null;
   if(!calc.bracket&&!calc.overridden)return <div style={{background:"#FFF3CD",border:"1px solid #F0C040",borderRadius:6,padding:"12px 16px",fontSize:13,color:WARN}}>Stone cost is outside your stone markup table range — check your table in Settings, or set a manual multiplier below.</div>;
   return <div style={{background:PARCH,border:`1px solid ${BD}`,borderRadius:4,overflow:"hidden"}}>
-    <div style={{display:"grid",gridTemplateColumns:"repeat(5,1fr)",borderBottom:`1px solid ${BD}`}}>
+    <div style={{display:"grid",gridTemplateColumns:isMobile?"repeat(2,1fr)":"repeat(5,1fr)",borderBottom:`1px solid ${BD}`}}>
       {[
         ["Your cost",fmt(calc.totalCost),WG],
         ["Bracket",calc.bracket?`${fmt(calc.bracket.low)}–${fmt(calc.bracket.high)}`:"—",WG],
@@ -2365,7 +2642,7 @@ function MarkupSummary({baseLow,baseHigh,isRange,bracket,mult,autoMult,overridde
         </div>
       ))}
     </div>
-    {gstOnMarkup&&((baseLow>0&&(bracket||overridden))||hasFlat)&&<div style={{padding:"9px 16px",fontSize:11,color:WG,borderTop:`1px solid ${BD}`,background:WHITE}}>* Trade pricing — {Math.round(GST_RATE*100)}% {TAX_LABEL} added across the supply.{baseLow>0&&(bracket||overridden)?<> Markup: {fmt(baseLow)} × {mult} × {(1+GST_RATE).toFixed(2)} = <strong style={{color:INK}}>{fmtR(mfLow)}</strong>.</>:null}{hasFlat?<> At-cost items include {TAX_LABEL} on top of cost.</>:null}</div>}
+    {gstOnMarkup&&((baseLow>0&&(bracket||overridden))||hasFlat)&&<div style={{padding:"9px 16px",fontSize:11,color:WG,borderTop:`1px solid ${BD}`,background:WHITE}}>* {Math.round(GST_RATE*100)}% {TAX_LABEL} added on top across the supply.{baseLow>0&&(bracket||overridden)?<> Markup: {fmt(baseLow)} × {mult} × {(1+GST_RATE).toFixed(2)} = <strong style={{color:INK}}>{fmtR(mfLow)}</strong>.</>:null}{hasFlat?<> At-cost items include {TAX_LABEL} on top of cost.</>:null}</div>}
     {/* Profit / margin on the marked-up jewellery — internal only. GST (baked into the retail
         multiplier, or added explicitly for trade) is backed out for a true profit; no-markup
         (flat) items are pass-through and excluded. */}
@@ -3022,7 +3299,7 @@ function Dashboard({clients,jobs,quotes,payments,invoices,appointments=[],propos
     const sent=jp.filter(p=>p.status==="sent");
     if(!sent.length||jp.some(p=>p.status==="accepted"))return false;
     if(quotes.some(q=>q.jobId===j.id&&q.status==="Approved"))return false;
-    const cash=payments.filter(p=>p.jobId===j.id&&p.status==="Received").reduce((s,p)=>s+Number(p.amount),0);
+    const cash=payments.filter(p=>p.jobId===j.id&&p.status==="Received").reduce((s,p)=>s+Number(p.amount||0),0);
     if(cash>0||jobTradeInCredit(j,quotes)>0)return false;
     return sent.every(propExpired);
   };
@@ -3038,7 +3315,7 @@ function Dashboard({clients,jobs,quotes,payments,invoices,appointments=[],propos
   const PROD_STAGES=["Item ordered","On the bench","Design / CAD","3D printing","Casting","Manufacturing","Stone setting","Polishing / Finish","QC check"];
   const daysAgo=d=>{const n=Math.round((Date.now()-parseISO(d).getTime())/86400000);return n<=0?"today":n===1?"1 day ago":`${n} days ago`;};
   const activeRanked=active.map(j=>{
-    const cash=payments.filter(p=>p.jobId===j.id&&p.status==="Received").reduce((s,p)=>s+Number(p.amount),0);
+    const cash=payments.filter(p=>p.jobId===j.id&&p.status==="Received").reduce((s,p)=>s+Number(p.amount||0),0);
     const tradeIn=jobTradeInCredit(j,quotes);            // gold trade-in credit — also value received
     const received=cash+tradeIn;                         // "money in" = cash + trade-in
     const jp=proposals.filter(p=>p.jobId===j.id);
@@ -3077,12 +3354,12 @@ function Dashboard({clients,jobs,quotes,payments,invoices,appointments=[],propos
   // Cash-received view: actual payments received this month (deposits included), regardless of invoicing
   // Value received this month = cash payments dated this month + gold trade-in credits on approved
   // quotes whose most recent activity was this month (trade-ins have no date of their own).
-  const monthReceived=payments.filter(p=>p.status==="Received"&&p.date?.startsWith(thisMonth)).reduce((s,p)=>s+Number(p.amount),0)
+  const monthReceived=payments.filter(p=>p.status==="Received"&&p.date?.startsWith(thisMonth)).reduce((s,p)=>s+Number(p.amount||0),0)
     +quotes.filter(q=>q.status==="Approved"&&(Number(q.tradeInCredit)||0)>0&&String(q.updatedAt||q.createdAt||"").slice(0,7)===thisMonth).reduce((s,q)=>s+Number(q.tradeInCredit),0);
   const balanceOwing=jobs.map(j=>{
     if(!jobHasCharge(j,quotes))return null;
     const total=jobChargeTotal(j,quotes,markupTable,invoices);
-    const paid=payments.filter(p=>p.jobId===j.id&&p.status==="Received").reduce((s,p)=>s+Number(p.amount),0);
+    const paid=payments.filter(p=>p.jobId===j.id&&p.status==="Received").reduce((s,p)=>s+Number(p.amount||0),0);
     const bal=total-paid-jobTradeInCredit(j,quotes);   // trade-in is a credit received
     return bal>1?{job:j,balance:bal}:null;
   }).filter(Boolean);
@@ -3090,7 +3367,7 @@ function Dashboard({clients,jobs,quotes,payments,invoices,appointments=[],propos
   const outstanding=balanceOwing.reduce((s,b)=>s+b.balance,0);
 
   // ── Revenue trend (6 months) + month-over-month comparison ──
-  const receivedForMonth=mk=>payments.filter(p=>p.status==="Received"&&p.date?.startsWith(mk)).reduce((s,p)=>s+Number(p.amount),0)
+  const receivedForMonth=mk=>payments.filter(p=>p.status==="Received"&&p.date?.startsWith(mk)).reduce((s,p)=>s+Number(p.amount||0),0)
     +quotes.filter(q=>q.status==="Approved"&&(Number(q.tradeInCredit)||0)>0&&String(q.updatedAt||q.createdAt||"").slice(0,7)===mk).reduce((s,q)=>s+Number(q.tradeInCredit),0);
   const revSeries=[...Array(6)].map((_,i)=>{const d=new Date();d.setDate(1);d.setMonth(d.getMonth()-(5-i));const mk=d.toISOString().slice(0,7);return {mk,label:new Date(mk+"-01").toLocaleDateString(LOCALE,{month:"short"}),value:receivedForMonth(mk)};});
   const lastMonthReceived=revSeries.length>1?revSeries[revSeries.length-2].value:0;
@@ -3118,7 +3395,7 @@ function Dashboard({clients,jobs,quotes,payments,invoices,appointments=[],propos
     const c=clients.find(x=>x.id===j.clientId);
     const sentQs=quotes.filter(q=>q.jobId===j.id&&q.status==="Sent"&&(!q.validUntil||String(q.validUntil)>=today()));
     const approved=jobHasCharge(j,quotes);
-    const paid=approved?payments.filter(p=>p.jobId===j.id&&p.status==="Received").reduce((s,p)=>s+Number(p.amount),0)+jobTradeInCredit(j,quotes):0;
+    const paid=approved?payments.filter(p=>p.jobId===j.id&&p.status==="Received").reduce((s,p)=>s+Number(p.amount||0),0)+jobTradeInCredit(j,quotes):0;
     const detail=approved?"approved total":sentQs.length>1?`avg of ${sentQs.length} sent quotes`:sentQs.length===1?"1 sent quote":"—";
     return {id:j.id,name:`${j.type} · ${clientDisplayName(c)}`,amt,detail,approved,paid};
   }).filter(x=>x.amt>0).sort((a,b)=>b.amt-a.amt);
@@ -3343,7 +3620,7 @@ function Clients({clients,setClients,jobs,payments,setView,setSelClient,quotes=[
     {filtered.length===0&&<Card><div style={{color:WG,fontSize:14,textAlign:"center",padding:"14px 0"}}>No clients found.</div></Card>}
     {filtered.map(c=>{
       const cj=jobs.filter(j=>j.clientId===c.id);
-      const spent=cj.flatMap(j=>payments.filter(p=>p.jobId===j.id&&p.status==="Received")).reduce((s,p)=>s+Number(p.amount),0);
+      const spent=cj.flatMap(j=>payments.filter(p=>p.jobId===j.id&&p.status==="Received")).reduce((s,p)=>s+Number(p.amount||0),0);
       const received=spent+cj.reduce((s,j)=>s+jobTradeInCredit(j,quotes),0);   // cash + gold trade-in
       return <Card key={c.id} onClick={()=>{setSelClient(c.id);setView("clientDetail");}}>
         <div style={{display:"flex",flexDirection:isMobile?"column":"row",justifyContent:"space-between",alignItems:isMobile?"stretch":"flex-start",gap:isMobile?12:0}}>
@@ -3380,10 +3657,30 @@ function ClientDetail({clientId,clients,setClients,jobs,setJobs,quotes,payments,
   if(!c)return null;
   const addJob=f=>{if(!guardEdit())return;const id=uid();setJobs(p=>{const n=[...p,{...f,id,createdAt:today()}];persist(K.jo,n);return n;});setJobModal(false);setSelJob(id);setView("jobDetail");};
   const cj=jobs.filter(j=>j.clientId===clientId);
-  const spent=cj.flatMap(j=>payments.filter(p=>p.jobId===j.id&&p.status==="Received")).reduce((s,p)=>s+Number(p.amount),0);
+  const spent=cj.flatMap(j=>payments.filter(p=>p.jobId===j.id&&p.status==="Received")).reduce((s,p)=>s+Number(p.amount||0),0);
   const charged=cj.reduce((s,j)=>s+jobChargeTotal(j,quotes,markupTable,invoices),0);
   const tradeIn=cj.reduce((s,j)=>s+jobTradeInCredit(j,quotes),0);
   const owing=Math.max(0,charged-spent-tradeIn);   // trade-in credits count toward what's covered
+  // Funds held = money RECEIVED that hasn't been EARNED yet. Once a job is delivered (a done stage),
+  // its agreed charge is earned even if it was billed by proposal and never invoiced in-app — so only
+  // a genuine overpayment beyond the charge is still credit. Before delivery, money received but not
+  // invoiced is a deposit we're holding (surfaces a deposit sitting untouched, e.g. a client who went
+  // quiet). Floored per job so a job you owe money ON never nets against one you're holding.
+  const heldByJob=cj.map(j=>{
+    const jp=payments.filter(p=>p.jobId===j.id&&p.status==="Received");
+    const rec=jp.reduce((s,p)=>s+Number(p.amount||0),0);
+    const inv=invoices.filter(i=>i.jobId===j.id).reduce((s,i)=>s+(Number(i.totalIncGST)||0),0);
+    const charge=jobChargeTotal(j,quotes,markupTable,invoices);
+    const delivered=DONE_STAGES.includes(j.stage);
+    // Delivered: earned = the charge (or invoice) — but if neither was ever recorded, treat what was
+    // received as earned so a finished job isn't wrongly flagged. In progress: only invoices are earned.
+    const earned=delivered?((charge>0||inv>0)?Math.max(inv,charge):rec):inv;
+    const lastPay=jp.map(p=>String(p.date||"").slice(0,10)).filter(Boolean).sort().slice(-1)[0]||"";
+    return {job:j,held:Math.max(0,rec-earned),lastPay};
+  }).filter(x=>x.held>0.005).sort((a,b)=>String(a.lastPay).localeCompare(String(b.lastPay)));   // oldest first
+  const totalHeld=heldByJob.reduce((s,x)=>s+x.held,0);
+  const _daysAgo=iso=>iso?Math.round((Date.now()-new Date(iso).getTime())/86400000):0;
+  const _ageLabel=iso=>{const d=_daysAgo(iso);if(d>=60)return `about ${Math.round(d/30)} months ago`;if(d>=1)return `${d} day${d>1?"s":""} ago`;return "today";};
   return <div>
     <div style={{display:"flex",alignItems:"center",gap:14,marginBottom:20}}>
       <div style={{width:isMobile?42:50,height:isMobile?42:50,borderRadius:"50%",background:GOLD_L,display:"flex",alignItems:"center",justifyContent:"center",fontSize:isMobile?17:20,fontWeight:800,color:GOLD_D,flexShrink:0}}>{c.name.charAt(0)}</div>
@@ -3402,7 +3699,23 @@ function ClientDetail({clientId,clients,setClients,jobs,setJobs,quotes,payments,
         </div>
       ))}
     </div>}
-    <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:14,marginBottom:14}}>
+    {totalHeld>0&&<Card style={{border:`1px solid ${WARN}66`,background:WARN+"0D",marginTop:0}}>
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"baseline",flexWrap:"wrap",gap:8,marginBottom:4}}>
+        <div style={{fontWeight:800,fontSize:15,color:INK}}>💰 Funds held for this client</div>
+        <div style={{fontSize:20,fontWeight:800,color:WARN}}>{fmt(totalHeld)}</div>
+      </div>
+      <div style={{fontSize:12.5,color:WG,lineHeight:1.5,marginBottom:heldByJob.length?12:0}}>Money received that hasn't been earned yet — a deposit on work still in progress, or an overpayment. Finishing and handing over the job (or invoicing it) clears it.</div>
+      {heldByJob.map(x=>{const stale=_daysAgo(x.lastPay)>=90;return(
+        <div key={x.job.id} onClick={()=>{setSelJob(x.job.id);setView("jobDetail");}} style={{display:"flex",justifyContent:"space-between",alignItems:"center",gap:12,padding:"9px 12px",background:WHITE,border:`1px solid ${(stale?DANGER:WARN)}33`,borderRadius:6,cursor:"pointer",marginBottom:6}}>
+          <div style={{minWidth:0}}>
+            <div style={{fontWeight:700,fontSize:13.5,color:INK}}>{x.job.type}<span style={{fontWeight:400,color:WG}}> · {x.job.stage}</span></div>
+            <div style={{fontSize:11.5,color:stale?DANGER:WG,marginTop:2,fontWeight:stale?700:400}}>{x.lastPay?<>Deposit taken {fmtDate(x.lastPay)} · {_ageLabel(x.lastPay)}</>:"Deposit on file"}</div>
+          </div>
+          <div style={{display:"flex",alignItems:"center",gap:10,flexShrink:0}}><span style={{fontWeight:800,fontSize:14,color:WARN}}>{fmt(x.held)}</span><span style={{fontSize:11,fontWeight:700,color:GOLD_D}}>Open →</span></div>
+        </div>
+      );})}
+    </Card>}
+    <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:14,marginBottom:14,marginTop:14}}>
       <Card style={{margin:0}}>
         <div style={SS.lbl}>Contact</div>
         {[
@@ -3522,7 +3835,7 @@ function Jobs({clients,jobs,setJobs,quotes,setQuotes,payments,setPayments,notes,
     const sent=jp.filter(p=>p.status==="sent");
     if(!sent.length||jp.some(p=>p.status==="accepted"))return false;
     if(quotes.some(q=>q.jobId===j.id&&q.status==="Approved"))return false;
-    const cash=payments.filter(p=>p.jobId===j.id&&p.status==="Received").reduce((s,p)=>s+Number(p.amount),0);
+    const cash=payments.filter(p=>p.jobId===j.id&&p.status==="Received").reduce((s,p)=>s+Number(p.amount||0),0);
     if(cash>0||jobTradeInCredit(j,quotes)>0)return false;
     const vd=biz?.quoteValidityDays||30;
     return sent.every(p=>p.createdAt&&addDays(String(p.createdAt).slice(0,10),vd)<today());
@@ -3557,7 +3870,7 @@ function Jobs({clients,jobs,setJobs,quotes,setQuotes,payments,setPayments,notes,
     if(overdueOnly&&!(j.deadline&&j.deadline<today()&&!jobIsDone(j)))return false;
     if(chaseOnly&&!isChase(j))return false;
     if(frozenOnly&&!jobFrozen(j))return false;
-    if(owingOnly){const total=jobHasCharge(j,quotes)?jobChargeTotal(j,quotes,markupTable,invoices):0;const paid=payments.filter(p=>p.jobId===j.id&&p.status==="Received").reduce((s,p)=>s+Number(p.amount),0)+jobTradeInCredit(j,quotes);if(total-paid<=0.5)return false;}
+    if(owingOnly){const total=jobHasCharge(j,quotes)?jobChargeTotal(j,quotes,markupTable,invoices):0;const paid=payments.filter(p=>p.jobId===j.id&&p.status==="Received").reduce((s,p)=>s+Number(p.amount||0),0)+jobTradeInCredit(j,quotes);if(total-paid<=0.5)return false;}
     if(tf!=="All"&&j.type!==tf)return false;
     if(q){
       const c=clients.find(x=>x.id===j.clientId);
@@ -3584,6 +3897,7 @@ function Jobs({clients,jobs,setJobs,quotes,setQuotes,payments,setPayments,notes,
   const add=f=>{if(!guardEdit())return;setJobs(p=>{const n=[...p,{...f,id:uid(),createdAt:today()}];persist(K.jo,n);return n;});setModal(null);};
   const delJob=(id,e)=>{
     e.stopPropagation();
+    if(!guardEdit())return;
     if(!confirm("Delete this job? This will also remove all related quotes, payments, notes and invoices."))return;
     setJobs(p=>{const n=p.filter(j=>j.id!==id);persist(K.jo,n);return n;});
     setQuotes(p=>{const n=p.filter(q=>q.jobId!==id);persist(K.qu,n);return n;});
@@ -3669,7 +3983,7 @@ function Jobs({clients,jobs,setJobs,quotes,setQuotes,payments,setPayments,notes,
       const c=clients.find(x=>x.id===j.clientId);
       const od=j.deadline&&j.deadline<today()&&!jobIsDone(j);
       const total=jobChargeTotal(j,quotes,markupTable,invoices);
-      const paid=payments.filter(p=>p.jobId===j.id&&p.status==="Received").reduce((s,p)=>s+Number(p.amount),0);
+      const paid=payments.filter(p=>p.jobId===j.id&&p.status==="Received").reduce((s,p)=>s+Number(p.amount||0),0);
       const tradeIn=jobTradeInCredit(j,quotes);            // gold trade-in credit (value received)
       const owing=total-paid-tradeIn;
       const isOverride=Number(j.totalOverride)>0;
@@ -3982,6 +4296,7 @@ function RepairIntakeCard({job,setJobs,biz,clients,markupTable,pricing=[],invoic
       </div>
     </div>
     {trade&&<div style={{background:"#4E8B6A14",border:"1px solid #4E8B6A55",borderRadius:4,padding:"9px 14px",marginBottom:16,fontSize:12.5,color:"#3B6E52",fontWeight:600}}>Trade account — <strong>{Math.round(GST_RATE*100)}% {TAX_LABEL} is added</strong> on top of repair prices.</div>}
+    {tradeRepairUninvoiced(job,c,invoices)&&<div style={{background:WARN+"14",border:`1px solid ${WARN}55`,borderRadius:4,padding:"10px 14px",marginBottom:16,fontSize:12.5,color:WARN,fontWeight:600,lineHeight:1.55}}>⚠ Charge set but not invoiced — this repair <strong>won't appear on {clientDisplayName(c)||"the client"}'s statement</strong> until you raise the invoice. Use <strong>Invoice this repair →</strong> below.</div>}
     {job.repairToken&&<div style={{background:GOLD_L+"55",border:`1px solid ${GOLD}55`,borderRadius:4,padding:"9px 14px",marginBottom:16,display:"flex",alignItems:"center",gap:12,flexWrap:"wrap"}}>
       <span style={{fontSize:12,fontWeight:700,color:GOLD_D,whiteSpace:"nowrap"}}>{ICON_LINK}Client link</span>
       <span style={{flex:1,minWidth:180,fontSize:12,color:WG,wordBreak:"break-all",fontFamily:"monospace"}}>{repairLink}</span>
@@ -4161,7 +4476,7 @@ function JobDetail({jobId,jobs,setJobs,clients,setClients,quotes,setQuotes,payme
   // Promote the given quote ids to Approved as part of invoicing (no-op for already-approved retail quotes).
   const approveForInvoice=ids=>setQuotes(p=>{const s=new Set(ids);const n=p.map(q=>s.has(q.id)&&q.status!=="Approved"?{...q,status:"Approved"}:q);persist(K.qu,n);return n;});
   const ji=invoices.filter(i=>i.jobId===jobId);
-  const paidTotal=jp.filter(p=>p.status==="Received").reduce((s,p)=>s+Number(p.amount),0);
+  const paidTotal=jp.filter(p=>p.status==="Received").reduce((s,p)=>s+Number(p.amount||0),0);
   const usingOverride=Number(job.totalOverride)>0;
   const jobTotal=jobChargeTotal(job,quotes,markupTable,invoices);
   const jobTradeIn=jobTradeInCredit(job,quotes);            // gold trade-in credit received
@@ -4172,7 +4487,9 @@ function JobDetail({jobId,jobs,setJobs,clients,setClients,quotes,setQuotes,payme
   const[editPay,setEditPay]=useState(null);   // payment being edited (null = none)
   const[combineModal,setCombineModal]=useState(false);
   const[combineSel,setCombineSel]=useState([]);   // approved quote ids to combine into one invoice
-  const moveStage=s=>{setJobs(p=>{const n=p.map(j=>j.id===jobId?{...j,stage:s}:j);persist(K.jo,n);return n;});setEditStage(false);};
+  // Stamp completedAt when the job moves into a done/handover stage, so "recently completed" logic
+  // (e.g. the review-request list) counts the completion itself, not just createdAt/payment dates.
+  const moveStage=s=>{setJobs(p=>{const n=p.map(j=>j.id===jobId?{...j,stage:s,...(DONE_STAGES.includes(s)?{completedAt:today()}:{})}:j);persist(K.jo,n);return n;});setEditStage(false);};
   // "Awaiting client" park toggle — a manual flag (orthogonal to stage) that drops the job out of
   // the dashboard's active tracking until the client responds. parkedAt is kept for reference.
   const togglePark=()=>{setJobs(p=>{const n=p.map(j=>j.id===jobId?{...j,parked:!j.parked,parkedAt:j.parked?null:today()}:j);persist(K.jo,n);return n;});};
@@ -4206,8 +4523,9 @@ function JobDetail({jobId,jobs,setJobs,clients,setClients,quotes,setQuotes,payme
   });
   const addPay=f=>{if(!guardEdit())return;const n=[...payments,{...f,id:uid(),jobId,date:f.date||today()}];setPayments(n);persist(K.pa,n);refreshLinks(n);setPayModal(false);};
   const updatePay=(id,f)=>{if(!guardEdit())return;const n=payments.map(x=>x.id===id?{...x,...f,id,jobId,date:f.date||today()}:x);setPayments(n);persist(K.pa,n);refreshLinks(n);setEditPay(null);};
-  const delPay=id=>{if(!confirm("Delete this payment?"))return;const n=payments.filter(x=>x.id!==id);setPayments(n);persist(K.pa,n);refreshLinks(n);};
+  const delPay=id=>{if(!guardEdit())return;if(!confirm("Delete this payment?"))return;const n=payments.filter(x=>x.id!==id);setPayments(n);persist(K.pa,n);refreshLinks(n);};
   const delJob=()=>{
+    if(!guardEdit())return;
     if(!confirm("Delete this job? This will also remove all related quotes, payments, notes and invoices."))return;
     setJobs(p=>{const n=p.filter(j=>j.id!==jobId);persist(K.jo,n);return n;});
     setQuotes(p=>{const n=p.filter(q=>q.jobId!==jobId);persist(K.qu,n);return n;});
@@ -4263,6 +4581,7 @@ function JobDetail({jobId,jobs,setJobs,clients,setClients,quotes,setQuotes,payme
       </div>
     </div>
     {job.stage==="Ready for collection"&&<ReadyForCollectionCard job={job} client={c} biz={biz} setJobs={setJobs} setClients={setClients}/>}
+    {(job.stage==="Collected"||job.stage==="Received by customer")&&<AftercareCard job={job} client={c} biz={biz} setJobs={setJobs} setClients={setClients}/>}
     {editStage&&<Card style={{background:PARCH}}>
       <div style={{...SS.lbl,marginBottom:10}}>Move to stage</div>
       <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
@@ -4335,7 +4654,7 @@ function JobDetail({jobId,jobs,setJobs,clients,setClients,quotes,setQuotes,payme
       {jq.length===0&&<div style={{color:WG,fontSize:14}}>No quotes yet.</div>}
       {jq.length>1&&<div style={{fontSize:11,color:WG,marginBottom:6}}>Order shown here is the order options appear on new proposals.</div>}
       {jq.map((q,qi)=>{
-        const calc=calcQuote(q.lineItems,markupTable,effMarkupOverride(q),q.pricingMode==="trade");
+        const calc=calcQuote(q.lineItems,markupTable,effMarkupOverride(q),gstOnMarkupFor(q));
         const hasInv=quoteHasInvoice(invoices,q.id);
         const manual=quoteIsManual(q);
         const stoneTotal=(q.stoneClientTotal||0)+(q.accentStoneTotal||0);
@@ -4780,6 +5099,10 @@ function QuoteBuilder({jobId:jobIdProp,editQuoteId,stockId,stock,setStock,jobs,c
   // (new quotes), restored from the saved quote when editing; never in stock-pricing mode.
   const[pricingMode,setPricingMode]=useState(seed?.pricingMode||((!stockMode&&c?.accountType==="trade")?"trade":"retail"));
   const tradePricing=pricingMode==="trade"&&!stockMode;
+  // Retail opt-in to add tax on top of the marked-up jewellery total (bought-in finished pieces).
+  // Trade already adds it, so this only surfaces / applies in retail.
+  const[taxOnTop,setTaxOnTop]=useState(!!seed?.taxOnTop);
+  const gstOnMarkup=tradePricing||taxOnTop;
   const[stoneOverride,setStoneOverride]=useState(seed?.stoneMarkupOverride?String(seed.stoneMarkupOverride):"");
   const[tradeInCredit,setTradeInCredit]=useState(seed?.tradeInCredit?String(seed.tradeInCredit):"");
   const[tradeInNote,setTradeInNote]=useState(seed?.tradeInNote||"");
@@ -4917,7 +5240,7 @@ function QuoteBuilder({jobId:jobIdProp,editQuoteId,stockId,stock,setStock,jobs,c
   const mkTable=tradePricing?tradeMarkupTable:markupTable;
   const natTable=tradePricing?tradeNatStoneMarkup:naturalStoneMarkup;
   const labTable=tradePricing?tradeLabStoneMarkup:labStoneMarkup;
-  const calc=calcQuote(validItems.length?validItems:items,mkTable,markupOverride,tradePricing);
+  const calc=calcQuote(validItems.length?validItems:items,mkTable,markupOverride,gstOnMarkup);
   const validStoneItems=stoneItems.filter(i=>(Number(i.cost)||Number(i.costLow))>0);
   const activeStoneMarkup=stoneType==="lab"?labTable:natTable;
   const stoneCalc=stoneMode==="sourcing"&&stoneType&&validStoneItems.length>0?calcStoneQuote(validStoneItems,activeStoneMarkup,stoneOverride):null;
@@ -4945,7 +5268,7 @@ function QuoteBuilder({jobId:jobIdProp,editQuoteId,stockId,stock,setStock,jobs,c
     if(stockMode){
       // Persist the full pricing payload (so it can be reopened & re-priced), plus the resulting
       // cost + retail (inc GST) onto the stock piece. Retail auto-fills but stays editable in Stock.
-      const payload={title:title.trim(),markupOverride:Number(markupOverride)||0,manualTotal:Number(manualTotal)||0,notes,lineItems:validItems,
+      const payload={title:title.trim(),markupOverride:Number(markupOverride)||0,taxOnTop,manualTotal:Number(manualTotal)||0,notes,lineItems:validItems,
         stoneMode,stoneType:stoneMode==="sourcing"?stoneType:"",stoneItems:stoneMode==="sourcing"?validStoneItems:[],stoneMarkupOverride:Number(stoneOverride)||0,
         stoneNotes,stoneClientTotal:stoneCalc?.clientTotal||0,accentStoneTotal};
       const sourcedStoneCost=stoneMode==="sourcing"?validStoneItems.reduce((s,i)=>s+(Number(i.cost)||Number(i.costLow)||0),0):0;
@@ -4958,7 +5281,7 @@ function QuoteBuilder({jobId:jobIdProp,editQuoteId,stockId,stock,setStock,jobs,c
     }
     if(isEditing){
       // Update existing quote — preserve id, jobId, createdAt
-      const updated={...existingQuote,status,title:title.trim(),pieceTitle:pieceTitle.trim(),markupOverride:Number(markupOverride)||0,pricingMode:tradePricing?"trade":"retail",tradeMult:tradeMultVal,manualTotal:Number(manualTotal)||0,validUntil,notes,lineItems:validItems,
+      const updated={...existingQuote,status,title:title.trim(),pieceTitle:pieceTitle.trim(),markupOverride:Number(markupOverride)||0,pricingMode:tradePricing?"trade":"retail",tradeMult:tradeMultVal,taxOnTop,manualTotal:Number(manualTotal)||0,validUntil,notes,lineItems:validItems,
         stoneMode,stoneType:stoneMode==="sourcing"?stoneType:"",stoneItems:stoneMode==="sourcing"?validStoneItems:[],stoneMarkupOverride:Number(stoneOverride)||0,
         stoneNotes,stoneClientTotal:stoneCalc?.clientTotal||0,accentStoneTotal,tradeInCredit:Number(tradeInCredit)||0,tradeInNote:tradeInNote.trim(),clientDescription,updatedAt:today()};
       const nextQuotes=quotes.map(q=>q.id===editQuoteId?updated:q);
@@ -4975,7 +5298,7 @@ function QuoteBuilder({jobId:jobIdProp,editQuoteId,stockId,stock,setStock,jobs,c
         if(apply)setInvoices(p=>{const n=p.map(i=>i.id===linkedInvoice.id?synced:i);persist(K.inv,n);return n;});
       }
     }else{
-      const q={id:uid(),jobId,status,title:title.trim(),pieceTitle:pieceTitle.trim(),markupOverride:Number(markupOverride)||0,pricingMode:tradePricing?"trade":"retail",tradeMult:tradeMultVal,manualTotal:Number(manualTotal)||0,createdAt:today(),validUntil,notes,lineItems:validItems,
+      const q={id:uid(),jobId,status,title:title.trim(),pieceTitle:pieceTitle.trim(),markupOverride:Number(markupOverride)||0,pricingMode:tradePricing?"trade":"retail",tradeMult:tradeMultVal,taxOnTop,manualTotal:Number(manualTotal)||0,createdAt:today(),validUntil,notes,lineItems:validItems,
         stoneMode,stoneType:stoneMode==="sourcing"?stoneType:"",stoneItems:stoneMode==="sourcing"?validStoneItems:[],stoneMarkupOverride:Number(stoneOverride)||0,
         stoneNotes,stoneClientTotal:stoneCalc?.clientTotal||0,accentStoneTotal,tradeInCredit:Number(tradeInCredit)||0,tradeInNote:tradeInNote.trim(),clientDescription};
       setQuotes(p=>{const n=[...p,q];persist(K.qu,n);return n;});
@@ -5139,20 +5462,34 @@ function QuoteBuilder({jobId:jobIdProp,editQuoteId,stockId,stock,setStock,jobs,c
                <button onClick={()=>setMarkupOverride("")} style={{background:"none",border:`1px solid ${BD}`,borderRadius:6,padding:"4px 10px",fontSize:11,fontWeight:700,color:WG,cursor:"pointer",fontFamily:"inherit"}}>Reset to auto</button></>
             :<span style={{fontSize:12,color:WG}}>Blank = use the bracket ({calc.autoMult}×). Type a value to override this quote only.</span>}
         </div>
+        {/* Retail opt-in: add tax on top of the marked-up total (bought-in finished pieces). Trade always adds it. */}
+        {!tradePricing&&<div style={{display:"flex",alignItems:"center",gap:12,marginTop:14,flexWrap:"wrap"}}>
+          <button type="button" onClick={()=>setTaxOnTop(v=>!v)} title={taxOnTop?`${TAX_LABEL} is being added on top of this quote's marked-up total`:`Add ${TAX_LABEL} on top of this quote's marked-up total`}
+            style={{display:"inline-flex",alignItems:"center",gap:8,background:taxOnTop?"#EDF5EF":WHITE,border:`1px solid ${taxOnTop?"#4E8B6A":BD}`,borderRadius:8,padding:"7px 14px",fontSize:12,fontWeight:700,color:taxOnTop?"#4E8B6A":WG,cursor:"pointer",fontFamily:"inherit"}}>
+            <span style={{width:16,height:16,borderRadius:4,border:`1px solid ${taxOnTop?"#4E8B6A":BD}`,background:taxOnTop?"#4E8B6A":WHITE,color:WHITE,fontSize:12,lineHeight:"14px",textAlign:"center",fontWeight:900}}>{taxOnTop?"✓":""}</span>
+            Add {TAX_LABEL} on top of the total
+          </button>
+          <span style={{fontSize:12,fontWeight:700,color:WG,display:"inline-flex",alignItems:"center"}}>
+            {taxOnTop
+              ?<span style={{color:"#4E8B6A"}}>+{Math.round(GST_RATE*100)}% {TAX_LABEL} added to the jewellery total</span>
+              :<span style={{color:WG,fontWeight:400}}>Retail markups already include {TAX_LABEL}.</span>}
+            <InfoDot text={`Your retail markups already bake ${TAX_LABEL} into the price, so normally you don't add it again. Turn this on for a bought-in finished piece (say a necklace bought wholesale) where you've entered your cost and marked it up, and you want ${TAX_LABEL} added on top of that total. It applies to the jewellery costs only. Sourced stones already include ${TAX_LABEL} and aren't affected.`}/>
+          </span>
+        </div>}
       </div>}
 
       {/* ── Accent stones priced on the stone markup (natural / lab) ── */}
       {stoneAccents.length>0&&<div style={{borderTop:`1px solid ${BD}`,margin:"8px 0 20px",paddingTop:20}}>
         <div style={{fontSize:11,fontWeight:700,color:"#96627C",textTransform:"uppercase",letterSpacing:"0.08em",display:"flex",alignItems:"center"}}>Accent stones on stone markup<InfoDot text="Small / melee stones priced on your stone markup (cost × tier + tax), like the centre stone — separate from the jewellery markup. Switch one to 'Mfg markup' to fold it into the jewellery costs instead."/></div>
         <div style={{fontSize:11,color:WG,margin:"3px 0 12px",lineHeight:1.55}}>These are priced like the centre stone — your cost × the natural/lab stone tier + {TAX_LABEL} — not the jewellery markup. Switch one back to <strong>Mfg markup</strong> to fold it into the jewellery costs above.</div>
-        <div style={{display:"grid",gridTemplateColumns:"1.3fr 1fr 150px 110px 36px",gap:8,marginBottom:6,padding:"0 2px"}}>
+        {!isMobile&&<div style={{display:"grid",gridTemplateColumns:"1.3fr 1fr 150px 110px 36px",gap:8,marginBottom:6,padding:"0 2px"}}>
           {["Stone","Notes / detail","Markup","Your cost",""].map(h=><div key={h} style={{fontSize:10,fontWeight:700,color:WG,textTransform:"uppercase",letterSpacing:"0.04em"}}>{h}</div>)}
-        </div>
+        </div>}
         {stoneAccents.map(li=>{
           const cost=Number(li.costLow)||0;
           const mode=li.markupMode||"mfg";
           const sc=cost>0?calcStoneQuote([{cost:li.costLow}],mode==="lab"?labTable:natTable):null;
-          return <div key={li.id} style={{display:"grid",gridTemplateColumns:"1.3fr 1fr 150px 110px 36px",gap:8,marginBottom:8,alignItems:"center"}}>
+          return <div key={li.id} style={{display:"grid",gridTemplateColumns:isMobile?"1fr 1fr":"1.3fr 1fr 150px 110px 36px",gap:8,marginBottom:isMobile?14:8,paddingBottom:isMobile?12:0,borderBottom:isMobile?`1px solid ${BD}`:"none",alignItems:"center"}}>
             <div style={{fontSize:13,fontWeight:600,color:INK,padding:"7px 0"}}>{li.description||<span style={{color:WG,fontStyle:"italic"}}>—</span>}
               <div style={{fontSize:10,color:sc?(sc.bracket?"#96627C":WARN):WG,marginTop:1}}>{sc?(sc.bracket?`→ ${fmtR(sc.clientTotal)} to client (×${sc.mult} + ${TAX_LABEL})`:"cost outside stone table"):""}</div>
             </div>
@@ -5503,7 +5840,7 @@ function JobProposals({job,client,quotes,proposals,setProposals,setQuotes,biz,ma
 
   // Only quotes with a resolvable price can be sent as options
   const optionable=(quotes||[]).filter(q=>{
-    const calc=calcQuote(q.lineItems,markupTable,effMarkupOverride(q),q.pricingMode==="trade");
+    const calc=calcQuote(q.lineItems,markupTable,effMarkupOverride(q),gstOnMarkupFor(q));
     return quoteIsManual(q)||!(calc.base>0&&!calc.bracket&&!calc.overridden);
   });
   const linkFor=p=>`${window.location.origin}/?p=${p.token}`;
@@ -5584,10 +5921,20 @@ function JobProposals({job,client,quotes,proposals,setProposals,setQuotes,biz,ma
     if(!silent)setChecking("");
     if(error||!data)return;
     if(data.status==="accepted"&&p.status!=="accepted"){
-      const acceptedQuoteId=data.accepted_option;
-      setProposals(prev=>{const n=prev.map(x=>x.id===p.id?{...x,status:"accepted",acceptedQuoteId,acceptedName:data.accepted_name||"",acceptedAt:data.accepted_at||today()}:x);persist(K.pp,n);return n;});
-      // Same safeguard as reconcileAccept: never demote an invoiced quote.
-      setQuotes(prev=>{const n=prev.map(q=>q.id===acceptedQuoteId?{...q,status:"Approved"}:(q.jobId===job.id&&q.status==="Approved"&&!quoteHasInvoice(invoices,q.id)?{...q,status:"Declined"}:q));persist(K.qu,n);return n;});
+      // accepted_option is one id (single) or several comma-joined ids (a multi-option bundle). Mirror the
+      // canonical reconcileAccept handler so accepting a bundle approves EVERY chosen quote, not a phantom
+      // combined id — and only the RIGHT quotes get declined.
+      const acceptedIds=String(data.accepted_option||"").split(",").map(s=>s.trim()).filter(Boolean);
+      const multi=p.selectMode==="multi";
+      setProposals(prev=>{const n=prev.map(x=>x.id===p.id?{...x,status:"accepted",acceptedQuoteId:data.accepted_option,acceptedName:data.accepted_name||"",acceptedAt:data.accepted_at||today()}:x);persist(K.pp,n);return n;});
+      // Approve every accepted quote. Multi: decline only this proposal's non-selected options. Single: demote
+      // the job's other approved quotes. Never demote a quote that's already on an invoice.
+      setQuotes(prev=>{const n=prev.map(q=>{
+        if(acceptedIds.includes(q.id))return{...q,status:"Approved"};
+        if(quoteHasInvoice(invoices,q.id))return q;
+        if(multi)return (p.optionIds||[]).includes(q.id)?{...q,status:"Declined"}:q;
+        return (q.jobId===job.id&&q.status==="Approved")?{...q,status:"Declined"}:q;
+      });persist(K.qu,n);return n;});
     }else if(!silent&&data.status!=="accepted"){
       alert("No acceptance yet — the client hasn't accepted this proposal.");
     }
@@ -5610,6 +5957,7 @@ function JobProposals({job,client,quotes,proposals,setProposals,setQuotes,biz,ma
   },[job?.id]);   // eslint-disable-line
 
   const delProposal=async p=>{
+    if(!guardEdit())return;
     if(!confirm("Delete this proposal? The client's link will stop working."))return;
     if(supabaseEnabled)try{await supabase.from(PUBLIC_PROPOSALS_TABLE).delete().eq("token",p.token);}catch(e){}
     save(proposals.filter(x=>x.id!==p.id));
@@ -5622,7 +5970,7 @@ function JobProposals({job,client,quotes,proposals,setProposals,setQuotes,biz,ma
   const proposalState=pp=>{
     const opts={};
     (pp.optionIds||[]).forEach(id=>{const q=quotes.find(x=>x.id===id);opts[id]={t:q?Math.round(quoteGrandTotal(q,markupTable)*100):null,ti:q?Math.round((Number(q.tradeInCredit)||0)*100):0};});
-    const paid=Math.round((payments||[]).filter(pm=>pm.jobId===pp.jobId&&pm.status==="Received").reduce((s,pm)=>s+Number(pm.amount),0)*100);
+    const paid=Math.round((payments||[]).filter(pm=>pm.jobId===pp.jobId&&pm.status==="Received").reduce((s,pm)=>s+Number(pm.amount||0),0)*100);
     return{opts,paid};
   };
   const proposalChanges=pp=>{
@@ -6255,7 +6603,7 @@ function ProposalPreview({quote,job,clients=[],biz,calc,payments=[],reconcilePay
   // Payments already recorded against this job → outstanding balance to request. Payments are
   // job-level, so we only net them against THIS quote when it's the job's sole billable quote —
   // otherwise a multi-piece deposit would be wrongly credited against one piece's total.
-  const paidTotal=reconcilePayments?(payments||[]).filter(p=>p.jobId===job?.id&&p.status==="Received").reduce((s,p)=>s+Number(p.amount),0):0;
+  const paidTotal=reconcilePayments?(payments||[]).filter(p=>p.jobId===job?.id&&p.status==="Received").reduce((s,p)=>s+Number(p.amount||0),0):0;
   const hasPaid=paidTotal>0.005;
   const qTrade=Number(quote.tradeInCredit)||0;                       // gold trade-in credit (received)
   const outstanding=Math.max(0,grandProposalTotal-qTrade-paidTotal);
@@ -6586,7 +6934,7 @@ function QuoteDetailView({quoteId,quotes,setQuotes,jobs,clients,biz,markupTable,
   const job=jobs.find(j=>j.id===q.jobId);
   const c=job?clients.find(x=>x.id===job.clientId):null;
   const tradeQ=q.pricingMode==="trade";
-  const calc=calcQuote(q.lineItems,markupTable,effMarkupOverride(q),q.pricingMode==="trade");
+  const calc=calcQuote(q.lineItems,markupTable,effMarkupOverride(q),gstOnMarkupFor(q));
   // Trade quotes recompute the centre stone on the trade stone profile (metal/labour already
   // routes through effMarkupOverride above).
   const activeStoneMarkup=q.stoneType==="lab"?((tradeQ?tradeLabStoneMarkup:labStoneMarkup)||[]):((tradeQ?tradeNatStoneMarkup:naturalStoneMarkup)||[]);
@@ -6618,6 +6966,7 @@ function QuoteDetailView({quoteId,quotes,setQuotes,jobs,clients,biz,markupTable,
     });
   };
   const delQuote=()=>{
+    if(!guardEdit())return;
     if(invoiceFor){
       alert(`This quote is on invoice ${invoiceFor.number||""} — deleting it would orphan that invoice.\n\nDelete the invoice first (Invoices page), then delete the quote.`);
       return;
@@ -6761,7 +7110,7 @@ function QuotesList({quotes,jobs,clients,markupTable,biz,setView}){
     const job=jobs.find(j=>j.id===q.jobId);
     const cl=job?clients.find(x=>x.id===job.clientId):null;
     const price=quoteGrandTotal(q,markupTable);
-    const calc=calcQuote(q.lineItems,markupTable,effMarkupOverride(q),q.pricingMode==="trade");
+    const calc=calcQuote(q.lineItems,markupTable,effMarkupOverride(q),gstOnMarkupFor(q));
     const priceKnown=quoteIsManual(q)||!(calc.base>0&&!calc.bracket&&!calc.overridden);
     // Expiry: explicit validUntil if set, else createdAt + business validity window
     const expiryISO=q.validUntil||(q.createdAt?addDays(String(q.createdAt).slice(0,10),validityDays):"");
@@ -6863,7 +7212,7 @@ function QuotesList({quotes,jobs,clients,markupTable,biz,setView}){
           <div style={{display:"flex",flexDirection:"column",gap:8,paddingLeft:12}}>
             {g.rows.map(({q,price,priceKnown,expired,daysSent,followUp,expiryISO})=>{
               const manual=quoteIsManual(q);
-              const calc=calcQuote(q.lineItems,markupTable,effMarkupOverride(q),q.pricingMode==="trade");
+              const calc=calcQuote(q.lineItems,markupTable,effMarkupOverride(q),gstOnMarkupFor(q));
               const priceStr=priceKnown?fmtR(price):"—";
               return <Card key={q.id} onClick={()=>setView("quoteDetail_"+q.id)}>
                 <div style={{display:"flex",flexDirection:isMobile?"column":"row",justifyContent:"space-between",alignItems:isMobile?"stretch":"center",gap:isMobile?10:0}}>
@@ -6938,7 +7287,7 @@ const nextInvoiceNumber=(invoices,biz)=>{
 
 // ── Invoice print view ───────────────────────────────────────────────────
 function InvoicePrintView({inv,job,client,biz,payments,onClose}){
-  const paidTotal=(payments||[]).filter(p=>p.jobId===inv.jobId&&p.status==="Received").reduce((s,p)=>s+Number(p.amount),0);
+  const paidTotal=(payments||[]).filter(p=>p.jobId===inv.jobId&&p.status==="Received").reduce((s,p)=>s+Number(p.amount||0),0);
   const invDiscount=Number(inv.discount)||0;
   const invSubtotal=inv.subtotalIncGST??inv.totalIncGST;
   const invTradeIn=Number(inv.tradeInCredit)||0;const balance=Math.max(0,inv.totalIncGST-invTradeIn-paidTotal);
@@ -7155,6 +7504,7 @@ function InvoiceDetailView({invoiceId,invoices,setInvoices,jobs,clients,payments
   const[resyncMsg,setResyncMsg]=useState("");
   const setStatus=s=>setInvoices(p=>{const n=p.map(x=>x.id===invoiceId?{...x,status:s}:x);persist(K.inv,n);return n;});
   const del=()=>{
+    if(!guardEdit())return;
     if(!confirm(`Delete invoice ${inv.number}? This can't be undone. Payments recorded against the job are not affected, and the quote stays so you can re-invoice it.`))return;
     setInvoices(p=>{const n=p.filter(x=>x.id!==invoiceId);persist(K.inv,n);return n;});
     setView("invoices");
@@ -7209,7 +7559,7 @@ function InvoiceDetailView({invoiceId,invoices,setInvoices,jobs,clients,payments
   });persist(K.inv,n);return n;});
   const subtotalIncGST=inv.subtotalIncGST??inv.totalIncGST;
   const discount=Number(inv.discount)||0;
-  const paidTotal=(payments||[]).filter(p=>p.jobId===inv.jobId&&p.status==="Received").reduce((s,p)=>s+Number(p.amount),0);
+  const paidTotal=(payments||[]).filter(p=>p.jobId===inv.jobId&&p.status==="Received").reduce((s,p)=>s+Number(p.amount||0),0);
   const invTradeIn=Number(inv.tradeInCredit)||0;const balance=Math.max(0,inv.totalIncGST-invTradeIn-paidTotal);
   // Staged request: optionally request only a specific amount now (e.g. the diamond balance),
   // with the rest noted as payable later. Blank = request the full outstanding balance.
@@ -7417,7 +7767,7 @@ function InvoicesList({invoices,jobs,clients,quotes,setQuotes,payments,setInvoic
     setModal(false);
     setView("invoiceDetail_"+inv.id);
   };
-  const delInv=(id,e)=>{e.stopPropagation();const iv=invoices.find(x=>x.id===id);if(!confirm(`Delete invoice ${iv?.number||""}? This can't be undone. Payments and the quote are not affected.`))return;setInvoices(p=>{const n=p.filter(x=>x.id!==id);persist(K.inv,n);return n;});};
+  const delInv=(id,e)=>{e.stopPropagation();if(!guardEdit())return;const iv=invoices.find(x=>x.id===id);if(!confirm(`Delete invoice ${iv?.number||""}? This can't be undone. Payments and the quote are not affected.`))return;setInvoices(p=>{const n=p.filter(x=>x.id!==id);persist(K.inv,n);return n;});};
   // True net invoice figures. Payments are job-level, so distribute each job's received cash
   // across its invoices (oldest first), netting each invoice's gold trade-in credit first.
   // Result: Total invoiced = Collected (cash + trade-ins) + Outstanding, so the three reconcile.
@@ -7426,7 +7776,7 @@ function InvoicesList({invoices,jobs,clients,quotes,setQuotes,payments,setInvoic
     const byJob={};
     invoices.forEach(i=>{(byJob[i.jobId]=byJob[i.jobId]||[]).push(i);});
     Object.keys(byJob).forEach(jid=>{
-      let cash=payments.filter(p=>p.jobId===jid&&p.status==="Received").reduce((s,p)=>s+Number(p.amount),0);
+      let cash=payments.filter(p=>p.jobId===jid&&p.status==="Received").reduce((s,p)=>s+Number(p.amount||0),0);
       byJob[jid].slice().sort((a,b)=>String(a.date).localeCompare(String(b.date))).forEach(inv=>{
         const gross=Number(inv.totalIncGST)||0;
         const afterTradeIn=Math.max(0,gross-(Number(inv.tradeInCredit)||0));
@@ -7485,7 +7835,7 @@ function InvoicesList({invoices,jobs,clients,quotes,setQuotes,payments,setInvoic
     {invoices.slice().reverse().map(inv=>{
       const job=jobs.find(j=>j.id===inv.jobId);
       const cl=job?clients.find(x=>x.id===job.clientId):null;
-      const paid=(payments||[]).filter(p=>p.jobId===inv.jobId&&p.status==="Received").reduce((s,p)=>s+Number(p.amount),0);
+      const paid=(payments||[]).filter(p=>p.jobId===inv.jobId&&p.status==="Received").reduce((s,p)=>s+Number(p.amount||0),0);
       const bal=Math.max(0,inv.totalIncGST-(Number(inv.tradeInCredit)||0)-paid);   // net of gold trade-in
       const es=invoiceEffectiveStatus(inv,payments,invoices);
       return <Card key={inv.id} onClick={()=>setView("invoiceDetail_"+inv.id)}>
@@ -7562,6 +7912,15 @@ function StatementsList({clients,jobs,invoices,payments,biz,setView}){
   const isMobile=useIsMobile();
   const asOf=today();
   const trade=(clients||[]).filter(c=>c.accountType==="trade");
+  // Trade repairs with a charge set but no invoice raised — they DON'T show in the statements/ledger
+  // below (those are built from invoices), so surface them here or they'd be silently unbilled. Keyed
+  // by client so an account that has ONLY uninvoiced repairs (and would otherwise be filtered out of
+  // the rows) is still reachable.
+  const unbilled=trade.map(c=>{
+    const js=(jobs||[]).filter(j=>tradeRepairUninvoiced(j,c,invoices));
+    return {c,jobs:js,amt:js.reduce((s,j)=>s+(Number(j.totalOverride)||0),0)};
+  }).filter(u=>u.jobs.length>0);
+  const unbilledIds=new Set(unbilled.map(u=>u.c.id));
   // Each trade account with its aged analysis, heaviest debtors first. Only accounts with billing
   // activity (any invoice, received payment, or a balance) are listed — a brand-new trade account,
   // or one whose jobs were all deleted, drops off rather than lingering at $0. Its statement is
@@ -7575,6 +7934,18 @@ function StatementsList({clients,jobs,invoices,payments,biz,setView}){
   const bucketColor=k=>k==="d90"?DANGER:k==="d61_90"?WARN:k==="d31_60"?WARN:INK;
   return <div>
     <SectionHeader eyebrow="Billing" title="Trade statements" subtitle="One consolidated statement per trade account — with a live account ledger and aged receivables (30/60/90)."/>
+    {unbilled.length>0&&<div style={{background:WARN+"12",border:`1px solid ${WARN}55`,borderRadius:8,padding:"13px 16px",marginBottom:18}}>
+      <div style={{fontSize:12.5,fontWeight:800,color:WARN,marginBottom:8,display:"flex",alignItems:"center",gap:7}}>⚠ Repairs charged but not invoiced — not on any statement yet</div>
+      <div style={{fontSize:12,color:WG,lineHeight:1.55,marginBottom:10}}>These trade repairs have a charge set but no invoice, so they won't roll up onto the account statement. Open each and use <strong>Invoice this repair</strong> to bill it.</div>
+      <div style={{display:"flex",flexDirection:"column",gap:6}}>
+        {unbilled.map(u=>u.jobs.map(j=>(
+          <div key={j.id} onClick={()=>setView("jobDetail_"+j.id)} style={{display:"flex",justifyContent:"space-between",alignItems:"center",gap:12,padding:"8px 12px",background:WHITE,border:`1px solid ${WARN}33`,borderRadius:6,cursor:"pointer"}}>
+            <div style={{minWidth:0}}><span style={{fontWeight:700,fontSize:13,color:INK}}>{clientDisplayName(u.c)}</span><span style={{fontSize:12,color:WG}}> · {(j.description||"Repair").slice(0,60)||"Repair"}</span></div>
+            <div style={{display:"flex",alignItems:"center",gap:10,flexShrink:0}}><span style={{fontWeight:800,fontSize:13,color:WARN}}>{fmt(Number(j.totalOverride)||0)}</span><span style={{fontSize:11,fontWeight:700,color:GOLD_D}}>Invoice →</span></div>
+          </div>
+        )))}
+      </div>
+    </div>}
     {rows.length===0
       ? <Card><div style={{color:WG,fontSize:14,textAlign:"center",padding:"24px 0"}}>
           <div style={{fontSize:32,marginBottom:10}}>🧾</div>
@@ -7604,6 +7975,7 @@ function StatementsList({clients,jobs,invoices,payments,biz,setView}){
                 <div style={{fontWeight:700,fontSize:15,color:INK,display:"flex",alignItems:"center",gap:8,flexWrap:"wrap"}}>{clientDisplayName(c)}
                   {c.terms&&<span style={{fontSize:9,fontWeight:800,letterSpacing:"0.08em",color:GOLD_D,background:GOLD_L,border:`1px solid ${GOLD}55`,borderRadius:999,padding:"2px 7px",textTransform:"uppercase"}}>{c.terms}</span>}
                   {over&&<span style={{fontSize:9,fontWeight:800,letterSpacing:"0.06em",color:"#fff",background:DANGER,borderRadius:999,padding:"2px 7px",textTransform:"uppercase"}}>Over limit</span>}
+                  {unbilledIds.has(c.id)&&<span title="A repair is charged but not invoiced — it won't appear on the statement until billed" style={{fontSize:9,fontWeight:800,letterSpacing:"0.06em",color:WARN,background:WARN+"1A",border:`1px solid ${WARN}55`,borderRadius:999,padding:"2px 7px",textTransform:"uppercase"}}>Repair not invoiced</span>}
                 </div>
                 <div style={{fontSize:12,color:WG,marginTop:3}}>{c.contactName||c.email||"—"}{aging.buckets.d90>0?<span style={{color:DANGER,fontWeight:600}}> · {fmtR(aging.buckets.d90)} over 90 days</span>:aging.total>aging.buckets.current?<span style={{color:WARN,fontWeight:600}}> · {fmtR(aging.total-aging.buckets.current)} overdue</span>:null}</div>
               </div>
@@ -7623,15 +7995,47 @@ function StatementsList({clients,jobs,invoices,payments,biz,setView}){
   </div>;
 }
 
+// Account-level payment entry (from the statement page). A payment always attaches to ONE job —
+// that's how the app tracks the account balance and aging — so when the account has more than one job
+// still owing, the user picks which; a single outstanding job is preselected. Only invoiced jobs can
+// take a statement payment (there has to be a charge for it to settle). Reuses PaymentForm for the
+// actual fields; the job selector sits above it and merges its id into the saved payment.
+function StatementPaymentForm({client,jobs,invoices,payments,onSave,onCancel}){
+  const {balMap}=invoicePaidBalanceMap(invoices,payments);
+  const rows=(jobs||[]).filter(j=>j.clientId===client?.id).map(j=>{
+    const ji=(invoices||[]).filter(i=>i.jobId===j.id);
+    return {job:j,invoiced:ji.length>0,bal:ji.reduce((s,i)=>s+(Number(balMap[i.id])||0),0),firstDate:ji.map(i=>String(i.date||"").slice(0,10)).sort()[0]||""};
+  }).filter(x=>x.invoiced);
+  const owing=rows.filter(x=>x.bal>0.005).sort((a,b)=>a.firstDate.localeCompare(b.firstDate));   // oldest debt first
+  const choices=owing.length?owing:rows;
+  const[jobId,setJobId]=useState(choices[0]?.job.id||"");
+  const sel=rows.find(x=>x.job.id===jobId);
+  const label=x=>`${x.job.type||"Job"}${x.job.description?" · "+x.job.description.slice(0,40):""} — ${x.bal>0.005?fmt(x.bal)+" owing":"settled"}`;
+  if(!rows.length)return <div>
+    <div style={{fontSize:13,color:WG,lineHeight:1.6,marginBottom:16}}>This account has no invoiced jobs yet, so there's nothing to record a payment against. Invoice a job first, then record the payment here or on the job itself.</div>
+    <div style={{display:"flex",justifyContent:"flex-end"}}><Btn ghost onClick={onCancel}>Close</Btn></div>
+  </div>;
+  return <div>
+    {choices.length>1
+      ?<div style={{marginBottom:14}}><label style={SS.lbl}>Apply to job</label>
+        <select value={jobId} onChange={e=>setJobId(e.target.value)} style={{...SS.inp,marginTop:6}}>{choices.map(x=><option key={x.job.id} value={x.job.id}>{label(x)}</option>)}</select>
+        <div style={{fontSize:11,color:WG,marginTop:5,lineHeight:1.5}}>The payment is credited to this job and its invoice(s), oldest first.</div>
+      </div>
+      :<div style={{marginBottom:14,fontSize:12.5,color:WG,lineHeight:1.5}}>Applying to <strong style={{color:INK}}>{sel?.job.type||"job"}{sel?.job.description?" · "+sel.job.description.slice(0,50):""}</strong>{sel&&sel.bal>0.005?` — ${fmt(sel.bal)} owing`:""}.</div>}
+    <PaymentForm key={jobId} suggestedAmount={sel&&sel.bal>0.005?sel.bal:""} onCancel={onCancel} onSave={f=>onSave({...f,jobId})}/>
+  </div>;
+}
+
 // Per-account statement of account: header, period picker, running-balance ledger, aged
 // receivables, and Print / CSV export. All figures derive from invoices+payments (no new entity).
-function StatementDetail({clientId,clients,jobs,invoices,payments,biz,setView}){
+function StatementDetail({clientId,clients,jobs,invoices,payments,setPayments,biz,setView}){
   const isMobile=useIsMobile();
   const isNarrow=useIsMobile(1024);   // tablet + phone: stack the fixed-column ledger table
   const c=(clients||[]).find(x=>x.id===clientId);
   const[preset,setPreset]=useState("all");
   const[from,setFrom]=useState("");
   const[to,setTo]=useState("");
+  const[payModal,setPayModal]=useState(false);
   const setRange=(p)=>{
     const now=new Date(),y=now.getFullYear(),m=now.getMonth(),iso=d=>toISO(d);
     if(p==="month"){setFrom(iso(new Date(y,m,1)));setTo(iso(new Date(y,m+1,0)));}
@@ -7647,6 +8051,9 @@ function StatementDetail({clientId,clients,jobs,invoices,payments,biz,setView}){
   const aging=accountAging(c,jobs,invoices,payments,asOf);
   const m=accountMetrics(c,jobs,invoices,payments);
   const over=Number(c.creditLimit)>0&&aging.total>Number(c.creditLimit);
+  // Repairs on this account charged but never invoiced — absent from the ledger below until billed.
+  const unbilledJobs=(jobs||[]).filter(j=>tradeRepairUninvoiced(j,c,invoices));
+  const unbilledAmt=unbilledJobs.reduce((s,j)=>s+(Number(j.totalOverride)||0),0);
   const bucketColor=k=>k==="d90"?DANGER:k==="d61_90"||k==="d31_60"?WARN:INK;
   const doPrint=()=>printStatement(biz,c,{...st,aging,from,to});
   const doCsv=()=>{const span=from||to?`${from||"start"}_to_${to||"today"}`:"all";downloadStatementCsv(c,st.opening,st.period,st.closing,`statement-${(clientDisplayName(c)||"account").replace(/[^\w-]+/g,"-")}-${span}.csv`);};
@@ -7668,9 +8075,22 @@ function StatementDetail({clientId,clients,jobs,invoices,payments,biz,setView}){
         <div style={{textAlign:isMobile?"left":"right",flexShrink:0}}>
           <div style={{fontSize:10,color:WG,fontWeight:700,textTransform:"uppercase",letterSpacing:"0.08em"}}>Balance owing</div>
           <div style={{fontSize:26,fontWeight:800,color:aging.total>0?INK:OK}}>{fmt(aging.total)}</div>
+          <div style={{marginTop:8,display:"flex",justifyContent:isMobile?"flex-start":"flex-end"}}><Btn sm onClick={()=>setPayModal(true)}>+ Record payment</Btn></div>
         </div>
       </div>
       {over&&<div style={{marginTop:14,background:DANGER+"12",border:`1px solid ${DANGER}55`,borderRadius:8,padding:"10px 14px",fontSize:13,color:DANGER,fontWeight:600}}>⚠ Over credit limit — owing {fmt(aging.total)} against a {fmt(Number(c.creditLimit))} limit.</div>}
+      {unbilledJobs.length>0&&<div style={{marginTop:14,background:WARN+"12",border:`1px solid ${WARN}55`,borderRadius:8,padding:"11px 14px"}}>
+        <div style={{fontSize:13,color:WARN,fontWeight:700,marginBottom:6}}>⚠ {unbilledJobs.length} repair{unbilledJobs.length>1?"s":""} charged but not invoiced — {fmt(unbilledAmt)} not on this statement</div>
+        <div style={{fontSize:12,color:WG,lineHeight:1.55,marginBottom:unbilledJobs.length?8:0}}>The statement and ledger below are built from invoices only. Invoice each repair to bring it onto the account.</div>
+        <div style={{display:"flex",flexDirection:"column",gap:5}}>
+          {unbilledJobs.map(j=>(
+            <div key={j.id} onClick={()=>setView("jobDetail_"+j.id)} style={{display:"flex",justifyContent:"space-between",alignItems:"center",gap:12,padding:"7px 11px",background:WHITE,border:`1px solid ${WARN}33`,borderRadius:6,cursor:"pointer"}}>
+              <span style={{fontSize:12.5,color:INK,fontWeight:600,minWidth:0,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{(j.description||"Repair").slice(0,70)||"Repair"}{j.dateIn?<span style={{color:WG,fontWeight:400}}> · in {fmtDate(j.dateIn)}</span>:null}</span>
+              <span style={{display:"flex",alignItems:"center",gap:10,flexShrink:0}}><span style={{fontWeight:800,fontSize:13,color:WARN}}>{fmt(Number(j.totalOverride)||0)}</span><span style={{fontSize:11,fontWeight:700,color:GOLD_D}}>Invoice →</span></span>
+            </div>
+          ))}
+        </div>
+      </div>}
     </Card>
 
     <Card>
@@ -7720,20 +8140,20 @@ function StatementDetail({clientId,clients,jobs,invoices,payments,biz,setView}){
         <div>Date</div><div>Description</div><div style={{textAlign:"right"}}>Charges</div><div style={{textAlign:"right"}}>Payments</div><div style={{textAlign:"right"}}>Balance</div>
       </div>}
       {st.period.length===0&&<div style={{color:WG,fontSize:13,padding:"20px 14px",fontStyle:"italic",textAlign:"center"}}>No transactions in this period.</div>}
-      {st.period.map((e,i)=>(
-        <div key={e.id} style={isNarrow
+      {st.period.map((e,i)=>{const goJob=e.jobId?()=>setView("jobDetail_"+e.jobId):null;return(
+        <div key={e.id} onClick={goJob||undefined} title={goJob?"Open the job":undefined} style={{...(isNarrow
           ?{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:10,padding:"12px 14px",borderTop:i>0?`1px solid ${BD}`:"none"}
-          :{display:"grid",gridTemplateColumns:"90px 1fr 110px 130px 120px",gap:8,padding:"12px 14px",borderTop:`1px solid ${BD}`,alignItems:"center"}}>
+          :{display:"grid",gridTemplateColumns:"90px 1fr 110px 130px 120px",gap:8,padding:"12px 14px",borderTop:`1px solid ${BD}`,alignItems:"center"}),...(goJob?{cursor:"pointer"}:{})}}>
           <div style={{fontSize:12,color:WG,whiteSpace:"nowrap"}}>{fmtDate(e.date)}</div>
           <div style={{minWidth:0,order:isNarrow?3:0,flexBasis:isNarrow?"100%":"auto"}}>
-            <div style={{fontSize:13,color:INK,fontWeight:600}}>{e.desc}{e.ref&&<span style={{color:WG,fontWeight:400}}> · {e.ref}</span>}</div>
+            <div style={{fontSize:13,color:INK,fontWeight:600}}>{e.desc}{e.ref&&<span style={{color:WG,fontWeight:400}}> · {e.ref}</span>}{goJob&&<span style={{color:GOLD_D,fontWeight:700,marginLeft:6}}>→</span>}</div>
             {(e.po||(e.kind==="invoice"&&e.due))&&<div style={{fontSize:11,color:WG,marginTop:1}}>{e.po?`PO ${e.po}`:""}{e.po&&e.kind==="invoice"&&e.due?" · ":""}{e.kind==="invoice"&&e.due?`Due ${fmtDate(e.due)}`:""}</div>}
           </div>
           <div style={{fontSize:13,textAlign:"right",color:INK,fontWeight:e.charge?700:400}}>{e.charge?fmt(e.charge):(isNarrow?"":"—")}</div>
           <div style={{fontSize:13,textAlign:"right",color:e.credit?OK:WG,fontWeight:e.credit?700:400}}>{e.credit?fmt(e.credit):(isNarrow?"":"—")}</div>
           <div style={{fontSize:13,textAlign:"right",fontWeight:700,color:INK}}>{fmt(e.balance)}</div>
         </div>
-      ))}
+      );})}
       {(()=>{const settled=st.closing<=0.005;return(
       <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",gap:10,padding:"15px 16px",marginTop:10,background:settled?OK:INK,borderRadius:10}}>
         <span style={{fontSize:11.5,fontWeight:800,color:"#fff",textTransform:"uppercase",letterSpacing:"0.07em"}}>{settled?"Balance settled":"Closing balance owing"}</span>
@@ -7752,6 +8172,11 @@ function StatementDetail({clientId,clients,jobs,invoices,payments,biz,setView}){
         ))}
       </div>
     </Card>
+    {payModal&&<Modal title="Record payment" onClose={()=>setPayModal(false)}>
+      <StatementPaymentForm client={c} jobs={jobs} invoices={invoices} payments={payments}
+        onCancel={()=>setPayModal(false)}
+        onSave={f=>{if(!guardEdit())return;const n=[...(payments||[]),{...f,id:uid(),date:f.date||today()}];setPayments&&setPayments(n);persist(K.pa,n);setPayModal(false);}}/>
+    </Modal>}
   </div>;
 }
 
@@ -8575,7 +9000,7 @@ function Reports({jobs,clients,quotes,payments,invoices,markupTable,setView}){
   const months=Array.from({length:6},(_,i)=>{const d=new Date();d.setMonth(d.getMonth()-i);return d.toISOString().slice(0,7);}).reverse();
   const monthData=months.map(m=>({
     month:new Date(m+"-01").toLocaleDateString(LOCALE,{month:"short",year:"numeric"}),
-    paid:payments.filter(p=>p.date?.startsWith(m)&&p.status==="Received").reduce((s,p)=>s+Number(p.amount),0)
+    paid:payments.filter(p=>p.date?.startsWith(m)&&p.status==="Received").reduce((s,p)=>s+Number(p.amount||0),0)
       +quotes.filter(q=>q.status==="Approved"&&(Number(q.tradeInCredit)||0)>0&&String(q.updatedAt||q.createdAt||"").slice(0,7)===m).reduce((s,q)=>s+Number(q.tradeInCredit),0),
   }));
   const maxPaid=Math.max(...monthData.map(m=>m.paid),1);
@@ -8584,15 +9009,15 @@ function Reports({jobs,clients,quotes,payments,invoices,markupTable,setView}){
   const totalQ=quotes.length;
   const appQ=quotes.filter(q=>q.status==="Approved").length;
   const conv=totalQ>0?Math.round(appQ/totalQ*100):0;
-  const avgBase=totalQ>0?quotes.reduce((s,q)=>s+calcQuote(q.lineItems,markupTable,effMarkupOverride(q),q.pricingMode==="trade").baseLow,0)/totalQ:0;
-  const avgFinal=totalQ>0?quotes.reduce((s,q)=>{if(quoteIsManual(q))return s+Number(q.manualTotal);const c=calcQuote(q.lineItems,markupTable,effMarkupOverride(q),q.pricingMode==="trade");return s+(c.bracket?(c.isRange?c.finalHigh:c.finalLow):0);},0)/totalQ:0;
-  const cashPaid=payments.filter(p=>p.status==="Received").reduce((s,p)=>s+Number(p.amount),0);
+  const avgBase=totalQ>0?quotes.reduce((s,q)=>s+calcQuote(q.lineItems,markupTable,effMarkupOverride(q),gstOnMarkupFor(q)).baseLow,0)/totalQ:0;
+  const avgFinal=totalQ>0?quotes.reduce((s,q)=>{if(quoteIsManual(q))return s+Number(q.manualTotal);const c=calcQuote(q.lineItems,markupTable,effMarkupOverride(q),gstOnMarkupFor(q));return s+(c.bracket?(c.isRange?c.finalHigh:c.finalLow):0);},0)/totalQ:0;
+  const cashPaid=payments.filter(p=>p.status==="Received").reduce((s,p)=>s+Number(p.amount||0),0);
   const totalTradeIn=jobs.reduce((s,j)=>s+jobTradeInCredit(j,quotes),0);   // gold trade-in credits = value received
   const totalPaid=cashPaid+totalTradeIn;                                    // total value received (cash + trade-in)
   // Sales = agreed charge across all jobs (override or approved quotes)
   const totalSales=jobs.reduce((s,j)=>s+jobChargeTotal(j,quotes,markupTable,invoices),0);
   const outstanding=jobs.reduce((s,j)=>{
-    const bal=jobChargeTotal(j,quotes,markupTable,invoices)-payments.filter(p=>p.jobId===j.id&&p.status==="Received").reduce((a,p)=>a+Number(p.amount),0)-jobTradeInCredit(j,quotes);
+    const bal=jobChargeTotal(j,quotes,markupTable,invoices)-payments.filter(p=>p.jobId===j.id&&p.status==="Received").reduce((a,p)=>a+Number(p.amount||0),0)-jobTradeInCredit(j,quotes);
     return s+(bal>1?bal:0);
   },0);
   return <div>
@@ -8706,7 +9131,8 @@ function BracketEditor({rows,setRows,accent=GOLD_D}){
 // ── Settings ──────────────────────────────────────────────────────────────
 function Settings({biz,setBiz,markupTable,setMarkupTable,naturalStoneMarkup,setNaturalStoneMarkup,labStoneMarkup,setLabStoneMarkup,tradeMarkupTable=[],setTradeMarkupTable,tradeNatStoneMarkup=[],setTradeNatStoneMarkup,tradeLabStoneMarkup=[],setTradeLabStoneMarkup,dataSafety,billing}){
   const isMobile=useIsMobile();
-  const[bForm,setBForm]=useState({name:"",email:"",phone:"",abn:"",address:"",depositPercent:50,quoteValidityDays:30,quoteTerms:"",bankName:"Commonwealth Bank of Australia",bankAccountName:"",bankBSB:"",bankAccount:"",...biz});
+  const _insSeed=resolveInsurer(biz);   // owner's app pre-fills Q Report when the insurer is unset
+  const[bForm,setBForm]=useState({name:"",email:"",phone:"",abn:"",address:"",depositPercent:50,quoteValidityDays:30,quoteTerms:"",bankName:"Commonwealth Bank of Australia",bankAccountName:"",bankBSB:"",bankAccount:"",...biz,insurerName:biz.insurerName??_insSeed.insurerName,insurerUrl:biz.insurerUrl??_insSeed.insurerUrl});
   const setBF=k=>v=>setBForm(p=>({...p,[k]:v}));
   const[mt,setMt]=useState(markupTable.map(b=>({...b})));
   const[buffer,setBuffer]=useState(String(biz.markupBuffer||0));
@@ -8815,6 +9241,11 @@ function Settings({biz,setBiz,markupTable,setMarkupTable,naturalStoneMarkup,setN
         <div style={{fontSize:10,fontWeight:700,color:WG,letterSpacing:"0.1em",textTransform:"uppercase",marginBottom:14}}>Client emails</div>
         <Input label="Google review link (optional)" value={bForm.googleReviewUrl||""} onChange={setBF("googleReviewUrl")} placeholder="https://g.page/r/…  or your Google review short link"/>
         <div style={{fontSize:11,color:WG,marginTop:2,lineHeight:1.5}}>When set, a <strong style={{color:INK}}>Review us on Google</strong> button is added to the "ready for collection" email you send clients. You'll find the link in your Google Business Profile under "Ask for reviews".</div>
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1.4fr",gap:"0 14px",marginTop:16}}>
+          <Input label="Recommended insurer (optional)" value={bForm.insurerName||""} onChange={setBF("insurerName")} placeholder="e.g. Q Report"/>
+          <Input label="Insurer link (optional)" value={bForm.insurerUrl||""} onChange={setBF("insurerUrl")} placeholder="https://www.qreport.com.au/…"/>
+        </div>
+        <div style={{fontSize:11,color:WG,marginTop:2,lineHeight:1.5}}>When set, the <strong style={{color:INK}}>aftercare email</strong> recommends insuring the piece with a button linking here, so wear and accidental damage can be covered rather than an unexpected repair bill.</div>
       </div>
       <div style={{display:"flex",justifyContent:"flex-end"}}><Btn onClick={saveBiz}>Save business details</Btn></div>
     </Card>
@@ -9220,6 +9651,7 @@ function Appointments({appointments,setAppointments,clients,setClients,jobs=[],s
   const[mode,setMode]=useState("list");     // list | week | month
   const[anchor,setAnchor]=useState(localToday());
   const[showPast,setShowPast]=useState(false);
+  const isMobile=useIsMobile();
 
   const save=(form,id)=>{
     if(!guardEdit())return;
@@ -9229,7 +9661,7 @@ function Appointments({appointments,setAppointments,clients,setClients,jobs=[],s
     setAppointments(p=>{const n=id?p.map(a=>a.id===id?{...a,...form}:a):[...p,{...form,id:uid(),createdAt:today()}];persist(K.ap,n);return n;});
     setModal(null);
   };
-  const del=id=>{if(!confirm("Delete this appointment?"))return;setAppointments(p=>{const n=p.filter(a=>a.id!==id);persist(K.ap,n);return n;});setModal(null);};
+  const del=id=>{if(!guardEdit())return;if(!confirm("Delete this appointment?"))return;setAppointments(p=>{const n=p.filter(a=>a.id!==id);persist(K.ap,n);return n;});setModal(null);};
   const setStatus=(id,status)=>{setAppointments(p=>{const n=p.map(a=>a.id===id?{...a,status}:a);persist(K.ap,n);return n;});};
   const convertToClient=a=>{
     const name=(a.clientName||"").trim();if(!name)return;
@@ -9336,10 +9768,10 @@ function Appointments({appointments,setAppointments,clients,setClients,jobs=[],s
         <div style={{fontSize:15,fontWeight:800,color:INK,marginLeft:6}}>{fmtDayShort(ws)} – {fmtDayShort(days[6])}</div>
       </div>
       <ApptLegend/>
-      <div style={{display:"grid",gridTemplateColumns:"repeat(7,1fr)",gap:8,alignItems:"start"}}>
+      <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"repeat(7,1fr)",gap:8,alignItems:"start"}}>
         {days.map(d=>{
           const isT=d===tISO;const list=byDay[d]||[];
-          return <div key={d} onClick={()=>setModal({prefillDate:d})} style={{background:WHITE,border:`1px solid ${isT?GOLD:BD_SOFT}`,borderRadius:5,minHeight:160,padding:"10px 9px",cursor:"pointer"}}>
+          return <div key={d} onClick={()=>setModal({prefillDate:d})} style={{background:WHITE,border:`1px solid ${isT?GOLD:BD_SOFT}`,borderRadius:5,minHeight:isMobile?"auto":160,padding:"10px 9px",cursor:"pointer"}}>
             <div style={{fontSize:11,fontWeight:700,textTransform:"uppercase",letterSpacing:"0.04em",color:isT?GOLD:WG,marginBottom:8}}>{parseISO(d).toLocaleDateString(LOCALE,{weekday:"short"})} {parseISO(d).getDate()}</div>
             {list.map(a=><ApptChip key={a.id} a={a} clients={clients} onClick={()=>setModal(a)}/>)}
           </div>;
@@ -9631,7 +10063,7 @@ function StudioOnboarding({defaultName,onCreated}){
 }
 
 // A single task row — hover lifts the row and fades in the delete control.
-function TaskRow({it,ch,doingIt,pr,accent,job,jobClient,onOpenJob,onToggleDone,onToggleDoing,onOpen,onRemove}){
+function TaskRow({it,ch,doingIt,pr,accent,job,jobClient,onOpenJob,onSetDue,onTogglePriority,onToggleDone,onToggleDoing,onOpen,onRemove}){
   const[h,setH]=useState(false);
   const borderCol=ch?.overdue?DANGER+"55":doingIt?WARN+"55":BD;
   const chip={display:"inline-block",fontSize:11,fontWeight:700,borderRadius:5,padding:"3px 8px",letterSpacing:"0.02em",lineHeight:1.3};
@@ -9656,7 +10088,14 @@ function TaskRow({it,ch,doingIt,pr,accent,job,jobClient,onOpenJob,onToggleDone,o
       </div>}
       {job&&<div onClick={jumpJob} title="Open linked job" style={{fontSize:11.5,color:GOLD_D,fontWeight:600,marginTop:hasChips?6:3,cursor:"pointer",display:"flex",alignItems:"center",gap:4,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}><span style={{opacity:0.65}}>→</span>{job.type}{jobClient?` · ${jobClient}`:""}</div>}
       {it.notes&&it.notes.trim()&&<div style={{fontSize:11.5,color:WG,marginTop:(hasChips||job)?6:3,lineHeight:1.4,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{it.notes.trim()}</div>}
+      {it.done&&it.completedAt&&<div style={{fontSize:11,color:OK,fontWeight:600,marginTop:(hasChips||job||(it.notes&&it.notes.trim()))?6:3}}>✓ Completed {new Date(it.completedAt).toLocaleDateString(LOCALE,{day:"numeric",month:"short",year:"numeric"})}</div>}
     </div>
+    {!it.done&&(onTogglePriority||onSetDue)&&<div style={{display:"flex",alignItems:"center",gap:2,flexShrink:0,alignSelf:"center",opacity:h?1:0,pointerEvents:h?"auto":"none",transition:"opacity 0.14s"}}>
+      {onTogglePriority&&<button onClick={e=>{e.stopPropagation();onTogglePriority();}} title={it.priority==="high"?"Remove high priority":"Mark high priority"} style={{background:"none",border:"none",cursor:"pointer",color:it.priority==="high"?DANGER:WG,fontSize:14,lineHeight:1,padding:"0 3px"}}>⚑</button>}
+      {onSetDue&&<label onClick={e=>e.stopPropagation()} title={it.due?"Change due date":"Set due date"} style={{position:"relative",display:"inline-flex",cursor:"pointer",color:it.due?GOLD_D:WG,fontSize:13,lineHeight:1,padding:"0 3px"}}>📅
+        <input type="date" value={it.due||""} onChange={e=>onSetDue(e.target.value)} style={{position:"absolute",inset:0,width:"100%",height:"100%",opacity:0,cursor:"pointer",border:"none",padding:0}}/>
+      </label>}
+    </div>}
     <button onClick={onRemove} title="Delete task" style={{flexShrink:0,alignSelf:"center",background:"none",border:"none",cursor:"pointer",color:WG,fontSize:17,lineHeight:1,padding:"0 2px",opacity:h?0.85:0.25,transition:"opacity 0.14s"}}>×</button>
   </div>;
 }
@@ -9732,22 +10171,29 @@ function TodoBoard({todos,setTodos,jobs=[],clients=[],setView,setSelJob}){
   const[query,setQuery]=useState("");                  // free-text search across all lists
   const[statusFilter,setStatusFilter]=useState("all"); // all / open / doing / done / overdue
   const[showDone,setShowDone]=useState({});            // per-person: is the Completed section expanded
+  const[renameId,setRenameId]=useState(null);          // person whose name is being edited inline
+  const[renameText,setRenameText]=useState("");
   const toggleShowDone=pid=>setShowDone(s=>({...s,[pid]:!s[pid]}));
   const save=next=>{if(!guardEdit())return;setTodos(next);persist(K.td,next);};
   const addPerson=()=>{const name=newPerson.trim();if(!name)return;save({people:[...people,{id:uid(),name}],items});setNewPerson("");};
   const removePerson=id=>{const p=people.find(x=>x.id===id);if(!confirm(`Remove ${p?.name||"this person"} and their whole list?`))return;save({people:people.filter(x=>x.id!==id),items:items.filter(i=>i.personId!==id)});};
+  const startRename=p=>{setRenameId(p.id);setRenameText(p.name||"");};
+  const saveRename=()=>{const n=renameText.trim();if(n)save({people:people.map(p=>p.id===renameId?{...p,name:n}:p),items});setRenameId(null);};
   const setDraftFor=(pid,v)=>setDraft(d=>({...d,[pid]:v}));
   const addItem=pid=>{const t=(draft[pid]||"").trim();if(!t)return;save({people,items:[...items,{id:uid(),personId:pid,text:t,notes:"",due:"",done:false,status:"open",priority:"med",createdAt:new Date().toISOString()}]});setDraftFor(pid,"");};
   // Two independent controls: the square box marks done; the round dot flags in progress.
   const isDoing=i=>!i.done&&i.status==="doing";
-  const toggleDone=id=>{const it=items.find(i=>i.id===id);if(it&&!it.done&&!confirm("Mark this task as complete?"))return;save({people,items:items.map(i=>i.id===id?{...i,done:!i.done,status:i.done?"open":"done"}:i)});};
+  const toggleDone=id=>{const it=items.find(i=>i.id===id);if(it&&!it.done&&!confirm("Mark this task as complete?"))return;save({people,items:items.map(i=>i.id===id?{...i,done:!i.done,status:i.done?"open":"done",completedAt:i.done?"":new Date().toISOString()}:i)});};
   const toggleDoing=id=>save({people,items:items.map(i=>i.id!==id||i.done?i:{...i,status:i.status==="doing"?"open":"doing"})});
   const removeItem=id=>save({people,items:items.filter(i=>i.id!==id)});
   const clearDone=pid=>save({people,items:items.filter(i=>!(i.personId===pid&&i.done))});
+  // Quick edits straight from the card (no modal): set/clear a due date, toggle high priority.
+  const setItemDue=(id,due)=>save({people,items:items.map(i=>i.id===id?{...i,due:due||""}:i)});
+  const toggleItemPriority=id=>save({people,items:items.map(i=>i.id===id?{...i,priority:i.priority==="high"?"med":"high"}:i)});
   // Detail editor (title + longer notes + due date)
   const openEdit=it=>{setEditId(it.id);setEditText(it.text||"");setEditNotes(it.notes||"");setEditDue(it.due||"");setEditStatus(it.done?"done":it.status==="doing"?"doing":"open");setEditPriority(it.priority||"med");setEditPerson(it.personId);setEditJob(it.jobId||"");};
   const closeEdit=()=>setEditId(null);
-  const saveEdit=()=>{const t=editText.trim();if(!t)return;save({people,items:items.map(i=>i.id===editId?{...i,text:t,notes:editNotes.trim(),due:editDue||"",done:editStatus==="done",status:editStatus,priority:editPriority,personId:editPerson||i.personId,jobId:editJob||""}:i)});setEditId(null);};
+  const saveEdit=()=>{const t=editText.trim();if(!t)return;const nowDone=editStatus==="done";save({people,items:items.map(i=>i.id===editId?{...i,text:t,notes:editNotes.trim(),due:editDue||"",done:nowDone,status:editStatus,priority:editPriority,personId:editPerson||i.personId,jobId:editJob||"",completedAt:nowDone?(i.completedAt||new Date().toISOString()):""}:i)});setEditId(null);};
   const openJob=id=>{if(setSelJob&&setView){setSelJob(id);setView("jobDetail");}};
   const editingItem=items.find(i=>i.id===editId)||null;
   const editingPerson=editingItem?people.find(p=>p.id===editingItem.personId):null;
@@ -9781,6 +10227,7 @@ function TodoBoard({todos,setTodos,jobs=[],clients=[],setView,setSelJob}){
     if(statusFilter==="doing")return isDoing(it);
     if(statusFilter==="done")return it.done;
     if(statusFilter==="overdue")return !it.done&&!!it.due&&it.due<tISO;
+    if(statusFilter==="high")return !it.done&&it.priority==="high";
     return true;
   };
 
@@ -9788,6 +10235,15 @@ function TodoBoard({todos,setTodos,jobs=[],clients=[],setView,setSelJob}){
   const totalTodo=items.filter(i=>!i.done&&!isDoing(i)).length;
   const totalDone=items.filter(i=>i.done).length;
   const totalHigh=items.filter(i=>!i.done&&i.priority==="high").length;
+  const totalOverdue=items.filter(i=>!i.done&&!!i.due&&i.due<tISO).length;
+  // Clicking a summary tile applies its filter; clicking the active one clears back to "all".
+  const tileFilter=f=>setStatusFilter(s=>s===f?"all":f);
+  // Column order: people with open work first (those with overdue tasks lead), empty lists sink to the
+  // bottom — keeps active columns together instead of stranding empty ones in the middle.
+  const orderedPeople=[...people].map((p,idx)=>{
+    const openL=items.filter(i=>i.personId===p.id&&!i.done);
+    return {p,idx,hasOpen:openL.length>0,overdue:openL.some(i=>i.due&&i.due<tISO)};
+  }).sort((a,b)=>(b.hasOpen-a.hasOpen)||(b.overdue-a.overdue)||(a.idx-b.idx)).map(x=>x.p);
 
   // Single shared task-row renderer (used for both the open and completed lists)
   const renderRow=it=>{
@@ -9797,6 +10253,7 @@ function TodoBoard({todos,setTodos,jobs=[],clients=[],setView,setSelJob}){
     const jobClient=job?clientDisplayName(clients.find(c=>c.id===job.clientId)):"";
     return <TaskRow key={it.id} it={it} ch={ch} doingIt={isDoing(it)} pr={pr} accent={!it.done&&it.priority==="high"}
       job={job} jobClient={jobClient} onOpenJob={job?()=>openJob(job.id):null}
+      onSetDue={due=>setItemDue(it.id,due)} onTogglePriority={()=>toggleItemPriority(it.id)}
       onToggleDone={()=>toggleDone(it.id)} onToggleDoing={()=>toggleDoing(it.id)} onOpen={()=>openEdit(it)} onRemove={()=>removeItem(it.id)}/>;
   };
 
@@ -9823,29 +10280,36 @@ function TodoBoard({todos,setTodos,jobs=[],clients=[],setView,setSelJob}){
       : <>
           {/* Summary tiles */}
           <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(176px,1fr))",gap:14,marginBottom:18}}>
-            <Stat label="People" value={people.length} tint="slate" icon={<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round"><path d="m14.5 16.5l3.716 1.118a4.07 4.07 0 0 1 2.76 2.892c.136.536-.327.99-.882.99H3.906c-.555 0-1.018-.454-.882-.99a4.07 4.07 0 0 1 2.76-2.892L9.5 16.5v-1.938c-1.78-1.393-3-3.062-3-6.645c0-3.59 1.955-5.417 4.992-5.417c2.151 0 3.047 1 3.047 1c2.538 0 2.961 2.097 2.961 4.417c0 3.583-1.22 5.252-3 6.645z"/></svg>}/>
-            <Stat label="To do" value={totalTodo} tint="slate" icon={<svg width="20" height="20" viewBox="0 0 297 297" fill="currentColor"><path d="M237.333,33h-50.14c-2.558-18.613-18.556-33-37.86-33s-35.303,14.387-37.86,33h-51.14C50.408,33,42,41.075,42,51v228c0,9.925,8.408,18,18.333,18h177c9.925,0,17.667-8.075,17.667-18V51C255,41.075,247.258,33,237.333,33z M93.052,48c3.432,18.033,19.084,31,38.092,31h36.379c19.008,0,34.66-12.967,38.092-31H223v216H75V48H93.052z M149.333,16c10.456,0,19.242,7.259,21.601,17h-43.201C130.091,23.259,138.877,16,149.333,16z"/><rect x="99" y="109" width="50" height="15"/><polygon points="200.689,105.076 189.645,94.924 175.427,110.39 169.237,105.347 159.763,116.976 176.907,130.944"/><rect x="99" y="157" width="50" height="15"/><polygon points="200.689,153.076 189.645,142.924 175.427,158.39 169.237,153.347 159.763,164.976 176.907,178.944"/><rect x="99" y="205" width="50" height="15"/><polygon points="200.689,201.076 189.645,190.924 175.427,206.39 169.237,201.347 159.763,212.976 176.907,226.944"/></svg>}/>
-            <Stat label="In progress" value={totalDoing} tint="slate" icon={<svg width="20" height="20" viewBox="0 0 32 32" fill="currentColor"><path d="M16,2A14,14,0,1,0,30,16,14.0158,14.0158,0,0,0,16,2Zm0,26A12,12,0,0,1,16,4V16l8.4812,8.4814A11.9625,11.9625,0,0,1,16,28Z"/></svg>}/>
-            <Stat label="High priority" value={totalHigh} tint={totalHigh>0?"rose":"slate"} icon={<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M11.5757 1.42426C11.81 1.18995 12.1899 1.18995 12.4243 1.42426L22.5757 11.5757C22.81 11.81 22.8101 12.1899 22.5757 12.4243L12.4243 22.5757C12.19 22.81 11.8101 22.8101 11.5757 22.5757L1.42426 12.4243C1.18995 12.19 1.18995 11.8101 1.42426 11.5757L11.5757 1.42426Z"/><path d="M12 8L12 12"/><path d="M12 16.01L12.01 15.9989"/></svg>}/>
-            <Stat label="Completed" value={totalDone} tint="slate" icon={<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M17 3.338A9.95 9.95 0 0 0 12 2C6.477 2 2 6.477 2 12s4.477 10 10 10s10-4.477 10-10q-.002-1.03-.2-2"/><path d="M8 12.5s1.5 0 3.5 3.5c0 0 5.559-9.167 10.5-11"/></svg>}/>
+            <Stat label="People" value={people.length} tint="slate" accent={statusFilter==="all"&&!q} onClick={()=>{setStatusFilter("all");setQuery("");}} icon={<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round"><path d="m14.5 16.5l3.716 1.118a4.07 4.07 0 0 1 2.76 2.892c.136.536-.327.99-.882.99H3.906c-.555 0-1.018-.454-.882-.99a4.07 4.07 0 0 1 2.76-2.892L9.5 16.5v-1.938c-1.78-1.393-3-3.062-3-6.645c0-3.59 1.955-5.417 4.992-5.417c2.151 0 3.047 1 3.047 1c2.538 0 2.961 2.097 2.961 4.417c0 3.583-1.22 5.252-3 6.645z"/></svg>}/>
+            <Stat label="To do" value={totalTodo} tint="slate" accent={statusFilter==="open"} onClick={()=>tileFilter("open")} icon={<svg width="20" height="20" viewBox="0 0 297 297" fill="currentColor"><path d="M237.333,33h-50.14c-2.558-18.613-18.556-33-37.86-33s-35.303,14.387-37.86,33h-51.14C50.408,33,42,41.075,42,51v228c0,9.925,8.408,18,18.333,18h177c9.925,0,17.667-8.075,17.667-18V51C255,41.075,247.258,33,237.333,33z M93.052,48c3.432,18.033,19.084,31,38.092,31h36.379c19.008,0,34.66-12.967,38.092-31H223v216H75V48H93.052z M149.333,16c10.456,0,19.242,7.259,21.601,17h-43.201C130.091,23.259,138.877,16,149.333,16z"/><rect x="99" y="109" width="50" height="15"/><polygon points="200.689,105.076 189.645,94.924 175.427,110.39 169.237,105.347 159.763,116.976 176.907,130.944"/><rect x="99" y="157" width="50" height="15"/><polygon points="200.689,153.076 189.645,142.924 175.427,158.39 169.237,153.347 159.763,164.976 176.907,178.944"/><rect x="99" y="205" width="50" height="15"/><polygon points="200.689,201.076 189.645,190.924 175.427,206.39 169.237,201.347 159.763,212.976 176.907,226.944"/></svg>}/>
+            <Stat label="In progress" value={totalDoing} tint="slate" accent={statusFilter==="doing"} onClick={()=>tileFilter("doing")} icon={<svg width="20" height="20" viewBox="0 0 32 32" fill="currentColor"><path d="M16,2A14,14,0,1,0,30,16,14.0158,14.0158,0,0,0,16,2Zm0,26A12,12,0,0,1,16,4V16l8.4812,8.4814A11.9625,11.9625,0,0,1,16,28Z"/></svg>}/>
+            <Stat label="Overdue" value={totalOverdue} tint={totalOverdue>0?"rose":"slate"} accent={statusFilter==="overdue"} onClick={()=>tileFilter("overdue")} icon={<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>}/>
+            <Stat label="High priority" value={totalHigh} tint={totalHigh>0?"rose":"slate"} accent={statusFilter==="high"} onClick={()=>tileFilter("high")} icon={<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M11.5757 1.42426C11.81 1.18995 12.1899 1.18995 12.4243 1.42426L22.5757 11.5757C22.81 11.81 22.8101 12.1899 22.5757 12.4243L12.4243 22.5757C12.19 22.81 11.8101 22.8101 11.5757 22.5757L1.42426 12.4243C1.18995 12.19 1.18995 11.8101 1.42426 11.5757L11.5757 1.42426Z"/><path d="M12 8L12 12"/><path d="M12 16.01L12.01 15.9989"/></svg>}/>
+            <Stat label="Completed" value={totalDone} tint="slate" accent={statusFilter==="done"} onClick={()=>tileFilter("done")} icon={<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M17 3.338A9.95 9.95 0 0 0 12 2C6.477 2 2 6.477 2 12s4.477 10 10 10s10-4.477 10-10q-.002-1.03-.2-2"/><path d="M8 12.5s1.5 0 3.5 3.5c0 0 5.559-9.167 10.5-11"/></svg>}/>
           </div>
 
           {/* Search + status filter */}
           <div style={{display:"flex",gap:10,flexWrap:"wrap",alignItems:"center",marginBottom:22}}>
             <input value={query} onChange={e=>setQuery(e.target.value)} placeholder="Search tasks…" style={{...SS.inp,marginTop:0,flex:"1 1 220px",maxWidth:340}}/>
             <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
-              {[["all","All"],["open","To do"],["doing","In progress"],["done","Done"],["overdue","Overdue"]].map(([v,l])=>{
+              {[["all","All"],["open","To do"],["doing","In progress"],["done","Done"],["overdue","Overdue"],["high","High"]].map(([v,l])=>{
                 const on=statusFilter===v;
-                const c=v==="overdue"?DANGER:GOLD,cl=v==="overdue"?"#FBEBE9":GOLD_L,cd=v==="overdue"?DANGER:GOLD_D;
+                const urgent=v==="overdue"||v==="high";
+                const c=urgent?DANGER:GOLD,cl=urgent?"#FBEBE9":GOLD_L,cd=urgent?DANGER:GOLD_D;
                 return <button key={v} onClick={()=>setStatusFilter(v)} style={{padding:"7px 13px",borderRadius:20,fontSize:12,fontWeight:700,fontFamily:"inherit",cursor:"pointer",border:`1.5px solid ${on?c:BD}`,background:on?cl:WHITE,color:on?cd:WG}}>{l}</button>;
               })}
             </div>
             {filterActive&&<button onClick={()=>{setQuery("");setStatusFilter("all");}} style={{background:"none",border:"none",cursor:"pointer",color:WG,fontSize:12.5,fontWeight:700,fontFamily:"inherit",textDecoration:"underline",padding:"4px 2px"}}>Clear</button>}
+            {/* Legend — the two row controls aren't self-explanatory, and their tooltips never show on touch. */}
+            <div style={{display:"flex",alignItems:"center",gap:14,marginLeft:"auto",fontSize:11.5,color:WG,fontWeight:600}}>
+              <span style={{display:"inline-flex",alignItems:"center",gap:5}}><span style={{width:13,height:13,borderRadius:4,border:`2px solid ${OK}`,display:"inline-block"}}/>Done</span>
+              <span style={{display:"inline-flex",alignItems:"center",gap:5}}><span style={{width:13,height:13,borderRadius:"50%",border:`2px solid ${WARN}`,display:"inline-block"}}/>In progress</span>
+            </div>
           </div>
 
           {/* Person cards — flex-wrap so cards grow to a comfortable width and fill each row evenly */}
           <div style={{display:"flex",flexWrap:"wrap",gap:20,alignItems:"flex-start"}}>
-            {people.map(person=>{
+            {orderedPeople.map(person=>{
               const list=items.filter(i=>i.personId===person.id);
               const fullOpen=list.filter(i=>!i.done);
               const fullDone=list.filter(i=>i.done);
@@ -9854,7 +10318,8 @@ function TodoBoard({todos,setTodos,jobs=[],clients=[],setView,setSelJob}){
               const pct=list.length?Math.round(fullDone.length/list.length*100):0;
               // Visible rows honour the search + status filter; header stats stay true to the full list.
               const open=sortOpen(fullOpen.filter(matches));
-              const done=fullDone.filter(matches);
+              // Completed list: most recently finished at the top (ISO strings sort chronologically).
+              const done=fullDone.filter(matches).sort((a,b)=>(b.completedAt||"").localeCompare(a.completedAt||""));
               const doneCount=filterActive?done.length:fullDone.length;
               const showCompleted=(!!showDone[person.id]||statusFilter==="done"||!!q)&&done.length>0;
               // With a filter active, drop cards that have nothing matching.
@@ -9864,7 +10329,16 @@ function TodoBoard({todos,setTodos,jobs=[],clients=[],setView,setSelJob}){
                 <div style={{display:"flex",alignItems:"center",gap:12,marginBottom:16,paddingBottom:16,borderBottom:`1px solid ${BD_SOFT}`}}>
                   <div style={{width:38,height:38,borderRadius:"50%",background:GOLD_L,color:GOLD_D,display:"flex",alignItems:"center",justifyContent:"center",fontSize:15,fontWeight:800,flexShrink:0}}>{(person.name||"?").slice(0,1).toUpperCase()}</div>
                   <div style={{flex:1,minWidth:0}}>
-                    <div style={{fontWeight:800,fontSize:16,color:INK,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{person.name}</div>
+                    {renameId===person.id
+                      ?<div style={{display:"flex",alignItems:"center",gap:6}}>
+                          <input autoFocus value={renameText} onChange={e=>setRenameText(e.target.value)} onKeyDown={e=>{if(e.key==="Enter")saveRename();if(e.key==="Escape")setRenameId(null);}} style={{...SS.inp,marginTop:0,flex:1,minWidth:0,padding:"6px 10px",fontSize:15,fontWeight:800}}/>
+                          <button onClick={saveRename} title="Save name" style={{background:"none",border:"none",cursor:"pointer",color:OK,fontSize:16,lineHeight:1,padding:0,flexShrink:0}}>✓</button>
+                          <button onClick={()=>setRenameId(null)} title="Cancel" style={{background:"none",border:"none",cursor:"pointer",color:WG,fontSize:16,lineHeight:1,padding:0,flexShrink:0}}>×</button>
+                        </div>
+                      :<div style={{display:"flex",alignItems:"center",gap:6}}>
+                          <div style={{fontWeight:800,fontSize:16,color:INK,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{person.name}</div>
+                          <button onClick={()=>startRename(person)} title="Edit name" style={{background:"none",border:"none",cursor:"pointer",color:WG,fontSize:12,lineHeight:1,padding:0,flexShrink:0}}>✎</button>
+                        </div>}
                     <div style={{fontSize:11,color:WG,marginTop:1}}>{fullOpen.length} open{fullDoing.length?<span style={{color:WARN,fontWeight:700}}> · {fullDoing.length} in progress</span>:""}{fullDone.length?` · ${fullDone.length} done`:""}{overdueCount>0&&<span style={{color:DANGER,fontWeight:700}}> · {overdueCount} overdue</span>}</div>
                   </div>
                   <button onClick={()=>removePerson(person.id)} title="Remove person" style={{background:"none",border:"none",cursor:"pointer",color:WG,fontSize:18,lineHeight:1,padding:0,flexShrink:0}}>×</button>
@@ -9994,6 +10468,7 @@ function GemCustody({custody,setCustody,clients,biz}){
   const[modalUrls,setModalUrls]=useState({});   // path → signed url for the open record's photos
   const[busy,setBusy]=useState(false);
   const[imgErr,setImgErr]=useState("");
+  const[zoom,setZoom]=useState(null);           // full-size photo URL shown in the lightbox
 
   const openNew=()=>setDraft(blank());
   const openEdit=r=>setDraft(JSON.parse(JSON.stringify(r)));   // deep clone so item edits don't mutate state
@@ -10052,7 +10527,7 @@ function GemCustody({custody,setCustody,clients,biz}){
     save(custody.some(r=>r.id===d.id)?custody.map(r=>r.id===d.id?clean:r):[clean,...custody]);
     close();
   };
-  const del=id=>{if(!confirm("Delete this safekeeping receipt? This can't be undone."))return;save(custody.filter(r=>r.id!==id));close();};
+  const del=id=>{if(!guardEdit())return;if(!confirm("Delete this safekeeping receipt? This can't be undone."))return;save(custody.filter(r=>r.id!==id));close();};
   const toggleReturned=r=>save(custody.map(x=>x.id===r.id?{...x,status:x.status==="Returned"?"Holding":"Returned",returnedAt:x.status==="Returned"?"":today()}:x));
 
   const itemsValue=r=>(r.items||[]).reduce((s,it)=>s+(Number(it.estValue)||0),0);
@@ -10135,6 +10610,7 @@ function GemCustody({custody,setCustody,clients,biz}){
                     </div>
                     <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
                       <Btn sm={!isMobile} xs={isMobile} onClick={()=>printGemCustodyReceipt(biz||{},c,r)}>Print / Save PDF</Btn>
+                      <SafekeepingEmailButton record={r} client={c} biz={biz} isMobile={isMobile}/>
                       <Btn sm={!isMobile} xs={isMobile} ghost onClick={()=>toggleReturned(r)}>{returned?"Reopen":"Mark returned"}</Btn>
                       <Btn sm={!isMobile} xs={isMobile} ghost onClick={()=>openEdit(r)}>Edit</Btn>
                     </div>
@@ -10148,8 +10624,8 @@ function GemCustody({custody,setCustody,clients,biz}){
       <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:14}}>
         <Input label="Existing client" value={draft.clientId} onChange={pickClient} as="select" options={[{value:"",label:"— Not a saved client —"},...clients.map(c=>({value:c.id,label:clientDisplayName(c)}))]}/>
         <Input label="Client name (on receipt)" value={draft.clientName} onChange={setF("clientName")} placeholder="Jane Smith"/>
-        <Input label="Client contact (optional)" value={draft.clientContact} onChange={setF("clientContact")} placeholder="email · phone"/>
-        <div/>
+        <div style={{gridColumn:"1 / -1",fontSize:11.5,color:WG,marginTop:-8,marginBottom:2,lineHeight:1.5}}>Pick a saved client to fill the name and contact automatically. Edit the name only if the receipt should read differently.</div>
+        <div style={{gridColumn:"1 / -1"}}><Input label="Client contact (optional)" value={draft.clientContact} onChange={setF("clientContact")} placeholder="email · phone — the email is used when you email this receipt"/></div>
         <Input label="Date received" value={draft.dateReceived} onChange={setF("dateReceived")} type="date"/>
         <Input label="Expected return (optional)" value={draft.expectedReturn} onChange={setF("expectedReturn")} type="date"/>
       </div>
@@ -10164,11 +10640,11 @@ function GemCustody({custody,setCustody,clients,biz}){
       </div>
       {draft.items.map((it,i)=>{
         const piece=it.kind==="piece";
-        return <div key={it.id} style={{border:`1px solid ${BD}`,borderRadius:5,padding:"14px 16px",marginBottom:12,background:PARCH}}>
+        return <div key={it.id} style={{border:`1px solid ${BD}`,borderRadius:10,padding:"14px 16px",marginBottom:12,background:PARCH}}>
           <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10,gap:10,flexWrap:"wrap"}}>
             <div style={{display:"flex",alignItems:"center",gap:8,flexWrap:"wrap"}}>
               <span style={{fontSize:11,fontWeight:700,color:WG,textTransform:"uppercase",letterSpacing:"0.06em"}}>{piece?"Piece":"Stone"} {i+1}</span>
-              <div style={{display:"inline-flex",border:`1px solid ${BD}`,borderRadius:3,overflow:"hidden"}}>
+              <div style={{display:"inline-flex",border:`1px solid ${BD}`,borderRadius:8,overflow:"hidden"}}>
                 {[["stone","Loose stone"],["piece","Jewellery piece"]].map(([k,lbl])=>(
                   <button key={k} onClick={()=>setKind(it.id,k)} style={{padding:"4px 10px",border:"none",background:it.kind===k?INK:WHITE,color:it.kind===k?WHITE:INK,fontSize:10.5,fontWeight:700,letterSpacing:"0.04em",cursor:"pointer",fontFamily:"inherit"}}>{lbl}</button>
                 ))}
@@ -10200,34 +10676,40 @@ function GemCustody({custody,setCustody,clients,biz}){
               </div>}
         </div>;
       })}
+      {draft.items.length>1&&<div style={{display:"flex",justifyContent:"flex-end",alignItems:"baseline",gap:10,margin:"0 2px 8px",fontSize:12.5,color:WG}}>Total declared value <strong style={{color:INK,fontSize:14}}>{fmtR(draft.items.reduce((s,it)=>s+(Number(it.estValue)||0),0))}</strong></div>}
 
       <label style={{...SS.lbl,marginTop:6,marginBottom:0}}>Photos of the item(s)</label>
       {!imagesEnabled()
         ? <div style={{fontSize:12,color:WG,lineHeight:1.55,marginTop:4}}>Photo uploads need the cloud backend — sign in on the deployed app to add photos.</div>
         : <div style={{marginTop:6}}>
-            <label style={{display:"inline-block",background:GOLD,color:WHITE,borderRadius:4,padding:"7px 15px",fontSize:12,fontWeight:700,cursor:busy?"default":"pointer",letterSpacing:"0.02em",opacity:busy?0.6:1}}>
+            <label style={{display:"inline-block",background:GOLD,color:WHITE,borderRadius:8,padding:"7px 15px",fontSize:12,fontWeight:700,cursor:busy?"default":"pointer",letterSpacing:"0.02em",opacity:busy?0.6:1}}>
               {busy?"Uploading…":"+ Upload photos"}
               <input type="file" accept="image/*" multiple disabled={busy} onChange={e=>{onFiles(e.target.files);e.target.value="";}} style={{display:"none"}}/>
             </label>
             {imgErr&&<div style={{color:DANGER,fontSize:12,marginTop:8}}>{imgErr}</div>}
             {(draft.images||[]).length>0&&<div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(84px,1fr))",gap:8,marginTop:10}}>
               {(draft.images||[]).map(img=>(
-                <div key={img.id} style={{position:"relative",aspectRatio:"1 / 1",borderRadius:4,overflow:"hidden",border:`1px solid ${BD}`,background:`${PARCH} center/cover no-repeat`,backgroundImage:modalUrls[img.path]?`url(${modalUrls[img.path]})`:"none"}}>
+                <div key={img.id} onClick={()=>modalUrls[img.path]&&setZoom(modalUrls[img.path])} title={modalUrls[img.path]?"View full size":""} style={{position:"relative",aspectRatio:"1 / 1",borderRadius:8,overflow:"hidden",border:`1px solid ${BD}`,cursor:modalUrls[img.path]?"zoom-in":"default",background:`${PARCH} center/cover no-repeat`,backgroundImage:modalUrls[img.path]?`url(${modalUrls[img.path]})`:"none"}}>
                   {!modalUrls[img.path]&&<span style={{position:"absolute",inset:0,display:"flex",alignItems:"center",justifyContent:"center",fontSize:10,color:WG}}>loading…</span>}
-                  <button onClick={()=>removeImg(img)} title="Remove photo" style={{position:"absolute",top:3,right:3,width:20,height:20,borderRadius:"50%",border:"none",background:"rgba(0,0,0,0.55)",color:WHITE,fontSize:13,lineHeight:1,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",padding:0}}>×</button>
+                  <button onClick={e=>{e.stopPropagation();removeImg(img);}} title="Remove photo" style={{position:"absolute",top:3,right:3,width:20,height:20,borderRadius:"50%",border:"none",background:"rgba(0,0,0,0.55)",color:WHITE,fontSize:13,lineHeight:1,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",padding:0}}>×</button>
                 </div>
               ))}
             </div>}
           </div>}
 
       <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",gap:12,marginTop:18,flexWrap:"wrap"}}>
-        <div>{custody.some(r=>r.id===draft.id)&&<Btn sm danger onClick={()=>del(draft.id)}>Delete</Btn>}</div>
+        <div>{custody.some(r=>r.id===draft.id)&&<button onClick={()=>del(draft.id)} style={{background:"none",border:`1px solid ${DANGER}`,color:DANGER,borderRadius:10,padding:"8px 17px",fontSize:12.5,fontWeight:600,cursor:"pointer",fontFamily:"inherit",letterSpacing:"0.01em"}}>Delete</button>}</div>
         <div style={{display:"flex",gap:10}}>
           <Btn sm ghost onClick={close}>Cancel</Btn>
           <Btn sm onClick={commit}>Save receipt</Btn>
         </div>
       </div>
     </Modal>}
+
+    {/* Photo lightbox — click a thumbnail in the editor to check it full size (sits above the modal) */}
+    {zoom&&<div onClick={()=>setZoom(null)} style={{position:"fixed",inset:0,zIndex:1000,background:"rgba(0,0,0,0.82)",display:"flex",alignItems:"center",justifyContent:"center",padding:24,cursor:"zoom-out"}}>
+      <img src={zoom} alt="Item photo" style={{maxWidth:"100%",maxHeight:"100%",borderRadius:8,boxShadow:"0 10px 40px rgba(0,0,0,0.5)"}}/>
+    </div>}
   </div>;
 }
 
@@ -10291,6 +10773,7 @@ function StockBoard({stock,setStock,setView}){
   // Commit the piece, then hand off to the quote-engine builder to price it
   const goPrice=()=>{save(prev=>prev.map(x=>x.id===editId?{...x,...draftFields(draft)}:x));setIsNew(false);setView("stockPrice_"+editId);};
   const deletePiece=()=>{
+    if(!guardEdit())return;
     const item=stock.find(x=>x.id===editId);
     if(!confirm("Delete this stock piece? This can't be undone."))return;
     (item?.images||[]).forEach(img=>deleteJobImage(img.path));
@@ -10470,8 +10953,10 @@ function StockBoard({stock,setStock,setView}){
   </div>;
 }
 
-// True when the viewport is phone-width. Drives the shell's drawer nav + tighter padding.
-function useIsMobile(bp=768){
+// True when the viewport is phone or small-tablet width (default 900px, so iPad portrait gets the
+// roomier stacked layout too). Drives the shell's drawer nav + tighter padding. Wider tables pass
+// a larger bp (e.g. 1024) to stack even sooner.
+function useIsMobile(bp=900){
   const[m,setM]=useState(typeof window!=="undefined"&&window.innerWidth<bp);
   useEffect(()=>{
     const on=()=>setM(window.innerWidth<bp);
@@ -10515,6 +11000,7 @@ export default function App(){
   const[selJob,setSelJob]=useState(null);
   const[storageReady,setStorageReady]=useState(false);
   const[loadError,setLoadError]=useState(false);
+  const[authExpired,setAuthExpired]=useState(false);   // load failed specifically because the session is stale (vs no connection)
   const[loadNonce,setLoadNonce]=useState(0);
   const isMobile=useIsMobile();
   const[drawerOpen,setDrawerOpen]=useState(false);
@@ -10525,6 +11011,12 @@ export default function App(){
   // Which studio (tenant) this user belongs to. null = not resolved yet,
   // "none" = signed in but linked to no studio (→ onboarding, phase 2).
   const[studioId,setStudioId]=useState(null);
+  // Last studio resolved for this session, and the user it belongs to. Guards against a transient
+  // membership-lookup failure (network blip / mid-session token refresh) being mistaken for "no
+  // studio" and bouncing the user into the onboarding gate — which risks creating a duplicate, empty
+  // studio. Tied to the user id so a remembered studio can never leak across an account switch.
+  const lastStudioIdRef=useRef(null);
+  const lastStudioUserRef=useRef(null);
 
   // Auth: track Supabase session (no-op when Supabase isn't configured → local mode)
   useEffect(()=>{
@@ -10539,6 +11031,10 @@ export default function App(){
   },[]);
 
   // Resolve the user's studio once we have a session, before any data loads.
+  // A transient failure here (network blip, or an auth token refresh mid-session) must NEVER be
+  // mistaken for "this account has no studio" — that would drop the user into the onboarding gate
+  // and risk creating a duplicate, empty studio. So: remember the studio once resolved, retry a
+  // transient error a few times, and only ever show onboarding on a clean, first-time empty read.
   useEffect(()=>{
     if(!supabaseEnabled||!userId){setStudioIdModule(null);setStudioId(null);return;}
     // Hold the loading screen until THIS account's studio is resolved and its data has
@@ -10546,32 +11042,68 @@ export default function App(){
     // gets written into the new studio) during an account switch on the same browser.
     setStorageReady(false);
     let cancelled=false;
+    // Trust a studio previously resolved for THIS user — from this session (ref) or a prior load on
+    // this device (localStorage, so it survives a full page reload). Data access stays RLS-gated on
+    // the server, so this only prevents a spurious onboarding flash; it never grants access. Tied to
+    // the user id so it can never carry across an account switch.
+    const cacheKey="resolvedStudio:"+userId;
+    let knownGood=lastStudioUserRef.current===userId?lastStudioIdRef.current:null;
+    if(!knownGood){try{knownGood=localStorage.getItem(cacheKey)||null;}catch(_){}}
+    const applyStudio=sid=>{
+      lastStudioIdRef.current=sid;lastStudioUserRef.current=userId;
+      try{localStorage.setItem(cacheKey,sid);}catch(_){}
+      setStudioIdModule(sid);setStudioId(sid);
+      // Load the studio's subscription status (billing fields). Absent columns/rows → null = full access.
+      if(BILLING_ENABLED)supabase.from("studios").select("sub_status,plan,trial_ends_at,current_period_end").eq("id",sid).maybeSingle().then(({data:s})=>{if(!cancelled)setSubscription(s||null);}).catch(()=>{});
+    };
+    // Only ever reach the onboarding gate after confirming the session actually works server-side.
+    // A stale/failed-refresh token makes membership reads come back empty, which looks identical to
+    // "no studio" — but the right response is to re-authenticate (fresh tokens), NOT to offer studio
+    // creation (which risks a duplicate, empty studio). getUser() validates the token against the
+    // server; if it fails, sign out cleanly so the app shows the sign-in screen instead of onboarding.
+    const finishNoStudio=async()=>{
+      if(cancelled)return;
+      let validUser=false;
+      try{const{data:u,error:ue}=await supabase.auth.getUser();validUser=!ue&&!!u?.user;}catch(_){validUser=false;}
+      if(cancelled)return;
+      if(!validUser){try{await supabase.auth.signOut();}catch(_){}return;}   // broken session → back to sign-in
+      setStudioIdModule(null);setStudioId("none");                          // valid session, genuinely no studio → onboarding
+    };
     (async()=>{
-      try{
-        const{data}=await supabase.from("studio_members").select("studio_id").eq("user_id",userId).limit(1).maybeSingle();
-        if(cancelled)return;
-        if(data&&data.studio_id){
-          setStudioIdModule(data.studio_id);setStudioId(data.studio_id);
-          // Load the studio's subscription status (billing fields). Absent columns/rows → null = full access.
-          if(BILLING_ENABLED)supabase.from("studios").select("sub_status,plan,trial_ends_at,current_period_end").eq("id",data.studio_id).maybeSingle().then(({data:s})=>{if(!cancelled)setSubscription(s||null);}).catch(()=>{});
-        }
-        else{
-          // No studio yet — if they followed a teammate invite link, join that studio instead of onboarding.
+      for(let attempt=0;attempt<4&&!cancelled;attempt++){
+        try{
+          const{data,error}=await supabase.from("studio_members").select("studio_id").eq("user_id",userId).limit(1).maybeSingle();
+          if(cancelled)return;
+          if(error)throw error;                 // route to the transient-failure handler below
+          if(data&&data.studio_id){applyStudio(data.studio_id);return;}
+          // Clean success with no membership row — follow a pending teammate invite if there is one.
           let joined=false;
           try{
             const token=localStorage.getItem("pendingInvite");
             if(token){
-              const{data:sid,error}=await supabase.rpc("accept_studio_invite",{p_token:token});
+              const{data:sid,error:invErr}=await supabase.rpc("accept_studio_invite",{p_token:token});
               try{localStorage.removeItem("pendingInvite");}catch(_){}
-              if(!cancelled&&sid&&!error){
-                joined=true;setStudioIdModule(sid);setStudioId(sid);
-                if(BILLING_ENABLED)supabase.from("studios").select("sub_status,plan,trial_ends_at,current_period_end").eq("id",sid).maybeSingle().then(({data:s})=>{if(!cancelled)setSubscription(s||null);}).catch(()=>{});
-              }
+              if(!cancelled&&sid&&!invErr){joined=true;applyStudio(sid);}
             }
           }catch(_){try{localStorage.removeItem("pendingInvite");}catch(__){}}
-          if(!joined&&!cancelled){setStudioIdModule(null);setStudioId("none");}
+          if(joined||cancelled)return;
+          // Never demote this user's already-resolved studio to onboarding on a spurious empty read.
+          if(knownGood){applyStudio(knownGood);return;}
+          // No known studio and a clean-empty read — could be a brand-new account, OR an auth-not-ready
+          // empty right after load (token not yet attached / RLS sees no user). Retry before concluding
+          // there is genuinely no studio; the last attempt validates the session before onboarding.
+          if(attempt<3){await new Promise(r=>setTimeout(r,600*(attempt+1)));continue;}
+          await finishNoStudio();
+          return;
+        }catch(e){
+          if(cancelled)return;
+          // Transient failure: keep this user's known-good studio if we have one; else back off and retry.
+          if(knownGood){applyStudio(knownGood);return;}
+          if(attempt<3){await new Promise(r=>setTimeout(r,600*(attempt+1)));continue;}
+          await finishNoStudio();   // could not resolve after retries — validate session, else re-auth
+          return;
         }
-      }catch(e){if(!cancelled){setStudioIdModule(null);setStudioId("none");}}
+      }
     })();
     return()=>{cancelled=true;};
   },[userId]);
@@ -10677,13 +11209,13 @@ export default function App(){
       setStorageReady(true);
     },9000);
     const init=async()=>{
-      setLoadError(false);
+      setLoadError(false);setAuthExpired(false);
       // Load the user's deleted built-in items before the pricing reconcile, so they aren't re-added.
       try{const dl=await (cloudMode?_cloudGet(K.delpr):_localGet(K.delpr));_deletedSeedIds.clear();if(Array.isArray(dl))dl.forEach(id=>_deletedSeedIds.add(id));}catch(e){}
       if(cloudMode){
         // Strict load: ALL keys must read from the cloud before we allow any cloud writes.
         // If the cloud can't be reached, we block the app instead of risking an overwrite.
-        try{
+        const loadAllKeys=async()=>{
           const entries=Object.entries(keyToSetter);
           const values=await Promise.all(entries.map(([k])=>_cloudGet(k)));
           entries.forEach(([k,setter],i)=>{
@@ -10691,14 +11223,26 @@ export default function App(){
             if(v===null||v===undefined){if(k in studioDefaults){_known[k]=studioDefaults[k];setter(studioDefaults[k]);}}   // empty studio → clean default, never the prior studio's data
             else applyLoaded(k,v,setter);
           });
+        };
+        try{
+          await loadAllKeys();
           setCloudLoaded(true);   // ✅ now safe to persist to the cloud
         }catch(e){
-          clearTimeout(giveUp);
-          // First load failing blocks the app (don't boot/write on seed data). A later background
-          // refresh (cloud already loaded once) failing is harmless — keep the data we have and
-          // stay writable, so a flaky reconnect never throws up the error screen.
-          if(!_cloudLoaded){setCloudLoaded(false);setLoadError(true);setStorageReady(true);}
-          return;
+          // A stale session (expired/invalid token) reads as an auth error, not a connection failure.
+          // It's recoverable: refresh the token once and retry the load before blocking the app.
+          let recovered=false;
+          if(_isAuthError(e)&&await _tryRefreshSession()){
+            try{await loadAllKeys();setCloudLoaded(true);recovered=true;}catch(_){}
+          }
+          if(!recovered){
+            clearTimeout(giveUp);
+            // First load failing blocks the app (don't boot/write on seed data). A later background
+            // refresh (cloud already loaded once) failing is harmless — keep the data we have and
+            // stay writable, so a flaky reconnect never throws up the error screen. authExpired steers
+            // the error screen toward "log in again" when the token, not the connection, is the problem.
+            if(!_cloudLoaded){setCloudLoaded(false);setAuthExpired(_isAuthError(e));setLoadError(true);setStorageReady(true);}
+            return;
+          }
         }
       }else{
         for(const[k,setter] of Object.entries(keyToSetter)){
@@ -10927,7 +11471,7 @@ export default function App(){
     if(view==="invoices")return <InvoicesList invoices={invoices} jobs={jobs} clients={clients} quotes={quotes} setQuotes={setQuotes} payments={payments} setInvoices={setInvoices} markupTable={markupTable} setView={setView} biz={biz}/>;
     if(view.startsWith("invoiceDetail_"))return <InvoiceDetail invoiceId={view.split("_")[1]} invoices={invoices} setInvoices={setInvoices} jobs={jobs} clients={clients} payments={payments} biz={biz} setView={setView} quotes={quotes} markupTable={markupTable}/>;
     if(view==="statements")return <StatementsList clients={clients} jobs={jobs} invoices={invoices} payments={payments} biz={biz} setView={setView}/>;
-    if(view.startsWith("statementDetail_"))return <StatementDetail clientId={view.split("_")[1]} clients={clients} jobs={jobs} invoices={invoices} payments={payments} biz={biz} setView={setView}/>;
+    if(view.startsWith("statementDetail_"))return <StatementDetail clientId={view.split("_")[1]} clients={clients} jobs={jobs} invoices={invoices} payments={payments} setPayments={setPayments} biz={biz} setView={setView}/>;
     if(view==="stock")return <StockBoard stock={stock} setStock={setStock} setView={setView}/>;
     if(view==="gemcustody")return <GemCustody custody={gemCustody} setCustody={setGemCustody} clients={clients} biz={biz}/>;
     if(view.startsWith("stockPrice_"))return <QuoteBuilder stockId={view.split("_")[1]} stock={stock} setStock={setStock} jobs={jobs} clients={clients} quotes={quotes} setQuotes={setQuotes} pricing={pricing} setPricing={setPricing} markupTable={markupTable} naturalStoneMarkup={naturalStoneMarkup} labStoneMarkup={labStoneMarkup} tradeMarkupTable={tradeMarkupTable} tradeNatStoneMarkup={tradeNatStoneMarkup} tradeLabStoneMarkup={tradeLabStoneMarkup} centreRates={centreRates} setCentreRates={setCentreRates} setView={setView}/>;
@@ -10944,37 +11488,51 @@ export default function App(){
     // Resolving which studio this user belongs to — hold before showing any data
     if(studioId===null)return <div style={{display:"flex",alignItems:"center",justifyContent:"center",minHeight:"100vh",background:CREAM,fontFamily:"'Poppins',sans-serif",color:WG,fontSize:14}}>Loading…</div>;
     // Signed in but not linked to any studio (onboarding comes in phase 2)
-    if(studioId==="none")return <StudioOnboarding defaultName={session?.user?.user_metadata?.studio_name||""} onCreated={id=>{setStudioIdModule(id);setStudioId(id);}}/>;
+    if(studioId==="none")return <StudioOnboarding defaultName={session?.user?.user_metadata?.studio_name||""} onCreated={id=>{lastStudioIdRef.current=id;lastStudioUserRef.current=userId;try{localStorage.setItem("resolvedStudio:"+userId,id);}catch(_){}setStudioIdModule(id);setStudioId(id);}}/>;
     // Cloud load failed — block the app so stale/seed data can't be saved over good cloud data
-    if(loadError)return <div style={{display:"flex",alignItems:"center",justifyContent:"center",minHeight:"100vh",background:CREAM,fontFamily:"'Poppins',sans-serif",padding:20}}>
+    if(loadError){
+      const retry=()=>{setLoadError(false);setAuthExpired(false);setStorageReady(false);setLoadNonce(n=>n+1);};
+      const logInAgain=()=>{setLoadError(false);setAuthExpired(false);try{supabase.auth.signOut();}catch(_){}};
+      return <div style={{display:"flex",alignItems:"center",justifyContent:"center",minHeight:"100vh",background:CREAM,fontFamily:"'Poppins',sans-serif",padding:20}}>
       <div style={{maxWidth:420,textAlign:"center",background:WHITE,border:`1px solid ${BD}`,borderRadius:RADIUS,padding:"32px 30px",boxShadow:SHADOW}}>
         <div style={{fontSize:32,marginBottom:12}}>⚠️</div>
-        <div style={{fontSize:17,fontWeight:800,color:INK,marginBottom:8}}>Couldn't load your data</div>
-        <div style={{fontSize:13,color:WG,lineHeight:1.6,marginBottom:22}}>We couldn't reach the cloud, so the app is paused to protect your saved data from being overwritten. Check your connection and try again.</div>
-        <Btn onClick={()=>{setLoadError(false);setStorageReady(false);setLoadNonce(n=>n+1);}}>Retry</Btn>
+        <div style={{fontSize:17,fontWeight:800,color:INK,marginBottom:8}}>{authExpired?"Please log in again":"Couldn't load your data"}</div>
+        <div style={{fontSize:13,color:WG,lineHeight:1.6,marginBottom:22}}>{authExpired
+          ?"Your session expired, so the app paused to keep your saved data safe. Log in again to pick up right where you left off."
+          :"We couldn't reach the cloud, so the app is paused to protect your saved data from being overwritten. Check your connection and try again."}</div>
+        <div style={{display:"flex",gap:10,justifyContent:"center"}}>
+          {authExpired
+            ?<><Btn onClick={logInAgain}>Log in again</Btn><Btn ghost onClick={retry}>Retry</Btn></>
+            :<><Btn onClick={retry}>Retry</Btn><Btn ghost onClick={logInAgain}>Log in again</Btn></>}
+        </div>
       </div>
     </div>;
+    }
     // Data still loading — hold on a spinner rather than flash seed/placeholder figures
     // (e.g. wrong "balance owing by job" for a moment before real data arrives).
     if(!storageReady)return <div style={{display:"flex",alignItems:"center",justifyContent:"center",minHeight:"100vh",background:CREAM,fontFamily:"'Poppins',sans-serif",color:WG,fontSize:14}}>Loading…</div>;
   }
 
   return <div style={{display:"flex",minHeight:"100vh",background:CREAM,fontFamily:"'Poppins',sans-serif"}}>
-    {/* Mobile Phase 2: collapse the common multi-column inline grids to a single column below
-        768px. The [style*=…] selector matches React's serialized inline style, and !important
-        beats the (non-important) inline value — so no per-element edits are needed. Grids that
-        start "1fr 1fr…" (2/3-col forms + most tile rows) and the 220px sidebar splits collapse;
-        fixed-width data-table rows keep their columns (those get horizontal scroll in Phase 3). */}
+    {/* Collapse the common multi-column inline grids as the viewport narrows. The [style*=…]
+        selector matches React's serialized inline style, and !important beats the (non-important)
+        inline value, so no per-element edits are needed. Below 900px the shell switches to the
+        drawer + fixed top bar (see useIsMobile), so .mainpad gains a top offset for the bar and the
+        grids drop to a single column. Grids starting "1fr 1fr…" (2/3-col forms + tile rows), the
+        220px sidebar splits, and repeat(3,1fr) forms collapse; fixed-width data tables keep their
+        columns (those stack via their own isNarrow card layout, or scroll inside .mainpad). */}
     <style>{`
       .mainpad{padding:40px 56px}
-      @media(max-width:1080px){.mainpad{padding:30px 30px}}
-      @media(max-width:900px){
+      @media(max-width:1080px){
+        .mainpad{padding:30px 30px}
         [style*="grid-template-columns: 1fr 1fr 1fr"]{grid-template-columns:1fr 1fr!important}
       }
-      @media(max-width:767px){
+      @media(max-width:899.98px){
         .mainpad{padding:68px 14px 24px}
         [style*="grid-template-columns: 1fr 1fr"]{grid-template-columns:1fr!important}
         [style*="grid-template-columns: 220px 1fr"]{grid-template-columns:1fr!important}
+        [style*="grid-template-columns: repeat(3, 1fr)"]{grid-template-columns:1fr!important}
+        [style*="grid-template-columns: repeat(3,1fr)"]{grid-template-columns:1fr!important}
       }
     `}</style>
     {/* Mobile top bar — hamburger opens the nav drawer (desktop keeps the fixed sidebar) */}

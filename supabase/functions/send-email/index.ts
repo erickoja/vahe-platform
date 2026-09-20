@@ -23,7 +23,7 @@ Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: cors });
   if (req.method !== "POST")   return json({ error: "POST only" }, 405);
   try {
-    const { to, cc, replyTo, fromName, subject, html } = await req.json();
+    const { to, cc, replyTo, fromName, subject, html, attachments } = await req.json();
     if (!RESEND_API_KEY)        return json({ error: "missing RESEND_API_KEY secret" }, 500);
     if (!to || !subject || !html) return json({ error: "to, subject and html are required" }, 400);
 
@@ -31,6 +31,17 @@ Deno.serve(async (req) => {
     const payload: Record<string, unknown> = { from: `${display} <${FROM_EMAIL}>`, to: [to], subject, html };
     if (cc)      payload.cc = [cc];
     if (replyTo) payload.reply_to = replyTo;
+    // Optional attachments: [{ filename, content (base64, no data: prefix), content_id? }].
+    // A content_id lets the HTML embed the image inline via <img src="cid:that-id">.
+    if (Array.isArray(attachments) && attachments.length) {
+      payload.attachments = attachments
+        .filter((a: Record<string, unknown>) => a && a.filename && a.content)
+        .map((a: Record<string, unknown>) => {
+          const att: Record<string, unknown> = { filename: a.filename, content: a.content };
+          if (a.content_id) att.content_id = a.content_id;
+          return att;
+        });
+    }
 
     const res = await fetch("https://api.resend.com/emails", {
       method: "POST",
