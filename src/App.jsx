@@ -6860,25 +6860,9 @@ function ProposalPreview({quote,job,clients=[],biz,calc,payments=[],reconcilePay
         </div>
 
         {/* ── TERMS ── */}
-        <div style={{padding:"28px 52px",borderBottom:`1px solid ${BD}`}}>
+        <div style={{padding:"28px 52px 36px"}}>
           <div style={{fontSize:9,fontWeight:700,color:WG,letterSpacing:"0.16em",textTransform:"uppercase",marginBottom:14,fontFamily:"'Poppins',sans-serif"}}>Terms &amp; conditions</div>
           <div style={{fontSize:11,color:"#555",lineHeight:1.85,fontFamily:"'Poppins',sans-serif"}}>{terms}</div>
-        </div>
-
-        {/* ── CLIENT ACCEPTANCE ── (no signature — accept by writing your name, like the proposals) */}
-        <div style={{padding:"28px 52px 44px",breakInside:"avoid",pageBreakInside:"avoid"}}>
-          <div style={{fontSize:9,fontWeight:700,color:WG,letterSpacing:"0.16em",textTransform:"uppercase",marginBottom:14,fontFamily:"'Poppins',sans-serif"}}>Accept this quote</div>
-          <div style={{fontSize:12,color:"#555",marginBottom:28,fontFamily:"'Poppins',sans-serif",lineHeight:1.75}}>
-            To accept, simply write your name below. This confirms you approve the above quote and authorise work to commence upon payment of the required deposit.
-          </div>
-          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:"24px 36px"}}>
-            {[["Your name",""],["Date",""],["Deposit paid","$"]].map(([label,prefix])=>(
-              <div key={label}>
-                <div style={{borderBottom:`1px solid #CCC`,paddingBottom:6,minHeight:36,display:"flex",alignItems:"flex-end",fontSize:13,color:WG,fontFamily:"'Poppins',sans-serif"}}>{prefix}</div>
-                <div style={{fontSize:10,color:WG,marginTop:6,fontFamily:"'Poppins',sans-serif",letterSpacing:"0.05em"}}>{label}</div>
-              </div>
-            ))}
-          </div>
         </div>
 
         {/* ── FOOTER ── */}
