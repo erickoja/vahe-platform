@@ -3798,7 +3798,12 @@ function JobForm({clients,initial={},onSave,onCancel,biz}){
       <Input label="Date taken in" value={f.dateIn} onChange={set("dateIn")} type="date"/>
       <Input label="Date of pickup / collection" value={f.dateOut} onChange={set("dateOut")} type="date"/>
     </div>
-    {(salespeople.length>0||f.salesperson)&&<Input label="Salesperson (responsible for the sale)" value={f.salesperson||""} onChange={set("salesperson")} as="select" options={[{value:"",label:"— None —"},...salespeople,...(f.salesperson&&!salespeople.includes(f.salesperson)?[f.salesperson]:[])]}/>}
+    {salespeople.length>0
+      ?<Input label="Salesperson (responsible for the sale)" value={f.salesperson||""} onChange={set("salesperson")} as="select" options={[{value:"",label:"— None —"},...salespeople,...(f.salesperson&&!salespeople.includes(f.salesperson)?[f.salesperson]:[])]}/>
+      :<div style={{marginBottom:14}}>
+        <Input label="Salesperson (responsible for the sale)" value={f.salesperson||""} onChange={set("salesperson")} placeholder="Type the salesperson's name"/>
+        <div style={{fontSize:11,color:WG,marginTop:-8,lineHeight:1.5}}>Tip: add your team in <strong>Settings → Team / salespeople</strong> to pick from a list and see per-person performance in Reports.</div>
+      </div>}
     <div style={{borderTop:`1px solid ${BD}`,margin:"6px 0 16px"}}/>
     <div style={{background:GOLD_L,border:`1px solid ${GOLD}55`,borderRadius:4,padding:"12px 16px",marginBottom:16}}>
       <Input label={`Total charge override (${CUR_SYM}) — optional`} value={f.totalOverride||""} onChange={set("totalOverride")} type="number" min="0" step="0.01" placeholder="e.g. 4500"/>
