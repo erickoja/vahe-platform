@@ -6767,14 +6767,17 @@ function ProposalPreview({quote,job,clients=[],biz,calc,payments=[],reconcilePay
           </div>
         </div>
 
-        {/* ── RENDER / IMAGE ── (only shown when the job has photos) */}
-        {imgUrls.length>0&&<div style={{padding:"28px 52px",borderBottom:`1px solid ${BD}`}}>
+        {/* ── RENDER / IMAGE ── (only shown when the job has photos)
+            'contain' fit so the whole piece is always visible — never crop the top/bottom off a
+            ring or pendant. Capped height keeps a tall photo from taking over the page, and the
+            break-inside guards stop images splitting across pages in the printed PDF. */}
+        {imgUrls.length>0&&<div style={{padding:"28px 52px",borderBottom:`1px solid ${BD}`,breakInside:"avoid",pageBreakInside:"avoid"}}>
           <div style={{fontSize:9,fontWeight:700,color:WG,letterSpacing:"0.16em",textTransform:"uppercase",marginBottom:14,fontFamily:"'Poppins',sans-serif"}}>Design &amp; reference</div>
-          <div style={{display:"grid",gridTemplateColumns:imgUrls.length===1?"1fr":imgUrls.length===2?"1fr 1fr":"repeat(3,1fr)",gap:12}}>
+          <div style={{display:"grid",gridTemplateColumns:imgUrls.length===1?"1fr":"1fr 1fr",gap:16}}>
             {imgUrls.map((im,i)=>(
-              <div key={i}>
-                <img src={im.url} alt={im.caption||"Reference"} style={{width:"100%",aspectRatio:imgUrls.length===1?"3 / 2":"1 / 1",objectFit:"cover",borderRadius:6,border:`1px solid ${BD}`,display:"block",background:PARCH}}/>
-                {im.caption&&<div style={{fontSize:11,color:WG,marginTop:6,fontStyle:"italic",fontFamily:"'Poppins',sans-serif"}}>{im.caption}</div>}
+              <div key={i} style={{breakInside:"avoid",pageBreakInside:"avoid"}}>
+                <img src={im.url} alt={im.caption||"Reference"} style={{width:"100%",maxHeight:imgUrls.length===1?440:300,objectFit:"contain",borderRadius:6,border:`1px solid ${BD}`,display:"block",background:WHITE,padding:6}}/>
+                {im.caption&&<div style={{fontSize:11,color:WG,marginTop:6,fontStyle:"italic",fontFamily:"'Poppins',sans-serif",textAlign:"center"}}>{im.caption}</div>}
               </div>
             ))}
           </div>
@@ -6862,14 +6865,14 @@ function ProposalPreview({quote,job,clients=[],biz,calc,payments=[],reconcilePay
           <div style={{fontSize:11,color:"#555",lineHeight:1.85,fontFamily:"'Poppins',sans-serif"}}>{terms}</div>
         </div>
 
-        {/* ── CLIENT ACCEPTANCE ── */}
-        <div style={{padding:"28px 52px 44px"}}>
-          <div style={{fontSize:9,fontWeight:700,color:WG,letterSpacing:"0.16em",textTransform:"uppercase",marginBottom:14,fontFamily:"'Poppins',sans-serif"}}>Client acceptance</div>
+        {/* ── CLIENT ACCEPTANCE ── (no signature — accept by writing your name, like the proposals) */}
+        <div style={{padding:"28px 52px 44px",breakInside:"avoid",pageBreakInside:"avoid"}}>
+          <div style={{fontSize:9,fontWeight:700,color:WG,letterSpacing:"0.16em",textTransform:"uppercase",marginBottom:14,fontFamily:"'Poppins',sans-serif"}}>Accept this quote</div>
           <div style={{fontSize:12,color:"#555",marginBottom:28,fontFamily:"'Poppins',sans-serif",lineHeight:1.75}}>
-            I, the undersigned, accept the above quote and authorise work to commence upon payment of the required deposit.
+            To accept, simply write your name below. This confirms you approve the above quote and authorise work to commence upon payment of the required deposit.
           </div>
-          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"24px 40px"}}>
-            {[["Signature",""],["Print name",""],["Date",""],["Deposit paid","$"]].map(([label,prefix])=>(
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:"24px 36px"}}>
+            {[["Your name",""],["Date",""],["Deposit paid","$"]].map(([label,prefix])=>(
               <div key={label}>
                 <div style={{borderBottom:`1px solid #CCC`,paddingBottom:6,minHeight:36,display:"flex",alignItems:"flex-end",fontSize:13,color:WG,fontFamily:"'Poppins',sans-serif"}}>{prefix}</div>
                 <div style={{fontSize:10,color:WG,marginTop:6,fontFamily:"'Poppins',sans-serif",letterSpacing:"0.05em"}}>{label}</div>
