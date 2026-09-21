@@ -55,6 +55,8 @@ const TINTS={
 
 // ── Constants ─────────────────────────────────────────────────────────────
 const JOB_TYPES=["Engagement ring","Wedding band","Eternity ring","Dress ring","Custom pendant","Necklace","Earrings","Bracelet","Repair","Remodelling","Grillz","Chain","Trade / Wholesale","Custom","Other"];
+// How a client found the studio — drives the "Where clients come from" report breakdown.
+const CLIENT_SOURCES=["Word of mouth","Returning client","Referral","Google search","Google Maps","Instagram","Facebook","TikTok","Website","Walk-in / passing by","Advertising","Event / market","Other"];
 // Piece-type icons for the job-type filter tiles (currentColor → inherit tile colour).
 const ICON_RING=<svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M3,14A9,9,0,1,0,14.822,5.46l1.019-1.585a1,1,0,0,0,.031-1.032l-.75-1.333A1,1,0,0,0,14.25,1H9.75a1,1,0,0,0-.872.51l-.75,1.333a1,1,0,0,0,.031,1.032L9.178,5.46A9.011,9.011,0,0,0,3,14Zm8.282-8.966L10.167,3.3l.168-.3h3.33l.168.3L12.718,5.034C12.468,5.011,12.23,5,12,5S11.532,5.011,11.282,5.034ZM12,7a7,7,0,1,1-7,7A7.022,7.022,0,0,1,12,7Z"/></svg>;
 const ICON_WEDDING_RINGS=<svg width="20" height="20" viewBox="0 0 512 512" fill="currentColor"><path d="M176.172,189.568c-69.82,0-126.624,56.803-126.624,126.624s56.803,126.624,126.624,126.624s126.624-56.803,126.624-126.624S245.992,189.568,176.172,189.568z M176.172,420.794c-57.678,0-104.602-46.924-104.602-104.602c0-55.447,43.367-100.948,97.962-104.385c-6.387,18.212-9.875,37.775-9.875,58.14c0,55.832,26.123,105.66,66.77,137.959C211.503,416.115,194.374,420.794,176.172,420.794z M245.306,394.618c-38.527-28.05-63.629-73.476-63.629-124.671c0-20.149,3.902-39.399,10.966-57.057c9.291,1.475,18.179,4.174,26.491,7.933c-6.388,15.112-9.93,31.711-9.93,49.122c0,42.927,21.48,80.919,54.247,103.829C258.338,381.499,252.229,388.508,245.306,394.618z M231.226,269.946c0-13.34,2.521-26.098,7.095-37.838c25.736,19.074,42.453,49.662,42.453,84.084c0,13.335-2.513,26.092-7.082,37.831C247.951,334.949,231.226,304.37,231.226,269.946z"/><path d="M374.633,98.09l14.704-24.751c2.059-3.466,2.059-7.78,0-11.247l-22.021-37.069c-1.985-3.34-5.581-5.388-9.467-5.388h-44.043c-3.885,0-7.482,2.047-9.467,5.388l-22.021,37.069c-2.059,3.466-2.059,7.78,0,11.247l14.704,24.751c-32.271,7.286-61.211,23.456-84.112,45.794c-11.854-2.525-24.141-3.864-36.736-3.864C79.031,140.02,0,219.05,0,316.193s79.031,176.172,176.172,176.172c47.778,0,91.166-19.127,122.934-50.114c11.849,2.526,24.13,3.869,36.722,3.869C432.97,446.119,512,367.09,512,269.947C512,186.135,453.167,115.813,374.633,98.09z M320.072,41.657h31.512l15.48,26.058l-15.48,26.059h-31.512l-15.48-26.059L320.072,41.657z M176.172,470.342c-84.999,0-154.151-69.152-154.151-154.151s69.152-154.151,154.151-154.151s154.15,69.152,154.15,154.151S261.171,470.342,176.172,470.342z M285.592,178.222c14.918-8.205,32.041-12.878,50.237-12.878c57.678,0,104.601,46.925,104.601,104.602c0,55.445-43.364,100.945-97.956,104.385c6.385-18.212,9.87-37.775,9.87-58.14C352.344,260.363,326.234,210.523,285.592,178.222z M335.828,424.097c-6.62,0-13.14-0.428-19.542-1.244c6.287-8.239,11.873-17.041,16.651-26.326c0.962,0.022,1.926,0.044,2.893,0.044c69.82,0,126.623-56.803,126.623-126.624s-56.802-126.624-126.623-126.624c-25.898,0-49.989,7.837-70.069,21.234c-8.868-5.26-18.233-9.765-28.009-13.424c26.669-22.056,60.846-35.338,98.077-35.338c84.999,0,154.151,69.152,154.151,154.151S420.827,424.097,335.828,424.097z"/></svg>;
@@ -3539,7 +3541,7 @@ function Dashboard({clients,jobs,quotes,payments,invoices,appointments=[],propos
 
 // ── Clients ───────────────────────────────────────────────────────────────
 function ClientForm({initial={},onSave,onCancel}){
-  const[f,setF]=useState({name:"",email:"",phone:"",partnerName:"",partnerEmail:"",partnerPhone:"",street:"",city:"",state:"",postcode:"",notes:"",accountType:"retail",contactName:"",abn:"",terms:"",creditLimit:"",poRequired:false,...initial});
+  const[f,setF]=useState({name:"",email:"",phone:"",partnerName:"",partnerEmail:"",partnerPhone:"",street:"",city:"",state:"",postcode:"",notes:"",accountType:"retail",contactName:"",abn:"",terms:"",creditLimit:"",poRequired:false,source:"",sourceDetail:"",...initial});
   const set=k=>v=>setF(p=>({...p,[k]:v}));
   const trade=f.accountType==="trade";
   return <div>
@@ -3591,6 +3593,10 @@ function ClientForm({initial={},onSave,onCancel}){
       <Input label="Postcode" value={f.postcode||""} onChange={set("postcode")} placeholder="2000"/>
     </div>
     <div style={{borderTop:`1px solid ${BD}`,margin:"6px 0 16px"}}/>
+    <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"0 16px"}}>
+      <Input label="How did they find us?" value={f.source||""} onChange={set("source")} as="select" options={[{value:"",label:"— Not recorded —"},...CLIENT_SOURCES]}/>
+      <Input label="Source detail (optional)" value={f.sourceDetail||""} onChange={set("sourceDetail")} placeholder="e.g. referred by Jane, saw our Insta post"/>
+    </div>
     <Input label="Instructions, notes & additional information" value={f.notes} onChange={set("notes")} as="textarea" rows={3}/>
     <div style={{display:"flex",gap:10,justifyContent:"flex-end"}}>
       <Btn ghost onClick={onCancel}>Cancel</Btn>
@@ -3723,6 +3729,7 @@ function ClientDetail({clientId,clients,setClients,jobs,setJobs,quotes,payments,
           [c.partnerName?`${c.name} — phone`:"Phone",c.phone],
           ...(c.partnerName?[[`${c.partnerName} — email`,c.partnerEmail],[`${c.partnerName} — phone`,c.partnerPhone]]:[]),
           ["Address",c.street?[c.street,c.city,c.state,c.postcode].filter(Boolean).join(", "):(c.address||"")],
+          ["Found us via",[c.source,c.sourceDetail].filter(Boolean).join(" · ")],
           ["Client since",fmtDate(c.createdAt)],
         ].map(([k,v])=>(
           <div key={k} style={{display:"flex",justifyContent:"space-between",fontSize:13,padding:"7px 0",borderBottom:`1px solid ${BD}`}}><span style={{color:WG}}>{k}</span><span style={{color:INK,fontWeight:600}}>{v||"—"}</span></div>
@@ -3761,7 +3768,7 @@ function ClientDetail({clientId,clients,setClients,jobs,setJobs,quotes,payments,
       ))}
     </Card>
     {jobModal&&<Modal title={`New job for ${c.name}`} onClose={()=>setJobModal(false)}>
-      <JobForm clients={clients} initial={{clientId}} onSave={addJob} onCancel={()=>setJobModal(false)}/>
+      <JobForm clients={clients} initial={{clientId}} onSave={addJob} onCancel={()=>setJobModal(false)} biz={biz}/>
     </Modal>}
     {editModal&&<Modal title="Edit client" onClose={()=>setEditModal(false)}>
       <ClientForm initial={c} onSave={saveClient} onCancel={()=>setEditModal(false)}/>
@@ -3770,8 +3777,9 @@ function ClientDetail({clientId,clients,setClients,jobs,setJobs,quotes,payments,
 }
 
 // ── Jobs ──────────────────────────────────────────────────────────────────
-function JobForm({clients,initial={},onSave,onCancel}){
-  const[f,setF]=useState({clientId:"",type:JOB_TYPES[0],stage:JOB_STAGES[0],description:"",deadline:"",dateIn:"",dateOut:"",notes:"",supplier:"",supplierRef:"",totalOverride:"",po:"",...initial});
+function JobForm({clients,initial={},onSave,onCancel,biz}){
+  const[f,setF]=useState({clientId:"",type:JOB_TYPES[0],stage:JOB_STAGES[0],description:"",deadline:"",dateIn:"",dateOut:"",notes:"",supplier:"",supplierRef:"",totalOverride:"",po:"",salesperson:"",...initial});
+  const salespeople=(biz?.salespeople||[]).filter(Boolean);
   const set=k=>v=>setF(p=>({...p,[k]:v}));
   const selClient=clients.find(c=>c.id===f.clientId);
   const isTradeJob=selClient?.accountType==="trade";
@@ -3790,6 +3798,7 @@ function JobForm({clients,initial={},onSave,onCancel}){
       <Input label="Date taken in" value={f.dateIn} onChange={set("dateIn")} type="date"/>
       <Input label="Date of pickup / collection" value={f.dateOut} onChange={set("dateOut")} type="date"/>
     </div>
+    {(salespeople.length>0||f.salesperson)&&<Input label="Salesperson (responsible for the sale)" value={f.salesperson||""} onChange={set("salesperson")} as="select" options={[{value:"",label:"— None —"},...salespeople,...(f.salesperson&&!salespeople.includes(f.salesperson)?[f.salesperson]:[])]}/>}
     <div style={{borderTop:`1px solid ${BD}`,margin:"6px 0 16px"}}/>
     <div style={{background:GOLD_L,border:`1px solid ${GOLD}55`,borderRadius:4,padding:"12px 16px",marginBottom:16}}>
       <Input label={`Total charge override (${CUR_SYM}) — optional`} value={f.totalOverride||""} onChange={set("totalOverride")} type="number" min="0" step="0.01" placeholder="e.g. 4500"/>
@@ -4006,7 +4015,7 @@ function Jobs({clients,jobs,setJobs,quotes,setQuotes,payments,setPayments,notes,
         </div>}
       </Card>;
     })}
-    {modal&&<Modal title="New job" onClose={()=>setModal(null)}><JobForm clients={clients} onSave={add} onCancel={()=>setModal(null)}/></Modal>}
+    {modal&&<Modal title="New job" onClose={()=>setModal(null)}><JobForm clients={clients} onSave={add} onCancel={()=>setModal(null)} biz={biz}/></Modal>}
   </div>;
 }
 
@@ -4567,7 +4576,8 @@ function JobDetail({jobId,jobs,setJobs,clients,setClients,quotes,setQuotes,payme
       <div style={{minWidth:0}}><h1 style={{margin:0,fontSize:isMobile?20:24,fontWeight:800,color:INK,letterSpacing:"-0.02em",wordBreak:"break-word"}}>{job.type}</h1>
       <div style={{color:WG,fontSize:13,marginTop:3}}>{clientDisplayName(c)}{job.deadline?` · Due ${fmtDate(job.deadline)}`:""}</div>
       {(job.dateIn||job.dateOut)&&<div style={{fontSize:12,color:WG,marginTop:2}}>Taken in: <b style={{color:INK}}>{job.dateIn?fmtDate(job.dateIn):"—"}</b> · Pickup: <b style={{color:INK}}>{job.dateOut?fmtDate(job.dateOut):"—"}</b></div>}
-      {job.supplier&&<div style={{fontSize:12,color:WG,marginTop:2}}>Supplier: {job.supplier}{job.supplierRef?` · ${job.supplierRef}`:""}</div>}</div>
+      {job.supplier&&<div style={{fontSize:12,color:WG,marginTop:2}}>Supplier: {job.supplier}{job.supplierRef?` · ${job.supplierRef}`:""}</div>}
+      {job.salesperson&&<div style={{fontSize:12,color:WG,marginTop:2}}>Salesperson: <b style={{color:INK}}>{job.salesperson}</b></div>}</div>
       <div style={{display:"flex",gap:8,alignItems:"center",flexWrap:"wrap",flexShrink:0}}>
         <Badge label={job.stage} color={SC[job.stage]||WG} size="lg"/>
         {job.parked&&<Badge label="Awaiting client" color={WARN} size="lg"/>}
@@ -4709,7 +4719,7 @@ function JobDetail({jobId,jobs,setJobs,clients,setClients,quotes,setQuotes,payme
       </div>
     </Modal>}
     {editJobModal&&<Modal title="Edit job" onClose={()=>setEditJobModal(false)}>
-      <JobForm clients={clients} initial={job} onSave={f=>{
+      <JobForm clients={clients} biz={biz} initial={job} onSave={f=>{
         setJobs(p=>{const n=p.map(j=>j.id===jobId?{...j,...f}:j);persist(K.jo,n);return n;});
         setEditJobModal(false);
       }} onCancel={()=>setEditJobModal(false)}/>
@@ -8992,7 +9002,7 @@ function SpotPriceUpdater({spotPrices,setSpotPrices,pricing,setPricing,onClose})
 }
 
 // ── Reports ───────────────────────────────────────────────────────────────
-function Reports({jobs,clients,quotes,payments,invoices,markupTable,setView}){
+function Reports({jobs,clients,quotes,payments,invoices,markupTable,setView,biz}){
   const isMobile=useIsMobile();
   const isNarrow=useIsMobile(1024);   // tablet + phone: stack the wide trade-accounts table into cards
   // Compact money for the tight bar-chart labels on mobile (e.g. $84k) so they don't overflow.
@@ -9020,6 +9030,30 @@ function Reports({jobs,clients,quotes,payments,invoices,markupTable,setView}){
     const bal=jobChargeTotal(j,quotes,markupTable,invoices)-payments.filter(p=>p.jobId===j.id&&p.status==="Received").reduce((a,p)=>a+Number(p.amount||0),0)-jobTradeInCredit(j,quotes);
     return s+(bal>1?bal:0);
   },0);
+  // ── Client sources — where the client book came from ──────────────────────
+  const sourceRows=(()=>{
+    const m={};
+    clients.forEach(c=>{const k=(c.source||"").trim()||"Not recorded";m[k]=(m[k]||0)+1;});
+    return Object.entries(m).map(([source,count])=>({source,count})).sort((a,b)=>b.count-a.count);
+  })();
+  // ── Salesperson performance (by year the job was created) ──────────────────
+  const jobYears=Array.from(new Set(jobs.map(j=>String(j.createdAt||"").slice(0,4)).filter(y=>/^\d{4}$/.test(y)))).sort((a,b)=>b.localeCompare(a));
+  const[salesYear,setSalesYear]=useState(jobYears[0]||String(new Date().getFullYear()));
+  const salesJobs=jobs.filter(j=>salesYear==="all"||String(j.createdAt||"").slice(0,4)===salesYear);
+  const salesRows=(()=>{
+    const m={};
+    salesJobs.forEach(j=>{
+      const who=(j.salesperson||"").trim();if(!who)return;
+      const sale=jobChargeTotal(j,quotes,markupTable,invoices);
+      const received=payments.filter(p=>p.jobId===j.id&&p.status==="Received").reduce((s,p)=>s+Number(p.amount||0),0)+jobTradeInCredit(j,quotes);
+      if(!m[who])m[who]={who,jobs:0,sales:0,received:0};
+      m[who].jobs++;m[who].sales+=sale;m[who].received+=received;
+    });
+    (biz?.salespeople||[]).forEach(who=>{const w=String(who).trim();if(w&&!m[w])m[w]={who:w,jobs:0,sales:0,received:0};});
+    return Object.values(m).sort((a,b)=>b.sales-a.sales);
+  })();
+  const unassignedSales=salesJobs.filter(j=>!(j.salesperson||"").trim()).length;
+  const salesTot=salesRows.reduce((a,r)=>({jobs:a.jobs+r.jobs,sales:a.sales+r.sales,received:a.received+r.received}),{jobs:0,sales:0,received:0});
   return <div>
     <SectionHeader eyebrow="Business" title="Reports" subtitle="How the studio's tracking — sales, margins and conversion at a glance."/>
     <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(176px,1fr))",gap:12,marginBottom:22}}>
@@ -9067,6 +9101,58 @@ function Reports({jobs,clients,quotes,payments,invoices,markupTable,setView}){
         ))}
       </Card>
     </div>
+    <Card style={{marginTop:14}}>
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:8,marginBottom:4}}>
+        <div style={{fontWeight:700,fontSize:15,color:INK}}>Salesperson performance</div>
+        <div style={{display:"flex",alignItems:"center",gap:8}}>
+          <span style={{fontSize:11,color:WG,fontWeight:700,textTransform:"uppercase",letterSpacing:"0.05em"}}>Year</span>
+          <select value={salesYear} onChange={e=>setSalesYear(e.target.value)} style={{...SS.inp,marginTop:0,width:"auto",padding:"5px 10px",fontSize:13}}>
+            {jobYears.map(y=><option key={y} value={y}>{y}</option>)}
+            <option value="all">All time</option>
+          </select>
+        </div>
+      </div>
+      <div style={{fontSize:12,color:WG,marginBottom:14}}>Who's responsible for each sale — agreed charge and money received, {salesYear==="all"?"all time":`for ${salesYear}`}. Tag a job's salesperson when you create or edit it; add your team in Settings.</div>
+      {salesRows.length===0?<div style={{color:WG,fontSize:13,padding:"6px 0"}}>No salespeople tagged yet. Add your team in <strong>Settings → Team / salespeople</strong>, then pick a salesperson on each job.</div>:<>
+        {!isMobile&&<div style={{display:"grid",gridTemplateColumns:"1.6fr 0.7fr 1fr 1fr",gap:8,padding:"0 2px 8px",fontSize:10,fontWeight:700,color:WG,textTransform:"uppercase",letterSpacing:"0.05em",borderBottom:`2px solid ${INK}`}}>
+          <div>Salesperson</div><div style={{textAlign:"right"}}>Jobs</div><div style={{textAlign:"right"}}>Sales</div><div style={{textAlign:"right"}}>Received</div>
+        </div>}
+        {salesRows.map(r=>(
+          <div key={r.who} style={isMobile
+            ?{padding:"11px 2px",borderBottom:`1px solid ${BD}`}
+            :{display:"grid",gridTemplateColumns:"1.6fr 0.7fr 1fr 1fr",gap:8,padding:"11px 2px",borderBottom:`1px solid ${BD}`,alignItems:"center",fontSize:13}}>
+            {isMobile?<>
+              <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",gap:10}}>
+                <span style={{fontWeight:700,color:INK,fontSize:14}}>{r.who}</span>
+                <span style={{fontWeight:800,color:INK}}>{fmtR(r.sales)}</span>
+              </div>
+              <div style={{fontSize:12,color:WG,marginTop:3}}>{r.jobs} job{r.jobs!==1?"s":""} · Received {fmtR(r.received)}</div>
+            </>:<>
+              <div style={{fontWeight:700,color:INK,minWidth:0,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{r.who}</div>
+              <div style={{textAlign:"right",color:INK}}>{r.jobs}</div>
+              <div style={{textAlign:"right",fontWeight:700,color:INK}}>{fmtR(r.sales)}</div>
+              <div style={{textAlign:"right",color:OK,fontWeight:600}}>{fmtR(r.received)}</div>
+            </>}
+          </div>
+        ))}
+        {salesRows.length>1&&!isMobile&&<div style={{display:"grid",gridTemplateColumns:"1.6fr 0.7fr 1fr 1fr",gap:8,padding:"11px 2px 2px",fontSize:13,fontWeight:800,color:INK,borderTop:`2px solid ${INK}`,marginTop:2}}>
+          <div>All salespeople</div><div style={{textAlign:"right"}}>{salesTot.jobs}</div><div style={{textAlign:"right"}}>{fmtR(salesTot.sales)}</div><div style={{textAlign:"right",color:OK}}>{fmtR(salesTot.received)}</div>
+        </div>}
+        {unassignedSales>0&&<div style={{fontSize:11.5,color:WG,marginTop:10}}>{unassignedSales} job{unassignedSales!==1?"s":""} {salesYear==="all"?"":`in ${salesYear} `}with no salesperson tagged — not counted above.</div>}
+      </>}
+    </Card>
+    <Card style={{marginTop:14}}>
+      <div style={{fontWeight:700,fontSize:15,color:INK,marginBottom:14}}>Where clients come from</div>
+      {sourceRows.length===0?<div style={{color:WG,fontSize:13}}>No clients yet.</div>:sourceRows.map(x=>(
+        <div key={x.source} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"7px 0",borderBottom:`1px solid ${BD}`,fontSize:13}}>
+          <span style={{color:x.source==="Not recorded"?WG:INK}}>{x.source}</span>
+          <div style={{display:"flex",alignItems:"center",gap:8}}>
+            <div style={{width:60,height:6,background:BD,borderRadius:3,overflow:"hidden"}}><div style={{width:`${Math.round(x.count/clients.length*100)}%`,height:"100%",background:GOLD,borderRadius:3}}/></div>
+            <span style={{fontWeight:700,color:INK,minWidth:16,textAlign:"right"}}>{x.count}</span>
+          </div>
+        </div>
+      ))}
+    </Card>
     {(()=>{
       const trades=clients.filter(c=>c.accountType==="trade");
       if(!trades.length)return null;
@@ -9150,7 +9236,7 @@ function Settings({biz,setBiz,markupTable,setMarkupTable,naturalStoneMarkup,setN
   const showToast=msg=>{setToast(msg);setTimeout(()=>setToast(null),2400);};
   // Preserve markup-table-owned settings (buffer / rounding) so saving business details can't wipe them.
   const saveBiz=()=>{
-    const nb={...bForm,markupBuffer:biz.markupBuffer||0,quoteRounding:biz.quoteRounding||0};
+    const nb={...bForm,markupBuffer:biz.markupBuffer||0,quoteRounding:biz.quoteRounding||0,salespeople:(bForm.salespeople||[]).map(s=>String(s).trim()).filter(Boolean)};
     setBiz(nb);persist(K.biz,nb);
     // Sync this studio's name + acceptance-notification email to the studios table, so the
     // server-side email function can reach the right studio. RLS lets an owner update its studio.
@@ -9247,7 +9333,18 @@ function Settings({biz,setBiz,markupTable,setMarkupTable,naturalStoneMarkup,setN
         </div>
         <div style={{fontSize:11,color:WG,marginTop:2,lineHeight:1.5}}>When set, the <strong style={{color:INK}}>aftercare email</strong> recommends insuring the piece with a button linking here, so wear and accidental damage can be covered rather than an unexpected repair bill.</div>
       </div>
-      <div style={{display:"flex",justifyContent:"flex-end"}}><Btn onClick={saveBiz}>Save business details</Btn></div>
+      <div style={{marginTop:16,paddingTop:16,borderTop:`1px solid ${BD}`}}>
+        <div style={{fontSize:10,fontWeight:700,color:WG,letterSpacing:"0.1em",textTransform:"uppercase",marginBottom:6}}>Team / salespeople</div>
+        <div style={{fontSize:11,color:WG,marginBottom:12,lineHeight:1.5}}>Add the people who make sales. Each job can then be tagged with who's responsible, so <strong>Reports</strong> shows per-person performance for the year.</div>
+        {(bForm.salespeople||[]).map((name,i)=>(
+          <div key={i} style={{display:"flex",gap:8,alignItems:"center",marginBottom:8}}>
+            <input value={name} onChange={e=>{const v=e.target.value;setBForm(p=>{const a=[...(p.salespeople||[])];a[i]=v;return{...p,salespeople:a};});}} placeholder="e.g. Sarah Mitchell" style={{...SS.inp,marginTop:0,flex:1}}/>
+            <button onClick={()=>setBForm(p=>({...p,salespeople:(p.salespeople||[]).filter((_,j)=>j!==i)}))} style={{background:"none",border:"none",color:DANGER,cursor:"pointer",fontSize:18,fontFamily:"inherit",lineHeight:1,padding:"0 4px"}} title="Remove">×</button>
+          </div>
+        ))}
+        <button onClick={()=>setBForm(p=>({...p,salespeople:[...(p.salespeople||[]),""]}))} style={{background:"none",border:`1px dashed ${GOLD_D}`,borderRadius:4,padding:"6px 14px",color:GOLD_D,fontSize:12,fontWeight:700,cursor:"pointer",fontFamily:"inherit",marginTop:2}}>+ Add salesperson</button>
+      </div>
+      <div style={{display:"flex",justifyContent:"flex-end",marginTop:16}}><Btn onClick={saveBiz}>Save business details</Btn></div>
     </Card>
 
     <Card>
@@ -11476,7 +11573,7 @@ export default function App(){
     if(view==="gemcustody")return <GemCustody custody={gemCustody} setCustody={setGemCustody} clients={clients} biz={biz}/>;
     if(view.startsWith("stockPrice_"))return <QuoteBuilder stockId={view.split("_")[1]} stock={stock} setStock={setStock} jobs={jobs} clients={clients} quotes={quotes} setQuotes={setQuotes} pricing={pricing} setPricing={setPricing} markupTable={markupTable} naturalStoneMarkup={naturalStoneMarkup} labStoneMarkup={labStoneMarkup} tradeMarkupTable={tradeMarkupTable} tradeNatStoneMarkup={tradeNatStoneMarkup} tradeLabStoneMarkup={tradeLabStoneMarkup} centreRates={centreRates} setCentreRates={setCentreRates} setView={setView}/>;
     if(view==="pricing")return <PricingDB pricing={pricing} setPricing={setPricing} spotPrices={spotPrices} setSpotPrices={setSpotPrices} markupTable={markupTable} centreRates={centreRates} setCentreRates={setCentreRates} onUpdateSpot={()=>setSpotModal(true)}/>;
-    if(view==="reports")return <Reports jobs={jobs} clients={clients} quotes={quotes} payments={payments} invoices={invoices} markupTable={markupTable} setView={setView}/>;
+    if(view==="reports")return <Reports jobs={jobs} clients={clients} quotes={quotes} payments={payments} invoices={invoices} markupTable={markupTable} setView={setView} biz={biz}/>;
     if(view==="settings")return <Settings biz={biz} setBiz={setBiz} markupTable={markupTable} setMarkupTable={setMarkupTable} naturalStoneMarkup={naturalStoneMarkup} setNaturalStoneMarkup={setNaturalStoneMarkup} labStoneMarkup={labStoneMarkup} setLabStoneMarkup={setLabStoneMarkup} tradeMarkupTable={tradeMarkupTable} setTradeMarkupTable={setTradeMarkupTable} tradeNatStoneMarkup={tradeNatStoneMarkup} setTradeNatStoneMarkup={setTradeNatStoneMarkup} tradeLabStoneMarkup={tradeLabStoneMarkup} setTradeLabStoneMarkup={setTradeLabStoneMarkup} dataSafety={{backupNow,loadSnapshots:listCloudSnapshots,restoreSnapshot}} billing={billing}/>;
     return null;
   };
