@@ -3352,7 +3352,7 @@ function Dashboard({clients,jobs,quotes,payments,invoices,appointments=[],propos
   // Overdue = past deadline AND not finished/awaiting pickup — consistent with the Jobs list flag
   // (a "Ready for collection" job is done, so it's never counted as overdue).
   const overdue=active.filter(j=>!jobIsDone(j)&&j.deadline&&j.deadline<today());
-  const thisMonth=new Date().toISOString().slice(0,7);
+  const thisMonth=(d=>`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}`)(new Date());
   // Cash-received view: actual payments received this month (deposits included), regardless of invoicing
   // Value received this month = cash payments dated this month + gold trade-in credits on approved
   // quotes whose most recent activity was this month (trade-ins have no date of their own).
@@ -3371,7 +3371,7 @@ function Dashboard({clients,jobs,quotes,payments,invoices,appointments=[],propos
   // ── Revenue trend (6 months) + month-over-month comparison ──
   const receivedForMonth=mk=>payments.filter(p=>p.status==="Received"&&p.date?.startsWith(mk)).reduce((s,p)=>s+Number(p.amount||0),0)
     +quotes.filter(q=>q.status==="Approved"&&(Number(q.tradeInCredit)||0)>0&&String(q.updatedAt||q.createdAt||"").slice(0,7)===mk).reduce((s,q)=>s+Number(q.tradeInCredit),0);
-  const revSeries=[...Array(6)].map((_,i)=>{const d=new Date();d.setDate(1);d.setMonth(d.getMonth()-(5-i));const mk=d.toISOString().slice(0,7);return {mk,label:new Date(mk+"-01").toLocaleDateString(LOCALE,{month:"short"}),value:receivedForMonth(mk)};});
+  const revSeries=[...Array(6)].map((_,i)=>{const d=new Date();d.setDate(1);d.setMonth(d.getMonth()-(5-i));const mk=`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}`;return {mk,label:new Date(mk+"-01").toLocaleDateString(LOCALE,{month:"short"}),value:receivedForMonth(mk)};});
   const lastMonthReceived=revSeries.length>1?revSeries[revSeries.length-2].value:0;
   const monthTrend=lastMonthReceived>0?{pct:Math.round(((monthReceived-lastMonthReceived)/lastMonthReceived)*100),up:monthReceived>=lastMonthReceived}:null;
   // ── Production pipeline — active jobs grouped into a few phases (not 12 colours) + total value ──
@@ -9012,7 +9012,7 @@ function Reports({jobs,clients,quotes,payments,invoices,markupTable,setView,biz}
   const isNarrow=useIsMobile(1024);   // tablet + phone: stack the wide trade-accounts table into cards
   // Compact money for the tight bar-chart labels on mobile (e.g. $84k) so they don't overflow.
   const compactMoney=n=>"$"+(n>=1000?Math.round(n/1000)+"k":Math.round(n));
-  const months=Array.from({length:6},(_,i)=>{const d=new Date();d.setMonth(d.getMonth()-i);return d.toISOString().slice(0,7);}).reverse();
+  const months=Array.from({length:6},(_,i)=>{const d=new Date();d.setDate(1);d.setMonth(d.getMonth()-i);return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}`;}).reverse();
   const monthData=months.map(m=>({
     month:new Date(m+"-01").toLocaleDateString(LOCALE,{month:"short",year:"numeric"}),
     paid:payments.filter(p=>p.date?.startsWith(m)&&p.status==="Received").reduce((s,p)=>s+Number(p.amount||0),0)
