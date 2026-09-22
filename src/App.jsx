@@ -3291,6 +3291,7 @@ function Dashboard({clients,jobs,quotes,payments,invoices,appointments=[],propos
   const dismissGS=()=>{if(!setBiz)return;const nb={...biz,gsDismissed:true};setBiz(nb);persist(K.biz,nb);};
   const isMobile=useIsMobile();
   const stackCols=useIsMobile(1000);   // stack the two-column bottom section on tablets too, not just phones
+  const [showAllActive,setShowAllActive]=useState(false);   // expand the Active jobs card beyond the top 8
   // A quote the client ignored past its "valid until" date is "frozen": the public link expires AND
   // it drops out of active tracking here. Frozen = a sent proposal, no acceptance, no approved quote,
   // no money in, and every sent proposal past expiry (createdAt + the studio's quote-validity window).
@@ -3472,7 +3473,7 @@ function Dashboard({clients,jobs,quotes,payments,invoices,appointments=[],propos
           <Btn sm ghost onClick={()=>setView("jobs")}>View all</Btn>
         </div>
         {active.length===0&&<div style={{color:WG,fontSize:14}}>No active jobs.</div>}
-        {activeRanked.slice(0,8).map(({j,received,tradeIn,owing,awaiting,ready,sentProp,quiet,stale,od},i,arr)=>{
+        {(showAllActive?activeRanked:activeRanked.slice(0,8)).map(({j,received,tradeIn,owing,awaiting,ready,sentProp,quiet,stale,od},i,arr)=>{
           const c=clients.find(x=>x.id===j.clientId);
           // Sub-line = the signal that isn't already shown by the money chip / stage badge.
           const signal=ready?{t:"Ready to collect",col:OK}
@@ -3495,6 +3496,7 @@ function Dashboard({clients,jobs,quotes,payments,invoices,appointments=[],propos
             </div>
           </DashRow>;
         })}
+        {activeRanked.length>8&&<div onClick={()=>setShowAllActive(v=>!v)} style={{marginTop:12,fontSize:12.5,fontWeight:700,color:GOLD_D,cursor:"pointer"}}>{showAllActive?"Show fewer ▲":`Show all ${activeRanked.length} active ▾`}</div>}
         {frozenCount>0&&<div onClick={()=>go("frozen")} style={{marginTop:12,fontSize:12,color:WG,cursor:"pointer"}}>❄ {frozenCount} expired quote{frozenCount>1?"s":""} hidden — <span style={{color:GOLD,fontWeight:700}}>view in Jobs</span></div>}
       </Card>
       <div style={{display:"flex",flexDirection:"column",gap:16}}>
