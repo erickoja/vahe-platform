@@ -9024,6 +9024,17 @@ function Reports({jobs,clients,quotes,payments,invoices,markupTable,setView,biz}
     const bal=jobChargeTotal(j,quotes,markupTable,invoices)-payments.filter(p=>p.jobId===j.id&&p.status==="Received").reduce((a,p)=>a+Number(p.amount||0),0)-jobTradeInCredit(j,quotes);
     return s+(bal>1?bal:0);
   },0);
+  // Funds held = client money received beyond a job's agreed charge — deposits on jobs with no
+  // approved quote, plus any overpayments. This is the per-job overpay that Outstanding floors away,
+  // so it makes Total sales / received / outstanding reconcile: outstanding = (sales − received) + held.
+  const fundsHeld=jobs.reduce((s,j)=>{
+    const over=(payments.filter(p=>p.jobId===j.id&&p.status==="Received").reduce((a,p)=>a+Number(p.amount||0),0)+jobTradeInCredit(j,quotes))-jobChargeTotal(j,quotes,markupTable,invoices);
+    return s+(over>1?over:0);
+  },0);
+  // Jobs with money in but no agreed charge yet — a deposit taken against a quote that was never
+  // approved (and no total override). Approving the quote attaches the deposit to a real sale.
+  const unapprovedPaidJobs=jobs.filter(j=>!jobHasCharge(j,quotes)
+    &&(payments.filter(p=>p.jobId===j.id&&p.status==="Received").reduce((a,p)=>a+Number(p.amount||0),0)+jobTradeInCredit(j,quotes))>0.5);
   // ── Client sources — where the client book came from ──────────────────────
   const sourceRows=(()=>{
     const m={};
@@ -9059,7 +9070,14 @@ function Reports({jobs,clients,quotes,payments,invoices,markupTable,setView,biz}
       <Stat label="Avg final price" value={fmtR(avgFinal)} tint="slate" icon={ICON_DOLLAR}/>
       <Stat label="Total received" value={fmtR(totalPaid)} sub={totalTradeIn>0?"cash + gold trade-ins":undefined} tint="mint" icon={ICON_MONEY}/>
       <Stat label="Outstanding" value={fmtR(outstanding)} sub="balance owed" tint={outstanding>0?"peach":"mint"} icon={ICON_MONEY}/>
+      {fundsHeld>0.5&&<Stat label="Funds held" value={fmtR(fundsHeld)} sub="deposits beyond agreed charge" tint="peach" icon={ICON_MONEY}/>}
     </div>
+    {unapprovedPaidJobs.length>0&&<div onClick={()=>setView("jobs")} style={{display:"flex",alignItems:"center",gap:10,background:WARN+"12",border:`1px solid ${WARN}44`,borderRadius:RADIUS,padding:"12px 16px",marginBottom:22,cursor:"pointer"}}>
+      <span style={{fontSize:18,lineHeight:1}}>💰</span>
+      <div style={{fontSize:13,color:INK,lineHeight:1.5}}>
+        <strong>{unapprovedPaidJobs.length} job{unapprovedPaidJobs.length>1?"s have":" has"} money in but no approved quote.</strong> That deposit shows in Total received but adds nothing to Total sales, so the figures won't reconcile until the quote is approved (or a job total is set). <span style={{color:GOLD_D,fontWeight:700}}>Open Jobs →</span>
+      </div>
+    </div>}
     <Card>
       <div style={{fontWeight:700,fontSize:15,color:INK,marginBottom:18}}>Received (cash + trade-ins) — last 6 months</div>
       <div style={{display:"flex",gap:8,alignItems:"flex-end",height:110}}>
