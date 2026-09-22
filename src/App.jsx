@@ -3856,6 +3856,11 @@ function Jobs({clients,jobs,setJobs,quotes,setQuotes,payments,setPayments,notes,
     const vd=biz?.quoteValidityDays||30;
     return sent.every(p=>p.createdAt&&addDays(String(p.createdAt).slice(0,10),vd)<today());
   };
+  const[paidNoQuoteOnly,setPaidNoQuoteOnly]=useState(false);   // money in but no approved quote/override
+  // A job with money received but no agreed charge — a deposit against a quote that was never
+  // approved. Approving the quote (or setting a job total) attaches the deposit to a real sale.
+  const jobPaidNoQuote=j=>!jobHasCharge(j,quotes)
+    &&(payments.filter(p=>p.jobId===j.id&&p.status==="Received").reduce((s,p)=>s+Number(p.amount||0),0)+jobTradeInCredit(j,quotes))>0.5;
   // Apply a one-off filter sent from the dashboard tiles (ready / owing / overdue / a stage name),
   // resetting the others, then clear it in the parent so it doesn't re-fire on the next visit.
   useEffect(()=>{
@@ -3865,7 +3870,8 @@ function Jobs({clients,jobs,setJobs,quotes,setQuotes,payments,setPayments,notes,
     setOverdueOnly(preset==="overdue");
     setChaseOnly(preset==="chase");
     setFrozenOnly(preset==="frozen");
-    setSf(preset==="ready"?"Ready for collection":(preset==="owing"||preset==="overdue"||preset==="chase"||preset==="frozen")?"All":preset);
+    setPaidNoQuoteOnly(preset==="paidnoquote");
+    setSf(preset==="ready"?"Ready for collection":(preset==="owing"||preset==="overdue"||preset==="chase"||preset==="frozen"||preset==="paidnoquote")?"All":preset);
     onPresetDone&&onPresetDone();
   },[preset]);   // eslint-disable-line
   const[mode,setMode]=useState("list");        // list | board (production board)
@@ -3886,6 +3892,7 @@ function Jobs({clients,jobs,setJobs,quotes,setQuotes,payments,setPayments,notes,
     if(overdueOnly&&!(j.deadline&&j.deadline<today()&&!jobIsDone(j)))return false;
     if(chaseOnly&&!isChase(j))return false;
     if(frozenOnly&&!jobFrozen(j))return false;
+    if(paidNoQuoteOnly&&!jobPaidNoQuote(j))return false;
     if(owingOnly){const total=jobHasCharge(j,quotes)?jobChargeTotal(j,quotes,markupTable,invoices):0;const paid=payments.filter(p=>p.jobId===j.id&&p.status==="Received").reduce((s,p)=>s+Number(p.amount||0),0)+jobTradeInCredit(j,quotes);if(total-paid<=0.5)return false;}
     if(tf!=="All"&&j.type!==tf)return false;
     if(q){
@@ -3954,8 +3961,9 @@ function Jobs({clients,jobs,setJobs,quotes,setQuotes,payments,setPayments,notes,
       <button onClick={()=>setOwingOnly(v=>!v)} style={{padding:"5px 12px",borderRadius:8,border:`1px solid ${owingOnly?WARN:BD}`,background:owingOnly?WARN:WHITE,color:owingOnly?WHITE:WG,fontSize:11,fontWeight:700,cursor:"pointer",fontFamily:"inherit"}}>$ Owing</button>
       <button onClick={()=>setChaseOnly(v=>!v)} style={{padding:"5px 12px",borderRadius:8,border:`1px solid ${chaseOnly?GOLD_D:BD}`,background:chaseOnly?GOLD_D:WHITE,color:chaseOnly?WHITE:WG,fontSize:11,fontWeight:700,cursor:"pointer",fontFamily:"inherit"}}>📨 To chase</button>
       {parkedCount>0&&<button onClick={()=>setAwaitOnly(v=>!v)} style={{padding:"5px 12px",borderRadius:8,border:`1px solid ${awaitOnly?WARN:BD}`,background:awaitOnly?WARN:WHITE,color:awaitOnly?WHITE:WG,fontSize:11,fontWeight:700,cursor:"pointer",fontFamily:"inherit"}}>⏸ Awaiting client ({parkedCount})</button>}
+      {(paidNoQuoteOnly||jobs.some(jobPaidNoQuote))&&<button onClick={()=>setPaidNoQuoteOnly(v=>!v)} style={{padding:"5px 12px",borderRadius:8,border:`1px solid ${paidNoQuoteOnly?WARN:BD}`,background:paidNoQuoteOnly?WARN:WHITE,color:paidNoQuoteOnly?WHITE:WG,fontSize:11,fontWeight:700,cursor:"pointer",fontFamily:"inherit"}}>💰 Paid, no quote ({jobs.filter(jobPaidNoQuote).length})</button>}
     </div>}
-    {vMode==="list"&&(q||tf!=="All"||sf!=="All"||awaitOnly||owingOnly||overdueOnly||chaseOnly||frozenOnly)&&<div style={{fontSize:12,color:WG,marginBottom:12}}>Showing <b style={{color:INK}}>{filtered.length}</b> of {jobs.length} job{jobs.length!==1?"s":""}{tf!=="All"?` · ${tf}`:""}{sf!=="All"?` · ${sf}`:""}{awaitOnly?" · Awaiting client":""}{overdueOnly?" · Overdue":""}{owingOnly?" · Owing":""}{chaseOnly?" · To chase":""}{frozenOnly?" · Expired quotes":""}{q?` · “${search.trim()}”`:""}<button onClick={()=>{setSearch("");setTf("All");setSf("All");setAwaitOnly(false);setOwingOnly(false);setOverdueOnly(false);setChaseOnly(false);setFrozenOnly(false);}} style={{background:"none",border:"none",color:GOLD,fontWeight:700,fontSize:12,cursor:"pointer",fontFamily:"inherit",marginLeft:8,padding:0}}>Clear</button></div>}
+    {vMode==="list"&&(q||tf!=="All"||sf!=="All"||awaitOnly||owingOnly||overdueOnly||chaseOnly||frozenOnly||paidNoQuoteOnly)&&<div style={{fontSize:12,color:WG,marginBottom:12}}>Showing <b style={{color:INK}}>{filtered.length}</b> of {jobs.length} job{jobs.length!==1?"s":""}{tf!=="All"?` · ${tf}`:""}{sf!=="All"?` · ${sf}`:""}{awaitOnly?" · Awaiting client":""}{overdueOnly?" · Overdue":""}{owingOnly?" · Owing":""}{chaseOnly?" · To chase":""}{frozenOnly?" · Expired quotes":""}{paidNoQuoteOnly?" · Paid, no quote":""}{q?` · “${search.trim()}”`:""}<button onClick={()=>{setSearch("");setTf("All");setSf("All");setAwaitOnly(false);setOwingOnly(false);setOverdueOnly(false);setChaseOnly(false);setFrozenOnly(false);setPaidNoQuoteOnly(false);}} style={{background:"none",border:"none",color:GOLD,fontWeight:700,fontSize:12,cursor:"pointer",fontFamily:"inherit",marginLeft:8,padding:0}}>Clear</button></div>}
 
     {/* ── Production board ── */}
     {vMode==="board"&&(()=>{
@@ -8996,7 +9004,7 @@ function SpotPriceUpdater({spotPrices,setSpotPrices,pricing,setPricing,onClose})
 }
 
 // ── Reports ───────────────────────────────────────────────────────────────
-function Reports({jobs,clients,quotes,payments,invoices,markupTable,setView,biz}){
+function Reports({jobs,clients,quotes,payments,invoices,markupTable,setView,openJobs,biz}){
   const isMobile=useIsMobile();
   const isNarrow=useIsMobile(1024);   // tablet + phone: stack the wide trade-accounts table into cards
   // Compact money for the tight bar-chart labels on mobile (e.g. $84k) so they don't overflow.
@@ -9072,7 +9080,7 @@ function Reports({jobs,clients,quotes,payments,invoices,markupTable,setView,biz}
       <Stat label="Outstanding" value={fmtR(outstanding)} sub="balance owed" tint={outstanding>0?"peach":"mint"} icon={ICON_MONEY}/>
       {fundsHeld>0.5&&<Stat label="Funds held" value={fmtR(fundsHeld)} sub="deposits beyond agreed charge" tint="peach" icon={ICON_MONEY}/>}
     </div>
-    {unapprovedPaidJobs.length>0&&<div onClick={()=>setView("jobs")} style={{display:"flex",alignItems:"center",gap:10,background:WARN+"12",border:`1px solid ${WARN}44`,borderRadius:RADIUS,padding:"12px 16px",marginBottom:22,cursor:"pointer"}}>
+    {unapprovedPaidJobs.length>0&&<div onClick={()=>openJobs?openJobs("paidnoquote"):setView("jobs")} style={{display:"flex",alignItems:"center",gap:10,background:WARN+"12",border:`1px solid ${WARN}44`,borderRadius:RADIUS,padding:"12px 16px",marginBottom:22,cursor:"pointer"}}>
       <span style={{fontSize:18,lineHeight:1}}>💰</span>
       <div style={{fontSize:13,color:INK,lineHeight:1.5}}>
         <strong>{unapprovedPaidJobs.length} job{unapprovedPaidJobs.length>1?"s have":" has"} money in but no approved quote.</strong> That deposit shows in Total received but adds nothing to Total sales, so the figures won't reconcile until the quote is approved (or a job total is set). <span style={{color:GOLD_D,fontWeight:700}}>Open Jobs →</span>
@@ -11585,7 +11593,7 @@ export default function App(){
     if(view==="gemcustody")return <GemCustody custody={gemCustody} setCustody={setGemCustody} clients={clients} biz={biz}/>;
     if(view.startsWith("stockPrice_"))return <QuoteBuilder stockId={view.split("_")[1]} stock={stock} setStock={setStock} jobs={jobs} clients={clients} quotes={quotes} setQuotes={setQuotes} pricing={pricing} setPricing={setPricing} markupTable={markupTable} naturalStoneMarkup={naturalStoneMarkup} labStoneMarkup={labStoneMarkup} tradeMarkupTable={tradeMarkupTable} tradeNatStoneMarkup={tradeNatStoneMarkup} tradeLabStoneMarkup={tradeLabStoneMarkup} centreRates={centreRates} setCentreRates={setCentreRates} setView={setView}/>;
     if(view==="pricing")return <PricingDB pricing={pricing} setPricing={setPricing} spotPrices={spotPrices} setSpotPrices={setSpotPrices} markupTable={markupTable} centreRates={centreRates} setCentreRates={setCentreRates} onUpdateSpot={()=>setSpotModal(true)}/>;
-    if(view==="reports")return <Reports jobs={jobs} clients={clients} quotes={quotes} payments={payments} invoices={invoices} markupTable={markupTable} setView={setView} biz={biz}/>;
+    if(view==="reports")return <Reports jobs={jobs} clients={clients} quotes={quotes} payments={payments} invoices={invoices} markupTable={markupTable} setView={setView} openJobs={openJobs} biz={biz}/>;
     if(view==="settings")return <Settings biz={biz} setBiz={setBiz} markupTable={markupTable} setMarkupTable={setMarkupTable} naturalStoneMarkup={naturalStoneMarkup} setNaturalStoneMarkup={setNaturalStoneMarkup} labStoneMarkup={labStoneMarkup} setLabStoneMarkup={setLabStoneMarkup} tradeMarkupTable={tradeMarkupTable} setTradeMarkupTable={setTradeMarkupTable} tradeNatStoneMarkup={tradeNatStoneMarkup} setTradeNatStoneMarkup={setTradeNatStoneMarkup} tradeLabStoneMarkup={tradeLabStoneMarkup} setTradeLabStoneMarkup={setTradeLabStoneMarkup} dataSafety={{backupNow,loadSnapshots:listCloudSnapshots,restoreSnapshot}} billing={billing}/>;
     return null;
   };
