@@ -1746,6 +1746,60 @@ const jobChargeTotal=(job,quotes,markupTable,invoices)=>{
 const jobTradeInCredit=(job,quotes)=>(quotes||[]).filter(q=>q.jobId===job?.id&&q.status==="Approved").reduce((s,q)=>s+(Number(q.tradeInCredit)||0),0)+(Number(job?.repairTradeIn)||0);
 // True if the job has any agreed charge (override or approved quote)
 const jobHasCharge=(job,quotes)=>Number(job?.totalOverride)>0||(quotes||[]).some(q=>q.jobId===job.id&&q.status==="Approved");
+// ── Follow-ups: correspondence still awaiting a client response, for manual one-click reminders ──
+// Three buckets: (1) invoices sent (a public link exists) with money still due, (2) proposals sent
+// with no reply and no approved quote, (3) approved/go-ahead jobs still awaiting a deposit and not
+// yet invoiced. Each row's reference date is the last reminder (else the sent/created date), so a job
+// only resurfaces once the threshold has passed since the last nudge — never double-chased.
+const _daysSinceISO=d=>{if(!d)return 9999;const t=parseISO(d)?.getTime?.();return t?Math.floor((Date.now()-t)/86400000):9999;};
+const computeFollowUps=({jobs,clients,quotes,payments,invoices,proposals,markupTable,biz})=>{
+  const days=Number(biz?.followUpDays)>0?Number(biz.followUpDays):7;
+  const depositPct=Number(biz?.depositPercent)>0?Number(biz.depositPercent):50;
+  const rows=[];
+  const jobById=id=>(jobs||[]).find(j=>j.id===id);
+  const clientForJob=j=>(clients||[]).find(c=>c.id===j?.clientId)||null;
+  const jobPaidCash=jid=>(payments||[]).filter(p=>p.jobId===jid&&p.status==="Received").reduce((s,p)=>s+Number(p.amount||0),0);
+  const origin=typeof window!=="undefined"?window.location.origin:"";
+  const jobsWithSentInvoice=new Set();
+  // 1) Unpaid invoices that were shared with the client (public link = sent)
+  (invoices||[]).forEach(inv=>{
+    const job=jobById(inv.jobId);if(!job||jobIsClosed(job))return;
+    if(!inv.publicToken)return;
+    jobsWithSentInvoice.add(inv.jobId);
+    const paid=jobPaidCash(inv.jobId);
+    const balance=Math.max(0,Number(inv.totalIncGST||0)-(Number(inv.tradeInCredit)||0)-paid);
+    const req=Number(inv.requestAmount)||0;
+    const dueNow=req>0?Math.min(req,balance):balance;
+    if(dueNow<=0.5)return;
+    const waited=_daysSinceISO(inv.lastRemindedAt||inv.date);
+    if(waited<days)return;
+    rows.push({id:"inv_"+inv.id,type:"invoice",inv,job,client:clientForJob(job),amount:dueNow,waited,lastRemindedAt:inv.lastRemindedAt||null,link:inv.publicToken?`${origin}/?p=${inv.publicToken}`:""});
+  });
+  // 2) Proposals sent, no reply, no approved quote yet
+  (proposals||[]).forEach(p=>{
+    if(p.status!=="sent")return;
+    const job=jobById(p.jobId);if(!job||jobIsClosed(job)||job.parked)return;
+    if((quotes||[]).some(q=>q.jobId===job.id&&q.status==="Approved"))return;
+    const waited=_daysSinceISO(p.lastRemindedAt||p.createdAt);
+    if(waited<days)return;
+    rows.push({id:"prop_"+p.id,type:"proposal",proposal:p,job,client:clientForJob(job),amount:0,waited,lastRemindedAt:p.lastRemindedAt||null,link:p.token?`${origin}/?p=${p.token}`:""});
+  });
+  // 3) Approved / go-ahead but no deposit received, and no invoice sent yet
+  (jobs||[]).forEach(j=>{
+    if(jobIsClosed(j)||j.parked)return;
+    if(jobsWithSentInvoice.has(j.id))return;
+    if(!jobHasCharge(j,quotes))return;
+    if(jobPaidCash(j.id)+jobTradeInCredit(j,quotes)>0.5)return;
+    const total=jobChargeTotal(j,quotes,markupTable,invoices);
+    if(total<=0.5)return;
+    const apprQ=(quotes||[]).filter(q=>q.jobId===j.id&&q.status==="Approved").sort((a,b)=>String(b.createdAt||"").localeCompare(String(a.createdAt||"")))[0];
+    const waited=_daysSinceISO(j.depositReminderAt||apprQ?.createdAt||j.createdAt);
+    if(waited<days)return;
+    const prop=(proposals||[]).find(p=>p.jobId===j.id&&p.token);
+    rows.push({id:"dep_"+j.id,type:"deposit",job:j,client:clientForJob(j),amount:total*depositPct/100,waited,lastRemindedAt:j.depositReminderAt||null,link:prop?`${origin}/?p=${prop.token}`:""});
+  });
+  return rows.sort((a,b)=>b.waited-a.waited);
+};
 // A trade repair whose charge is set ("Set as job charge") but which was never invoiced won't appear
 // on the client's statement — statements are built from invoices only (see accountLedger). The charge
 // still shows on the dashboard/amount-owing, so it's easy to miss that the account was never billed.
@@ -3286,7 +3340,72 @@ function NeedsAttention({items}){
     </div>
   </Card>;
 }
-function Dashboard({clients,jobs,quotes,payments,invoices,appointments=[],proposals=[],markProposalSeen,markRepairSeen,markupTable,biz,setBiz,setView,setSelClient,openJobs,spotPrices,onUpdateSpot}){
+// ── Needs a follow-up: manual one-click reminder emails for correspondence awaiting a reply ──
+function FollowUpsCard({rows,biz,setView,onRemind}){
+  const[active,setActive]=useState(null);   // the row currently being reminded
+  const[email,setEmail]=useState("");
+  const[subject,setSubject]=useState("");
+  const[message,setMessage]=useState("");
+  const[busy,setBusy]=useState(false);
+  const[sent,setSent]=useState(false);
+  const[err,setErr]=useState("");
+  const draft=row=>{
+    const bn=biz?.name||"our studio";
+    if(row.type==="invoice")return{subject:`Reminder: invoice ${row.inv.number} from ${bn}`,message:`Just a gentle reminder that ${fmt(row.amount)} is still outstanding on invoice ${row.inv.number}. You can view it and the payment details using the button below. If you've already paid, please disregard this.`,cta:"View invoice"};
+    if(row.type==="proposal")return{subject:`Following up on your proposal from ${bn}`,message:`Just following up on the proposal we sent through. Let us know if you'd like to go ahead or have any questions. You can review it again below.`,cta:"View proposal"};
+    return{subject:`Ready to start your ${row.job?.type||"piece"} with ${bn}`,message:`We're all set to begin your ${row.job?.type||"piece"}. To book it in we just need the ${fmt(row.amount)} deposit.${row.link?" You can review the details below.":" Please reply or give us a call to arrange payment."}`,cta:"View details"};
+  };
+  const openRow=row=>{const d=draft(row);setActive(row);setEmail(row.client?.email||"");setSubject(d.subject);setMessage(d.message);setErr("");setSent(false);};
+  const send=async()=>{
+    if(!email.trim()){setErr("Enter the client's email address.");return;}
+    setBusy(true);setErr("");
+    try{
+      const d=draft(active);
+      const html=buildClientEmailHtml({biz,clientName:clientDisplayName(active.client),message,ctaLabel:d.cta,linkUrl:active.link||""});
+      await sendClientEmail({to:email.trim(),replyTo:biz?.email||"",fromName:biz?.name||"Your jeweller",subject:subject.trim()||d.subject,html});
+      onRemind&&onRemind(active);
+      setSent(true);setTimeout(()=>setActive(null),1300);
+    }catch(e){setErr(e?.message||"Couldn't send the reminder.");}
+    setBusy(false);
+  };
+  const label={invoice:"Invoice unpaid",proposal:"Proposal, no reply",deposit:"Awaiting deposit"};
+  const col={invoice:WARN,proposal:GOLD_D,deposit:"#5E7CA6"};
+  return <Card style={{marginBottom:0}}>
+    <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:14}}>
+      <span style={{fontWeight:700,fontSize:15,color:INK,display:"inline-flex",alignItems:"center"}}>Needs a follow-up<InfoDot text="Correspondence still waiting on the client — invoices sent but unpaid, proposals with no reply, and approved jobs awaiting a deposit. Send a reminder and it drops off until the follow-up window passes again."/></span>
+      <span style={{fontSize:11,color:WG,fontWeight:600}}>{rows.length} waiting</span>
+    </div>
+    {rows.map((r,i,arr)=>(
+      <div key={r.id} style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:12,padding:"10px 0",borderBottom:i===arr.length-1?"none":`1px solid ${BD}`}}>
+        <div onClick={()=>setView("jobDetail_"+r.job.id)} style={{minWidth:0,cursor:"pointer",flex:1}}>
+          <div style={{fontWeight:600,fontSize:13,color:INK}}>{r.job?.type} <span style={{color:WG,fontWeight:400}}>· {clientDisplayName(r.client)}</span></div>
+          <div style={{fontSize:12,marginTop:2,display:"flex",gap:8,flexWrap:"wrap",alignItems:"center"}}>
+            <span style={{color:col[r.type],fontWeight:700}}>{label[r.type]}</span>
+            {r.amount>0.5&&<span style={{color:INK,fontWeight:700}}>{fmt(r.amount)}</span>}
+            <span style={{color:WG}}>{r.lastRemindedAt?`reminded ${r.waited===0?"today":r.waited+"d ago"}`:`sent ${r.waited===0?"today":r.waited+"d ago"}`}</span>
+          </div>
+        </div>
+        <button onClick={()=>openRow(r)} style={{flexShrink:0,background:INK,color:WHITE,border:"none",borderRadius:6,padding:"7px 13px",fontSize:12,fontWeight:700,cursor:"pointer",fontFamily:"inherit"}}>✉ Remind</button>
+      </div>
+    ))}
+    {active&&<Modal title={`Send reminder to ${clientDisplayName(active.client)||"client"}`} onClose={()=>setActive(null)}>
+      {sent
+        ?<div style={{padding:"14px 2px",fontSize:14,color:OK,fontWeight:700}}>✓ Reminder sent to {email}</div>
+        :<div>
+          <Input label="To" value={email} onChange={setEmail} placeholder="client@example.com"/>
+          <Input label="Subject" value={subject} onChange={setSubject}/>
+          <Input label="Message" value={message} onChange={setMessage} as="textarea" rows={5}/>
+          <div style={{fontSize:12,color:WG,margin:"4px 0 14px",lineHeight:1.5}}>{active.link?<>A <strong style={{color:INK}}>{draft(active).cta}</strong> button linking to the {active.type} is added automatically. </>:null}Sent from <strong style={{color:INK}}>{biz?.name||"your studio"}</strong>{biz?.email?`; replies go to ${biz.email}`:""}.</div>
+          {err&&<div style={{fontSize:13,color:DANGER,marginBottom:12,lineHeight:1.5}}>{err}</div>}
+          <div style={{display:"flex",justifyContent:"flex-end",gap:10}}>
+            <Btn sm ghost onClick={()=>setActive(null)}>Cancel</Btn>
+            <Btn sm onClick={send} disabled={busy}>{busy?"Sending…":"Send reminder"}</Btn>
+          </div>
+        </div>}
+    </Modal>}
+  </Card>;
+}
+function Dashboard({clients,jobs,quotes,payments,invoices,appointments=[],proposals=[],markProposalSeen,markRepairSeen,markupTable,biz,setBiz,setInvoices,setProposals,setJobs,setView,setSelClient,openJobs,spotPrices,onUpdateSpot}){
   const go=openJobs||(()=>setView("jobs"));
   const dismissGS=()=>{if(!setBiz)return;const nb={...biz,gsDismissed:true};setBiz(nb);persist(K.biz,nb);};
   const isMobile=useIsMobile();
@@ -3368,6 +3487,14 @@ function Dashboard({clients,jobs,quotes,payments,invoices,appointments=[],propos
   }).filter(Boolean);
   // Outstanding = total still owed across approved jobs (quote total − payments received)
   const outstanding=balanceOwing.reduce((s,b)=>s+b.balance,0);
+  // Correspondence awaiting a client reply → manual reminder card
+  const followUps=computeFollowUps({jobs,clients,quotes,payments,invoices,proposals,markupTable,biz});
+  const markReminded=row=>{
+    const now=new Date().toISOString();
+    if(row.type==="invoice"&&setInvoices)setInvoices(p=>{const n=p.map(x=>x.id===row.inv.id?{...x,lastRemindedAt:now}:x);persist(K.inv,n);return n;});
+    else if(row.type==="proposal"&&setProposals)setProposals(p=>{const n=p.map(x=>x.id===row.proposal.id?{...x,lastRemindedAt:now}:x);persist(K.pp,n);return n;});
+    else if(row.type==="deposit"&&setJobs)setJobs(p=>{const n=p.map(x=>x.id===row.job.id?{...x,depositReminderAt:now}:x);persist(K.jo,n);return n;});
+  };
 
   // ── Revenue trend (6 months) + month-over-month comparison ──
   const receivedForMonth=mk=>payments.filter(p=>p.status==="Received"&&p.date?.startsWith(mk)).reduce((s,p)=>s+Number(p.amount||0),0)
@@ -3500,6 +3627,7 @@ function Dashboard({clients,jobs,quotes,payments,invoices,appointments=[],propos
         {frozenCount>0&&<div onClick={()=>go("frozen")} style={{marginTop:12,fontSize:12,color:WG,cursor:"pointer"}}>❄ {frozenCount} expired quote{frozenCount>1?"s":""} hidden — <span style={{color:GOLD,fontWeight:700}}>view in Jobs</span></div>}
       </Card>
       <div style={{display:"flex",flexDirection:"column",gap:16}}>
+        {followUps.length>0&&<FollowUpsCard rows={followUps} biz={biz} setView={setView} onRemind={markReminded}/>}
         <Card style={{marginBottom:0}}>
           <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:14}}>
             <span style={{fontWeight:700,fontSize:15,color:INK}}>Upcoming appointments</span>
@@ -9238,7 +9366,7 @@ function BracketEditor({rows,setRows,accent=GOLD_D}){
 function Settings({biz,setBiz,markupTable,setMarkupTable,naturalStoneMarkup,setNaturalStoneMarkup,labStoneMarkup,setLabStoneMarkup,tradeMarkupTable=[],setTradeMarkupTable,tradeNatStoneMarkup=[],setTradeNatStoneMarkup,tradeLabStoneMarkup=[],setTradeLabStoneMarkup,dataSafety,billing}){
   const isMobile=useIsMobile();
   const _insSeed=resolveInsurer(biz);   // owner's app pre-fills Q Report when the insurer is unset
-  const[bForm,setBForm]=useState({name:"",email:"",phone:"",abn:"",address:"",depositPercent:50,quoteValidityDays:30,quoteTerms:"",bankName:"Commonwealth Bank of Australia",bankAccountName:"",bankBSB:"",bankAccount:"",...biz,insurerName:biz.insurerName??_insSeed.insurerName,insurerUrl:biz.insurerUrl??_insSeed.insurerUrl});
+  const[bForm,setBForm]=useState({name:"",email:"",phone:"",abn:"",address:"",depositPercent:50,quoteValidityDays:30,followUpDays:7,quoteTerms:"",bankName:"Commonwealth Bank of Australia",bankAccountName:"",bankBSB:"",bankAccount:"",...biz,insurerName:biz.insurerName??_insSeed.insurerName,insurerUrl:biz.insurerUrl??_insSeed.insurerUrl});
   const setBF=k=>v=>setBForm(p=>({...p,[k]:v}));
   const[mt,setMt]=useState(markupTable.map(b=>({...b})));
   const[buffer,setBuffer]=useState(String(biz.markupBuffer||0));
@@ -9320,6 +9448,7 @@ function Settings({biz,setBiz,markupTable,setMarkupTable,naturalStoneMarkup,setN
       <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"0 16px"}}>
         <Input label={<>Deposit required (%)<InfoDot text="The default deposit you ask for up front. On a bundle proposal it pre-fills 'Amount due now'; on single-option proposals the client's page works out this % of whichever option they pick."/></>} value={String(bForm.depositPercent)} onChange={v=>setBF("depositPercent")(Number(v)||50)} type="number" placeholder="50"/>
         <Input label={<>Quote validity (days)<InfoDot text="How long a sent quote/proposal stays valid. After this many days the client's link expires (so they can't accept stale pricing) and the quote drops out of your dashboard pipeline."/></>} value={String(bForm.quoteValidityDays)} onChange={v=>setBF("quoteValidityDays")(Number(v)||30)} type="number" placeholder="30"/>
+        <Input label={<>Follow-up after (days)<InfoDot text="How long to wait with no response before a sent invoice, proposal or awaiting-deposit job appears in the dashboard's 'Needs a follow-up' card. Sending a reminder resets the clock by this many days."/></>} value={String(bForm.followUpDays??7)} onChange={v=>setBF("followUpDays")(Number(v)||7)} type="number" placeholder="7"/>
       </div>
       <Input label="Terms & conditions (shown on quote proposals)" value={bForm.quoteTerms} onChange={setBF("quoteTerms")} as="textarea" rows={5} placeholder="All custom jewellery requires a deposit before work commences..."/>
       <div style={{marginTop:16,paddingTop:16,borderTop:`1px solid ${BD}`}}>
@@ -11574,7 +11703,7 @@ export default function App(){
     return()=>{stop=true;};
   },[studioId]);
   const render=()=>{
-    if(view==="dashboard")return <Dashboard clients={clients} jobs={jobs} quotes={quotes} payments={payments} invoices={invoices} appointments={appointments} proposals={proposals} markProposalSeen={markProposalSeen} markRepairSeen={markRepairSeen} markupTable={markupTable} biz={biz} setBiz={setBiz} setView={setView} setSelClient={setSelClient} openJobs={openJobs} spotPrices={spotPrices} onUpdateSpot={()=>setSpotModal(true)}/>;
+    if(view==="dashboard")return <Dashboard clients={clients} jobs={jobs} quotes={quotes} payments={payments} invoices={invoices} appointments={appointments} proposals={proposals} markProposalSeen={markProposalSeen} markRepairSeen={markRepairSeen} markupTable={markupTable} biz={biz} setBiz={setBiz} setInvoices={setInvoices} setProposals={setProposals} setJobs={setJobs} setView={setView} setSelClient={setSelClient} openJobs={openJobs} spotPrices={spotPrices} onUpdateSpot={()=>setSpotModal(true)}/>;
     if(view==="todo")return <TodoBoard todos={todos} setTodos={setTodos} jobs={jobs} clients={clients} setView={setView} setSelJob={setSelJob}/>;
     if(view==="appointments")return <Appointments appointments={appointments} setAppointments={setAppointments} clients={clients} setClients={setClients} jobs={jobs} setJobs={setJobs} setView={setView} setSelClient={setSelClient} setSelJob={setSelJob}/>;
     if(view==="clients")return <Clients clients={clients} setClients={setClients} jobs={jobs} payments={payments} setView={setView} setSelClient={setSelClient} quotes={quotes} biz={biz}/>;
