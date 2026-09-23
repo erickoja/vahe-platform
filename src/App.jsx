@@ -3605,9 +3605,13 @@ function Dashboard({clients,jobs,quotes,payments,invoices,appointments=[],propos
         {(showAllActive?activeRanked:activeRanked.slice(0,8)).map(({j,received,tradeIn,owing,awaiting,ready,sentProp,quiet,stale,od},i,arr)=>{
           const c=clients.find(x=>x.id===j.clientId);
           // Sub-line = the signal that isn't already shown by the money chip / stage badge.
+          // For a "quiet" job, say where its quote actually stands: sent (via a quote marked Sent),
+          // drafted but not sent, or none created yet — so a deliberately-unsent draft reads correctly.
+          const jq=quotes.filter(x=>x.jobId===j.id&&x.status!=="Declined");
+          const quietMsg=jq.some(x=>x.status==="Sent")?"Quote sent, no reply yet":jq.length?"Quote drafted, not sent yet":"No quote yet";
           const signal=ready?{t:"Ready to collect",col:OK}
             :awaiting?{t:`⏳ Proposal sent${sentProp?.createdAt?` · ${daysAgo(sentProp.createdAt)}`:""}`,col:stale?WG:GOLD_D}
-            :quiet?{t:"No quote sent yet",col:WG}
+            :quiet?{t:quietMsg,col:WG}
             :null;
           return <DashRow key={j.id} onClick={()=>setView("jobDetail_"+j.id)} last={i===arr.length-1} col={isMobile}>
             <div style={{minWidth:0,opacity:(quiet||stale)?0.58:1}}>
