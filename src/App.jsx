@@ -7864,7 +7864,7 @@ function InvoiceDetailView({invoiceId,invoices,setInvoices,jobs,clients,payments
   </div>;
 }
 
-function InvoicesList({invoices,jobs,clients,quotes,setQuotes,payments,setInvoices,markupTable,setView,biz}){
+function InvoicesList({invoices,jobs,clients,quotes,setQuotes,payments,setInvoices,proposals=[],setProposals,setJobs,markupTable,setView,biz}){
   const isMobile=useIsMobile();
   const[modal,setModal]=useState(false);
   const[exportOpen,setExportOpen]=useState(false);
@@ -7939,8 +7939,18 @@ function InvoicesList({invoices,jobs,clients,quotes,setQuotes,payments,setInvoic
     const span=expFrom||expTo?`${expFrom||"start"}_to_${expTo||"end"}`:"all";
     downloadInvoiceCsv(rows,`invoices-${span}.csv`);
   };
+  // Correspondence awaiting a reply → same "Needs a follow-up" card as the dashboard, so reminders
+  // can be sent right where invoices are managed.
+  const followUps=computeFollowUps({jobs,clients,quotes,payments,invoices,proposals,markupTable,biz});
+  const markReminded=row=>{
+    const now=new Date().toISOString();
+    if(row.type==="invoice"&&setInvoices)setInvoices(p=>{const n=p.map(x=>x.id===row.inv.id?{...x,lastRemindedAt:now}:x);persist(K.inv,n);return n;});
+    else if(row.type==="proposal"&&setProposals)setProposals(p=>{const n=p.map(x=>x.id===row.proposal.id?{...x,lastRemindedAt:now}:x);persist(K.pp,n);return n;});
+    else if(row.type==="deposit"&&setJobs)setJobs(p=>{const n=p.map(x=>x.id===row.job.id?{...x,depositReminderAt:now}:x);persist(K.jo,n);return n;});
+  };
   return <div>
     <SectionHeader eyebrow="Billing" title="Invoices" subtitle="Send, track and reconcile every invoice — paid, outstanding and overdue." action={<div style={{display:"flex",gap:8,alignItems:"center",flexWrap:"wrap"}}>{invoices.length>0&&<Btn ghost onClick={()=>setExportOpen(true)}>{ICON_CSV}Export CSV</Btn>}<Btn onClick={openModal}>+ New Invoice</Btn></div>}/>
+    {followUps.length>0&&<div style={{marginBottom:18}}><FollowUpsCard rows={followUps} biz={biz} setView={setView} onRemind={markReminded}/></div>}
     {exportOpen&&<Modal title="Export invoices to CSV" onClose={()=>setExportOpen(false)}>
       <div style={{fontSize:13,color:WG,marginBottom:14,lineHeight:1.6}}>Pick a date range (by invoice date) for your bookkeeping, or leave both blank to export everything.</div>
       <div style={{display:"flex",gap:8,flexWrap:"wrap",marginBottom:16}}>
@@ -11714,7 +11724,7 @@ export default function App(){
     if(view.startsWith("quoteDetail_"))return <QuoteDetail quoteId={view.split("_")[1]} quotes={quotes} setQuotes={setQuotes} jobs={jobs} clients={clients} biz={biz} markupTable={markupTable} naturalStoneMarkup={naturalStoneMarkup} labStoneMarkup={labStoneMarkup} tradeNatStoneMarkup={tradeNatStoneMarkup} tradeLabStoneMarkup={tradeLabStoneMarkup} payments={payments} invoices={invoices} setView={setView}/>;
     if(view.startsWith("newQuote_"))return <QuoteBuilder jobId={view.split("_")[1]} jobs={jobs} clients={clients} quotes={quotes} setQuotes={setQuotes} pricing={pricing} setPricing={setPricing} markupTable={markupTable} naturalStoneMarkup={naturalStoneMarkup} labStoneMarkup={labStoneMarkup} tradeMarkupTable={tradeMarkupTable} tradeNatStoneMarkup={tradeNatStoneMarkup} tradeLabStoneMarkup={tradeLabStoneMarkup} centreRates={centreRates} setCentreRates={setCentreRates} setView={setView}/>;
     if(view.startsWith("editQuote_"))return <QuoteBuilder editQuoteId={view.split("_")[1]} jobs={jobs} clients={clients} quotes={quotes} setQuotes={setQuotes} pricing={pricing} setPricing={setPricing} markupTable={markupTable} naturalStoneMarkup={naturalStoneMarkup} labStoneMarkup={labStoneMarkup} tradeMarkupTable={tradeMarkupTable} tradeNatStoneMarkup={tradeNatStoneMarkup} tradeLabStoneMarkup={tradeLabStoneMarkup} centreRates={centreRates} setCentreRates={setCentreRates} invoices={invoices} setInvoices={setInvoices} setView={setView}/>;
-    if(view==="invoices")return <InvoicesList invoices={invoices} jobs={jobs} clients={clients} quotes={quotes} setQuotes={setQuotes} payments={payments} setInvoices={setInvoices} markupTable={markupTable} setView={setView} biz={biz}/>;
+    if(view==="invoices")return <InvoicesList invoices={invoices} jobs={jobs} clients={clients} quotes={quotes} setQuotes={setQuotes} payments={payments} setInvoices={setInvoices} proposals={proposals} setProposals={setProposals} setJobs={setJobs} markupTable={markupTable} setView={setView} biz={biz}/>;
     if(view.startsWith("invoiceDetail_"))return <InvoiceDetail invoiceId={view.split("_")[1]} invoices={invoices} setInvoices={setInvoices} jobs={jobs} clients={clients} payments={payments} biz={biz} setView={setView} quotes={quotes} markupTable={markupTable}/>;
     if(view==="statements")return <StatementsList clients={clients} jobs={jobs} invoices={invoices} payments={payments} biz={biz} setView={setView}/>;
     if(view.startsWith("statementDetail_"))return <StatementDetail clientId={view.split("_")[1]} clients={clients} jobs={jobs} invoices={invoices} payments={payments} setPayments={setPayments} biz={biz} setView={setView}/>;
