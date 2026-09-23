@@ -3607,7 +3607,7 @@ function Dashboard({clients,jobs,quotes,payments,invoices,appointments=[],propos
           // Sub-line = the signal that isn't already shown by the money chip / stage badge.
           const signal=ready?{t:"Ready to collect",col:OK}
             :awaiting?{t:`⏳ Proposal sent${sentProp?.createdAt?` · ${daysAgo(sentProp.createdAt)}`:""}`,col:stale?WG:GOLD_D}
-            :quiet?{t:"Quote out — no reply yet",col:WG}
+            :quiet?{t:"No quote sent yet",col:WG}
             :null;
           return <DashRow key={j.id} onClick={()=>setView("jobDetail_"+j.id)} last={i===arr.length-1} col={isMobile}>
             <div style={{minWidth:0,opacity:(quiet||stale)?0.58:1}}>
