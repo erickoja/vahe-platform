@@ -1751,7 +1751,9 @@ const jobHasCharge=(job,quotes)=>Number(job?.totalOverride)>0||(quotes||[]).some
 // with no reply and no approved quote, (3) approved/go-ahead jobs still awaiting a deposit and not
 // yet invoiced. Each row's reference date is the last reminder (else the sent/created date), so a job
 // only resurfaces once the threshold has passed since the last nudge — never double-chased.
-const _daysSinceISO=d=>{if(!d)return 9999;const t=parseISO(d)?.getTime?.();return t?Math.floor((Date.now()-t)/86400000):9999;};
+// Tolerant of both "YYYY-MM-DD" and full ISO timestamps — parseISO only understands date-only,
+// so slice to the date part first (a full ISO stamp would otherwise parse to an invalid date).
+const _daysSinceISO=d=>{if(!d)return 9999;const t=parseISO(String(d).slice(0,10)).getTime();return isNaN(t)?9999:Math.floor((Date.now()-t)/86400000);};
 const computeFollowUps=({jobs,clients,quotes,payments,invoices,proposals,markupTable,biz})=>{
   const days=Number(biz?.followUpDays)>0?Number(biz.followUpDays):7;
   const depositPct=Number(biz?.depositPercent)>0?Number(biz.depositPercent):50;
@@ -3490,7 +3492,7 @@ function Dashboard({clients,jobs,quotes,payments,invoices,appointments=[],propos
   // Correspondence awaiting a client reply → manual reminder card
   const followUps=computeFollowUps({jobs,clients,quotes,payments,invoices,proposals,markupTable,biz});
   const markReminded=row=>{
-    const now=new Date().toISOString();
+    const now=today();   // date-only, matching every other date in the app (parseISO needs YYYY-MM-DD)
     if(row.type==="invoice"&&setInvoices)setInvoices(p=>{const n=p.map(x=>x.id===row.inv.id?{...x,lastRemindedAt:now}:x);persist(K.inv,n);return n;});
     else if(row.type==="proposal"&&setProposals)setProposals(p=>{const n=p.map(x=>x.id===row.proposal.id?{...x,lastRemindedAt:now}:x);persist(K.pp,n);return n;});
     else if(row.type==="deposit"&&setJobs)setJobs(p=>{const n=p.map(x=>x.id===row.job.id?{...x,depositReminderAt:now}:x);persist(K.jo,n);return n;});
@@ -7943,7 +7945,7 @@ function InvoicesList({invoices,jobs,clients,quotes,setQuotes,payments,setInvoic
   // can be sent right where invoices are managed.
   const followUps=computeFollowUps({jobs,clients,quotes,payments,invoices,proposals,markupTable,biz});
   const markReminded=row=>{
-    const now=new Date().toISOString();
+    const now=today();   // date-only, matching every other date in the app (parseISO needs YYYY-MM-DD)
     if(row.type==="invoice"&&setInvoices)setInvoices(p=>{const n=p.map(x=>x.id===row.inv.id?{...x,lastRemindedAt:now}:x);persist(K.inv,n);return n;});
     else if(row.type==="proposal"&&setProposals)setProposals(p=>{const n=p.map(x=>x.id===row.proposal.id?{...x,lastRemindedAt:now}:x);persist(K.pp,n);return n;});
     else if(row.type==="deposit"&&setJobs)setJobs(p=>{const n=p.map(x=>x.id===row.job.id?{...x,depositReminderAt:now}:x);persist(K.jo,n);return n;});
