@@ -9148,7 +9148,7 @@ function SpotPriceUpdater({spotPrices,setSpotPrices,pricing,setPricing,onClose})
 }
 
 // ── Reports ───────────────────────────────────────────────────────────────
-function Reports({jobs,clients,quotes,payments,invoices,markupTable,setView,openJobs,biz}){
+function Reports({jobs,clients,quotes,payments,invoices,markupTable,setView,setSelJob,openJobs,biz}){
   const isMobile=useIsMobile();
   const isNarrow=useIsMobile(1024);   // tablet + phone: stack the wide trade-accounts table into cards
   // Compact money for the tight bar-chart labels on mobile (e.g. $84k) so they don't overflow.
@@ -9179,10 +9179,13 @@ function Reports({jobs,clients,quotes,payments,invoices,markupTable,setView,open
   // Funds held = client money received beyond a job's agreed charge — deposits on jobs with no
   // approved quote, plus any overpayments. This is the per-job overpay that Outstanding floors away,
   // so it makes Total sales / received / outstanding reconcile: outstanding = (sales − received) + held.
-  const fundsHeld=jobs.reduce((s,j)=>{
-    const over=(payments.filter(p=>p.jobId===j.id&&p.status==="Received").reduce((a,p)=>a+Number(p.amount||0),0)+jobTradeInCredit(j,quotes))-jobChargeTotal(j,quotes,markupTable,invoices);
-    return s+(over>1?over:0);
-  },0);
+  const heldRows=jobs.map(j=>{
+    const received=payments.filter(p=>p.jobId===j.id&&p.status==="Received").reduce((a,p)=>a+Number(p.amount||0),0)+jobTradeInCredit(j,quotes);
+    const charge=jobChargeTotal(j,quotes,markupTable,invoices);
+    return {j,c:clients.find(c=>c.id===j.clientId),received,charge,held:received-charge,noCharge:!jobHasCharge(j,quotes)};
+  }).filter(r=>r.held>1).sort((a,b)=>b.held-a.held);
+  const fundsHeld=heldRows.reduce((s,r)=>s+r.held,0);
+  const[showHeld,setShowHeld]=useState(false);
   // Jobs with money in but no agreed charge yet — a deposit taken against a quote that was never
   // approved (and no total override). Approving the quote attaches the deposit to a real sale.
   const unapprovedPaidJobs=jobs.filter(j=>!jobHasCharge(j,quotes)
@@ -9222,8 +9225,19 @@ function Reports({jobs,clients,quotes,payments,invoices,markupTable,setView,open
       <Stat label="Avg final price" value={fmtR(avgFinal)} tint="slate" icon={ICON_DOLLAR}/>
       <Stat label="Total received" value={fmtR(totalPaid)} sub={totalTradeIn>0?"cash + gold trade-ins":undefined} tint="mint" icon={ICON_MONEY}/>
       <Stat label="Outstanding" value={fmtR(outstanding)} sub="balance owed" tint={outstanding>0?"peach":"mint"} icon={ICON_MONEY}/>
-      {fundsHeld>0.5&&<Stat label="Funds held" value={fmtR(fundsHeld)} sub="deposits beyond agreed charge" tint="peach" icon={ICON_MONEY}/>}
+      {fundsHeld>0.5&&<Stat label="Funds held" value={fmtR(fundsHeld)} sub={showHeld?"hide breakdown":"deposits beyond agreed charge · tap to see jobs"} onClick={()=>setShowHeld(v=>!v)} tint="peach" icon={ICON_MONEY}/>}
     </div>
+    {showHeld&&fundsHeld>0.5&&<Card style={{marginBottom:22}}>
+      <div style={{fontWeight:700,fontSize:15,color:INK,marginBottom:4}}>Funds held by job</div>
+      <div style={{fontSize:12.5,color:WG,marginBottom:14}}>Money received (cash + gold trade-ins) beyond each job's agreed charge. Tap a job to open it.</div>
+      {heldRows.map(r=><div key={r.j.id} onClick={()=>{if(setSelJob){setSelJob(r.j.id);setView("jobDetail");}}} style={{display:"flex",alignItems:"center",gap:12,padding:"10px 0",borderTop:`1px solid ${BD}`,cursor:setSelJob?"pointer":"default"}}>
+        <div style={{flex:1,minWidth:0}}>
+          <div style={{fontWeight:700,fontSize:13,color:INK}}>{clientDisplayName(r.c)||"No client"} <span style={{fontWeight:400,color:WG}}>· {r.j.type}{r.j.description?` · ${r.j.description.slice(0,60)}`:""}</span></div>
+          <div style={{fontSize:12,color:WG}}>Received {fmtR(r.received)} · Agreed charge {r.noCharge?"none yet (no approved quote)":fmtR(r.charge)} · {r.j.stage}</div>
+        </div>
+        <div style={{fontWeight:800,fontSize:14,color:GOLD_D,whiteSpace:"nowrap"}}>{fmtR(r.held)}</div>
+      </div>)}
+    </Card>}
     {unapprovedPaidJobs.length>0&&<div onClick={()=>openJobs?openJobs("paidnoquote"):setView("jobs")} style={{display:"flex",alignItems:"center",gap:10,background:WARN+"12",border:`1px solid ${WARN}44`,borderRadius:RADIUS,padding:"12px 16px",marginBottom:22,cursor:"pointer"}}>
       <span style={{fontSize:18,lineHeight:1}}>💰</span>
       <div style={{fontSize:13,color:INK,lineHeight:1.5}}>
@@ -11738,7 +11752,7 @@ export default function App(){
     if(view==="gemcustody")return <GemCustody custody={gemCustody} setCustody={setGemCustody} clients={clients} biz={biz}/>;
     if(view.startsWith("stockPrice_"))return <QuoteBuilder stockId={view.split("_")[1]} stock={stock} setStock={setStock} jobs={jobs} clients={clients} quotes={quotes} setQuotes={setQuotes} pricing={pricing} setPricing={setPricing} markupTable={markupTable} naturalStoneMarkup={naturalStoneMarkup} labStoneMarkup={labStoneMarkup} tradeMarkupTable={tradeMarkupTable} tradeNatStoneMarkup={tradeNatStoneMarkup} tradeLabStoneMarkup={tradeLabStoneMarkup} centreRates={centreRates} setCentreRates={setCentreRates} setView={setView}/>;
     if(view==="pricing")return <PricingDB pricing={pricing} setPricing={setPricing} spotPrices={spotPrices} setSpotPrices={setSpotPrices} markupTable={markupTable} centreRates={centreRates} setCentreRates={setCentreRates} onUpdateSpot={()=>setSpotModal(true)}/>;
-    if(view==="reports")return <Reports jobs={jobs} clients={clients} quotes={quotes} payments={payments} invoices={invoices} markupTable={markupTable} setView={setView} openJobs={openJobs} biz={biz}/>;
+    if(view==="reports")return <Reports jobs={jobs} clients={clients} quotes={quotes} payments={payments} invoices={invoices} markupTable={markupTable} setView={setView} setSelJob={setSelJob} openJobs={openJobs} biz={biz}/>;
     if(view==="settings")return <Settings biz={biz} setBiz={setBiz} markupTable={markupTable} setMarkupTable={setMarkupTable} naturalStoneMarkup={naturalStoneMarkup} setNaturalStoneMarkup={setNaturalStoneMarkup} labStoneMarkup={labStoneMarkup} setLabStoneMarkup={setLabStoneMarkup} tradeMarkupTable={tradeMarkupTable} setTradeMarkupTable={setTradeMarkupTable} tradeNatStoneMarkup={tradeNatStoneMarkup} setTradeNatStoneMarkup={setTradeNatStoneMarkup} tradeLabStoneMarkup={tradeLabStoneMarkup} setTradeLabStoneMarkup={setTradeLabStoneMarkup} dataSafety={{backupNow,loadSnapshots:listCloudSnapshots,restoreSnapshot}} billing={billing}/>;
     return null;
   };
