@@ -3207,6 +3207,25 @@ function DashRow({onClick,last,children,col}){
     {children}
   </div>;
 }
+// Round client-initials badge that gives each dashboard row a visual anchor, tinted by `color`.
+function DashAvatar({name,color=WG}){
+  const ini=String(name||"?").replace(/&.*$/,"").trim().split(/\s+/).map(w=>w[0]).filter(Boolean).slice(0,2).join("").toUpperCase()||"?";
+  return <span style={{width:34,height:34,borderRadius:"50%",background:color+"1F",color,display:"inline-flex",alignItems:"center",justifyContent:"center",fontSize:12,fontWeight:700,flexShrink:0,letterSpacing:"0.02em"}}>{ini}</span>;
+}
+// Stage shown as a coloured dot + label (lighter on the eye than a boxed badge in long lists).
+function StageDot({stage}){
+  const c=SC[stage]||WG;
+  return <span style={{display:"inline-flex",alignItems:"center",gap:6,fontSize:11.5,fontWeight:600,color:c,whiteSpace:"nowrap"}}><span style={{width:7,height:7,borderRadius:"50%",background:c}}/>{stage}</span>;
+}
+// Paid-vs-total progress bar with a one-line caption, replacing separate "in" and "owing" figures.
+function PayBar({received,total,tradeIn,width=150}){
+  const pct=total>0?Math.min(100,Math.round(received/total*100)):0;
+  const paidUp=total>0&&received>=total-0.5;
+  return <div style={{width,maxWidth:"100%"}} title={tradeIn>0?`Includes ${fmt(tradeIn)} gold trade-in credit`:undefined}>
+    <div style={{height:6,borderRadius:3,background:BD,overflow:"hidden"}}><div style={{width:pct+"%",height:"100%",background:paidUp?OK:GOLD,borderRadius:3}}/></div>
+    <div style={{fontSize:11,color:WG,marginTop:4,whiteSpace:"nowrap"}}>{paidUp?<span style={{color:OK,fontWeight:700}}>Paid in full</span>:<><strong style={{color:INK,fontWeight:700}}>{fmt(received)}</strong> of {fmt(total)}</>}</div>
+  </div>;
+}
 // A small ⓘ help icon that reveals a plain-English explanation on hover/click. Reusable anywhere.
 function InfoDot({text}){
   const[open,setOpen]=useState(false);
@@ -3345,6 +3364,7 @@ function NeedsAttention({items}){
 // ── Needs a follow-up: manual one-click reminder emails for correspondence awaiting a reply ──
 function FollowUpsCard({rows,biz,setView,onRemind}){
   const[active,setActive]=useState(null);   // the row currently being reminded
+  const[showAll,setShowAll]=useState(false);   // list is capped at 5 until expanded
   const[email,setEmail]=useState("");
   const[subject,setSubject]=useState("");
   const[message,setMessage]=useState("");
@@ -3377,19 +3397,26 @@ function FollowUpsCard({rows,biz,setView,onRemind}){
       <span style={{fontWeight:700,fontSize:15,color:INK,display:"inline-flex",alignItems:"center"}}>Needs a follow-up<InfoDot text="Correspondence still waiting on the client — invoices sent but unpaid, proposals with no reply, and approved jobs awaiting a deposit. Send a reminder and it drops off until the follow-up window passes again."/></span>
       <span style={{fontSize:11,color:WG,fontWeight:600}}>{rows.length} waiting</span>
     </div>
-    {rows.map((r,i,arr)=>(
+    {/* Summary chips: how many of each kind are waiting */}
+    <div style={{display:"flex",gap:6,flexWrap:"wrap",marginBottom:8}}>
+      {Object.keys(label).map(t=>{const n=rows.filter(r=>r.type===t).length;return n?<span key={t} style={{fontSize:11,fontWeight:700,color:col[t],background:col[t]+"14",borderRadius:20,padding:"3px 10px"}}>{n} {label[t].toLowerCase()}</span>:null;})}
+    </div>
+    {(showAll?rows:rows.slice(0,5)).map((r,i,arr)=>(
       <div key={r.id} style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:12,padding:"10px 0",borderBottom:i===arr.length-1?"none":`1px solid ${BD}`}}>
-        <div onClick={()=>setView("jobDetail_"+r.job.id)} style={{minWidth:0,cursor:"pointer",flex:1}}>
-          <div style={{fontWeight:600,fontSize:13,color:INK}}>{r.job?.type} <span style={{color:WG,fontWeight:400}}>· {clientDisplayName(r.client)}</span></div>
-          <div style={{fontSize:12,marginTop:2,display:"flex",gap:8,flexWrap:"wrap",alignItems:"center"}}>
-            <span style={{color:col[r.type],fontWeight:700}}>{label[r.type]}</span>
-            {r.amount>0.5&&<span style={{color:INK,fontWeight:700}}>{fmt(r.amount)}</span>}
-            <span style={{color:WG}}>{r.lastRemindedAt?`reminded ${r.waited===0?"today":r.waited+"d ago"}`:`sent ${r.waited===0?"today":r.waited+"d ago"}`}</span>
+        <div onClick={()=>setView("jobDetail_"+r.job.id)} style={{minWidth:0,cursor:"pointer",flex:1,display:"flex",alignItems:"center",gap:12}}>
+          <DashAvatar name={clientDisplayName(r.client)} color={col[r.type]}/>
+          <div style={{minWidth:0}}>
+            <div style={{fontWeight:600,fontSize:13,color:INK,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{clientDisplayName(r.client)} <span style={{color:WG,fontWeight:400}}>· {r.job?.type}</span></div>
+            <div style={{fontSize:12,marginTop:2,display:"flex",gap:8,flexWrap:"wrap",alignItems:"center"}}>
+              <span style={{color:col[r.type],fontWeight:600}}>{label[r.type]}{r.amount>0.5?<strong style={{color:INK,fontWeight:700}}> {fmt(r.amount)}</strong>:null}</span>
+              <span style={{color:r.waited>=14?DANGER:WG,fontWeight:r.waited>=14?600:400}}>{r.lastRemindedAt?"reminded ":""}{r.waited===0?"today":r.waited+"d ago"}</span>
+            </div>
           </div>
         </div>
-        <button onClick={()=>openRow(r)} style={{flexShrink:0,background:INK,color:WHITE,border:"none",borderRadius:6,padding:"7px 13px",fontSize:12,fontWeight:700,cursor:"pointer",fontFamily:"inherit"}}>✉ Remind</button>
+        <button onClick={()=>openRow(r)} title="Email a reminder" style={{flexShrink:0,background:WHITE,color:INK,border:`1px solid ${BD}`,borderRadius:8,padding:"6px 12px",fontSize:12,fontWeight:600,cursor:"pointer",fontFamily:"inherit"}}>✉ Remind</button>
       </div>
     ))}
+    {rows.length>5&&<div onClick={()=>setShowAll(v=>!v)} style={{marginTop:10,fontSize:12.5,fontWeight:700,color:GOLD_D,cursor:"pointer"}}>{showAll?"Show fewer ▲":`Show all ${rows.length} ▾`}</div>}
     {active&&<Modal title={`Send reminder to ${clientDisplayName(active.client)||"client"}`} onClose={()=>setActive(null)}>
       {sent
         ?<div style={{padding:"14px 2px",fontSize:14,color:OK,fontWeight:700}}>✓ Reminder sent to {email}</div>
@@ -3413,6 +3440,7 @@ function Dashboard({clients,jobs,quotes,payments,invoices,appointments=[],propos
   const isMobile=useIsMobile();
   const stackCols=useIsMobile(1000);   // stack the two-column bottom section on tablets too, not just phones
   const [showAllActive,setShowAllActive]=useState(false);   // expand the Active jobs card beyond the top 8
+  const [showAllOwing,setShowAllOwing]=useState(false);     // expand Balance owing beyond the top 5
   // A quote the client ignored past its "valid until" date is "frozen": the public link expires AND
   // it drops out of active tracking here. Frozen = a sent proposal, no acceptance, no approved quote,
   // no money in, and every sent proposal past expiry (createdAt + the studio's quote-validity window).
@@ -3463,7 +3491,7 @@ function Dashboard({clients,jobs,quotes,payments,invoices,appointments=[],propos
     if(inProd)score+=35;
     if(od)score+=30;
     const quiet=!(received>0||propAccepted||approved||propSent||ready||inProd||od);
-    return {j,received,tradeIn,owing,awaiting,propAccepted,approved,od,ready,inProd,sentProp,quiet,stale,score};
+    return {j,received,tradeIn,total,owing,awaiting,propAccepted,approved,od,ready,inProd,sentProp,quiet,stale,score};
   }).sort((a,b)=>b.score-a.score
     ||String(a.j.deadline||"9999-99-99").localeCompare(String(b.j.deadline||"9999-99-99"))
     ||String(b.j.createdAt||"").localeCompare(String(a.j.createdAt||"")));
@@ -3602,7 +3630,7 @@ function Dashboard({clients,jobs,quotes,payments,invoices,appointments=[],propos
           <Btn sm ghost onClick={()=>setView("jobs")}>View all</Btn>
         </div>
         {active.length===0&&<div style={{color:WG,fontSize:14}}>No active jobs.</div>}
-        {(showAllActive?activeRanked:activeRanked.slice(0,8)).map(({j,received,tradeIn,owing,awaiting,ready,sentProp,quiet,stale,od},i,arr)=>{
+        {(showAllActive?activeRanked:activeRanked.slice(0,8)).map(({j,received,tradeIn,total,awaiting,ready,sentProp,quiet,stale,od},i,arr)=>{
           const c=clients.find(x=>x.id===j.clientId);
           // Sub-line = the signal that isn't already shown by the money chip / stage badge.
           // For a "quiet" job, say where its quote actually stands: sent (via a quote marked Sent),
@@ -3613,19 +3641,24 @@ function Dashboard({clients,jobs,quotes,payments,invoices,appointments=[],propos
             :awaiting?{t:`⏳ Proposal sent${sentProp?.createdAt?` · ${daysAgo(sentProp.createdAt)}`:""}`,col:stale?WG:GOLD_D}
             :quiet?{t:quietMsg,col:WG}
             :null;
+          // "Ready to collect" is already said by the stage, so the sub-line skips it.
+          const sub=signal&&!ready?signal:null;
           return <DashRow key={j.id} onClick={()=>setView("jobDetail_"+j.id)} last={i===arr.length-1} col={isMobile}>
-            <div style={{minWidth:0,opacity:(quiet||stale)?0.58:1}}>
-              <div style={{fontWeight:600,fontSize:13,color:INK}}>{j.type} <span style={{color:WG,fontWeight:400}}>· {clientDisplayName(c)}</span></div>
-              <div style={{fontSize:12,marginTop:2}}>
-                {signal&&<span style={{color:signal.col,fontWeight:signal.col===WG?400:700}}>{signal.t}</span>}
-                {signal&&j.deadline&&<span style={{color:WG}}> · </span>}
-                {j.deadline&&<span style={{color:od?DANGER:WG,fontWeight:od?700:400}}>Due {fmtDate(j.deadline)}{od?" — overdue":""}</span>}
+            <div style={{display:"flex",alignItems:"center",gap:12,minWidth:0,flex:1,opacity:(quiet||stale)?0.58:1}}>
+              <DashAvatar name={clientDisplayName(c)} color={SC[j.stage]||WG}/>
+              <div style={{minWidth:0}}>
+                <div style={{fontWeight:600,fontSize:13,color:INK,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{clientDisplayName(c)||"No client"} <span style={{color:WG,fontWeight:400}}>· {j.type}</span></div>
+                <div style={{fontSize:12,marginTop:3,display:"flex",gap:10,flexWrap:"wrap",alignItems:"center"}}>
+                  <StageDot stage={j.stage}/>
+                  {sub&&<span style={{color:sub.col,fontWeight:sub.col===WG?400:600}}>{sub.t}</span>}
+                  {j.deadline&&<span style={{color:od?DANGER:WG,fontWeight:od?700:400}}>{od?"Overdue · ":"Due "}{fmtDate(j.deadline)}</span>}
+                </div>
               </div>
             </div>
-            <div style={{display:"flex",flexDirection:"column",alignItems:isMobile?"flex-start":"flex-end",gap:3,flexShrink:0}}>
-              {received>0&&<span style={{fontSize:12.5,fontWeight:800,color:OK,whiteSpace:"nowrap"}}>{fmt(received)} in{tradeIn>0?<span style={{fontSize:10.5,fontWeight:600,color:WG}}> · incl. trade-in</span>:null}</span>}
-              {owing>0&&<span style={{fontSize:12,fontWeight:700,color:WARN,whiteSpace:"nowrap"}}>{fmt(owing)} owing</span>}
-              <Badge label={j.stage} color={SC[j.stage]||WG}/>
+            <div style={{flexShrink:0,paddingLeft:isMobile?46:0,opacity:(quiet||stale)?0.58:1}}>
+              {total>0?<PayBar received={received} total={total} tradeIn={tradeIn}/>
+                :received>0?<span style={{fontSize:12,fontWeight:700,color:OK,whiteSpace:"nowrap"}}>{fmt(received)} in</span>
+                :null}
             </div>
           </DashRow>;
         })}
@@ -3652,14 +3685,27 @@ function Dashboard({clients,jobs,quotes,payments,invoices,appointments=[],propos
           })}
         </Card>
         {balanceOwing.length>0&&<Card style={{marginBottom:0}}>
-          <div style={{fontWeight:700,fontSize:15,color:INK,marginBottom:14}}>Balance owing by job</div>
-          {balanceOwing.map(({job,balance},i,arr)=>{
-            const c=clients.find(x=>x.id===job.clientId);
-            return <DashRow key={job.id} onClick={()=>setView("jobDetail_"+job.id)} last={i===arr.length-1} col={isMobile}>
-              <div style={{minWidth:0}}><div style={{fontWeight:600,fontSize:13,color:INK}}>{job.type} · {clientDisplayName(c)}</div><div style={{fontSize:12,color:WG}}>{job.stage}</div></div>
-              <div style={{fontWeight:800,fontSize:15,color:WARN,whiteSpace:"nowrap",flexShrink:0}}>{fmt(balance)} <span style={{fontSize:11,fontWeight:600,opacity:0.75}}>owing</span></div>
-            </DashRow>;
-          })}
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"baseline",marginBottom:14,gap:12}}>
+            <span style={{fontWeight:700,fontSize:15,color:INK}}>Balance owing by job</span>
+            <span style={{fontSize:17,fontWeight:800,color:WARN,whiteSpace:"nowrap"}}>{fmt(outstanding)}</span>
+          </div>
+          {(()=>{
+            const sorted=[...balanceOwing].sort((a,b)=>b.balance-a.balance);
+            const max=sorted[0]?.balance||1;
+            return <>
+              {(showAllOwing?sorted:sorted.slice(0,5)).map(({job,balance},i,arr)=>{
+                const c=clients.find(x=>x.id===job.clientId);
+                return <DashRow key={job.id} onClick={()=>setView("jobDetail_"+job.id)} last={i===arr.length-1} col>
+                  <div style={{display:"flex",justifyContent:"space-between",alignItems:"baseline",gap:12,width:"100%"}}>
+                    <span style={{fontWeight:600,fontSize:13,color:INK,minWidth:0,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{clientDisplayName(c)} <span style={{color:WG,fontWeight:400}}>· {job.type}</span></span>
+                    <span style={{fontWeight:700,fontSize:13,color:WARN,whiteSpace:"nowrap",flexShrink:0}}>{fmt(balance)}</span>
+                  </div>
+                  <div style={{height:4,borderRadius:2,background:BD,width:"100%",marginTop:5,overflow:"hidden"}}><div style={{width:Math.max(3,balance/max*100)+"%",height:"100%",background:WARN,opacity:0.7,borderRadius:2}}/></div>
+                </DashRow>;
+              })}
+              {sorted.length>5&&<div onClick={()=>setShowAllOwing(v=>!v)} style={{marginTop:10,fontSize:12.5,fontWeight:700,color:GOLD_D,cursor:"pointer"}}>{showAllOwing?"Show fewer ▲":`Show all ${sorted.length} ▾`}</div>}
+            </>;
+          })()}
         </Card>}
         <Card style={{marginBottom:0}}>
           <div style={{fontWeight:700,fontSize:15,color:INK,marginBottom:14}}>Anniversary reminders</div>
