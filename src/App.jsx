@@ -3513,7 +3513,7 @@ function Dashboard({clients,jobs,quotes,payments,invoices,appointments=[],propos
     const total=jobChargeTotal(j,quotes,markupTable,invoices);
     const paid=payments.filter(p=>p.jobId===j.id&&p.status==="Received").reduce((s,p)=>s+Number(p.amount||0),0);
     const bal=total-paid-jobTradeInCredit(j,quotes);   // trade-in is a credit received
-    return bal>1?{job:j,balance:bal}:null;
+    return bal>1?{job:j,balance:bal,total,paid:total-bal}:null;
   }).filter(Boolean);
   // Outstanding = total still owed across approved jobs (quote total − payments received)
   const outstanding=balanceOwing.reduce((s,b)=>s+b.balance,0);
@@ -3687,20 +3687,21 @@ function Dashboard({clients,jobs,quotes,payments,invoices,appointments=[],propos
         {balanceOwing.length>0&&<Card style={{marginBottom:0}}>
           <div style={{display:"flex",justifyContent:"space-between",alignItems:"baseline",marginBottom:14,gap:12}}>
             <span style={{fontWeight:700,fontSize:15,color:INK}}>Balance owing by job</span>
-            <span style={{fontSize:17,fontWeight:800,color:WARN,whiteSpace:"nowrap"}}>{fmt(outstanding)}</span>
+            <span style={{fontSize:17,fontWeight:800,color:WARN,whiteSpace:"nowrap"}}>{fmt(outstanding)} <span style={{fontSize:11,fontWeight:600,color:WG}}>total owing</span></span>
           </div>
           {(()=>{
             const sorted=[...balanceOwing].sort((a,b)=>b.balance-a.balance);
-            const max=sorted[0]?.balance||1;
             return <>
-              {(showAllOwing?sorted:sorted.slice(0,5)).map(({job,balance},i,arr)=>{
+              {(showAllOwing?sorted:sorted.slice(0,5)).map(({job,balance,total,paid},i,arr)=>{
                 const c=clients.find(x=>x.id===job.clientId);
+                const pct=total>0?Math.max(0,Math.min(100,paid/total*100)):0;   // share of the job already paid
                 return <DashRow key={job.id} onClick={()=>setView("jobDetail_"+job.id)} last={i===arr.length-1} col>
                   <div style={{display:"flex",justifyContent:"space-between",alignItems:"baseline",gap:12,width:"100%"}}>
                     <span style={{fontWeight:600,fontSize:13,color:INK,minWidth:0,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{clientDisplayName(c)} <span style={{color:WG,fontWeight:400}}>· {job.type}</span></span>
-                    <span style={{fontWeight:700,fontSize:13,color:WARN,whiteSpace:"nowrap",flexShrink:0}}>{fmt(balance)}</span>
+                    <span style={{fontWeight:700,fontSize:13,color:WARN,whiteSpace:"nowrap",flexShrink:0}}>{fmt(balance)} <span style={{fontSize:11,fontWeight:600,opacity:0.75}}>to pay</span></span>
                   </div>
-                  <div style={{height:4,borderRadius:2,background:BD,width:"100%",marginTop:5,overflow:"hidden"}}><div style={{width:Math.max(3,balance/max*100)+"%",height:"100%",background:WARN,opacity:0.7,borderRadius:2}}/></div>
+                  <div style={{height:4,borderRadius:2,background:BD,width:"100%",marginTop:6,overflow:"hidden"}}><div style={{width:pct+"%",height:"100%",background:OK,borderRadius:2}}/></div>
+                  <div style={{fontSize:11,color:WG,marginTop:4}}>{paid>0.5?<><strong style={{color:OK,fontWeight:700}}>{fmt(paid)} paid</strong> of {fmt(total)}</>:<>Nothing paid yet of {fmt(total)}</>}</div>
                 </DashRow>;
               })}
               {sorted.length>5&&<div onClick={()=>setShowAllOwing(v=>!v)} style={{marginTop:10,fontSize:12.5,fontWeight:700,color:GOLD_D,cursor:"pointer"}}>{showAllOwing?"Show fewer ▲":`Show all ${sorted.length} ▾`}</div>}
