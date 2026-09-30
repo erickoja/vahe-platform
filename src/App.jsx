@@ -1667,6 +1667,22 @@ const setMarkupBuffer=v=>{_markupBuffer=Number(v)||0;};
 let _quoteRounding=0;
 const setQuoteRounding=v=>{_quoteRounding=Number(v)||0;};
 const roundQ=n=>_quoteRounding>0?Math.round(n/_quoteRounding)*_quoteRounding:n;
+// Payment processing allowance (global): the studio's default %, stamped onto each NEW quote
+// (q.payAllowancePct) so existing quotes and issued invoices never reprice when the setting changes.
+// Card surcharges are banned from 1 Oct 2026, so the cost is built into the quoted price instead.
+let _payAllowancePct=1.5;
+const setPayAllowancePct=v=>{const n=Number(v);_payAllowancePct=Number.isFinite(n)&&n>=0&&n<50?n:1.5;};
+// Gross-up on the GST-inclusive total: the processor takes pct% of the FINAL payment, so charge
+// amt/(1-pct) (not amt*(1+pct)) and the studio keeps exactly amt after the fee. GST is then
+// backed out of the grossed-up total as usual, so the allowance is taxed like any other part of the price.
+const withPayAllowance=(amt,pct)=>{const p=Number(pct)||0;return p>0&&p<50?roundQ(amt/(1-p/100)):amt;};
+// The allowance inside a quote's total (inc GST) — 0 for manual prices, which are the customer price as typed.
+const quotePayAllowance=(q,markupTable)=>{
+  if(!q||quoteIsManual(q)||!(Number(q.payAllowancePct)>0))return 0;
+  const c=calcQuote(q.lineItems,markupTable,effMarkupOverride(q),gstOnMarkupFor(q));
+  const pre=(c.isRange?c.finalHigh:c.finalLow)+(q.stoneClientTotal||0)+(q.accentStoneTotal||0);
+  return withPayAllowance(pre,q.payAllowancePct)-pre;
+};
 const getMultiplier=(cost,table)=>{
   if(!cost||cost<=0)return null;
   return table.find(b=>cost>=b.low&&cost<=b.high)||null;
@@ -1730,7 +1746,7 @@ const gstOnMarkupFor=q=>q?.pricingMode==="trade"||!!q?.taxOnTop;
 const quoteGrandTotal=(q,markupTable)=>{
   if(quoteIsManual(q))return Number(q.manualTotal);
   const c=calcQuote(q.lineItems,markupTable,effMarkupOverride(q),gstOnMarkupFor(q));
-  return (c.isRange?c.finalHigh:c.finalLow)+(q.stoneClientTotal||0)+(q.accentStoneTotal||0);
+  return withPayAllowance((c.isRange?c.finalHigh:c.finalLow)+(q.stoneClientTotal||0)+(q.accentStoneTotal||0),q.payAllowancePct);
 };
 // Total agreed charge for a job, used by every financial view.
 // Uses the manual Total Charge Override when set; otherwise sums approved quotes.
@@ -1935,6 +1951,7 @@ const quoteInvoiceLineItems=(q,markupTable)=>{
 // truth shared by invoice creation AND re-sync after a quote edit, so the two can never diverge.
 const invoiceFieldsFromQuotes=(qs,job,markupTable)=>{
   const totalIncGST=qs.reduce((s,q)=>s+quoteGrandTotal(q,markupTable),0);   // manual price wins per quote
+  const payAllowance=qs.reduce((s,q)=>s+quotePayAllowance(q,markupTable),0);   // internal record: card-fee allowance inside the total
   const gst=totalIncGST-totalIncGST/(1+GST_RATE);
   const exGST=totalIncGST-gst;
   const lineItems=qs.flatMap(q=>quoteInvoiceLineItems(q,markupTable));
@@ -1943,7 +1960,7 @@ const invoiceFieldsFromQuotes=(qs,job,markupTable)=>{
     :(job?.description||qs.map(q=>q.clientDescription||quoteLabel(q)).filter(Boolean).join(" + "));
   const notes=qs.map(q=>q.notes).filter(Boolean).join("\n");
   const customerLines=qs.length>1?qs.map(q=>({id:uid(),description:(q.clientDescription||"").trim()||job?.description||quoteLabel(q),amount:quoteGrandTotal(q,markupTable)})):null;
-  return{exGST,gst,totalIncGST,lineItems,notes,tradeInCredit:qs.reduce((s,q)=>s+(Number(q.tradeInCredit)||0),0),tradeInNote:qs.map(q=>(q.tradeInNote||"").trim()).filter(Boolean).join(" · "),descriptionOverride,customerLines};
+  return{exGST,gst,totalIncGST,payAllowance,lineItems,notes,tradeInCredit:qs.reduce((s,q)=>s+(Number(q.tradeInCredit)||0),0),tradeInNote:qs.map(q=>(q.tradeInNote||"").trim()).filter(Boolean).join(" · "),descriptionOverride,customerLines};
 };
 // Build one invoice from one or more approved quotes on a job. For 2+ quotes it itemises per
 // option (customerLines) so the client sees each piece and its price.
@@ -4864,7 +4881,7 @@ function JobDetail({jobId,jobs,setJobs,clients,setClients,quotes,setQuotes,payme
         const hasInv=quoteHasInvoice(invoices,q.id);
         const manual=quoteIsManual(q);
         const stoneTotal=(q.stoneClientTotal||0)+(q.accentStoneTotal||0);
-        const priceStr=manual?fmtR(Number(q.manualTotal)):(calc.base>0&&!calc.bracket&&!calc.overridden)?"—":fmtR(calc.finalLow+stoneTotal);
+        const priceStr=manual?fmtR(Number(q.manualTotal)):(calc.base>0&&!calc.bracket&&!calc.overridden)?"—":fmtR(withPayAllowance(calc.finalLow+stoneTotal,q.payAllowancePct));
         return <div key={q.id} style={{display:"flex",flexDirection:isMobile?"column":"row",justifyContent:"space-between",alignItems:isMobile?"stretch":"center",gap:isMobile?8:0,padding:"10px 0",borderBottom:`1px solid ${BD}`}}>
           <div style={{display:"flex",alignItems:"center",gap:10,minWidth:0,flex:1}}>
             {jq.length>1&&<div style={{display:"flex",flexDirection:"column",flexShrink:0}}>
@@ -5309,6 +5326,11 @@ function QuoteBuilder({jobId:jobIdProp,editQuoteId,stockId,stock,setStock,jobs,c
   // Trade already adds it, so this only surfaces / applies in retail.
   const[taxOnTop,setTaxOnTop]=useState(!!seed?.taxOnTop);
   const gstOnMarkup=tradePricing||taxOnTop;
+  // Payment processing allowance: built into the price (never a separate surcharge). New quotes take the
+  // studio default; trade quotes default off (statement / bank transfer). Editing keeps the quote's own
+  // stamp, so quotes made before the setting existed stay exactly as priced.
+  const[payAllowOn,setPayAllowOn]=useState(seed?(Number(seed.payAllowancePct)>0):(_payAllowancePct>0&&pricingMode!=="trade"));
+  const allowPct=payAllowOn?(Number(seed?.payAllowancePct)>0?Number(seed.payAllowancePct):_payAllowancePct):0;
   const[stoneOverride,setStoneOverride]=useState(seed?.stoneMarkupOverride?String(seed.stoneMarkupOverride):"");
   const[tradeInCredit,setTradeInCredit]=useState(seed?.tradeInCredit?String(seed.tradeInCredit):"");
   const[tradeInNote,setTradeInNote]=useState(seed?.tradeInNote||"");
@@ -5457,7 +5479,9 @@ function QuoteBuilder({jobId:jobIdProp,editQuoteId,stockId,stock,setStock,jobs,c
   // Snapshot trade multiplier stored on the quote so every downstream total (invoices, proposals,
   // job/dashboard figures) reprices via effMarkupOverride without threading the trade table around.
   const tradeMultVal=tradePricing?(getBracket(calc.base,tradeMarkupTable)?.multiplier||1):0;
-  const grandTotal=calc.finalLow+stoneClientTotal+accentStoneTotal;
+  const preAllowance=calc.finalLow+stoneClientTotal+accentStoneTotal;
+  const grandTotal=withPayAllowance(preAllowance,allowPct);
+  const allowanceAmt=grandTotal-preAllowance;
   const manualOn=Number(manualTotal)>0;
   const tradeInN=Number(tradeInCredit)||0;                                   // gold trade-in credit (deduction)
   const payableTotal=Math.max(0,(manualOn?Number(manualTotal):grandTotal)-tradeInN);   // amount payable after trade-in
@@ -5474,7 +5498,7 @@ function QuoteBuilder({jobId:jobIdProp,editQuoteId,stockId,stock,setStock,jobs,c
     if(stockMode){
       // Persist the full pricing payload (so it can be reopened & re-priced), plus the resulting
       // cost + retail (inc GST) onto the stock piece. Retail auto-fills but stays editable in Stock.
-      const payload={title:title.trim(),markupOverride:Number(markupOverride)||0,taxOnTop,manualTotal:Number(manualTotal)||0,notes,lineItems:validItems,
+      const payload={title:title.trim(),markupOverride:Number(markupOverride)||0,taxOnTop,payAllowancePct:allowPct,manualTotal:Number(manualTotal)||0,notes,lineItems:validItems,
         stoneMode,stoneType:stoneMode==="sourcing"?stoneType:"",stoneItems:stoneMode==="sourcing"?validStoneItems:[],stoneMarkupOverride:Number(stoneOverride)||0,
         stoneNotes,stoneClientTotal:stoneCalc?.clientTotal||0,accentStoneTotal};
       const sourcedStoneCost=stoneMode==="sourcing"?validStoneItems.reduce((s,i)=>s+(Number(i.cost)||Number(i.costLow)||0),0):0;
@@ -5487,7 +5511,7 @@ function QuoteBuilder({jobId:jobIdProp,editQuoteId,stockId,stock,setStock,jobs,c
     }
     if(isEditing){
       // Update existing quote — preserve id, jobId, createdAt
-      const updated={...existingQuote,status,title:title.trim(),pieceTitle:pieceTitle.trim(),markupOverride:Number(markupOverride)||0,pricingMode:tradePricing?"trade":"retail",tradeMult:tradeMultVal,taxOnTop,manualTotal:Number(manualTotal)||0,validUntil,notes,lineItems:validItems,
+      const updated={...existingQuote,status,title:title.trim(),pieceTitle:pieceTitle.trim(),markupOverride:Number(markupOverride)||0,pricingMode:tradePricing?"trade":"retail",tradeMult:tradeMultVal,taxOnTop,payAllowancePct:allowPct,manualTotal:Number(manualTotal)||0,validUntil,notes,lineItems:validItems,
         stoneMode,stoneType:stoneMode==="sourcing"?stoneType:"",stoneItems:stoneMode==="sourcing"?validStoneItems:[],stoneMarkupOverride:Number(stoneOverride)||0,
         stoneNotes,stoneClientTotal:stoneCalc?.clientTotal||0,accentStoneTotal,tradeInCredit:Number(tradeInCredit)||0,tradeInNote:tradeInNote.trim(),clientDescription,updatedAt:today()};
       const nextQuotes=quotes.map(q=>q.id===editQuoteId?updated:q);
@@ -5504,7 +5528,7 @@ function QuoteBuilder({jobId:jobIdProp,editQuoteId,stockId,stock,setStock,jobs,c
         if(apply)setInvoices(p=>{const n=p.map(i=>i.id===linkedInvoice.id?synced:i);persist(K.inv,n);return n;});
       }
     }else{
-      const q={id:uid(),jobId,status,title:title.trim(),pieceTitle:pieceTitle.trim(),markupOverride:Number(markupOverride)||0,pricingMode:tradePricing?"trade":"retail",tradeMult:tradeMultVal,taxOnTop,manualTotal:Number(manualTotal)||0,createdAt:today(),validUntil,notes,lineItems:validItems,
+      const q={id:uid(),jobId,status,title:title.trim(),pieceTitle:pieceTitle.trim(),markupOverride:Number(markupOverride)||0,pricingMode:tradePricing?"trade":"retail",tradeMult:tradeMultVal,taxOnTop,payAllowancePct:allowPct,manualTotal:Number(manualTotal)||0,createdAt:today(),validUntil,notes,lineItems:validItems,
         stoneMode,stoneType:stoneMode==="sourcing"?stoneType:"",stoneItems:stoneMode==="sourcing"?validStoneItems:[],stoneMarkupOverride:Number(stoneOverride)||0,
         stoneNotes,stoneClientTotal:stoneCalc?.clientTotal||0,accentStoneTotal,tradeInCredit:Number(tradeInCredit)||0,tradeInNote:tradeInNote.trim(),clientDescription};
       setQuotes(p=>{const n=[...p,q];persist(K.qu,n);return n;});
@@ -5801,6 +5825,7 @@ function QuoteBuilder({jobId:jobIdProp,editQuoteId,stockId,stock,setStock,jobs,c
                 ...(stoneMode==="sourcing"&&stoneCalc?[["Stone",fmtR(stoneCalc.clientTotal),stoneType==="lab"?"#96627C":"#4E8B6A","+ "]]:
                    stoneMode==="client"?[["Stone","Client supplying",WG,"+ "]]:
                    []),
+                ...(allowanceAmt>0.005&&!manualOn?[[`Card fee allowance (${allowPct}%)`,fmtR(allowanceAmt),"#96627C","+ "]]:[]),
                 ...(tradeInN>0?[["Gold trade-in credit",fmtR(tradeInN),DANGER,"− "]]:[]),
                 [tradeInN>0?"Amount payable":(manualOn?"Total — manual price":"Total"),fmtR(payableTotal),OK,"= "],
               ].map(([label,val,col,prefix],i,arr)=>(
@@ -5809,6 +5834,20 @@ function QuoteBuilder({jobId:jobIdProp,editQuoteId,stockId,stock,setStock,jobs,c
                   <div style={{fontSize:16,fontWeight:800,color:col}}><span style={{opacity:0.5,fontSize:12}}>{prefix}</span>{val}</div>
                 </div>
               ))}
+            </div>
+            {/* Payment processing allowance: built into the price, invisible to the client */}
+            <div style={{display:"flex",alignItems:"center",gap:12,marginTop:12,flexWrap:"wrap"}}>
+              <button type="button" onClick={()=>setPayAllowOn(v=>!v)}
+                style={{display:"inline-flex",alignItems:"center",gap:8,background:payAllowOn?"#F3EAF0":WHITE,border:`1px solid ${payAllowOn?"#96627C":BD}`,borderRadius:8,padding:"7px 14px",fontSize:12,fontWeight:700,color:payAllowOn?"#96627C":WG,cursor:"pointer",fontFamily:"inherit"}}>
+                <span style={{width:16,height:16,borderRadius:4,border:`1px solid ${payAllowOn?"#96627C":BD}`,background:payAllowOn?"#96627C":WHITE,color:WHITE,fontSize:12,lineHeight:"14px",textAlign:"center",fontWeight:900}}>{payAllowOn?"✓":""}</span>
+                Include card fee allowance
+              </button>
+              <span style={{fontSize:12,color:WG,display:"inline-flex",alignItems:"center"}}>
+                {manualOn?"Not applied: a manual quoted price is charged exactly as typed."
+                  :payAllowOn?`${allowPct}% of the final payment is built into this price (${fmtR(allowanceAmt)}). The client just sees one total.`
+                  :"Off for this quote, e.g. a client paying by bank transfer."}
+                <InfoDot text={`Card surcharges can't be added from 1 October 2026, so the processing cost is built into the price instead. The price is grossed up so that after the processor takes ${allowPct||_payAllowancePct}% of the final payment you still keep your intended amount. ${TAX_LABEL} is charged on the whole price. Nothing appears as a separate line for the client. Set your default % in Settings.`}/>
+              </span>
             </div>
           </div>
         </div>
@@ -6803,7 +6842,7 @@ function ProposalPreview({quote,job,clients=[],biz,calc,payments=[],reconcilePay
   const stoneTotal=quote.stoneClientTotal||0;
   const markupUndef=!manual&&calc.base>0&&!calc.bracket&&!calc.overridden;   // jewellery costs present but no markup tier
   const settingTotal=markupUndef?0:calc.finalLow;
-  const grandProposalTotal=manual?Number(quote.manualTotal):settingTotal+stoneTotal+(quote.accentStoneTotal||0);
+  const grandProposalTotal=manual?Number(quote.manualTotal):withPayAllowance(settingTotal+stoneTotal+(quote.accentStoneTotal||0),quote.payAllowancePct);
   const priceDisplay=markupUndef?"Quote pending":fmtR(grandProposalTotal);
   const depositAmt=markupUndef?null:fmtR(grandProposalTotal*deposit/100);
   // Payments already recorded against this job → outstanding balance to request. Payments are
@@ -7135,7 +7174,9 @@ function QuoteDetailView({quoteId,quotes,setQuotes,jobs,clients,biz,markupTable,
   const stoneClientTotal=stoneCalc?.clientTotal||0;
   const accentStoneTotal=q.accentStoneTotal||0;
   const manual=quoteIsManual(q);
-  const grandTotal=manual?Number(q.manualTotal):calc.finalLow+stoneClientTotal+accentStoneTotal;
+  const preAllowance=calc.finalLow+stoneClientTotal+accentStoneTotal;
+  const grandTotal=manual?Number(q.manualTotal):withPayAllowance(preAllowance,q.payAllowancePct);
+  const payAllowanceAmt=manual?0:grandTotal-preAllowance;   // internal only, never shown to the client
   // "—" only when there ARE jewellery costs but no markup tier matches; a stones-only
   // quote (no line items → base 0) is a valid total, not an undefined one.
   const markupUndef=!manual&&calc.base>0&&!calc.bracket&&!calc.overridden;
@@ -7258,11 +7299,12 @@ function QuoteDetailView({quoteId,quotes,setQuotes,jobs,clients,biz,markupTable,
       </div>}
 
       {/* Grand total bar — shown when there's a centre stone, accent stones on stone markup, or a manual price */}
-      {(stoneCalc||accentStoneTotal>0||manual||qTradeIn>0)&&(()=>{
+      {(stoneCalc||accentStoneTotal>0||manual||qTradeIn>0||payAllowanceAmt>0.005)&&(()=>{
         const cells=[
           ...(manual&&!q.lineItems.length?[]:[["Jewellery piece",(manual&&calc.base>0&&!calc.bracket&&!calc.overridden)?"—":fmtR(calc.finalLow),GOLD]]),
           ...(accentStoneTotal>0?[["Accent stones",fmtR(accentStoneTotal),"#CDB2C1"]]:[]),
           ...(stoneCalc?[["Stone",fmtR(stoneCalc.clientTotal),q.stoneType==="lab"?"#CDB2C1":"#A6CBB4"]]:[]),
+          ...(payAllowanceAmt>0.005?[[`Card fee allowance (${q.payAllowancePct}%)`,fmtR(payAllowanceAmt),"#CDB2C1"]]:[]),
           ...(qTradeIn>0?[["Gold trade-in credit","−"+fmtR(qTradeIn),"#E79A9A"]]:[]),
           [qTradeIn>0?"Amount payable":(manual?"Quoted price — manual":"Combined total"),qTradeIn>0?fmtR(qPayable):grandStr,OK],
         ];
@@ -7752,6 +7794,7 @@ function InvoiceDetailView({invoiceId,invoices,setInvoices,jobs,clients,payments
   });persist(K.inv,n);return n;});
   const subtotalIncGST=inv.subtotalIncGST??inv.totalIncGST;
   const discount=Number(inv.discount)||0;
+  const bankTransferAmt=Math.round((Number(inv.payAllowance)||0)*100)/100;   // card fee allowance recorded on the invoice
   const paidTotal=(payments||[]).filter(p=>p.jobId===inv.jobId&&p.status==="Received").reduce((s,p)=>s+Number(p.amount||0),0);
   const invTradeIn=Number(inv.tradeInCredit)||0;const balance=Math.max(0,inv.totalIncGST-invTradeIn-paidTotal);
   // Staged request: optionally request only a specific amount now (e.g. the diamond balance),
@@ -7844,6 +7887,12 @@ function InvoiceDetailView({invoiceId,invoices,setInvoices,jobs,clients,payments
         </div>
         {discount>0&&<Btn sm ghost onClick={()=>setDiscount(0,inv.discountLabel)}>Clear</Btn>}
       </div>
+      {/* One-click bank transfer discount: takes off exactly the card fee allowance built into the price,
+          so card payers pay the standard price and transfer/BPAY payers pay the allowance-free price. */}
+      {bankTransferAmt>0.005&&discount<0.005&&<div style={{marginTop:12,padding:"10px 12px",background:"#F3EAF0",border:"1px solid #E3CFDB",borderRadius:6,display:"flex",gap:12,alignItems:"center",flexWrap:"wrap"}}>
+        <Btn sm onClick={()=>setDiscount(bankTransferAmt,"Bank transfer discount")}>Apply bank transfer discount (−{fmt(bankTransferAmt)})</Btn>
+        <span style={{fontSize:12,color:WG,lineHeight:1.5,flex:1,minWidth:200}}>Client is paying by bank transfer or BPAY? This removes the card fee allowance built into the price. Leave it off for card payments.</span>
+      </div>}
       {discount>0
         ?<div style={{fontSize:12,color:WG,marginTop:8,lineHeight:1.6}}>Subtotal <strong style={{color:INK}}>{fmt(subtotalIncGST)}</strong> − {(inv.discountLabel||"Discount").toLowerCase()} <strong style={{color:INK}}>{fmt(discount)}</strong> = total <strong style={{color:OK}}>{fmt(inv.totalIncGST)}</strong> inc {TAX_LABEL} ({TAX_LABEL} {fmt(inv.gst)}). Shows as a line on the customer's invoice.</div>
         :<div style={{fontSize:11,color:WG,marginTop:8,lineHeight:1.5}}>Enter an amount to take off the total — it appears as its own line on the customer's invoice, and the total, {TAX_LABEL} and balance recalculate automatically.</div>}
@@ -9448,6 +9497,7 @@ function Settings({biz,setBiz,markupTable,setMarkupTable,naturalStoneMarkup,setN
   const[mt,setMt]=useState(markupTable.map(b=>({...b})));
   const[buffer,setBuffer]=useState(String(biz.markupBuffer||0));
   const[rounding,setRounding]=useState(String(biz.quoteRounding||0));
+  const[payAllow,setPayAllow]=useState(String(biz.payAllowancePct??1.5));
   const setMtRow=(id,k,v)=>setMt(p=>p.map(b=>b.id===id?{...b,[k]:v}:b));
   const[smn,setSmn]=useState((naturalStoneMarkup||[]).map(b=>({...b})));
   const setSmNRow=(id,k,v)=>setSmn(p=>p.map(b=>b.id===id?{...b,[k]:v}:b));
@@ -9461,7 +9511,7 @@ function Settings({biz,setBiz,markupTable,setMarkupTable,naturalStoneMarkup,setN
   const showToast=msg=>{setToast(msg);setTimeout(()=>setToast(null),2400);};
   // Preserve markup-table-owned settings (buffer / rounding) so saving business details can't wipe them.
   const saveBiz=()=>{
-    const nb={...bForm,markupBuffer:biz.markupBuffer||0,quoteRounding:biz.quoteRounding||0,salespeople:(bForm.salespeople||[]).map(s=>String(s).trim()).filter(Boolean)};
+    const nb={...bForm,markupBuffer:biz.markupBuffer||0,quoteRounding:biz.quoteRounding||0,payAllowancePct:biz.payAllowancePct,salespeople:(bForm.salespeople||[]).map(s=>String(s).trim()).filter(Boolean)};
     setBiz(nb);persist(K.biz,nb);
     // Sync this studio's name + acceptance-notification email to the studios table, so the
     // server-side email function can reach the right studio. RLS lets an owner update its studio.
@@ -9474,7 +9524,7 @@ function Settings({biz,setBiz,markupTable,setMarkupTable,naturalStoneMarkup,setN
   };
   // Region & currency: choosing a preset fills the currency + tax fields (still editable after).
   const applyPreset=key=>{const p=REGION_PRESETS[key];if(!p)return;setBForm(f=>({...f,region:key,currencySymbol:p.sym,currencyCode:p.code,taxLabel:p.taxLabel,taxRatePct:p.taxPct,locale:p.locale,taxIdLabel:p.taxId}));};
-  const saveMt=()=>{setMarkupTable(mt);persist(K.mt,mt);const nb={...biz,markupBuffer:Number(buffer)||0,quoteRounding:Number(rounding)||0};setBiz(nb);persist(K.biz,nb);setMarkupBuffer(Number(buffer)||0);setQuoteRounding(Number(rounding)||0);showToast("Markup table saved");};
+  const saveMt=()=>{setMarkupTable(mt);persist(K.mt,mt);const pa=Math.min(10,Math.max(0,Number(payAllow)||0));const nb={...biz,markupBuffer:Number(buffer)||0,quoteRounding:Number(rounding)||0,payAllowancePct:pa};setBiz(nb);persist(K.biz,nb);setMarkupBuffer(Number(buffer)||0);setQuoteRounding(Number(rounding)||0);setPayAllowancePct(pa);showToast("Markup table saved");};
   const saveSmNTable=()=>{setNaturalStoneMarkup(smn);persist(K.smn,smn);showToast("Natural stone markup saved");};
   const saveSmLTable=()=>{setLabStoneMarkup(sml);persist(K.sml,sml);showToast("Lab-grown stone markup saved");};
   // Trade markup profile — lower wholesale markups, applied to trade-account quotes.
@@ -9629,6 +9679,14 @@ function Settings({biz,setBiz,markupTable,setMarkupTable,naturalStoneMarkup,setN
             <input type="number" value={buffer} onChange={e=>setBuffer(e.target.value)} min="0" step="10" style={{...SS.inp,marginTop:0,paddingLeft:28}}/>
           </div>
           <div style={{fontSize:12,color:WG,lineHeight:1.6,marginTop:8}}>If a cost is within this much of the next bracket, it's bumped up to that bracket's (lower) multiplier — so a cost just under a threshold doesn't get charged the higher markup. Set to <strong style={{color:INK}}>0</strong> to disable. Example: a {CUR_SYM}100 buffer means a {CUR_SYM}920 cost is priced as if it were in the {CUR_SYM}1,000+ bracket.</div>
+        </div>
+        <div>
+          <label style={SS.lbl}>Card fee allowance (%)</label>
+          <div style={{position:"relative",marginTop:4}}>
+            <input type="number" value={payAllow} onChange={e=>setPayAllow(e.target.value)} min="0" max="10" step="0.1" style={{...SS.inp,marginTop:0,paddingRight:28}}/>
+            <span style={{position:"absolute",right:14,top:"50%",transform:"translateY(-50%)",fontSize:13,color:WG,pointerEvents:"none"}}>%</span>
+          </div>
+          <div style={{fontSize:12,color:WG,lineHeight:1.6,marginTop:8}}>From 1 October 2026 a separate card surcharge is no longer allowed in Australia, so build the payment processing cost into your prices instead. Enter what your processor takes (default <strong style={{color:INK}}>1.5%</strong>). New quotes are grossed up so that after that % is taken from the final payment you still keep your intended price, and the client sees one total with no separate line. Example: a {CUR_SYM}1,000 quote becomes <strong style={{color:INK}}>{CUR_SYM}{(1000/(1-(Number(payAllow)||0)/100)).toFixed(2)}</strong>. Applies to new quotes only (you can switch it off per quote); existing quotes and issued invoices don't change. Set to <strong style={{color:INK}}>0</strong> to turn it off.</div>
         </div>
         <div>
           <label style={SS.lbl}>Round quote prices</label>
@@ -11458,6 +11516,7 @@ export default function App(){
   // values for a moment until the effect fires and a re-render snaps them correct.
   setMarkupBuffer(biz?.markupBuffer||0);
   setQuoteRounding(biz?.quoteRounding||0);
+  setPayAllowancePct(biz?.payAllowancePct??1.5);
 
   // Load all persisted data on mount
   useEffect(()=>{
