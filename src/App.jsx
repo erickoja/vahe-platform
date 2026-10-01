@@ -1655,6 +1655,14 @@ const DURATION_OPTS=[{value:"",label:"— No set length —"},{value:15,label:"1
 // "Live" appointments = still on the books (not resolved/cancelled)
 const isLiveAppt=a=>!a.status||a.status==="Scheduled";
 
+// Workshop Pilot wordmark (public/logo.webp), cropped to the lettering via the SVG viewBox. Sits on a white
+// plate so the dark lettering stays readable on the black sidebar / sign-in screen.
+function BrandLogo({height=28,pad="6px 10px"}){
+  return <span style={{display:"inline-block",background:"#FFFFFF",borderRadius:7,padding:pad,lineHeight:0}}>
+    <svg role="img" aria-label="Workshop Pilot" viewBox="100 440 1240 200" width={Math.round(height*6.2)} height={height} style={{display:"block",maxWidth:"100%"}}><image href="/logo.webp" width="1448" height="1086"/></svg>
+  </span>;
+}
+
 // ── Markup logic ──────────────────────────────────────────────────────────
 // Threshold buffer (global): a cost within $_markupBuffer of the next bracket is
 // bumped up to that bracket, so costs just under a boundary don't get the higher
@@ -10373,7 +10381,7 @@ function Login(){
   return <div style={{minHeight:"100vh",display:"flex",alignItems:"center",justifyContent:"center",background:"#000000",fontFamily:"'Poppins',sans-serif",padding:20}}>
     <form onSubmit={submit} style={{width:"100%",maxWidth:360,background:"#0E0E0E",border:"1px solid rgba(255,255,255,0.08)",borderRadius:16,padding:"36px 32px"}}>
       <div style={{textAlign:"center",marginBottom:28}}>
-        <div style={{fontSize:22,fontWeight:700,color:WHITE,letterSpacing:"0.16em",textTransform:"uppercase",lineHeight:1}}>Workshop Pilot</div>
+        <BrandLogo height={38}/>
       </div>
       {sentTo
         ?<div style={{textAlign:"center"}}>
@@ -11922,7 +11930,7 @@ export default function App(){
       <button onClick={()=>setDrawerOpen(true)} aria-label="Open menu" style={{background:"none",border:"none",cursor:"pointer",padding:6,display:"flex",flexDirection:"column",gap:4}}>
         {[0,1,2].map(i=><span key={i} style={{width:20,height:2,background:WHITE,display:"block",borderRadius:2}}/>)}
       </button>
-      <div style={{fontSize:14,fontWeight:700,color:WHITE,letterSpacing:"0.14em",textTransform:"uppercase"}}>Workshop Pilot</div>
+      <BrandLogo height={24} pad="3px 7px"/>
     </div>}
     {/* Tap-away backdrop while the drawer is open */}
     {isMobile&&drawerOpen&&<div onClick={()=>setDrawerOpen(false)} style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.5)",zIndex:1001}}/>}
@@ -11930,7 +11938,7 @@ export default function App(){
       ?{width:250,maxWidth:"85vw",background:"#000000",display:"flex",flexDirection:"column",padding:"20px 0 28px",position:"fixed",top:0,left:0,height:"100vh",overflowY:"auto",zIndex:1002,transform:drawerOpen?"translateX(0)":"translateX(-100%)",transition:"transform 0.22s ease",boxShadow:drawerOpen?"2px 0 24px rgba(0,0,0,0.45)":"none"}
       :{width:210,background:"#000000",display:"flex",flexDirection:"column",padding:"40px 0 28px",flexShrink:0,position:"sticky",top:0,height:"100vh",overflowY:"auto"}}>
       <div style={{padding:"0 20px 28px",borderBottom:"1px solid rgba(255,255,255,0.06)",textAlign:"center",position:"relative"}}>
-        <div style={{fontSize:17,fontWeight:700,color:WHITE,letterSpacing:"0.16em",textTransform:"uppercase",lineHeight:1.15}}>Workshop Pilot</div>
+        <BrandLogo height={28}/>
         {isMobile&&<button onClick={()=>setDrawerOpen(false)} aria-label="Close menu" style={{position:"absolute",top:-2,right:10,background:"none",border:"none",color:"rgba(255,255,255,0.55)",fontSize:26,lineHeight:1,cursor:"pointer",padding:4}}>×</button>}
       </div>
       <nav style={{padding:"16px 12px",flex:1}}>
