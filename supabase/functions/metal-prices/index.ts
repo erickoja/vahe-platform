@@ -17,7 +17,7 @@
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
 const SERVICE_KEY  = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
 async function signedInUser(req: Request): Promise<boolean> {
-  const token = (req.headers.get("Authorization") ?? "").replace(/^Bearers+/i, "");
+  const token = (req.headers.get("Authorization") ?? "").replace(/^Bearer\s+/i, "");
   if (!token || !SUPABASE_URL || !SERVICE_KEY) return false;
   try {
     const r = await fetch(`${SUPABASE_URL}/auth/v1/user`, { headers: { apikey: SERVICE_KEY, Authorization: `Bearer ${token}` } });
