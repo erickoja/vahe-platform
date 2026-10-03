@@ -9808,7 +9808,7 @@ function Settings({biz,setBiz,markupTable,setMarkupTable,naturalStoneMarkup,setN
       <BracketEditor rows={tsl} setRows={setTsl} accent="#96627C"/>
       <div style={{display:"flex",justifyContent:"flex-end",marginTop:16}}><Btn onClick={saveTrade}>Save trade markups</Btn></div>
     </Card>
-    {billing&&billing.enabled&&<><SectionHeader eyebrow="Your studio" title="Subscription" subtitle="Your Workshop Pilot plan and billing."/><BillingCard billing={billing}/></>}
+    {billing&&billing.enabled&&<div id="billing-section" style={{scrollMarginTop:16}}><SectionHeader eyebrow="Your studio" title="Subscription" subtitle="Your Workshop Pilot plan and billing."/><BillingCard billing={billing}/></div>}
     {supabaseEnabled&&<><SectionHeader eyebrow="Your studio" title="Team" subtitle="Invite teammates into this studio — everyone shares the same jobs, clients and invoices."/><TeamCard/></>}
     <SectionHeader eyebrow="Your studio" title="Data safety" subtitle="Automatic backups you can restore from — so nothing gets lost for good."/>
     {dataSafety&&<DataSafetyCard {...dataSafety}/>}
@@ -11979,7 +11979,9 @@ export default function App(){
       </div>
     </div>
     <div className="mainpad" style={{flex:1,width:"100%",minWidth:0,overflowX:"auto"}}>
-      {billing.enabled&&(billing.lapsed||(billing.trialing&&billing.daysLeft!=null))&&<div onClick={()=>setView("settings")} style={{cursor:"pointer",marginBottom:16,borderRadius:10,padding:"12px 16px",display:"flex",alignItems:"center",gap:12,flexWrap:"wrap",background:billing.lapsed?DANGER+"12":GOLD_L,border:`1px solid ${billing.lapsed?DANGER+"66":GOLD}55`}}>
+      {billing.enabled&&(billing.lapsed||(billing.trialing&&billing.daysLeft!=null))&&<div onClick={()=>{setView("settings");
+        // The Subscription card sits near the bottom of Settings, so jump straight to it (retry while Settings mounts).
+        let tries=0;const go=()=>{const el=document.getElementById("billing-section");if(el)el.scrollIntoView({behavior:"smooth",block:"start"});else if(++tries<20)setTimeout(go,50);};setTimeout(go,0);}}style={{cursor:"pointer",marginBottom:16,borderRadius:10,padding:"12px 16px",display:"flex",alignItems:"center",gap:12,flexWrap:"wrap",background:billing.lapsed?DANGER+"12":GOLD_L,border:`1px solid ${billing.lapsed?DANGER+"66":GOLD}55`}}>
         <span style={{fontSize:18}}>{billing.lapsed?"🔒":"✨"}</span>
         <span style={{flex:1,minWidth:180,fontSize:13,fontWeight:600,color:billing.lapsed?DANGER:GOLD_D}}>
           {billing.lapsed?(billing.status==="past_due"?"Your last payment failed — your data is safe and viewable, but update your card to add or edit.":"Your trial has ended — your data is safe and viewable, but you'll need to subscribe to add or edit."):`${billing.daysLeft} day${billing.daysLeft===1?"":"s"} left in your free trial.`}
