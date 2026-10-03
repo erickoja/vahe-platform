@@ -1119,7 +1119,9 @@ function billingState(sub){
   const trialing=status==="trialing";
   const trialLive=trialing&&(trialEndsAt==null||trialEndsAt>now);
   const daysLeft=trialEndsAt!=null?Math.max(0,Math.ceil((trialEndsAt-now)/86400000)):null;
-  const canEdit=!BILLING_ENABLED||active||trialLive;
+  // Unknown status (not loaded yet, or the lookup failed) must never lock a studio out: fail open.
+  // A transient read error shouldn't make a paying customer read-only.
+  const canEdit=!BILLING_ENABLED||!status||active||trialLive;
   return {enabled:BILLING_ENABLED,status,plan:sub?.plan||null,active,trialing,trialLive,daysLeft,periodEnd:sub?.current_period_end||null,canEdit,lapsed:BILLING_ENABLED&&!canEdit};
 }
 // Reusable "✉️ Email" button + review dialog. Disabled until a shareable link exists.
@@ -4692,7 +4694,13 @@ function RepairIntakeCard({job,setJobs,biz,clients,markupTable,pricing=[],invoic
   </Card>;
 }
 
-function JobDetail({jobId,jobs,setJobs,clients,setClients,quotes,setQuotes,payments,setPayments,notes,setNotes,invoices,setInvoices,proposals,setProposals,biz,markupTable,pricing=[],setView}){
+// Wrapper: render nothing if the job vanished (deleted elsewhere / realtime sync) BEFORE any hooks run,
+// so the inner component never changes its hook count mid-life (that crashed the page).
+function JobDetail(props){
+  if(!props.jobs.some(j=>j.id===props.jobId))return null;
+  return <JobDetailInner key={props.jobId} {...props}/>;
+}
+function JobDetailInner({jobId,jobs,setJobs,clients,setClients,quotes,setQuotes,payments,setPayments,notes,setNotes,invoices,setInvoices,proposals,setProposals,biz,markupTable,pricing=[],setView}){
   const isMobile=useIsMobile();
   const job=jobs.find(j=>j.id===jobId);
   if(!job)return null;
@@ -5931,7 +5939,7 @@ function QuoteBuilder({jobId:jobIdProp,editQuoteId,stockId,stock,setStock,jobs,c
             {NAV_CATS.map(cat=>{
               const n=cat==="All"?pricing.filter(p=>p.category!=="Accent Stones").length:pricing.filter(p=>p.category===cat).length;
               const active=!pSearching&&pCat===cat;
-              return <button key={cat} onClick={()=>{setPCat(cat);setSelCAD(null);setPSearch("");}}
+              return <button key={cat} onClick={()=>{setPCat(cat);setPSearch("");}}
                 style={{display:"flex",justifyContent:"space-between",alignItems:"center",gap:8,width:isMobile?"auto":"100%",flexShrink:isMobile?0:undefined,whiteSpace:isMobile?"nowrap":undefined,textAlign:"left",padding:"8px 12px",borderRadius:6,border:isMobile?`1px solid ${active?GOLD:BD}`:"none",background:active?GOLD:(isMobile?WHITE:"transparent"),color:active?WHITE:INK,fontSize:12,fontWeight:700,cursor:"pointer",fontFamily:"inherit",marginBottom:isMobile?0:2}}>
                 <span>{catTitle(cat)}</span>
                 {n>0&&<span style={{fontSize:10,fontWeight:700,color:active?"rgba(255,255,255,0.75)":WG}}>{n}</span>}
@@ -9902,9 +9910,10 @@ function BillingCard({billing}){
         <div style={{fontWeight:700,fontSize:15,color:INK}}>Plan</div>
         <div style={{fontSize:13,fontWeight:700,color:col,marginTop:3}}>{statusLine}</div>
       </div>
-      {billing.active&&<Btn sm ghost onClick={()=>act("portal")} disabled={!!busy}>{busy==="portal"?"Opening…":"Manage billing"}</Btn>}
+      {(billing.active||billing.status==="past_due")&&<Btn sm ghost onClick={()=>act("portal")} disabled={!!busy}>{busy==="portal"?"Opening…":billing.status==="past_due"?"Update payment method":"Manage billing"}</Btn>}
     </div>
-    {!billing.active&&<>
+    {billing.status==="past_due"&&<div style={{fontSize:13,color:WG,lineHeight:1.6}}>Your last payment didn't go through. Update your card with “Update payment method” and your account reactivates automatically. Please don't subscribe again, you'd be billed twice.</div>}
+    {!billing.active&&billing.status!=="past_due"&&<>
       <div style={{fontSize:13,color:WG,lineHeight:1.6,marginBottom:14}}>{billing.lapsed?"Subscribe to keep adding and editing — all your data stays safe and viewable in the meantime.":"Choose a plan to continue after your trial. Cancel anytime."}</div>
       <div style={{display:"flex",gap:10,flexWrap:"wrap"}}>
         <Btn onClick={()=>act("checkout","monthly")} disabled={!!busy}>{busy==="monthly"?"Redirecting…":"Subscribe monthly"}</Btn>
@@ -11973,7 +11982,7 @@ export default function App(){
       {billing.enabled&&(billing.lapsed||(billing.trialing&&billing.daysLeft!=null))&&<div onClick={()=>setView("settings")} style={{cursor:"pointer",marginBottom:16,borderRadius:10,padding:"12px 16px",display:"flex",alignItems:"center",gap:12,flexWrap:"wrap",background:billing.lapsed?DANGER+"12":GOLD_L,border:`1px solid ${billing.lapsed?DANGER+"66":GOLD}55`}}>
         <span style={{fontSize:18}}>{billing.lapsed?"🔒":"✨"}</span>
         <span style={{flex:1,minWidth:180,fontSize:13,fontWeight:600,color:billing.lapsed?DANGER:GOLD_D}}>
-          {billing.lapsed?"Your trial has ended — your data is safe and viewable, but you'll need to subscribe to add or edit.":`${billing.daysLeft} day${billing.daysLeft===1?"":"s"} left in your free trial.`}
+          {billing.lapsed?(billing.status==="past_due"?"Your last payment failed — your data is safe and viewable, but update your card to add or edit.":"Your trial has ended — your data is safe and viewable, but you'll need to subscribe to add or edit."):`${billing.daysLeft} day${billing.daysLeft===1?"":"s"} left in your free trial.`}
         </span>
         <span style={{fontSize:12,fontWeight:800,color:"#fff",background:billing.lapsed?DANGER:GOLD,borderRadius:8,padding:"7px 14px",whiteSpace:"nowrap"}}>{billing.lapsed?"Subscribe":"View plans"}</span>
       </div>}

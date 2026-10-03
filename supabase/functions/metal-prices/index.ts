@@ -11,6 +11,22 @@
 //  members can spend the metals.dev request quota.
 // ============================================================================
 
+
+// "Verify JWT" alone is NOT enough: the public anon key is itself a valid JWT, so anyone holding the
+// app's anon key would pass it. Require a real signed-in USER (the token must resolve to a user).
+const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
+const SERVICE_KEY  = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
+async function signedInUser(req: Request): Promise<boolean> {
+  const token = (req.headers.get("Authorization") ?? "").replace(/^Bearers+/i, "");
+  if (!token || !SUPABASE_URL || !SERVICE_KEY) return false;
+  try {
+    const r = await fetch(`${SUPABASE_URL}/auth/v1/user`, { headers: { apikey: SERVICE_KEY, Authorization: `Bearer ${token}` } });
+    if (!r.ok) return false;
+    const u = await r.json();
+    return !!u?.id;
+  } catch { return false; }
+}
+
 const API_KEY = Deno.env.get("METALS_DEV_API_KEY") ?? "";
 const TROY_OZ_GRAMS = 31.1034768;
 
@@ -25,6 +41,7 @@ const json = (body: unknown, status = 200) =>
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: CORS });
+  if (!(await signedInUser(req))) return json({ error: "not signed in" }, 401);
   try {
     if (!API_KEY) return json({ error: "METALS_DEV_API_KEY secret is not set" }, 500);
 

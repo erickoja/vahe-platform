@@ -24,7 +24,12 @@ async function verify(payload: string, header: string): Promise<boolean> {
   const key = await crypto.subtle.importKey("raw", enc.encode(WH_SECRET), { name: "HMAC", hash: "SHA-256" }, false, ["sign"]);
   const mac = await crypto.subtle.sign("HMAC", key, enc.encode(`${parts.t}.${payload}`));
   const hex = [...new Uint8Array(mac)].map((b) => b.toString(16).padStart(2, "0")).join("");
-  return hex === parts.v1;
+  // Constant-time compare, and reject stale timestamps (replay protection, 5 min tolerance like Stripe's libs).
+  if (Math.abs(Date.now() / 1000 - Number(parts.t)) > 300) return false;
+  if (hex.length !== parts.v1.length) return false;
+  let diff = 0;
+  for (let i = 0; i < hex.length; i++) diff |= hex.charCodeAt(i) ^ parts.v1.charCodeAt(i);
+  return diff === 0;
 }
 
 async function getSubscription(id: string) {
@@ -40,13 +45,33 @@ const planFrom = (sub: any) => {
   return i === "year" ? "annual" : i === "month" ? "monthly" : null;
 };
 
+// Stripe API 2025-03-31+ moved current_period_end from the subscription onto its items.
+const periodEnd = (sub: any) => {
+  const t = sub?.current_period_end ?? sub?.items?.data?.[0]?.current_period_end;
+  return t ? new Date(t * 1000).toISOString() : null;
+};
+// Newer API versions also moved invoice.subscription under invoice.parent.subscription_details.
+const invoiceSubId = (inv: any): string | null =>
+  inv?.subscription ? String(inv.subscription) : (inv?.parent?.subscription_details?.subscription ? String(inv.parent.subscription_details.subscription) : null);
+
+// Is this subscription the one currently on the studio? Stale/old subscriptions (e.g. a past_due one the studio
+// replaced) must not flip a studio that has since moved to a newer subscription.
+async function isCurrentSub(subId: string | undefined, studioId?: string, customer?: string) {
+  if (!subId) return true;
+  const q = studioId ? admin.from("studios").select("stripe_subscription_id").eq("id", studioId)
+                     : admin.from("studios").select("stripe_subscription_id").eq("stripe_customer_id", String(customer ?? ""));
+  const { data } = await q.maybeSingle();
+  const cur = data?.stripe_subscription_id;
+  return !cur || cur === subId;
+}
+
 async function applySub(sub: any) {
   const studioId = sub?.metadata?.studio_id;
   const patch: Record<string, unknown> = {
     sub_status: statusMap(sub.status),
     plan: planFrom(sub),
     stripe_subscription_id: sub.id,
-    current_period_end: sub.current_period_end ? new Date(sub.current_period_end * 1000).toISOString() : null,
+    current_period_end: periodEnd(sub),
   };
   if (studioId) await admin.from("studios").update(patch).eq("id", studioId);
   else if (sub.customer) await admin.from("studios").update(patch).eq("stripe_customer_id", String(sub.customer));
@@ -68,6 +93,7 @@ Deno.serve(async (req) => {
         await applySub(obj);
         break;
       case "customer.subscription.deleted":
+        if (!(await isCurrentSub(obj.id, obj.metadata?.studio_id, obj.customer))) break;   // an old sub ending must not cancel a newer one
         if (obj.metadata?.studio_id) await admin.from("studios").update({ sub_status: "canceled" }).eq("id", obj.metadata.studio_id);
         else if (obj.customer) await admin.from("studios").update({ sub_status: "canceled" }).eq("stripe_customer_id", String(obj.customer));
         break;
@@ -79,11 +105,13 @@ Deno.serve(async (req) => {
         }
         break;
       case "invoice.payment_failed":
-        if (obj.customer) await admin.from("studios").update({ sub_status: "past_due" }).eq("stripe_customer_id", String(obj.customer));
+        if (obj.customer && (await isCurrentSub(invoiceSubId(obj) ?? undefined, undefined, obj.customer))) await admin.from("studios").update({ sub_status: "past_due" }).eq("stripe_customer_id", String(obj.customer));
         break;
-      case "invoice.paid":
-        if (obj.subscription) await applySub(await getSubscription(String(obj.subscription)));
+      case "invoice.paid": {
+        const sid = invoiceSubId(obj);
+        if (sid) await applySub(await getSubscription(sid));
         break;
+      }
     }
     return new Response(JSON.stringify({ received: true }), { status: 200, headers: { "Content-Type": "application/json" } });
   } catch (e) {

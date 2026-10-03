@@ -60,14 +60,21 @@ Deno.serve(async (req) => {
     const email = userData.user.email ?? undefined;
 
     // Resolve the caller's studio.
-    const { data: mem } = await admin.from("studio_members").select("studio_id").eq("user_id", userData.user.id).limit(1).maybeSingle();
+    const { data: mem } = await admin.from("studio_members").select("studio_id,role").eq("user_id", userData.user.id).limit(1).maybeSingle();
     const studioId = mem?.studio_id;
     if (!studioId) return json({ error: "no studio for this user" }, 400);
-    const { data: studio } = await admin.from("studios").select("id,name,stripe_customer_id").eq("id", studioId).maybeSingle();
+    // Billing is an owner/admin matter: staff must not be able to subscribe, cancel or change the card.
+    if (!["owner", "admin"].includes(String(mem?.role))) return json({ error: "only the studio owner or an admin can manage billing" }, 403);
+    const { data: studio } = await admin.from("studios").select("id,name,stripe_customer_id,stripe_subscription_id,sub_status").eq("id", studioId).maybeSingle();
 
     const body = await req.json().catch(() => ({}));
     const action = body.action;
-    const origin = req.headers.get("Origin") || body.returnUrl || "";
+    // Only ever send the user back to one of our own app hosts (never an arbitrary caller-supplied URL).
+    const ALLOWED = ["app.workshoppilot.app", "app.prongstudio.app", "vahe-testers.vercel.app"];
+    const rawOrigin = req.headers.get("Origin") || body.returnUrl || "";
+    let origin = "";
+    try { const u = new URL(rawOrigin); if (ALLOWED.includes(u.hostname)) origin = u.origin; } catch { /* fall through */ }
+    if (!origin) origin = "https://app.workshoppilot.app";
 
     // Ensure a Stripe customer exists for this studio.
     let customerId = studio?.stripe_customer_id as string | undefined;
@@ -87,6 +94,12 @@ Deno.serve(async (req) => {
     }
 
     if (action === "checkout") {
+      // Never start a second subscription for a studio that already has a live one (double billing).
+      if (studio?.stripe_subscription_id && ["active", "past_due"].includes(String(studio?.sub_status))) {
+        return json({ error: studio?.sub_status === "past_due"
+          ? "Your last payment failed. Use 'Update payment method' instead of subscribing again."
+          : "You're already subscribed. Use 'Manage billing' to change plan or cancel." }, 409);
+      }
       const plan = body.plan === "annual" ? "annual" : "monthly";
       const price = PRICE[plan];
       if (!price) return json({ error: `missing price id for ${plan} (STRIPE_PRICE_${plan.toUpperCase()})` }, 500);

@@ -22,6 +22,9 @@ const SUPABASE_URL   = Deno.env.get("SUPABASE_URL")   ?? "";
 const SERVICE_KEY    = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
 
 const BIZ_KEY = "jlr4_biz";
+// Everything in the alert comes from a PUBLIC page (client-typed name, proposal snapshot), so it must be
+// HTML-escaped before going into the studio's inbox, otherwise a visitor could inject markup/links.
+const esc = (v: unknown) => String(v ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 
 // The studio's currency/tax settings live in its saved business settings (studio_state jlr4_biz),
 // so the alert email shows the right symbol + tax label (£/VAT, $/GST, etc.) per studio.
@@ -85,20 +88,20 @@ Deno.serve(async (req) => {
 
     const data = record.data ?? {};
     const opt  = (data.options ?? []).find((o: any) => o.id === record.accepted_option);
-    const price = opt && opt.price != null ? `${money(opt.price)} inc ${taxLabel}` : "—";
+    const price = opt && opt.price != null ? `${money(Number(opt.price))} inc ${taxLabel}` : "—";
     const subject = `✅ Proposal accepted — ${data.clientName || "Client"} (${data.jobType || "job"})`;
     const html = `
       <div style="font-family:Arial,Helvetica,sans-serif;color:#0A0A0A;max-width:520px">
         <h2 style="margin:0 0 8px">Proposal accepted 🎉</h2>
-        <p style="margin:0 0 16px;color:#555"><strong>${record.accepted_name || "A client"}</strong> just accepted a proposal online.</p>
+        <p style="margin:0 0 16px;color:#555"><strong>${esc(record.accepted_name || "A client")}</strong> just accepted a proposal online.</p>
         <table style="border-collapse:collapse;font-size:14px">
-          <tr><td style="padding:4px 14px 4px 0;color:#888">Client</td><td><strong>${data.clientName || "—"}</strong></td></tr>
-          <tr><td style="padding:4px 14px 4px 0;color:#888">Piece</td><td>${data.jobType || "—"}</td></tr>
-          <tr><td style="padding:4px 14px 4px 0;color:#888">Option chosen</td><td>${opt ? opt.label : (record.accepted_option || "—")}</td></tr>
-          <tr><td style="padding:4px 14px 4px 0;color:#888">Price</td><td><strong>${price}</strong></td></tr>
-          <tr><td style="padding:4px 14px 4px 0;color:#888">Accepted by</td><td>${record.accepted_name || "—"}</td></tr>
+          <tr><td style="padding:4px 14px 4px 0;color:#888">Client</td><td><strong>${esc(data.clientName || "—")}</strong></td></tr>
+          <tr><td style="padding:4px 14px 4px 0;color:#888">Piece</td><td>${esc(data.jobType || "—")}</td></tr>
+          <tr><td style="padding:4px 14px 4px 0;color:#888">Option chosen</td><td>${esc(opt ? opt.label : (record.accepted_option || "—"))}</td></tr>
+          <tr><td style="padding:4px 14px 4px 0;color:#888">Price</td><td><strong>${esc(price)}</strong></td></tr>
+          <tr><td style="padding:4px 14px 4px 0;color:#888">Accepted by</td><td>${esc(record.accepted_name || "—")}</td></tr>
         </table>
-        <p style="margin:18px 0 0;color:#888;font-size:12px">Open your ${studioName} CRM to review and arrange the deposit.</p>
+        <p style="margin:18px 0 0;color:#888;font-size:12px">Open your ${esc(studioName)} CRM to review and arrange the deposit.</p>
       </div>`;
 
     const res = await fetch("https://api.resend.com/emails", {
