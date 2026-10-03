@@ -90,7 +90,8 @@ Deno.serve(async (req) => {
     switch (event.type) {
       case "customer.subscription.created":
       case "customer.subscription.updated":
-        await applySub(obj);
+        // A live sub always wins; an old non-live sub (e.g. a replaced past_due one) must not overwrite the current one.
+        if (["active", "trialing"].includes(obj.status) || (await isCurrentSub(obj.id, obj.metadata?.studio_id, obj.customer))) await applySub(obj);
         break;
       case "customer.subscription.deleted":
         if (!(await isCurrentSub(obj.id, obj.metadata?.studio_id, obj.customer))) break;   // an old sub ending must not cancel a newer one
