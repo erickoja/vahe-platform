@@ -5443,7 +5443,8 @@ function QuoteBuilder({jobId:jobIdProp,editQuoteId,stockId,stock,setStock,jobs,c
       :item.unit==="stone"?`${q} stone${q!==1?"s":""}`
       :q>1?`× ${q}`:"";
     // Snapshot both per-gram costs so the line's Cast/Fabricated toggle can switch without spot access.
-    const metalFields=isMetalLine?{metalMethod:"cast",metalGrams:q,metalCastPerG:Number(item.baseCost)||0,metalFabPerG:Number(item.baseCostFab!=null?item.baseCostFab:item.baseCost)||0}:{};
+    // metalKey/purity/pricingId also let Stock work out a piece's scrap value.
+    const metalFields=isMetalLine?{metalMethod:"cast",metalGrams:q,metalKey:item.metalKey,purity:item.purity,pricingId:item.id,metalCastPerG:Number(item.baseCost)||0,metalFabPerG:Number(item.baseCostFab!=null?item.baseCostFab:item.baseCost)||0}:{};
     setItems(p=>[...p,{id:uid(),description:desc,detail,costLow:String(totalCost),noMarkup:item.noMarkup||false,...metalFields}]);
     setPQty(p=>({...p,[item.id]:""}));   // clear this row's qty; popup stays open for more adds
     markAdded(item.id,totalCost);
@@ -5534,7 +5535,9 @@ function QuoteBuilder({jobId:jobIdProp,editQuoteId,stockId,stock,setStock,jobs,c
       // Your true cost = marked-up items' cost (base) + at-cost items (flatCost, ex any GST) + any sourced stones.
       const costTotal=calc.base+calc.flatCost+sourcedStoneCost;
       const retail=manualOn?Number(manualTotal):grandTotal;
-      setStock(p=>{const n=p.map(s=>s.id===stockId?{...s,pricing:payload,cost:Math.round(costTotal),price:Math.round(retail),pricedAt:today()}:s);persist(K.st,n);return n;});
+      // The build's metal lines also give the piece's metal content (for its scrap value).
+      const builtMetals=metalsFromPricing(payload,pricing);
+      setStock(p=>{const n=p.map(s=>s.id===stockId?{...s,pricing:payload,cost:Math.round(costTotal),price:Math.round(retail),pricedAt:today(),...(builtMetals.length?{metals:builtMetals}:{})}:s);persist(K.st,n);return n;});
       setView("stock");
       return;
     }
@@ -9185,7 +9188,7 @@ function SpotPriceUpdater({spotPrices,setSpotPrices,pricing,setPricing,onClose})
     setFetching(false);
   };
   const apply=()=>{
-    const ns={gold:Number(g),platinum:Number(pt),silver:Number(ag),
+    const ns={...spotPrices,gold:Number(g),platinum:Number(pt),silver:Number(ag),
       premGold:Number(pmG)||0,premGoldWhite:Number(pmGW)||0,premPlatinum:Number(pmPt)||0,premSilver:Number(pmAg)||0,premFab:Number(pmFab)||0,updatedAt:today()};
     setSpotPrices(ns);persist(K.spot,ns);
     // Pricing DB metal costs = (spot × (1 + premium%)) × purity — your cost, not the market's.
@@ -10858,6 +10861,39 @@ const stockMargin=(price,cost)=>{
   const exGst=p/(1+GST_RATE);
   return{profit:exGst-c,pct:Math.round((exGst-c)/exGst*100)};
 };
+// ── Scrap (melt) value ──
+// What the metal in a piece would fetch from a refiner today: grams × purity × spot × payout%.
+// Uses raw market spot (casting premiums are what you PAY for metal, not what you're paid).
+// Stones are ignored. Payout % lives on spotPrices.scrapPayout (default 95).
+const SCRAP_PAYOUT_DEFAULT=95;
+const scrapPayoutOf=sp=>{const v=Number(sp?.scrapPayout);return v>0?v:SCRAP_PAYOUT_DEFAULT;};
+// Metal content of a piece pulled from its "Generate price" build: spot-linked metal lines carry
+// grams; their metal/purity comes from the line snapshot or, for older lines, a Pricing DB name match.
+const metalsFromPricing=(payload,pricing=[])=>{
+  const out=[];
+  for(const li of (payload?.lineItems||[])){
+    const g=Number(li.metalGrams);if(!(g>0))continue;
+    const db=pricing.find(p=>p.category==="Metals"&&p.metalKey&&(p.id===li.pricingId||p.name===li.description));
+    const metalKey=li.metalKey||db?.metalKey,purity=Number(li.purity??db?.purity);
+    if(!metalKey||!(purity>0))continue;
+    const name=db?.name||li.description;
+    const same=out.find(m=>m.metalKey===metalKey&&m.purity===purity&&m.name===name);
+    if(same)same.grams=+(Number(same.grams)+g).toFixed(2);
+    else out.push({id:uid(),pricingId:db?.id||li.pricingId||"",name,metalKey,purity,grams:g});
+  }
+  return out;
+};
+// A piece's metal content: what's been saved on it (even if cleared), else what its price build implies.
+const stockMetals=(it,pricing)=>Array.isArray(it.metals)?it.metals:metalsFromPricing(it.pricing,pricing);
+// Scrap value of ONE unit of a piece, or null when no metal weight is known.
+const scrapValueOf=(metals,sp)=>{
+  const pay=scrapPayoutOf(sp)/100;let total=0,any=false;
+  for(const m of metals||[]){
+    const g=Number(m.grams),p=Number(m.purity),s=Number(sp?.[m.metalKey])||0;
+    if(g>0&&p>0&&s>0){total+=g*p*s*pay;any=true;}
+  }
+  return any?total:null;
+};
 
 const GEM_TYPES=["Diamond","Sapphire","Ruby","Emerald","Opal","Pearl","Aquamarine","Topaz","Amethyst","Garnet","Tourmaline","Tanzanite","Spinel","Morganite","Other"];
 const GEM_SHAPES=["","Round","Oval","Cushion","Princess","Emerald","Pear","Marquise","Radiant","Asscher","Heart","Trillion","Baguette","Cabochon","Other"];
@@ -11124,7 +11160,7 @@ function GemCustody({custody,setCustody,clients,biz}){
   </div>;
 }
 
-function StockBoard({stock,setStock,setView}){
+function StockBoard({stock,setStock,setView,pricing=[],spotPrices={},setSpotPrices,onUpdateSpot}){
   // Persist + set together. Pass a function to update from the freshest state — this is
   // race-safe: a slow photo upload can't clobber edits (or lose images) made meanwhile.
   const save=next=>{if(!guardEdit())return;setStock(prev=>{const n=typeof next==="function"?next(prev):next;persist(K.st,n);return n;});};
@@ -11166,9 +11202,11 @@ function StockBoard({stock,setStock,setView}){
   },[editId]);   // eslint-disable-line
 
   const fields=it=>({title:it.title||"",sku:it.sku||"",category:it.category||"Ring",description:it.description||"",
-    metal:it.metal||"",metal2:it.metal2||"",make:it.make||"",stones:it.stones||"",cost:it.cost||"",price:it.price||"",status:it.status||"Available",location:it.location||"",qty:it.qty||1});
+    metal:it.metal||"",metal2:it.metal2||"",make:it.make||"",stones:it.stones||"",cost:it.cost||"",price:it.price||"",status:it.status||"Available",location:it.location||"",qty:it.qty||1,
+    metals:stockMetals(it,pricing).map(m=>({...m}))});
   const draftFields=d=>({title:(d.title||"").trim(),sku:(d.sku||"").trim(),category:d.category,description:(d.description||"").trim(),
-    metal:d.metal||"",metal2:d.metal2||"",make:d.make||"",stones:(d.stones||"").trim(),cost:d.cost,price:d.price,status:d.status,location:(d.location||"").trim(),qty:Number(d.qty)||1});
+    metal:d.metal||"",metal2:d.metal2||"",make:d.make||"",stones:(d.stones||"").trim(),cost:d.cost,price:d.price,status:d.status,location:(d.location||"").trim(),qty:Number(d.qty)||1,
+    metals:(d.metals||[]).filter(m=>m.metalKey&&Number(m.grams)>0).map(m=>({...m,grams:Number(m.grams)}))});
   const openEdit=it=>{setEditId(it.id);setIsNew(false);setDraft(fields(it));setErr("");setModalUrls({});};
   const openNew=()=>{
     const it={id:uid(),status:"Available",category:"Ring",qty:1,images:[],createdAt:today(),sku:""};
@@ -11223,6 +11261,23 @@ function StockBoard({stock,setStock,setView}){
   // Potential margin is measured ex-GST (retail is GST-inclusive, cost is ex-GST) to match the per-piece figure.
   const marginVal=retailVal/(1+GST_RATE)-costVal;
   const availCount=stock.filter(it=>(it.status||"Available")==="Available").length;
+  // Scrap value of everything on hand (pieces with a known metal weight only)
+  const payout=scrapPayoutOf(spotPrices);
+  let scrapVal=0,scrapCount=0;
+  for(const it of live){const v=scrapValueOf(stockMetals(it,pricing),spotPrices);if(v!=null){scrapVal+=v*Number(it.qty||1);scrapCount++;}}
+  const[editPayout,setEditPayout]=useState(false);
+  const[payoutDraft,setPayoutDraft]=useState("");
+  const savePayout=()=>{
+    if(!guardEdit())return;
+    const v=Number(payoutDraft);
+    if(!(v>0&&v<=100))return alert("Enter a payout between 1 and 100%.");
+    setSpotPrices(prev=>{const n={...prev,scrapPayout:v};persist(K.spot,n);return n;});
+    setEditPayout(false);
+  };
+  // Pricing DB metals that are linked to spot — the choices for a piece's metal content
+  const metalOpts=pricing.filter(p=>p.category==="Metals"&&p.metalKey&&p.purity!=null);
+  const setMetal=(id,patch)=>setDraft(d=>({...d,metals:(d.metals||[]).map(m=>m.id===id?{...m,...patch}:m)}));
+  const pickMetal=(id,pid)=>{const o=metalOpts.find(p=>p.id===pid);setMetal(id,o?{pricingId:o.id,name:o.name,metalKey:o.metalKey,purity:Number(o.purity)}:{pricingId:"",name:"",metalKey:"",purity:null});};
 
   const cats=["All",...STOCK_CATEGORIES.map(c=>c.name).filter(n=>stock.some(s=>s.category===n))];
   const shown=stock.filter(it=>{
@@ -11263,6 +11318,17 @@ function StockBoard({stock,setStock,setView}){
             <Stat label="Available" value={availCount} tint="slate" icon={ICON_CHECK}/>
             <Stat label="Retail value" value={fmtR(retailVal)} tint="slate" icon={ICON_DOLLAR} sub="excludes sold"/>
             <Stat label="Potential margin" value={fmtR(marginVal)} tint="slate" icon={ICON_DOLLAR} sub={`cost ${fmtR(costVal)} · excl. ${TAX_LABEL}`}/>
+            <Stat label="Scrap value" value={scrapCount?fmtR(scrapVal):"—"} tint="slate" icon={ICON_DOLLAR} sub={scrapCount?`metal only · ${scrapCount} of ${live.length} piece${live.length!==1?"s":""} weighed`:"add metal weights to pieces"}/>
+          </div>
+          {/* How the scrap figure is worked out, and where to change it */}
+          <div style={{fontSize:12,color:WG,marginTop:-8,marginBottom:18,lineHeight:1.6}}>
+            {editPayout
+              ? <span style={{display:"inline-flex",alignItems:"center",gap:6,flexWrap:"wrap"}}>Refiner pays
+                  <input type="number" min="1" max="100" value={payoutDraft} autoFocus onChange={e=>setPayoutDraft(e.target.value)} onKeyDown={e=>{if(e.key==="Enter")savePayout();if(e.key==="Escape")setEditPayout(false);}} style={{...SS.inp,marginTop:0,width:70,padding:"4px 8px"}}/>% of spot
+                  <Btn sm onClick={savePayout}>Save</Btn><Btn sm ghost onClick={()=>setEditPayout(false)}>Cancel</Btn></span>
+              : <span>Scrap value = metal weight × purity × spot × <strong style={{color:INK}}>{payout}%</strong> refiner payout, using spot prices from {fmtDate(spotPrices.updatedAt)}.
+                  {" "}<button onClick={()=>{setPayoutDraft(String(payout));setEditPayout(true);}} style={{background:"none",border:"none",padding:0,color:GOLD_D,fontWeight:700,fontSize:12,cursor:"pointer"}}>Change payout</button>
+                  {onUpdateSpot&&<>{" · "}<button onClick={onUpdateSpot} style={{background:"none",border:"none",padding:0,color:GOLD_D,fontWeight:700,fontSize:12,cursor:"pointer"}}>Update spot prices</button></>}</span>}
           </div>
 
           {/* Filter bar */}
@@ -11278,6 +11344,7 @@ function StockBoard({stock,setStock,setView}){
                 {shown.map(it=>{
                   const url=thumbs[it.id];
                   const margin=stockMargin(it.price,it.cost);
+                  const scrap=scrapValueOf(stockMetals(it,pricing),spotPrices);
                   const sc=stockStatusColor(it.status);
                   const sold=(it.status||"")==="Sold";
                   return <div key={it.id} onClick={()=>openEdit(it)} style={{background:WHITE,border:`1px solid ${BD_SOFT}`,borderRadius:RADIUS,boxShadow:SHADOW,overflow:"hidden",cursor:"pointer",opacity:sold?0.72:1}}>
@@ -11294,6 +11361,7 @@ function StockBoard({stock,setStock,setView}){
                         <span style={{fontSize:16,fontWeight:800,color:INK}}>{it.price?fmtR(it.price):"—"}</span>
                         {margin&&<span style={{fontSize:11,fontWeight:700,color:margin.pct>=0?OK:DANGER}}>{margin.pct}% margin</span>}
                       </div>
+                      {scrap!=null&&<div style={{fontSize:11.5,color:WG,marginTop:4}}>Scrap value <strong style={{color:INK}}>{fmtR(scrap)}</strong></div>}
                     </div>
                   </div>;
                 })}
@@ -11323,6 +11391,28 @@ function StockBoard({stock,setStock,setView}){
             <Input label={`Retail price (${CUR_SYM})`} type="number" min="0" value={draft.price} onChange={v=>setDraft(d=>({...d,price:v}))}/>
           </div>
           {(()=>{const m=stockMargin(draft.price,draft.cost);return m&&<div style={{fontSize:12,color:WG,marginTop:-4,marginBottom:10}}>Margin: <strong style={{color:OK}}>{fmtR(m.profit)}</strong> · {m.pct}% <span style={{color:WG}}>(excl. {TAX_LABEL})</span></div>;})()}
+          {/* Metal content → scrap value */}
+          <div style={{border:`1px solid ${BD}`,borderRadius:5,padding:"12px 14px",marginBottom:14}}>
+            <div style={{display:"flex",justifyContent:"space-between",alignItems:"baseline",gap:10,marginBottom:8,flexWrap:"wrap"}}>
+              <span style={{...SS.lbl,margin:0}}>Metal content</span>
+              {(()=>{const v=scrapValueOf(draft.metals,spotPrices);const q=Number(draft.qty)||1;return v!=null&&<span style={{fontSize:12,color:WG}}>Scrap value <strong style={{color:INK}}>{fmtR(v)}</strong>{q>1?` each · ${fmtR(v*q)} total`:""}</span>;})()}
+            </div>
+            {(draft.metals||[]).map(m=>(
+              <div key={m.id} style={{display:"grid",gridTemplateColumns:"1fr 84px 26px",gap:8,alignItems:"center",marginBottom:6}}>
+                <select value={m.pricingId||""} onChange={e=>pickMetal(m.id,e.target.value)} style={{...SS.inp,marginTop:0}}>
+                  <option value="">{m.metalKey&&!m.pricingId?m.name:"Select metal…"}</option>
+                  {metalOpts.map(o=><option key={o.id} value={o.id}>{o.name}</option>)}
+                </select>
+                <input type="number" min="0" step="0.01" placeholder="grams" value={m.grams} onChange={e=>setMetal(m.id,{grams:e.target.value})} style={{...SS.inp,marginTop:0}}/>
+                <button onClick={()=>setDraft(d=>({...d,metals:d.metals.filter(x=>x.id!==m.id)}))} title="Remove" style={{border:"none",background:"none",color:WG,fontSize:17,cursor:"pointer",padding:0}}>×</button>
+              </div>
+            ))}
+            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",gap:10,flexWrap:"wrap"}}>
+              <button onClick={()=>setDraft(d=>({...d,metals:[...(d.metals||[]),{id:uid(),pricingId:"",name:"",metalKey:"",purity:null,grams:""}]}))} style={{background:"none",border:"none",padding:0,color:GOLD_D,fontWeight:700,fontSize:12,cursor:"pointer"}}>+ Add metal</button>
+              <span style={{fontSize:11,color:WG}}>Finished weight in grams · stones not included</span>
+            </div>
+            {!metalOpts.length&&<div style={{fontSize:11.5,color:WARN,marginTop:6}}>Link your metals to spot in the Pricing DB to choose them here.</div>}
+          </div>
           {/* Build the price with the same engine as quotes (materials + labour + stones + your markup) */}
           <div style={{background:PARCH,border:`1px solid ${BD}`,borderRadius:5,padding:"12px 14px",marginBottom:14}}>
             <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",gap:10,flexWrap:"wrap"}}>
@@ -11885,7 +11975,7 @@ export default function App(){
     if(view.startsWith("invoiceDetail_"))return <InvoiceDetail invoiceId={view.split("_")[1]} invoices={invoices} setInvoices={setInvoices} jobs={jobs} clients={clients} payments={payments} biz={biz} setView={setView} quotes={quotes} markupTable={markupTable}/>;
     if(view==="statements")return <StatementsList clients={clients} jobs={jobs} invoices={invoices} payments={payments} biz={biz} setView={setView}/>;
     if(view.startsWith("statementDetail_"))return <StatementDetail clientId={view.split("_")[1]} clients={clients} jobs={jobs} invoices={invoices} payments={payments} setPayments={setPayments} biz={biz} setView={setView}/>;
-    if(view==="stock")return <StockBoard stock={stock} setStock={setStock} setView={setView}/>;
+    if(view==="stock")return <StockBoard stock={stock} setStock={setStock} setView={setView} pricing={pricing} spotPrices={spotPrices} setSpotPrices={setSpotPrices} onUpdateSpot={()=>setSpotModal(true)}/>;
     if(view==="gemcustody")return <GemCustody custody={gemCustody} setCustody={setGemCustody} clients={clients} biz={biz}/>;
     if(view.startsWith("stockPrice_"))return <QuoteBuilder stockId={view.split("_")[1]} stock={stock} setStock={setStock} jobs={jobs} clients={clients} quotes={quotes} setQuotes={setQuotes} pricing={pricing} setPricing={setPricing} markupTable={markupTable} naturalStoneMarkup={naturalStoneMarkup} labStoneMarkup={labStoneMarkup} tradeMarkupTable={tradeMarkupTable} tradeNatStoneMarkup={tradeNatStoneMarkup} tradeLabStoneMarkup={tradeLabStoneMarkup} centreRates={centreRates} setCentreRates={setCentreRates} setView={setView}/>;
     if(view==="pricing")return <PricingDB pricing={pricing} setPricing={setPricing} spotPrices={spotPrices} setSpotPrices={setSpotPrices} markupTable={markupTable} centreRates={centreRates} setCentreRates={setCentreRates} onUpdateSpot={()=>setSpotModal(true)}/>;
