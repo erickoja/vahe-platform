@@ -1688,7 +1688,9 @@ const setPayAllowancePct=v=>{const n=Number(v);_payAllowancePct=Number.isFinite(
 const withPayAllowance=(amt,pct)=>{const p=Number(pct)||0;return p>0&&p<50?roundQ(amt/(1-p/100)):amt;};
 // The allowance inside a quote's total (inc GST) — 0 for manual prices, which are the customer price as typed.
 const quotePayAllowance=(q,markupTable)=>{
-  if(!q||quoteIsManual(q)||!(Number(q.payAllowancePct)>0))return 0;
+  if(!q||!(Number(q.payAllowancePct)>0))return 0;
+  // A price locked on proposal acceptance was a grossed-up total, so the allowance inside it is total × pct.
+  if(quoteIsManual(q))return q.priceLockedAt?Math.round(Number(q.manualTotal)*Number(q.payAllowancePct))/100:0;
   const c=calcQuote(q.lineItems,markupTable,effMarkupOverride(q),gstOnMarkupFor(q));
   const pre=(c.isRange?c.finalHigh:c.finalLow)+(q.stoneClientTotal||0)+(q.accentStoneTotal||0);
   return withPayAllowance(pre,q.payAllowancePct)-pre;
@@ -1757,6 +1759,17 @@ const quoteGrandTotal=(q,markupTable)=>{
   if(quoteIsManual(q))return Number(q.manualTotal);
   const c=calcQuote(q.lineItems,markupTable,effMarkupOverride(q),gstOnMarkupFor(q));
   return withPayAllowance((c.isRange?c.finalHigh:c.finalLow)+(q.stoneClientTotal||0)+(q.accentStoneTotal||0),q.payAllowancePct);
+};
+// Freeze an accepted quote at the price the client agreed to (as its manual price), so later quote
+// edits or markup/rounding setting changes can't move the agreed charge. The price comes from the
+// proposal's send-time baseline (what the client's link showed); falls back to the link's own data,
+// then to today's calculation. Quotes already on a manual price are left alone.
+const lockAcceptedPrice=(q,p,markupTable,row)=>{
+  if(!q||quoteIsManual(q))return q;
+  const cents=p?.syncState?.opts?.[q.id]?.t;
+  const opt=(row?.data?.options||[]).find(o=>o.id===q.id);
+  const price=cents!=null?cents/100:(opt&&opt.price!=null)?Number(opt.price):quoteGrandTotal(q,markupTable);
+  return price>0?{...q,manualTotal:price,priceLockedAt:today()}:q;
 };
 // Total agreed charge for a job, used by every financial view.
 // Uses the manual Total Charge Override when set; otherwise sums approved quotes.
@@ -5527,7 +5540,7 @@ function QuoteBuilder({jobId:jobIdProp,editQuoteId,stockId,stock,setStock,jobs,c
     }
     if(isEditing){
       // Update existing quote — preserve id, jobId, createdAt
-      const updated={...existingQuote,status,title:title.trim(),pieceTitle:pieceTitle.trim(),markupOverride:Number(markupOverride)||0,pricingMode:tradePricing?"trade":"retail",tradeMult:tradeMultVal,taxOnTop,payAllowancePct:allowPct,manualTotal:Number(manualTotal)||0,validUntil,notes,lineItems:validItems,
+      const updated={...existingQuote,status,title:title.trim(),pieceTitle:pieceTitle.trim(),markupOverride:Number(markupOverride)||0,pricingMode:tradePricing?"trade":"retail",tradeMult:tradeMultVal,taxOnTop,payAllowancePct:allowPct,manualTotal:Number(manualTotal)||0,priceLockedAt:Number(manualTotal)>0?existingQuote.priceLockedAt:undefined,validUntil,notes,lineItems:validItems,
         stoneMode,stoneType:stoneMode==="sourcing"?stoneType:"",stoneItems:stoneMode==="sourcing"?validStoneItems:[],stoneMarkupOverride:Number(stoneOverride)||0,
         stoneNotes,stoneClientTotal:stoneCalc?.clientTotal||0,accentStoneTotal,tradeInCredit:Number(tradeInCredit)||0,tradeInNote:tradeInNote.trim(),clientDescription,updatedAt:today()};
       const nextQuotes=quotes.map(q=>q.id===editQuoteId?updated:q);
@@ -5899,7 +5912,7 @@ function QuoteBuilder({jobId:jobIdProp,editQuoteId,stockId,stock,setStock,jobs,c
             <input type="number" value={manualTotal} onChange={e=>setManualTotal(e.target.value)} placeholder="0.00" min="0" step="0.01"
               style={{...SS.inp,marginTop:0,fontSize:14,padding:"8px 10px 8px 24px",textAlign:"right",fontWeight:manualOn?800:400,borderColor:manualOn?OK:BD}}/>
           </div>
-          {manualOn&&<><span style={{fontSize:12,color:OK,fontWeight:700}}>Manual price on{validItems.length>0||stoneCalc?` · calculated total is ${fmtR(grandTotal)}`:""}</span>
+          {manualOn&&<><span style={{fontSize:12,color:OK,fontWeight:700}}>{existingQuote?.priceLockedAt?`Locked at the price the client accepted on ${fmtDate(existingQuote.priceLockedAt)}`:"Manual price on"}{validItems.length>0||stoneCalc?` · calculated total is ${fmtR(grandTotal)}`:""}</span>
             <button onClick={()=>setManualTotal("")} style={{background:"none",border:`1px solid ${BD}`,borderRadius:6,padding:"4px 10px",fontSize:11,fontWeight:700,color:WG,cursor:"pointer",fontFamily:"inherit"}}>Clear</button></>}
         </div>
       </div>
@@ -6191,7 +6204,7 @@ function JobProposals({job,client,quotes,proposals,setProposals,setQuotes,biz,ma
       // Approve every accepted quote. Multi: decline only this proposal's non-selected options. Single: demote
       // the job's other approved quotes. Never demote a quote that's already on an invoice.
       setQuotes(prev=>{const n=prev.map(q=>{
-        if(acceptedIds.includes(q.id))return{...q,status:"Approved"};
+        if(acceptedIds.includes(q.id))return lockAcceptedPrice({...q,status:"Approved"},p,markupTable);
         if(quoteHasInvoice(invoices,q.id))return q;
         if(multi)return (p.optionIds||[]).includes(q.id)?{...q,status:"Declined"}:q;
         return (q.jobId===job.id&&q.status==="Approved")?{...q,status:"Declined"}:q;
@@ -7322,7 +7335,7 @@ function QuoteDetailView({quoteId,quotes,setQuotes,jobs,clients,biz,markupTable,
           ...(stoneCalc?[["Stone",fmtR(stoneCalc.clientTotal),q.stoneType==="lab"?"#CDB2C1":"#A6CBB4"]]:[]),
           ...(payAllowanceAmt>0.005?[[`Card fee allowance (${q.payAllowancePct}%)`,fmtR(payAllowanceAmt),"#CDB2C1"]]:[]),
           ...(qTradeIn>0?[["Gold trade-in credit","−"+fmtR(qTradeIn),"#E79A9A"]]:[]),
-          [qTradeIn>0?"Amount payable":(manual?"Quoted price — manual":"Combined total"),qTradeIn>0?fmtR(qPayable):grandStr,OK],
+          [qTradeIn>0?"Amount payable":(manual?(q.priceLockedAt?"Accepted price — locked":"Quoted price — manual"):"Combined total"),qTradeIn>0?fmtR(qPayable):grandStr,OK],
         ];
         return <div style={{background:INK,borderRadius:4,padding:"14px 20px",marginBottom:16,display:"grid",gridTemplateColumns:`repeat(${cells.length},1fr)`,gap:1}}>
           {cells.map(([l,v,col])=>(
@@ -11740,6 +11753,7 @@ export default function App(){
   const quotesRef=useRef(quotes);quotesRef.current=quotes;
   const jobsRef=useRef(jobs);jobsRef.current=jobs;
   const invoicesRef=useRef(invoices);invoicesRef.current=invoices;
+  const markupTableRef=useRef(markupTable);markupTableRef.current=markupTable;
   const [acceptToast,setAcceptToast]=useState(null);   // {title,body,jobId,color} for the live pop-up
 
   // Reconcile a cloud acceptance into local state: flag the proposal accepted (unseen → drives
@@ -11755,7 +11769,7 @@ export default function App(){
     // Approve every accepted quote. Multi: decline the proposal's non-selected options. Single: demote other approved on the job.
     // Never demote a quote that's already on an invoice — an invoiced quote must stay Approved so totals reconcile.
     const nq=quotesRef.current.map(q=>{
-      if(acceptedIds.includes(q.id))return{...q,status:"Approved"};
+      if(acceptedIds.includes(q.id))return lockAcceptedPrice({...q,status:"Approved"},p,markupTableRef.current,row);
       if(quoteHasInvoice(invoicesRef.current,q.id))return q;
       if(multi)return (p.optionIds||[]).includes(q.id)?{...q,status:"Declined"}:q;
       return (q.jobId===p.jobId&&q.status==="Approved")?{...q,status:"Declined"}:q;
