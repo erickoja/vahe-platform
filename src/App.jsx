@@ -454,6 +454,8 @@ const SEED_PRICING=[
   ...[
     ["Emerald",3.00,2.00,0.08,36.40],["Emerald",3.50,2.25,0.11,52.61],["Emerald",3.60,2.60,0.15,63.21],["Emerald",3.70,2.60,0.16,71.90],
     ["Emerald",4.00,3.00,0.24,101.78],["Emerald",4.50,3.00,0.26,110.50],["Emerald",5.00,3.00,0.30,130.53],
+    ["Oval",3.00,2.00,0.05,24.39],["Oval",3.30,2.30,0.07,30.92],["Oval",3.95,2.90,0.14,64.20],["Oval",4.00,3.00,0.15,67.82],
+    ["Oval",5.00,3.00,0.20,86.49],["Oval",5.00,3.50,0.25,115.43],["Oval",5.50,3.75,0.30,140.10],["Oval",5.80,4.00,0.39,146.32],
   ].map(([shape,l,w,ct,cost])=>({id:`lf_${shape.toLowerCase().replace(/\W+/g,"")}_${Math.round(l*100)}x${Math.round(w*100)}`,
     category:FANCY_LAB_CAT,group:shape,name:`${l.toFixed(2)}×${w.toFixed(2)}mm ${shape}`,unit:"stone",baseCost:cost,caratWeight:ct,lengthMm:l,widthMm:w})),
   // ── Natural diamonds G-H SI1 ──────────────────────────────────────────────
