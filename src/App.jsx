@@ -8484,30 +8484,46 @@ function DiamondTable({items,onQtyChange,onSavePrices}){
   };
   const sorted=[...items].sort((a,b)=>a.sizeMm-b.sizeMm);
   const startEdit=()=>{const s={},p={};sorted.forEach(i=>{s[i.id]=String(i.baseCost);p[i.id]=i.caratWeight>0?String(round2(i.baseCost/i.caratWeight)):"";});setEditStone(s);setEditPct(p);setEditing(true);
-    setBulkFrom(String(sorted[0]?.sizeMm??""));setBulkTo(String(sorted[sorted.length-1]?.sizeMm??""));};
+    setBands([newBand()]);};
   const cancelEdit=()=>{resetBulk();setEditing(false);setEditStone({});setEditPct({});};
   // Per stone and per ct are linked (carat weight is fixed), so editing one recomputes the other.
   const changeStone=(id,v,ct)=>{setBulkHit(h=>({...h,[id]:false}));setEditStone(m=>({...m,[id]:v}));setEditPct(m=>({...m,[id]:(v!==""&&ct>0)?String(round2(Number(v)/ct)):""}));};
   const changePct=(id,v,ct)=>{setBulkHit(h=>({...h,[id]:false}));setEditPct(m=>({...m,[id]:v}));setEditStone(m=>({...m,[id]:v!==""?String(round2(Number(v)*ct)):""}));};
-  // Bulk: one supplier price per carat across a size range → every per-stone price in it is
-  // recalculated from its carat weight. Fills the edit fields only; nothing saves until "Save prices".
-  const[bulkFrom,setBulkFrom]=useState("");
-  const[bulkTo,setBulkTo]=useState("");
-  const[bulkPct,setBulkPct]=useState("");
-  const[bulkHit,setBulkHit]=useState({});        // ids changed by the last bulk apply (highlighted)
+  // Bulk: supplier prices per carat by size band (e.g. 0.8–1.2mm at one rate, 1.3–2.0mm at another).
+  // Every per-stone price in a band is recalculated from its carat weight. Fills the edit fields
+  // only; nothing saves until "Save prices". Where bands overlap, the lower band in the list wins.
+  const[bands,setBands]=useState([]);             // [{id,from,to,ppc}]
+  const[bulkHit,setBulkHit]=useState({});         // ids changed by the last bulk apply (highlighted)
   const[bulkMsg,setBulkMsg]=useState("");
-  const applyBulk=()=>{
-    const ppc=Number(bulkPct);
-    if(!(ppc>0))return alert("Enter a price per carat.");
-    const lo=Math.min(Number(bulkFrom),Number(bulkTo)),hi=Math.max(Number(bulkFrom),Number(bulkTo));
-    const inRange=sorted.filter(i=>i.sizeMm>=lo&&i.sizeMm<=hi&&i.caratWeight>0);
-    if(!inRange.length)return alert("Pick the sizes to update.");
-    const s={},p={},hit={};
-    inRange.forEach(i=>{s[i.id]=String(round2(ppc*i.caratWeight));p[i.id]=String(ppc);hit[i.id]=true;});
-    setEditStone(m=>({...m,...s}));setEditPct(m=>({...m,...p}));setBulkHit(hit);
-    setBulkMsg(`${inRange.length} size${inRange.length!==1?"s":""} set to ${fmt(ppc)}/ct. Check them, then Save prices.`);
+  // A new band starts at the size after the previous band ends and runs to the largest size.
+  const newBand=(prev)=>{
+    const sizes=sorted.map(i=>i.sizeMm);
+    const nextIdx=prev?sizes.findIndex(s=>s>Math.max(Number(prev.from),Number(prev.to))):0;
+    const from=sizes[nextIdx>=0?nextIdx:sizes.length-1];
+    return{id:uid(),from:String(from??""),to:String(sizes[sizes.length-1]??""),ppc:""};
   };
-  const resetBulk=()=>{setBulkHit({});setBulkMsg("");setBulkPct("");};
+  const setBand=(id,patch)=>setBands(bs=>bs.map(b=>b.id===id?{...b,...patch}:b));
+  const addBand=()=>setBands(bs=>[...bs,newBand(bs[bs.length-1])]);
+  const removeBand=id=>setBands(bs=>bs.length>1?bs.filter(b=>b.id!==id):bs);
+  const applyBulk=()=>{
+    const ready=bands.filter(b=>Number(b.ppc)>0);
+    if(!ready.length)return alert("Enter a price per carat for at least one range.");
+    const s={},p={},hit={};let overlap=false;
+    for(const b of ready){
+      const ppc=Number(b.ppc);
+      const lo=Math.min(Number(b.from),Number(b.to)),hi=Math.max(Number(b.from),Number(b.to));
+      for(const i of sorted){
+        if(i.sizeMm<lo||i.sizeMm>hi||!(i.caratWeight>0))continue;
+        if(hit[i.id])overlap=true;
+        s[i.id]=String(round2(ppc*i.caratWeight));p[i.id]=String(ppc);hit[i.id]=true;
+      }
+    }
+    const n=Object.keys(hit).length;
+    if(!n)return alert("Pick the sizes to update.");
+    setEditStone(m=>({...m,...s}));setEditPct(m=>({...m,...p}));setBulkHit(hit);
+    setBulkMsg(`${n} size${n!==1?"s":""} updated from ${ready.length} range${ready.length!==1?"s":""}.${overlap?" Some ranges overlap, so the lower one in the list was used for those sizes.":""} Check them, then Save prices.`);
+  };
+  const resetBulk=()=>{setBulkHit({});setBulkMsg("");setBands([]);};
   const saveEdit=()=>{
     resetBulk();
     const updated=items.map(x=>{const base=Number(editStone[x.id]??x.baseCost)||0;const pct=x.caratWeight>0?(Number(editPct[x.id])||round2(base/x.caratWeight)):(Number(x.pricePerCarat)||0);return{...x,baseCost:base,pricePerCarat:pct};});
@@ -8550,19 +8566,23 @@ function DiamondTable({items,onQtyChange,onSavePrices}){
     </div>
     {/* Bulk price-per-carat across a size range (edit mode only) */}
     {editing&&<div style={{padding:"12px 16px",borderBottom:`1px solid ${BD}`,background:WHITE}}>
-      <div style={{fontSize:12,fontWeight:700,color:INK,marginBottom:8}}>Set a price per carat for a range of sizes</div>
-      <div style={{display:"flex",alignItems:"center",gap:8,flexWrap:"wrap",fontSize:12,color:WG}}>
+      <div style={{fontSize:12,fontWeight:700,color:INK,marginBottom:8}}>Set prices per carat by size range</div>
+      {bands.map(b=><div key={b.id} style={{display:"flex",alignItems:"center",gap:8,flexWrap:"wrap",fontSize:12,color:WG,marginBottom:6}}>
         From
-        <select value={bulkFrom} onChange={e=>setBulkFrom(e.target.value)} style={{...SS.inp,marginTop:0,width:"auto",padding:"5px 8px"}}>{sorted.map(i=><option key={i.id} value={i.sizeMm}>{i.sizeMm}mm</option>)}</select>
+        <select value={b.from} onChange={e=>setBand(b.id,{from:e.target.value})} style={{...SS.inp,marginTop:0,width:"auto",padding:"5px 8px"}}>{sorted.map(i=><option key={i.id} value={i.sizeMm}>{i.sizeMm}mm</option>)}</select>
         to
-        <select value={bulkTo} onChange={e=>setBulkTo(e.target.value)} style={{...SS.inp,marginTop:0,width:"auto",padding:"5px 8px"}}>{sorted.map(i=><option key={i.id} value={i.sizeMm}>{i.sizeMm}mm</option>)}</select>
+        <select value={b.to} onChange={e=>setBand(b.id,{to:e.target.value})} style={{...SS.inp,marginTop:0,width:"auto",padding:"5px 8px"}}>{sorted.map(i=><option key={i.id} value={i.sizeMm}>{i.sizeMm}mm</option>)}</select>
         at {CUR_SYM}
-        <input type="number" min="0" step="1" value={bulkPct} placeholder="per ct" onChange={e=>setBulkPct(e.target.value)} onKeyDown={e=>{if(e.key==="Enter")applyBulk();}} style={{...SS.inp,marginTop:0,width:96,padding:"5px 8px"}}/>
+        <input type="number" min="0" step="1" value={b.ppc} placeholder="per ct" onChange={e=>setBand(b.id,{ppc:e.target.value})} onKeyDown={e=>{if(e.key==="Enter")applyBulk();}} style={{...SS.inp,marginTop:0,width:96,padding:"5px 8px"}}/>
         per carat
-        <Btn sm onClick={applyBulk}>Apply to range</Btn>
+        {bands.length>1&&<button onClick={()=>removeBand(b.id)} title="Remove range" style={{border:"none",background:"none",color:WG,fontSize:17,cursor:"pointer",padding:"0 4px"}}>×</button>}
+      </div>)}
+      <div style={{display:"flex",alignItems:"center",gap:14,flexWrap:"wrap",marginTop:4}}>
+        <button onClick={addBand} style={{background:"none",border:"none",padding:0,color:GOLD_D,fontWeight:700,fontSize:12,cursor:"pointer"}}>+ Add range</button>
+        <Btn sm onClick={applyBulk}>{bands.length>1?"Apply all ranges":"Apply to range"}</Btn>
       </div>
       <div style={{fontSize:11.5,color:bulkMsg?GOLD_D:WG,marginTop:7,lineHeight:1.5}}>
-        {bulkMsg||"Each size's per stone price is worked out from its carat weight. Use your supplier's per carat rate, and repeat for other ranges if the rate changes with size."}
+        {bulkMsg||"Each size's per stone price is worked out from its carat weight. Add a range for each band on your supplier's price list. Ranges left without a rate are skipped."}
       </div>
     </div>}
     <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(500px,1fr))"}}>
