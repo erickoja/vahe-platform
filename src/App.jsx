@@ -235,7 +235,9 @@ const settingFee=({mode="mm",sizeMm,carat,styleMult=1,careful=false,platinum=fal
 // and the quote-builder pricing picker sidebar, so the two stay identical.
 // Fancy-shape lab-grown melee (emerald, pear, marquise…) — per stone, grouped by shape (item.group).
 const FANCY_LAB_CAT="Lab Grown Fancy Smalls";
-const PCAT=["Metals","Labour","CAD Design",SETTING_CAT,"3D Print & Cast",FINDINGS_CAT,PURCHASED_CAT,"Lab Grown Diamonds | D-E",FANCY_LAB_CAT,"Natural diamonds G-H SI1","Natural diamonds D-E VS","Accent Stones",REPAIRS_CAT];
+// Small round lab grown pink diamonds (VS) — a round table like the other diamond categories.
+const PINK_LAB_CAT="Lab Grown Pink Diamonds | VS";
+const PCAT=["Metals","Labour","CAD Design",SETTING_CAT,"3D Print & Cast",FINDINGS_CAT,PURCHASED_CAT,"Lab Grown Diamonds | D-E",FANCY_LAB_CAT,PINK_LAB_CAT,"Natural diamonds G-H SI1","Natural diamonds D-E VS","Accent Stones",REPAIRS_CAT];
 // "Accent Stones" is added via its own modal, not browsed as a category, so it's hidden from
 // the category navigation in both places.
 const NAV_CATS=["All",...PCAT.filter(c=>c!=="Accent Stones")];
@@ -245,6 +247,7 @@ const MANUAL_OVERRIDE_DEFAULT="The prices in this database are a starting point.
 const DIAMOND_OVERRIDE_TEXT="Diamond pricing differs between suppliers depending on where you're sourcing from. We've added per-stone pricing for smaller rounds, as they're very commonly used in quoting jewellery. Please review the pricing and adjust it to your supplier's rates, or simply input your supplier price per quote.";
 const MANUAL_OVERRIDE_TEXT={
   "Lab Grown Diamonds | D-E":DIAMOND_OVERRIDE_TEXT,
+  [PINK_LAB_CAT]:DIAMOND_OVERRIDE_TEXT,
   "Natural diamonds G-H SI1":DIAMOND_OVERRIDE_TEXT,
   "Natural diamonds D-E VS":DIAMOND_OVERRIDE_TEXT,
   [FANCY_LAB_CAT]:"Fancy shape lab grown smalls, priced per stone and grouped by shape. Supplier pricing varies, so review these and adjust, or enter your own price for a stone that isn't listed.",
@@ -260,13 +263,14 @@ const MANUAL_OVERRIDE_TEXT={
   "3D Print & Cast":"Add your own 3D print & cast total instead of the per-piece figures if your supplier charges differently.",
 };
 const manualOverrideText=cat=>MANUAL_OVERRIDE_TEXT[cat]||MANUAL_OVERRIDE_DEFAULT;
-const DIAMOND_CATS=["Lab Grown Diamonds | D-E","Natural diamonds G-H SI1","Natural diamonds D-E VS"];
+const DIAMOND_CATS=["Lab Grown Diamonds | D-E",PINK_LAB_CAT,"Natural diamonds G-H SI1","Natural diamonds D-E VS"];
 // Display titles for category nav/headers — the internal category id (used by pricing items,
 // filters, quotes) stays unchanged; only the shown title differs.
 const CAT_TITLE={
   "CAD Design":"Design & CAD",   // broadened — holds CAD, sketch, basic & outsourced design methods
   "Lab Grown Diamonds | D-E":"(Round) Lab Grown Diamonds: D-E/VS",
   [FANCY_LAB_CAT]:"(Fancy) Lab Grown Diamonds: D-E/VVS",
+  [PINK_LAB_CAT]:"(Round) Lab Grown Pink Diamonds: VS",
   "Natural diamonds G-H SI1":"(Round) Natural Diamonds: G-H/SI",
   "Natural diamonds D-E VS":"(Round) Natural Diamonds: D-E/VS",
 };
@@ -450,6 +454,11 @@ const SEED_PRICING=[
   {id:"ld31",category:"Lab Grown Diamonds | D-E",name:"3.8mm",unit:"stone",baseCost:26.00,sizeMm:3.8,caratWeight:0.214,pricePerCarat:121.50},
   {id:"ld32",category:"Lab Grown Diamonds | D-E",name:"3.9mm",unit:"stone",baseCost:28.00,sizeMm:3.9,caratWeight:0.231,pricePerCarat:121.21},
   {id:"ld33",category:"Lab Grown Diamonds | D-E",name:"4.0mm",unit:"stone",baseCost:30.00,sizeMm:4.0,caratWeight:0.250,pricePerCarat:120.00},
+  // ── Lab grown pink rounds (VS HPHT, per stone, ex GST) — 2.8mm was sold out when listed ──
+  ...[
+    [1.0,0.004,3.84],[1.1,0.005,3.72],[1.2,0.007,4.77],[1.3,0.009,7.87],[1.4,0.011,8.94],[1.5,0.013,9.71],[1.8,0.023,16.08],[2.0,0.031,21.11],
+    [2.1,0.036,25.27],[2.2,0.042,28.32],[2.4,0.054,37.22],[2.5,0.061,40.72],[2.8,0.086,47.69],[3.0,0.105,62.71],[3.5,0.167,83.32],[4.0,0.250,109.29],
+  ].map(([mm,ct,cost])=>({id:`lp_${Math.round(mm*10)}`,category:PINK_LAB_CAT,name:`${mm.toFixed(1)}mm`,unit:"stone",baseCost:cost,sizeMm:mm,caratWeight:ct,pricePerCarat:Math.round(cost/ct*100)/100})),
   // ── Lab grown fancy smalls (D-E VVS, per stone, ex GST) — grouped by shape ──
   ...[
     ["Emerald",3.00,2.00,0.08,36.40],["Emerald",3.50,2.25,0.11,52.61],["Emerald",3.60,2.60,0.15,63.21],["Emerald",3.70,2.60,0.16,71.90],
@@ -6040,7 +6049,7 @@ function QuoteBuilder({jobId:jobIdProp,editQuoteId,stockId,stock,setStock,jobs,c
                         </div>
                         <div style={{fontSize:11,color:WG,marginTop:1,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:isMobile?"normal":"nowrap"}}>
                           {showCat?`${catTitle(item.category)} · `:""}
-                          {isDiamond?`${item.caratWeight}ct · ${fmt(item.baseCost)}/stone · ${fmt(item.pricePerCarat)}/ct`
+                          {isDiamond?`${item.caratWeight}ct · ${fmt(item.baseCost)}/stone · ${fmt(item.caratWeight>0?item.baseCost/item.caratWeight:item.pricePerCarat)}/ct`
                           :isSetting?`stone fits ${item.caratWeight}ct · ${fmt(item.baseCost)}/stone setting`
                           :isPrintCast?`${fmt(item.baseCost)}/piece`
                           :item.category===FANCY_LAB_CAT?`${item.caratWeight}ct · ${fmt(item.baseCost)}/stone`
@@ -8495,6 +8504,7 @@ function StatementDetail({clientId,clients,jobs,invoices,payments,setPayments,bi
 // ── Pricing DB ────────────────────────────────────────────────────────────
 const DIAMOND_CAT_LABELS={
   "Lab Grown Diamonds | D-E":"Lab-grown accent diamonds · D-E · VS · Round brilliant · per stone (AUD)",
+  [PINK_LAB_CAT]:"Lab-grown pink accent diamonds · VS · HPHT · Round brilliant · per stone (AUD) ex GST",
   "Natural diamonds G-H SI1":"Natural diamonds · G-H · SI1 · Round brilliant · per stone (AUD) · Tax exempt",
   "Natural diamonds D-E VS":"Natural diamonds · D-E · VS · Round brilliant · per stone (AUD) · Tax exempt",
 };
@@ -9045,7 +9055,7 @@ function PricingDB({pricing,setPricing,spotPrices,setSpotPrices,markupTable,cent
   };
 
 
-  const DCOLORS={"Lab Grown Diamonds | D-E":"#96627C",[FANCY_LAB_CAT]:"#7C5C9E","Natural diamonds G-H SI1":"#4E8B6A","Natural diamonds D-E VS":"#2D7A4F"};
+  const DCOLORS={"Lab Grown Diamonds | D-E":"#96627C",[PINK_LAB_CAT]:"#C2547A",[FANCY_LAB_CAT]:"#7C5C9E","Natural diamonds G-H SI1":"#4E8B6A","Natural diamonds D-E VS":"#2D7A4F"};
   return <div>
     <SectionHeader eyebrow="Cost prices" title="Pricing database" subtitle="Your metals, stones, setting and labour rates — the numbers behind every quote." action={<div style={{display:"flex",gap:10,alignItems:"center",flexWrap:"wrap"}}>
       <Btn ghost onClick={onUpdateSpot}>⟳ Update metal spot prices</Btn>
