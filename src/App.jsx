@@ -460,6 +460,7 @@ const SEED_PRICING=[
     ["Princess",3.50,3.50,0.27,139.35],["Princess",4.00,4.00,0.40,145.16],   // 3.50mm is HPHT on the supplier list (others CVD)
     ["Baguette",3.00,1.50,0.05,23.20],["Baguette",3.00,2.00,0.08,26.00],["Baguette",3.50,1.50,0.05,26.31],["Baguette",4.00,2.00,0.11,53.75],
     ["Baguette",4.60,2.25,0.15,76.49],["Baguette",5.00,2.50,0.22,109.10],["Baguette",6.00,3.00,0.35,171.61],
+    ["Tapered Baguette",4.00,2.00,0.07,37.02],["Tapered Baguette",5.00,2.50,0.17,61.69],["Tapered Baguette",5.00,3.00,0.24,76.65],["Tapered Baguette",6.00,3.00,0.26,105.17],
   ].map(([shape,l,w,ct,cost])=>({id:`lf_${shape.toLowerCase().replace(/\W+/g,"")}_${Math.round(l*100)}x${Math.round(w*100)}`,
     category:FANCY_LAB_CAT,group:shape,name:`${l.toFixed(2)}×${w.toFixed(2)}mm ${shape}`,unit:"stone",baseCost:cost,caratWeight:ct,lengthMm:l,widthMm:w})),
   // ── Natural diamonds G-H SI1 ──────────────────────────────────────────────
