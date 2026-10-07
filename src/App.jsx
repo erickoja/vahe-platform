@@ -461,6 +461,8 @@ const SEED_PRICING=[
     ["Baguette",3.00,1.50,0.05,23.20],["Baguette",3.00,2.00,0.08,26.00],["Baguette",3.50,1.50,0.05,26.31],["Baguette",4.00,2.00,0.11,53.75],
     ["Baguette",4.60,2.25,0.15,76.49],["Baguette",5.00,2.50,0.22,109.10],["Baguette",6.00,3.00,0.35,171.61],
     ["Tapered Baguette",4.00,2.00,0.07,37.02],["Tapered Baguette",5.00,2.50,0.17,61.69],["Tapered Baguette",5.00,3.00,0.24,76.65],["Tapered Baguette",6.00,3.00,0.26,105.17],
+    ["Pear",3.00,2.00,0.05,20.32],["Pear",4.00,2.50,0.10,43.81],["Pear",4.00,3.00,0.14,58.26],["Pear",4.10,2.70,0.12,31.62],   // 4.10×2.70 is as listed (cheaper than its neighbours)
+    ["Pear",5.00,3.00,0.17,67.81],["Pear",5.50,3.25,0.22,78.15],["Pear",5.50,3.50,0.26,91.73],
   ].map(([shape,l,w,ct,cost])=>({id:`lf_${shape.toLowerCase().replace(/\W+/g,"")}_${Math.round(l*100)}x${Math.round(w*100)}`,
     category:FANCY_LAB_CAT,group:shape,name:`${l.toFixed(2)}×${w.toFixed(2)}mm ${shape}`,unit:"stone",baseCost:cost,caratWeight:ct,lengthMm:l,widthMm:w})),
   // ── Natural diamonds G-H SI1 ──────────────────────────────────────────────
