@@ -8550,9 +8550,10 @@ function DiamondTable({items,onQtyChange,onSavePrices}){
   // Paste a supplier price list → per-stone prices for every size it lists (exact, no per-ct maths)
   const[bulkMode,setBulkMode]=useState("paste");  // "paste" | "ranges"
   const[pasteText,setPasteText]=useState("");
-  const applyPaste=()=>{
-    const rows=parseStonePriceList(pasteText);
-    if(!rows.length)return alert("Couldn't find any sizes and prices in that text. Copy the supplier's table including the sizes (e.g. 1.30MM) and prices (e.g. $2.37).");
+  const justPasted=useRef(false);                // a paste fills the prices straight away
+  const applyPaste=(text=pasteText,quiet=false)=>{
+    const rows=parseStonePriceList(text);
+    if(!rows.length){const msg="Couldn't find any sizes and prices in that text. Copy the supplier's table including the sizes (e.g. 1.30MM) and prices (e.g. $2.37).";return quiet?setBulkMsg(msg):alert(msg);}
     const s={},p={},hit={},unmatched=[];
     for(const r of rows){
       const item=sorted.find(i=>Math.abs(i.sizeMm-r.size)<0.001);
@@ -8562,7 +8563,7 @@ function DiamondTable({items,onQtyChange,onSavePrices}){
       s[item.id]=String(price);p[item.id]=item.caratWeight>0?String(round2(price/item.caratWeight)):"";hit[item.id]=true;
     }
     const n=Object.keys(hit).length;
-    if(!n)return alert("None of the sizes in that list match this table's sizes.");
+    if(!n){const msg="None of the sizes in that list match this table's sizes.";return quiet?setBulkMsg(msg):alert(msg);}
     setEditStone(m=>({...m,...s}));setEditPct(m=>({...m,...p}));setBulkHit(hit);
     const missing=sorted.filter(i=>!hit[i.id]).map(i=>i.sizeMm+"mm");
     const uniq=[...new Set(unmatched)].map(x=>x+"mm");
@@ -8621,15 +8622,15 @@ function DiamondTable({items,onQtyChange,onSavePrices}){
         ))}
       </div>
       {bulkMode==="paste"?<>
-        <textarea value={pasteText} onChange={e=>setPasteText(e.target.value)} rows={5}
+        <textarea value={pasteText} onPaste={()=>{justPasted.current=true;}} onChange={e=>{setPasteText(e.target.value);if(justPasted.current){justPasted.current=false;applyPaste(e.target.value,true);}}} rows={5}
           placeholder={"Copy your supplier's price table (sizes and per stone prices) and paste it here, e.g.\n0.80MM RBC DE VVS CVD   $1.36\n0.90MM RBC DE VVS CVD   $1.79"}
           style={{...SS.inp,marginTop:0,width:"100%",boxSizing:"border-box",fontFamily:"ui-monospace,Menlo,monospace",fontSize:12,resize:"vertical"}}/>
         <div style={{display:"flex",alignItems:"center",gap:14,flexWrap:"wrap",marginTop:8}}>
-          <Btn sm onClick={applyPaste}>Fill prices</Btn>
+          <Btn sm onClick={()=>applyPaste()}>Fill prices</Btn>
           {pasteText&&<button onClick={()=>setPasteText("")} style={{background:"none",border:"none",padding:0,color:WG,fontWeight:700,fontSize:12,cursor:"pointer"}}>Clear</button>}
         </div>
         <div style={{fontSize:11.5,color:bulkMsg?GOLD_D:WG,marginTop:7,lineHeight:1.5}}>
-          {bulkMsg||"Each size found is matched to this table and its per stone price filled in, ex GST. Where a sale and a regular price are both shown, the regular price is used."}
+          {bulkMsg||"Paste and the prices fill in straight away (or click Fill prices after typing). Each size is matched to this table, per stone, ex GST. Where a sale and a regular price are both shown, the regular price is used."}
         </div>
       </>:<>
       {bands.map(b=><div key={b.id} style={{display:"flex",alignItems:"center",gap:8,flexWrap:"wrap",fontSize:12,color:WG,marginBottom:6}}>
