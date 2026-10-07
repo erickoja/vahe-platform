@@ -233,7 +233,9 @@ const settingFee=({mode="mm",sizeMm,carat,styleMult=1,careful=false,platinum=fal
 };
 // Single source of truth for category order — drives BOTH the Pricing Database page tabs
 // and the quote-builder pricing picker sidebar, so the two stay identical.
-const PCAT=["Metals","Labour","CAD Design",SETTING_CAT,"3D Print & Cast",FINDINGS_CAT,PURCHASED_CAT,"Lab Grown Diamonds | D-E","Natural diamonds G-H SI1","Natural diamonds D-E VS","Accent Stones",REPAIRS_CAT];
+// Fancy-shape lab-grown melee (emerald, pear, marquise…) — per stone, grouped by shape (item.group).
+const FANCY_LAB_CAT="Lab Grown Fancy Smalls";
+const PCAT=["Metals","Labour","CAD Design",SETTING_CAT,"3D Print & Cast",FINDINGS_CAT,PURCHASED_CAT,"Lab Grown Diamonds | D-E",FANCY_LAB_CAT,"Natural diamonds G-H SI1","Natural diamonds D-E VS","Accent Stones",REPAIRS_CAT];
 // "Accent Stones" is added via its own modal, not browsed as a category, so it's hidden from
 // the category navigation in both places.
 const NAV_CATS=["All",...PCAT.filter(c=>c!=="Accent Stones")];
@@ -245,6 +247,7 @@ const MANUAL_OVERRIDE_TEXT={
   "Lab Grown Diamonds | D-E":DIAMOND_OVERRIDE_TEXT,
   "Natural diamonds G-H SI1":DIAMOND_OVERRIDE_TEXT,
   "Natural diamonds D-E VS":DIAMOND_OVERRIDE_TEXT,
+  [FANCY_LAB_CAT]:"Fancy shape lab grown smalls, priced per stone and grouped by shape. Supplier pricing varies, so review these and adjust, or enter your own price for a stone that isn't listed.",
   "Metals":"Add a manual metal cost. Workshops vary in what they pay. Alloying the metal yourself costs less than buying a pre-cast piece from a caster with taxes included. Feel free to enter your own amount.",
   "Labour":"Add a manual labour cost. Manufacturing rates vary between workshops and individual jewellers, so feel free to enter your own amount.",
   "CAD Design":"Pick the design method that fits the job — CAD, hand sketch, basic design or outsourced CAD. Price by the hour (toggle # and enter hours against the method's rate) or switch to $ for a manual flat price. Add or rename methods any time to match how you work.",
@@ -263,6 +266,7 @@ const DIAMOND_CATS=["Lab Grown Diamonds | D-E","Natural diamonds G-H SI1","Natur
 const CAT_TITLE={
   "CAD Design":"Design & CAD",   // broadened — holds CAD, sketch, basic & outsourced design methods
   "Lab Grown Diamonds | D-E":"(Round) Lab Grown Diamonds: D-E/VS",
+  [FANCY_LAB_CAT]:"(Fancy) Lab Grown Diamonds: D-E/VVS",
   "Natural diamonds G-H SI1":"(Round) Natural Diamonds: G-H/SI",
   "Natural diamonds D-E VS":"(Round) Natural Diamonds: D-E/VS",
 };
@@ -446,6 +450,12 @@ const SEED_PRICING=[
   {id:"ld31",category:"Lab Grown Diamonds | D-E",name:"3.8mm",unit:"stone",baseCost:26.00,sizeMm:3.8,caratWeight:0.214,pricePerCarat:121.50},
   {id:"ld32",category:"Lab Grown Diamonds | D-E",name:"3.9mm",unit:"stone",baseCost:28.00,sizeMm:3.9,caratWeight:0.231,pricePerCarat:121.21},
   {id:"ld33",category:"Lab Grown Diamonds | D-E",name:"4.0mm",unit:"stone",baseCost:30.00,sizeMm:4.0,caratWeight:0.250,pricePerCarat:120.00},
+  // ── Lab grown fancy smalls (D-E VVS, per stone, ex GST) — grouped by shape ──
+  ...[
+    ["Emerald",3.00,2.00,0.08,36.40],["Emerald",3.50,2.25,0.11,52.61],["Emerald",3.60,2.60,0.15,63.21],["Emerald",3.70,2.60,0.16,71.90],
+    ["Emerald",4.00,3.00,0.24,101.78],["Emerald",4.50,3.00,0.26,110.50],["Emerald",5.00,3.00,0.30,130.53],
+  ].map(([shape,l,w,ct,cost])=>({id:`lf_${shape.toLowerCase().replace(/\W+/g,"")}_${Math.round(l*100)}x${Math.round(w*100)}`,
+    category:FANCY_LAB_CAT,group:shape,name:`${l.toFixed(2)}×${w.toFixed(2)}mm ${shape}`,unit:"stone",baseCost:cost,caratWeight:ct,lengthMm:l,widthMm:w})),
   // ── Natural diamonds G-H SI1 ──────────────────────────────────────────────
   {id:"ng01",category:"Natural diamonds G-H SI1",name:"0.8mm",unit:"stone",baseCost:1.42,sizeMm:0.8,caratWeight:0.002,pricePerCarat:710.00},
   {id:"ng02",category:"Natural diamonds G-H SI1",name:"0.9mm",unit:"stone",baseCost:2.02,sizeMm:0.9,caratWeight:0.003,pricePerCarat:673.33},
@@ -5425,12 +5435,14 @@ function QuoteBuilder({jobId:jobIdProp,editQuoteId,stockId,stock,setStock,jobs,c
     const isPrintCast=item.category==="3D Print & Cast";
     // A spot-linked metal (sold by gram) gets a cast/fabricated toggle on its quote line.
     const isMetalLine=item.category==="Metals"&&!!item.metalKey&&item.unit==="g";
+    const isFancy=item.category===FANCY_LAB_CAT;
     const desc=isDiamond?`${item.category} ${item.sizeMm}mm`
+      :isFancy?`Lab grown ${item.name}`
       :isSetting?(item.category==="Complex Setting"?`Complex setting ${item.sizeMm}mm`:`Basic setting ${item.sizeMm}mm`)
       :isPrintCast?`${item.name} (${q} piece${q!==1?"s":""})`
       :item.name;
     const totalCost=(item.baseCost*q).toFixed(2);
-    const detail=isDiamond
+    const detail=(isDiamond||isFancy)
       ?`${q} stone${q!==1?"s":""} × ${fmt(item.baseCost)}/stone (${item.caratWeight}ct each)`
       :isSetting
       ?`${q} stone${q!==1?"s":""} × ${fmt(item.baseCost)}/stone setting`
@@ -5983,7 +5995,7 @@ function QuoteBuilder({jobId:jobIdProp,editQuoteId,stockId,stock,setStock,jobs,c
               : <div style={{flex:1,overflowY:"auto",paddingBottom:14}}>
                   {(()=>{
                     const visibleItems=fp.filter(item=>item.category!=="Accent Stones");
-                    const isRepairsView=!pSearching&&pCat===REPAIRS_CAT;
+                    const isRepairsView=!pSearching&&(pCat===REPAIRS_CAT||pCat===FANCY_LAB_CAT);   // both show group headings (fancy smalls group by shape)
                     const showCat=pSearching||pCat==="All";
                     let lastGroup=null;let lastSubgroup=null;
                     return visibleItems.map(item=>{
@@ -5998,7 +6010,7 @@ function QuoteBuilder({jobId:jobIdProp,editQuoteId,stockId,stock,setStock,jobs,c
                     const needsQty=!isFixedJob;
                     const qty=pQty[item.id]||"";
                     const qtyStep=item.unit==="g"?"0.1":"1";
-                    const qtyLabel=item.unit==="g"?"Grams":item.unit==="hr"?"Hours":item.unit==="pair"?"Pairs":item.unit==="item"?"Qty":isPrintCast?"Pieces":isDiamond||isSetting?"Stones":"Qty";
+                    const qtyLabel=item.unit==="g"?"Grams":item.unit==="hr"?"Hours":item.unit==="pair"?"Pairs":item.unit==="item"?"Qty":isPrintCast?"Pieces":isDiamond||isSetting||item.category===FANCY_LAB_CAT?"Stones":"Qty";
                     const previewCost=needsQty&&qty&&Number(qty)>0?(item.baseCost*Number(qty)).toFixed(2):null;
                     const mode=pMode[item.id]||(item.poa||item.baseCost===0&&item.unit==="stone"?"amt":"qty");
                     const amtMode=mode==="amt";
@@ -6016,6 +6028,7 @@ function QuoteBuilder({jobId:jobIdProp,editQuoteId,stockId,stock,setStock,jobs,c
                           {isDiamond?`${item.caratWeight}ct · ${fmt(item.baseCost)}/stone · ${fmt(item.pricePerCarat)}/ct`
                           :isSetting?`stone fits ${item.caratWeight}ct · ${fmt(item.baseCost)}/stone setting`
                           :isPrintCast?`${fmt(item.baseCost)}/piece`
+                          :item.category===FANCY_LAB_CAT?`${item.caratWeight}ct · ${fmt(item.baseCost)}/stone`
                           :`${fmt(item.baseCost)} per ${item.unit}`}
                         </div>
                       </div>
@@ -8661,6 +8674,48 @@ function DiamondTable({items,onQtyChange,onSavePrices}){
   </div>;
 }
 
+// Fancy-shape smalls: one table per shape (item.group), sizes as length × width.
+// Per carat is always worked out from the per-stone price (it isn't stored).
+const FANCY_SHAPE_ORDER=["Emerald","Oval","Pear","Marquise","Princess","Cushion","Radiant","Asscher","Heart","Baguette","Tapered Baguette","Trillion","Half Moon","Kite","Hexagon"];
+function FancySmallsTable({items,onSavePrices,onDelete}){
+  const[editing,setEditing]=useState(false);
+  const[edit,setEdit]=useState({});   // id → per-stone price being edited
+  const shapeRank=s=>{const i=FANCY_SHAPE_ORDER.indexOf(s);return i<0?999:i;};
+  const shapes=[...new Set(items.map(i=>i.group||"Other"))].sort((a,b)=>shapeRank(a)-shapeRank(b)||a.localeCompare(b));
+  const byShape=s=>items.filter(i=>(i.group||"Other")===s).sort((a,b)=>(a.lengthMm-b.lengthMm)||(a.widthMm-b.widthMm));
+  const startEdit=()=>{const e={};items.forEach(i=>{e[i.id]=String(i.baseCost);});setEdit(e);setEditing(true);};
+  const save=()=>{onSavePrices(items.map(i=>({...i,baseCost:Math.round((Number(edit[i.id]??i.baseCost)||0)*100)/100})));setEditing(false);setEdit({});};
+  const cols=editing?"1fr 80px 104px 96px 34px":"1fr 80px 104px 96px";
+  if(!items.length)return <div style={{background:WHITE,border:`1px solid ${BD}`,borderRadius:5,padding:"28px 16px",textAlign:"center",fontSize:13,color:WG}}>No fancy smalls yet.</div>;
+  return <div style={{background:WHITE,borderRadius:5,border:`1px solid ${editing?GOLD:BD}`,overflow:"hidden"}}>
+    <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",gap:10,flexWrap:"wrap",padding:"10px 16px",background:editing?GOLD_L:PARCH,borderBottom:`1px solid ${editing?GOLD+"55":BD}`}}>
+      <div style={{fontSize:11,fontWeight:700,color:editing?GOLD_D:WG,textTransform:"uppercase",letterSpacing:"0.06em"}}>{editing?"Editing per stone prices":`${items.length} stone${items.length!==1?"s":""} · ${shapes.length} shape${shapes.length!==1?"s":""}`}</div>
+      <div style={{display:"flex",gap:8}}>
+        {editing?<><Btn sm ghost onClick={()=>{setEditing(false);setEdit({});}}>Cancel</Btn><Btn sm onClick={save}>Save prices</Btn></>
+          :<Btn sm ghost onClick={startEdit}>✎ Edit prices</Btn>}
+      </div>
+    </div>
+    {shapes.map(shape=><div key={shape}>
+      <div style={{padding:"12px 16px 6px",fontSize:11,fontWeight:800,color:GOLD_D,textTransform:"uppercase",letterSpacing:"0.08em",borderTop:`1px solid ${BD}`}}>{shape}</div>
+      <div style={{display:"grid",gridTemplateColumns:cols,padding:"6px 16px",background:PARCH,borderTop:`1px solid ${BD}`,borderBottom:`1px solid ${BD}`}}>
+        {["Size","Avg ct","Per stone","Per ct",...(editing?[""]:[])].map((h,i)=><div key={i} style={{fontSize:10,fontWeight:700,color:WG,textTransform:"uppercase",letterSpacing:"0.04em"}}>{h}</div>)}
+      </div>
+      {byShape(shape).map((it,i)=>{
+        const cost=editing?Number(edit[it.id])||0:it.baseCost;
+        return <div key={it.id} style={{display:"grid",gridTemplateColumns:cols,padding:"7px 16px",alignItems:"center",background:i%2===0?WHITE:PARCH+"66"}}>
+          <div style={{fontWeight:700,fontSize:13,color:INK}}>{it.lengthMm&&it.widthMm?`${Number(it.lengthMm).toFixed(2)} × ${Number(it.widthMm).toFixed(2)}mm`:it.name}</div>
+          <div style={{fontSize:13,color:WG}}>{it.caratWeight}ct</div>
+          {editing
+            ?<input type="number" min="0" step="0.01" value={edit[it.id]??""} onChange={e=>setEdit(m=>({...m,[it.id]:e.target.value}))} style={{width:84,padding:"5px 8px",borderRadius:7,border:`1px solid ${GOLD}`,fontSize:13,fontFamily:"inherit",color:GOLD_D,fontWeight:700,background:GOLD_L,outline:"none",textAlign:"right"}}/>
+            :<div style={{fontSize:13,fontWeight:700,color:INK}}>{fmt(it.baseCost)}</div>}
+          <div style={{fontSize:12,color:WG}}>{it.caratWeight>0&&cost>0?fmt(cost/it.caratWeight):"—"}</div>
+          {editing&&<button onClick={()=>onDelete(it.id)} title="Delete this size" style={{background:"none",border:"none",cursor:"pointer",color:DANGER,fontSize:16,padding:0}}>×</button>}
+        </div>;
+      })}
+    </div>)}
+  </div>;
+}
+
 function SettingTable({items,onSavePrices,label="Basic Setting",onQtyChange}){
   const[qtys,setQtys]=useState({});
   const[editing,setEditing]=useState(false);
@@ -8892,9 +8947,10 @@ function PricingDB({pricing,setPricing,spotPrices,setSpotPrices,markupTable,cent
   const isPrintCastView=false;   // 3D Print & Cast now renders as a normal category list (size tiers), replacing the old flat two-fee card
   const isSettingUnifiedView=cf===SETTING_CAT;
   const isAllView=cf==="All";
-  const specialCats=[...DIAMOND_CATS,"Basic Setting","Complex Setting"];
+  const isFancyView=cf===FANCY_LAB_CAT;
+  const specialCats=[...DIAMOND_CATS,FANCY_LAB_CAT,"Basic Setting","Complex Setting"];
   const regularItems=pricing.filter(p=>!specialCats.includes(p.category));
-  const filteredRegular=isAllView?regularItems:(!isDiamondView&&!isPrintCastView&&!isSettingUnifiedView?regularItems.filter(p=>p.category===cf):[]);
+  const filteredRegular=isAllView?regularItems:(!isDiamondView&&!isFancyView&&!isPrintCastView&&!isSettingUnifiedView?regularItems.filter(p=>p.category===cf):[]);
   const filteredBase=isSettingUnifiedView?pricing.filter(p=>p.category==="Basic Setting").slice().sort((a,b)=>a.sizeMm-b.sizeMm):[];
   // Unified setting rates use a local DRAFT: edit freely, persist to K.csr only on Save (no
   // per-keystroke writes / toast flashing). Re-sync from the prop when there are no unsaved edits.
@@ -8974,7 +9030,7 @@ function PricingDB({pricing,setPricing,spotPrices,setSpotPrices,markupTable,cent
   };
 
 
-  const DCOLORS={"Lab Grown Diamonds | D-E":"#96627C","Natural diamonds G-H SI1":"#4E8B6A","Natural diamonds D-E VS":"#2D7A4F"};
+  const DCOLORS={"Lab Grown Diamonds | D-E":"#96627C",[FANCY_LAB_CAT]:"#7C5C9E","Natural diamonds G-H SI1":"#4E8B6A","Natural diamonds D-E VS":"#2D7A4F"};
   return <div>
     <SectionHeader eyebrow="Cost prices" title="Pricing database" subtitle="Your metals, stones, setting and labour rates — the numbers behind every quote." action={<div style={{display:"flex",gap:10,alignItems:"center",flexWrap:"wrap"}}>
       <Btn ghost onClick={onUpdateSpot}>⟳ Update metal spot prices</Btn>
@@ -9073,6 +9129,16 @@ function PricingDB({pricing,setPricing,spotPrices,setSpotPrices,markupTable,cent
         <span style={{display:"block",marginTop:3,fontSize:12,color:WG}}>Raw costs per stone — markup applied at quote time via multiplier table. Add a Basic Setting line separately for the setting labour cost.</span>
       </div>
       <DiamondTable items={filteredDiamond} onSavePrices={saveSettingPrices}/>
+    </div>}
+
+    {/* Fancy-shape lab grown smalls — grouped by shape */}
+    {isFancyView&&<div>
+      <div style={{background:WHITE,border:`1px solid ${BD}`,borderRadius:5,padding:"12px 16px",marginBottom:14,fontSize:13,lineHeight:1.5}}>
+        <strong style={{color:DCOLORS[cf]}}>{catTitle(cf)}</strong>
+        <span style={{display:"block",marginTop:3,fontSize:12,color:WG}}>Fancy shape lab grown smalls · D-E · VVS · per stone (AUD) ex GST · grouped by shape</span>
+        <span style={{display:"block",marginTop:3,fontSize:12,color:WG}}>Raw costs per stone, marked up at quote time like your round smalls. Add a setting line separately for the setting labour.</span>
+      </div>
+      <FancySmallsTable items={pricing.filter(p=>p.category===FANCY_LAB_CAT)} onSavePrices={saveSettingPrices} onDelete={del}/>
     </div>}
 
     {/* 3D Print & Cast view */}
