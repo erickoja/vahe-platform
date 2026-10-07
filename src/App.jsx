@@ -8483,12 +8483,33 @@ function DiamondTable({items,onQtyChange,onSavePrices}){
     if(item&&onQtyChange)onQtyChange(id,v,{...item,name:`${item.category} ${item.sizeMm}mm`});
   };
   const sorted=[...items].sort((a,b)=>a.sizeMm-b.sizeMm);
-  const startEdit=()=>{const s={},p={};sorted.forEach(i=>{s[i.id]=String(i.baseCost);p[i.id]=i.caratWeight>0?String(round2(i.baseCost/i.caratWeight)):"";});setEditStone(s);setEditPct(p);setEditing(true);};
-  const cancelEdit=()=>{setEditing(false);setEditStone({});setEditPct({});};
+  const startEdit=()=>{const s={},p={};sorted.forEach(i=>{s[i.id]=String(i.baseCost);p[i.id]=i.caratWeight>0?String(round2(i.baseCost/i.caratWeight)):"";});setEditStone(s);setEditPct(p);setEditing(true);
+    setBulkFrom(String(sorted[0]?.sizeMm??""));setBulkTo(String(sorted[sorted.length-1]?.sizeMm??""));};
+  const cancelEdit=()=>{resetBulk();setEditing(false);setEditStone({});setEditPct({});};
   // Per stone and per ct are linked (carat weight is fixed), so editing one recomputes the other.
-  const changeStone=(id,v,ct)=>{setEditStone(m=>({...m,[id]:v}));setEditPct(m=>({...m,[id]:(v!==""&&ct>0)?String(round2(Number(v)/ct)):""}));};
-  const changePct=(id,v,ct)=>{setEditPct(m=>({...m,[id]:v}));setEditStone(m=>({...m,[id]:v!==""?String(round2(Number(v)*ct)):""}));};
+  const changeStone=(id,v,ct)=>{setBulkHit(h=>({...h,[id]:false}));setEditStone(m=>({...m,[id]:v}));setEditPct(m=>({...m,[id]:(v!==""&&ct>0)?String(round2(Number(v)/ct)):""}));};
+  const changePct=(id,v,ct)=>{setBulkHit(h=>({...h,[id]:false}));setEditPct(m=>({...m,[id]:v}));setEditStone(m=>({...m,[id]:v!==""?String(round2(Number(v)*ct)):""}));};
+  // Bulk: one supplier price per carat across a size range → every per-stone price in it is
+  // recalculated from its carat weight. Fills the edit fields only; nothing saves until "Save prices".
+  const[bulkFrom,setBulkFrom]=useState("");
+  const[bulkTo,setBulkTo]=useState("");
+  const[bulkPct,setBulkPct]=useState("");
+  const[bulkHit,setBulkHit]=useState({});        // ids changed by the last bulk apply (highlighted)
+  const[bulkMsg,setBulkMsg]=useState("");
+  const applyBulk=()=>{
+    const ppc=Number(bulkPct);
+    if(!(ppc>0))return alert("Enter a price per carat.");
+    const lo=Math.min(Number(bulkFrom),Number(bulkTo)),hi=Math.max(Number(bulkFrom),Number(bulkTo));
+    const inRange=sorted.filter(i=>i.sizeMm>=lo&&i.sizeMm<=hi&&i.caratWeight>0);
+    if(!inRange.length)return alert("Pick the sizes to update.");
+    const s={},p={},hit={};
+    inRange.forEach(i=>{s[i.id]=String(round2(ppc*i.caratWeight));p[i.id]=String(ppc);hit[i.id]=true;});
+    setEditStone(m=>({...m,...s}));setEditPct(m=>({...m,...p}));setBulkHit(hit);
+    setBulkMsg(`${inRange.length} size${inRange.length!==1?"s":""} set to ${fmt(ppc)}/ct. Check them, then Save prices.`);
+  };
+  const resetBulk=()=>{setBulkHit({});setBulkMsg("");setBulkPct("");};
   const saveEdit=()=>{
+    resetBulk();
     const updated=items.map(x=>{const base=Number(editStone[x.id]??x.baseCost)||0;const pct=x.caratWeight>0?(Number(editPct[x.id])||round2(base/x.caratWeight)):(Number(x.pricePerCarat)||0);return{...x,baseCost:base,pricePerCarat:pct};});
     onSavePrices(updated);setEditing(false);setEditStone({});setEditPct({});
   };
@@ -8504,7 +8525,7 @@ function DiamondTable({items,onQtyChange,onSavePrices}){
     const qty=qtys[item.id]||"";
     const total=qty&&Number(qty)>0?item.baseCost*Number(qty):null;
     const inpStyle={width:"84px",padding:"5px 8px",borderRadius:7,border:`1px solid ${GOLD}`,fontSize:13,fontFamily:"inherit",color:GOLD_D,fontWeight:700,background:GOLD_L,outline:"none",textAlign:"right"};
-    return <div key={item.id} style={{display:"grid",gridTemplateColumns:dcols,padding:"8px 16px",borderBottom:i<len-1?`1px solid ${BD}`:"none",alignItems:"center",background:i%2===0?WHITE:PARCH+"66"}}>
+    return <div key={item.id} style={{display:"grid",gridTemplateColumns:dcols,padding:"8px 16px",borderBottom:i<len-1?`1px solid ${BD}`:"none",alignItems:"center",background:editing&&bulkHit[item.id]?GOLD_L:i%2===0?WHITE:PARCH+"66"}}>
       <div style={{fontWeight:700,fontSize:13,color:INK}}>{item.sizeMm}mm</div>
       <div style={{fontSize:13,color:WG}}>{item.caratWeight}ct</div>
       {editing
@@ -8527,6 +8548,23 @@ function DiamondTable({items,onQtyChange,onSavePrices}){
           :<Btn sm ghost onClick={startEdit}>✎ Edit prices</Btn>}
       </div>
     </div>
+    {/* Bulk price-per-carat across a size range (edit mode only) */}
+    {editing&&<div style={{padding:"12px 16px",borderBottom:`1px solid ${BD}`,background:WHITE}}>
+      <div style={{fontSize:12,fontWeight:700,color:INK,marginBottom:8}}>Set a price per carat for a range of sizes</div>
+      <div style={{display:"flex",alignItems:"center",gap:8,flexWrap:"wrap",fontSize:12,color:WG}}>
+        From
+        <select value={bulkFrom} onChange={e=>setBulkFrom(e.target.value)} style={{...SS.inp,marginTop:0,width:"auto",padding:"5px 8px"}}>{sorted.map(i=><option key={i.id} value={i.sizeMm}>{i.sizeMm}mm</option>)}</select>
+        to
+        <select value={bulkTo} onChange={e=>setBulkTo(e.target.value)} style={{...SS.inp,marginTop:0,width:"auto",padding:"5px 8px"}}>{sorted.map(i=><option key={i.id} value={i.sizeMm}>{i.sizeMm}mm</option>)}</select>
+        at {CUR_SYM}
+        <input type="number" min="0" step="1" value={bulkPct} placeholder="per ct" onChange={e=>setBulkPct(e.target.value)} onKeyDown={e=>{if(e.key==="Enter")applyBulk();}} style={{...SS.inp,marginTop:0,width:96,padding:"5px 8px"}}/>
+        per carat
+        <Btn sm onClick={applyBulk}>Apply to range</Btn>
+      </div>
+      <div style={{fontSize:11.5,color:bulkMsg?GOLD_D:WG,marginTop:7,lineHeight:1.5}}>
+        {bulkMsg||"Each size's per stone price is worked out from its carat weight. Use your supplier's per carat rate, and repeat for other ranges if the rate changes with size."}
+      </div>
+    </div>}
     <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(500px,1fr))"}}>
       {groups.map((g,gi)=><div key={gi} style={{borderLeft:gi>0?`1px solid ${BD}`:"none"}}>
         <Header/>
