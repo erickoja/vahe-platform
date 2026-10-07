@@ -467,6 +467,7 @@ const SEED_PRICING=[
     ["Marquise",5.00,2.50,0.11,60.08],["Marquise",5.50,2.75,0.15,78.25],["Marquise",6.00,3.00,0.20,102.97],["Marquise",6.20,3.20,0.25,69.92],   // 6.20×3.20 is as listed (cheaper than 6.00×3.00)
     ["Carre",2.70,2.70,0.13,56.33],   // HPHT on the supplier list
     ["Trapezoid",4.65,3.05,0.23,136.97],
+    ["Asscher",3.00,3.00,0.16,47.70],["Asscher",4.00,4.00,0.36,111.48],
   ].map(([shape,l,w,ct,cost])=>({id:`lf_${shape.toLowerCase().replace(/\W+/g,"")}_${Math.round(l*100)}x${Math.round(w*100)}`,
     category:FANCY_LAB_CAT,group:shape,name:`${l.toFixed(2)}×${w.toFixed(2)}mm ${shape}`,unit:"stone",baseCost:cost,caratWeight:ct,lengthMm:l,widthMm:w})),
   // ── Natural diamonds G-H SI1 ──────────────────────────────────────────────
