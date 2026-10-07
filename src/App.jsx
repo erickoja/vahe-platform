@@ -465,6 +465,7 @@ const SEED_PRICING=[
     ["Pear",5.00,3.00,0.17,67.81],["Pear",5.50,3.25,0.22,78.15],["Pear",5.50,3.50,0.26,91.73],
     ["Marquise",3.00,1.50,0.03,11.26],["Marquise",3.50,1.50,0.04,15.00],["Marquise",3.50,2.00,0.05,22.99],["Marquise",4.00,2.00,0.06,30.63],
     ["Marquise",5.00,2.50,0.11,60.08],["Marquise",5.50,2.75,0.15,78.25],["Marquise",6.00,3.00,0.20,102.97],["Marquise",6.20,3.20,0.25,69.92],   // 6.20×3.20 is as listed (cheaper than 6.00×3.00)
+    ["Carre",2.70,2.70,0.13,56.33],   // HPHT on the supplier list
   ].map(([shape,l,w,ct,cost])=>({id:`lf_${shape.toLowerCase().replace(/\W+/g,"")}_${Math.round(l*100)}x${Math.round(w*100)}`,
     category:FANCY_LAB_CAT,group:shape,name:`${l.toFixed(2)}×${w.toFixed(2)}mm ${shape}`,unit:"stone",baseCost:cost,caratWeight:ct,lengthMm:l,widthMm:w})),
   // ── Natural diamonds G-H SI1 ──────────────────────────────────────────────
@@ -8687,7 +8688,7 @@ function DiamondTable({items,onQtyChange,onSavePrices}){
 
 // Fancy-shape smalls: one table per shape (item.group), sizes as length × width.
 // Per carat is always worked out from the per-stone price (it isn't stored).
-const FANCY_SHAPE_ORDER=["Emerald","Oval","Pear","Marquise","Princess","Cushion","Radiant","Asscher","Heart","Baguette","Tapered Baguette","Trillion","Half Moon","Kite","Hexagon"];
+const FANCY_SHAPE_ORDER=["Emerald","Oval","Pear","Marquise","Princess","Carre","Cushion","Radiant","Asscher","Heart","Baguette","Tapered Baguette","Trillion","Half Moon","Kite","Hexagon"];
 function FancySmallsTable({items,onSavePrices,onDelete}){
   const[editing,setEditing]=useState(false);
   const[edit,setEdit]=useState({});   // id → per-stone price being edited
