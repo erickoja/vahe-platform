@@ -8471,6 +8471,30 @@ const DIAMOND_CAT_LABELS={
   "Natural diamonds D-E VS":"Natural diamonds · D-E · VS · Round brilliant · per stone (AUD) · Tax exempt",
 };
 
+// Read a supplier's per-stone price list pasted from their website or a spreadsheet.
+// Website copy: each "1.30MM …" size is paired with the price(s) that follow it, up to the next
+// size; when a sale and a "was" price are both shown, the higher (regular) one is used.
+// Plain lists without "mm" ("1.3  2.37", even several pairs per line) are read as size/price pairs.
+// Returns [{size, price}] in the order found.
+function parseStonePriceList(text){
+  const out=[];
+  const src=String(text||"");
+  const tok=/(\d+(?:\.\d+)?)\s*mm\b|\$\s*(\d[\d,]*(?:\.\d+)?)/gi;
+  let cur=null,m;
+  const flush=()=>{if(cur&&cur.prices.length)out.push({size:cur.size,price:Math.max(...cur.prices)});};
+  while((m=tok.exec(src))){
+    if(m[1]!=null){flush();cur={size:Number(m[1]),prices:[]};}
+    else if(cur)cur.prices.push(Number(m[2].replace(/,/g,"")));
+  }
+  flush();
+  if(out.length)return out;
+  for(const line of src.split(/\r?\n/)){
+    const nums=(line.match(/\d[\d,]*(?:\.\d+)?/g)||[]).map(n=>Number(n.replace(/,/g,"")));
+    for(let i=0;i+1<nums.length;i+=2)out.push({size:nums[i],price:nums[i+1]});
+  }
+  return out.filter(r=>r.size>0&&r.size<20&&r.price>0);
+}
+
 function DiamondTable({items,onQtyChange,onSavePrices}){
   const[qtys,setQtys]=useState({});
   const[editing,setEditing]=useState(false);
@@ -8523,7 +8547,31 @@ function DiamondTable({items,onQtyChange,onSavePrices}){
     setEditStone(m=>({...m,...s}));setEditPct(m=>({...m,...p}));setBulkHit(hit);
     setBulkMsg(`${n} size${n!==1?"s":""} updated from ${ready.length} range${ready.length!==1?"s":""}.${overlap?" Some ranges overlap, so the lower one in the list was used for those sizes.":""} Check them, then Save prices.`);
   };
-  const resetBulk=()=>{setBulkHit({});setBulkMsg("");setBands([]);};
+  // Paste a supplier price list → per-stone prices for every size it lists (exact, no per-ct maths)
+  const[bulkMode,setBulkMode]=useState("paste");  // "paste" | "ranges"
+  const[pasteText,setPasteText]=useState("");
+  const applyPaste=()=>{
+    const rows=parseStonePriceList(pasteText);
+    if(!rows.length)return alert("Couldn't find any sizes and prices in that text. Copy the supplier's table including the sizes (e.g. 1.30MM) and prices (e.g. $2.37).");
+    const s={},p={},hit={},unmatched=[];
+    for(const r of rows){
+      const item=sorted.find(i=>Math.abs(i.sizeMm-r.size)<0.001);
+      if(!item){unmatched.push(r.size);continue;}
+      if(hit[item.id])continue;                    // first listing of a size wins
+      const price=round2(r.price);
+      s[item.id]=String(price);p[item.id]=item.caratWeight>0?String(round2(price/item.caratWeight)):"";hit[item.id]=true;
+    }
+    const n=Object.keys(hit).length;
+    if(!n)return alert("None of the sizes in that list match this table's sizes.");
+    setEditStone(m=>({...m,...s}));setEditPct(m=>({...m,...p}));setBulkHit(hit);
+    const missing=sorted.filter(i=>!hit[i.id]).map(i=>i.sizeMm+"mm");
+    const uniq=[...new Set(unmatched)].map(x=>x+"mm");
+    setBulkMsg(`${n} size${n!==1?"s":""} filled in.`
+      +(missing.length?` Not in the list, left as they were: ${missing.join(", ")}.`:"")
+      +(uniq.length?` Skipped sizes this table doesn't have: ${uniq.join(", ")}.`:"")
+      +" Check them, then Save prices.");
+  };
+  const resetBulk=()=>{setBulkHit({});setBulkMsg("");setBands([]);setPasteText("");};
   const saveEdit=()=>{
     resetBulk();
     const updated=items.map(x=>{const base=Number(editStone[x.id]??x.baseCost)||0;const pct=x.caratWeight>0?(Number(editPct[x.id])||round2(base/x.caratWeight)):(Number(x.pricePerCarat)||0);return{...x,baseCost:base,pricePerCarat:pct};});
@@ -8564,9 +8612,26 @@ function DiamondTable({items,onQtyChange,onSavePrices}){
           :<Btn sm ghost onClick={startEdit}>✎ Edit prices</Btn>}
       </div>
     </div>
-    {/* Bulk price-per-carat across a size range (edit mode only) */}
+    {/* Bulk update (edit mode only): paste a supplier list, or price per carat by size range */}
     {editing&&<div style={{padding:"12px 16px",borderBottom:`1px solid ${BD}`,background:WHITE}}>
-      <div style={{fontSize:12,fontWeight:700,color:INK,marginBottom:8}}>Set prices per carat by size range</div>
+      <div style={{display:"flex",gap:6,marginBottom:10,flexWrap:"wrap"}}>
+        {[["paste","Paste a price list"],["ranges","Price per carat by size range"]].map(([k,l])=>(
+          <button key={k} onClick={()=>{setBulkMode(k);setBulkMsg("");}} style={{fontSize:12,fontWeight:700,padding:"5px 12px",borderRadius:20,cursor:"pointer",fontFamily:"inherit",
+            border:`1px solid ${bulkMode===k?GOLD:BD}`,background:bulkMode===k?GOLD_L:WHITE,color:bulkMode===k?GOLD_D:WG}}>{l}</button>
+        ))}
+      </div>
+      {bulkMode==="paste"?<>
+        <textarea value={pasteText} onChange={e=>setPasteText(e.target.value)} rows={5}
+          placeholder={"Copy your supplier's price table (sizes and per stone prices) and paste it here, e.g.\n0.80MM RBC DE VVS CVD   $1.36\n0.90MM RBC DE VVS CVD   $1.79"}
+          style={{...SS.inp,marginTop:0,width:"100%",boxSizing:"border-box",fontFamily:"ui-monospace,Menlo,monospace",fontSize:12,resize:"vertical"}}/>
+        <div style={{display:"flex",alignItems:"center",gap:14,flexWrap:"wrap",marginTop:8}}>
+          <Btn sm onClick={applyPaste}>Fill prices</Btn>
+          {pasteText&&<button onClick={()=>setPasteText("")} style={{background:"none",border:"none",padding:0,color:WG,fontWeight:700,fontSize:12,cursor:"pointer"}}>Clear</button>}
+        </div>
+        <div style={{fontSize:11.5,color:bulkMsg?GOLD_D:WG,marginTop:7,lineHeight:1.5}}>
+          {bulkMsg||"Each size found is matched to this table and its per stone price filled in, ex GST. Where a sale and a regular price are both shown, the regular price is used."}
+        </div>
+      </>:<>
       {bands.map(b=><div key={b.id} style={{display:"flex",alignItems:"center",gap:8,flexWrap:"wrap",fontSize:12,color:WG,marginBottom:6}}>
         From
         <select value={b.from} onChange={e=>setBand(b.id,{from:e.target.value})} style={{...SS.inp,marginTop:0,width:"auto",padding:"5px 8px"}}>{sorted.map(i=><option key={i.id} value={i.sizeMm}>{i.sizeMm}mm</option>)}</select>
@@ -8584,6 +8649,7 @@ function DiamondTable({items,onQtyChange,onSavePrices}){
       <div style={{fontSize:11.5,color:bulkMsg?GOLD_D:WG,marginTop:7,lineHeight:1.5}}>
         {bulkMsg||"Each size's per stone price is worked out from its carat weight. Add a range for each band on your supplier's price list. Ranges left without a rate are skipped."}
       </div>
+      </>}
     </div>}
     <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(500px,1fr))"}}>
       {groups.map((g,gi)=><div key={gi} style={{borderLeft:gi>0?`1px solid ${BD}`:"none"}}>
