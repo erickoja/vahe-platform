@@ -456,6 +456,8 @@ const SEED_PRICING=[
     ["Emerald",4.00,3.00,0.24,101.78],["Emerald",4.50,3.00,0.26,110.50],["Emerald",5.00,3.00,0.30,130.53],
     ["Oval",3.00,2.00,0.05,24.39],["Oval",3.30,2.30,0.07,30.92],["Oval",3.95,2.90,0.14,64.20],["Oval",4.00,3.00,0.15,67.82],
     ["Oval",5.00,3.00,0.20,86.49],["Oval",5.00,3.50,0.25,115.43],["Oval",5.50,3.75,0.30,140.10],["Oval",5.80,4.00,0.39,146.32],
+    ["Princess",2.00,2.00,0.05,22.22],["Princess",2.50,2.50,0.10,50.06],["Princess",3.00,3.00,0.15,80.10],
+    ["Princess",3.50,3.50,0.27,139.35],["Princess",4.00,4.00,0.40,145.16],   // 3.50mm is HPHT on the supplier list (others CVD)
   ].map(([shape,l,w,ct,cost])=>({id:`lf_${shape.toLowerCase().replace(/\W+/g,"")}_${Math.round(l*100)}x${Math.round(w*100)}`,
     category:FANCY_LAB_CAT,group:shape,name:`${l.toFixed(2)}×${w.toFixed(2)}mm ${shape}`,unit:"stone",baseCost:cost,caratWeight:ct,lengthMm:l,widthMm:w})),
   // ── Natural diamonds G-H SI1 ──────────────────────────────────────────────
