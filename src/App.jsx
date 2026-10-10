@@ -1949,7 +1949,7 @@ const calcStoneQuote=(items,table,overrideMult)=>{
   return{totalCost,bracket,mult,autoMult,overridden:ov>0,markedUp,gst,clientTotal};
 };
 
-const K={cl:"jlr4_clients",jo:"jlr4_jobs",qu:"jlr4_quotes",pa:"jlr4_payments",pr:"jlr4_pricing_v9",biz:"jlr4_biz",no:"jlr4_notes",inv:"jlr4_invoices",spot:"jlr4_spot",mt:"jlr4_markup",smn:"jlr4_stone_nat",sml:"jlr4_stone_lab",csr:"jlr4_centre_rates",ap:"jlr4_appointments",pp:"jlr4_proposals",td:"jlr4_todos",st:"jlr4_stock",gc:"jlr4_gem_custody",delpr:"jlr4_deleted_pricing",tmt:"jlr4_trade_markup",tsmn:"jlr4_trade_stone_nat",tsml:"jlr4_trade_stone_lab"};
+const K={cl:"jlr4_clients",jo:"jlr4_jobs",qu:"jlr4_quotes",pa:"jlr4_payments",pr:"jlr4_pricing_v9",biz:"jlr4_biz",no:"jlr4_notes",inv:"jlr4_invoices",spot:"jlr4_spot",mt:"jlr4_markup",smn:"jlr4_stone_nat",sml:"jlr4_stone_lab",csr:"jlr4_centre_rates",ap:"jlr4_appointments",pp:"jlr4_proposals",td:"jlr4_todos",st:"jlr4_stock",gc:"jlr4_gem_custody",pl:"jlr4_price_list",delpr:"jlr4_deleted_pricing",tmt:"jlr4_trade_markup",tsmn:"jlr4_trade_stone_nat",tsml:"jlr4_trade_stone_lab"};
 
 // Name of the public, anon-readable table holding immutable proposal snapshots for client links.
 const PUBLIC_PROPOSALS_TABLE="public_proposals";
@@ -2435,7 +2435,7 @@ const _storeGet=async(k)=>{
 // High-churn data keys are arrays of {id}. To stop one session's save clobbering a record another
 // session added/edited (last-write-wins lost update), those keys read the latest cloud copy and
 // 3-way merge by id before writing. Settings/catalogue keys keep the simple write.
-const MERGE_KEYS=new Set([K.cl,K.jo,K.qu,K.pa,K.no,K.inv,K.ap,K.pp,K.st,K.gc]);
+const MERGE_KEYS=new Set([K.cl,K.jo,K.qu,K.pa,K.no,K.inv,K.ap,K.pp,K.st,K.gc,K.pl]);
 const _known={};        // last local value per key = the merge base (what this session last synced/wrote)
 const _writeChain={};   // per-key promise chain so this client's own writes never race each other
 const _byId=arr=>{const m={};(arr||[]).forEach(x=>{if(x&&x.id!=null)m[x.id]=x;});return m;};
@@ -5358,15 +5358,21 @@ function SettingPicker({onAdd,settingRates=DEFAULT_SETTING_RATES,pricing=[]}){
   </div>;
 }
 
-function QuoteBuilder({jobId:jobIdProp,editQuoteId,stockId,stock,setStock,jobs,clients,quotes,setQuotes,pricing,setPricing,markupTable,naturalStoneMarkup,labStoneMarkup,tradeMarkupTable=[],tradeNatStoneMarkup=[],tradeLabStoneMarkup=[],centreRates=DEFAULT_SETTING_RATES,setCentreRates,invoices=[],setInvoices,setView}){
+function QuoteBuilder({jobId:jobIdProp,editQuoteId,stockId,stock,setStock,priceListId,priceList,setPriceList,jobs,clients,quotes,setQuotes,pricing,setPricing,markupTable,naturalStoneMarkup,labStoneMarkup,tradeMarkupTable=[],tradeNatStoneMarkup=[],tradeLabStoneMarkup=[],centreRates=DEFAULT_SETTING_RATES,setCentreRates,invoices=[],setInvoices,setView}){
   // Wider "stack" breakpoint (1024) than the app default (768): the line-item editor is a wide
   // multi-column table, so it stacks into cards on tablets too, not just phones.
   const isMobile=useIsMobile(1024);
   const existingQuote=editQuoteId?quotes.find(q=>q.id===editQuoteId):null;
   // Stock-pricing mode: same builder, but the total becomes a stock piece's price (no quote/proposal chrome).
-  const stockMode=!!stockId;
-  const stockItem=stockMode?(stock||[]).find(s=>s.id===stockId):null;
-  const seed=existingQuote||(stockMode?stockItem?.pricing:null);   // re-pricing seeds from the saved payload
+  // Price-list mode (website / catalogue products) shares stock's quote-free chrome, but saves onto a
+  // Price list product. Reopening one seeds from its build re-costed at TODAY's metal prices, so the
+  // builder shows the same figure as the list's "Price today" column.
+  const plMode=!!priceListId;
+  const plItem=plMode?(priceList||[]).find(p=>p.id===priceListId):null;
+  const stockMode=!!stockId||plMode;
+  const stockItem=stockId?(stock||[]).find(s=>s.id===stockId):null;
+  const[plSeed]=useState(()=>plItem?.pricing?repriceBuild(plItem.pricing,pricing,{markupTable,nat:naturalStoneMarkup,lab:labStoneMarkup})?.payload:null);
+  const seed=existingQuote||(plMode?plSeed:stockMode?stockItem?.pricing:null);   // re-pricing seeds from the saved payload
   const jobId=existingQuote?.jobId||jobIdProp;
   const job=jobs.find(j=>j.id===jobId);
   const c=job?clients.find(x=>x.id===job.clientId):null;
@@ -5378,7 +5384,8 @@ function QuoteBuilder({jobId:jobIdProp,editQuoteId,stockId,stock,setStock,jobs,c
   const[accentItems,setAccentItems]=useState(()=>seed?.lineItems?.length?seed.lineItems.filter(i=>i.accentStone).map(i=>({...i})):[]);
   const[notes,setNotes]=useState(seed?.notes||"");
   const[clientDescription,setClientDescription]=useState(seed?.clientDescription||"");
-  const[title,setTitle]=useState(seed?.title??(job?.type||""));   // prefill new quotes with the job type
+  const[title,setTitle]=useState(plMode?(plItem?.name||""):(seed?.title??(job?.type||"")));   // prefill new quotes with the job type
+  const[plGroup,setPlGroup]=useState(plItem?.group||"");   // price list: product group, e.g. Engagement rings
   const[pieceTitle,setPieceTitle]=useState(seed?.pieceTitle||"");  // custom piece name on documents; blank = use job type
   const[markupOverride,setMarkupOverride]=useState(seed?.markupOverride?String(seed.markupOverride):"");
   // Trade pricing: same builder, the lower trade markup profile. Auto-on for trade-account clients
@@ -5561,6 +5568,7 @@ function QuoteBuilder({jobId:jobIdProp,editQuoteId,stockId,stock,setStock,jobs,c
     const baseValidItems=items.filter(i=>i.description.trim()&&Number(i.costLow)>0);
     const hasSourcedStones=stoneMode==="sourcing"&&validStoneItems.length>0;
     if(!baseValidItems.length&&!validAccentItems.length&&!hasSourcedStones&&!manualOn)return alert("Add at least one cost item — a line item, a sourced stone, or a manual quoted price.");
+    if(plMode&&!title.trim())return alert("Give this product a name.");
     if(stockMode){
       // Persist the full pricing payload (so it can be reopened & re-priced), plus the resulting
       // cost + retail (inc GST) onto the stock piece. Retail auto-fills but stays editable in Stock.
@@ -5572,6 +5580,12 @@ function QuoteBuilder({jobId:jobIdProp,editQuoteId,stockId,stock,setStock,jobs,c
       const costTotal=calc.base+calc.flatCost+sourcedStoneCost;
       const retail=manualOn?Number(manualTotal):grandTotal;
       // The build's metal lines also give the piece's metal content (for its scrap value).
+      if(plMode){
+        const rec={name:title.trim(),group:plGroup.trim(),pricing:payload,cost:Math.round(costTotal),price:Math.round(retail),pricedAt:today()};
+        setPriceList(p=>{const n=plItem?p.map(x=>x.id===plItem.id?{...x,...rec}:x):[...p,{id:uid(),createdAt:today(),...rec}];persist(K.pl,n);return n;});
+        setView("pricelist");
+        return;
+      }
       const builtMetals=metalsFromPricing(payload,pricing);
       setStock(p=>{const n=p.map(s=>s.id===stockId?{...s,pricing:payload,cost:Math.round(costTotal),price:Math.round(retail),pricedAt:today(),...(builtMetals.length?{metals:builtMetals}:{})}:s);persist(K.st,n);return n;});
       setView("stock");
@@ -5612,9 +5626,10 @@ function QuoteBuilder({jobId:jobIdProp,editQuoteId,stockId,stock,setStock,jobs,c
 
   return <div>
     <div style={{marginBottom:20}}>
-      <h1 style={{margin:0,fontSize:isMobile?19:24,fontWeight:700,color:INK,wordBreak:"break-word"}}>{stockMode?(seed?"Update price":"Generate price"):(isEditing?"Edit quote":"New quote")}{title.trim()?`: ${title.trim()}`:(stockMode&&stockItem?.title?`: ${stockItem.title}`:"")}</h1>
+      <h1 style={{margin:0,fontSize:isMobile?19:24,fontWeight:700,color:INK,wordBreak:"break-word"}}>{plMode?(title.trim()||"New product"):stockMode?(seed?"Update price":"Generate price"):(isEditing?"Edit quote":"New quote")}{!plMode&&title.trim()?`: ${title.trim()}`:(stockMode&&stockItem?.title?`: ${stockItem.title}`:"")}</h1>
       {job&&<div style={{color:WG,fontSize:13,marginTop:3}}>{job.type} · {clientDisplayName(c)}</div>}
-      {stockMode&&<div style={{color:WG,fontSize:13,marginTop:3}}>Pricing a stock piece — builds like a quote, but the total becomes this piece's price.</div>}
+      {plMode&&<div style={{color:WG,fontSize:13,marginTop:3}}>Build it like a quote. No client or job is needed, and the total becomes this product's price on your price list.{plItem?.pricing?" Metal costs have been refreshed to today's prices.":""}</div>}
+      {stockMode&&!plMode&&<div style={{color:WG,fontSize:13,marginTop:3}}>Pricing a stock piece — builds like a quote, but the total becomes this piece's price.</div>}
       {isEditing&&!stockMode&&<div style={{fontSize:12,color:WG,marginTop:2}}>Quote {quoteRef(existingQuote)} · created {fmtDate(existingQuote.createdAt)}</div>}
       {linkedInvoice&&<div style={{display:"flex",alignItems:"center",gap:10,marginTop:12,background:GOLD_L,border:`1px solid ${GOLD}66`,borderRadius:6,padding:"10px 14px",fontSize:12.5,color:GOLD_D,lineHeight:1.5}}>
         <span style={{fontSize:15}}>⚠</span>
@@ -5624,7 +5639,12 @@ function QuoteBuilder({jobId:jobIdProp,editQuoteId,stockId,stock,setStock,jobs,c
 
     <Card>
       {/* ── Quote title + expiry + client description (quotes only; stock shows just an internal label) ── */}
-      {stockMode
+      {plMode
+        ? <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"1fr 260px",gap:"0 24px",marginBottom:20}}>
+            <Input label="Product name" value={title} onChange={setTitle} placeholder="e.g. 1.5ct oval solitaire, 18ct yellow gold"/>
+            <Input label="Group (optional)" value={plGroup} onChange={setPlGroup} placeholder="e.g. Engagement rings"/>
+          </div>
+        : stockMode
         ? <div style={{marginBottom:20}}>
             <Input label="Price label (optional)" value={title} onChange={setTitle} placeholder="What this pricing covers — for your reference only"/>
           </div>
@@ -5921,8 +5941,8 @@ function QuoteBuilder({jobId:jobIdProp,editQuoteId,stockId,stock,setStock,jobs,c
         </div>
       </div>}
 
-      {/* ── Gold trade-in credit ── */}
-      <div style={{borderTop:`1px solid ${BD}`,marginTop:16,paddingTop:18,marginBottom:8}}>
+      {/* ── Gold trade-in credit (client quotes only: a stock or price list price has no client to credit) ── */}
+      {!stockMode&&<div style={{borderTop:`1px solid ${BD}`,marginTop:16,paddingTop:18,marginBottom:8}}>
         <div style={{display:"flex",alignItems:"flex-start",gap:14,flexWrap:"wrap"}}>
           <div style={{flex:1,minWidth:240}}>
             <div style={{fontSize:11,fontWeight:700,color:WG,textTransform:"uppercase",letterSpacing:"0.08em"}}>Gold trade-in credit</div>
@@ -5937,7 +5957,7 @@ function QuoteBuilder({jobId:jobIdProp,editQuoteId,stockId,stock,setStock,jobs,c
         {tradeInN>0&&<div style={{marginTop:10}}>
           <Input label="Trade-in note (weight / purity / test — shown on the documents)" value={tradeInNote} onChange={setTradeInNote} placeholder="e.g. 14.2g 18ct yellow, X-ray tested"/>
         </div>}
-      </div>
+      </div>}
 
       {/* ── Manual quoted price — for verbal phone / in-person quotes ── */}
       <div style={{borderTop:`1px solid ${BD}`,marginTop:16,paddingTop:18,marginBottom:8}}>
@@ -5964,7 +5984,7 @@ function QuoteBuilder({jobId:jobIdProp,editQuoteId,stockId,stock,setStock,jobs,c
         </div>
       </div>
       <div style={{display:"flex",gap:10,justifyContent:"flex-end",alignItems:"center"}}>
-        <Btn ghost onClick={()=>setView(stockMode?"stock":"jobDetail_"+jobId)}>Cancel</Btn>
+        <Btn ghost onClick={()=>setView(plMode?"pricelist":stockMode?"stock":"jobDetail_"+jobId)}>Cancel</Btn>
         <Btn onClick={()=>save_(isEditing?existingQuote.status:"Draft")}>{stockMode?"Save price":isEditing?"Save changes":"Save quote"}</Btn>
       </div>
     </Card>
@@ -10461,6 +10481,7 @@ const NAV=[
   {id:"statements",label:"Statements"},
   {id:"gemcustody",label:"Safekeeping"},
   {id:"stock",label:"Stock"},
+  {id:"pricelist",label:"Price list"},
   {id:"pricing",label:"Pricing DB"},
   {id:"reports",label:"Reports"},
   {id:"settings",label:"Settings"},
@@ -10470,7 +10491,7 @@ const NAV_GROUPS=[
   {label:null,ids:["dashboard","todo"]},
   {label:"Workflow",ids:["appointments","clients","jobs","quotes","invoices","gemcustody"]},
   {label:"Trade",ids:["statements"]},
-  {label:"Studio",ids:["stock","pricing","reports","settings"]},
+  {label:"Studio",ids:["stock","pricelist","pricing","reports","settings"]},
 ];
 // Cohesive line-icon set for the sidebar (single 24-grid, 1.6 stroke, inherits color).
 function NavIcon({name,size=17}){
@@ -10488,6 +10509,7 @@ function NavIcon({name,size=17}){
     case "pricing": return <svg {...p}><path d="M20.6 11.4 12.6 3.4a2 2 0 0 0-1.4-.6H4.5a1 1 0 0 0-1 1v6.7a2 2 0 0 0 .6 1.4l8 8a1.9 1.9 0 0 0 2.7 0l5.8-5.8a1.9 1.9 0 0 0 0-2.7Z"/><circle cx="7.8" cy="7.8" r="1.4"/></svg>;
     case "reports": return <svg {...p}><line x1="3.5" y1="20.5" x2="20.5" y2="20.5"/><rect x="5" y="12" width="3.4" height="7" rx="0.6"/><rect x="10.3" y="8" width="3.4" height="11" rx="0.6"/><rect x="15.6" y="4.5" width="3.4" height="14.5" rx="0.6"/></svg>;
     case "stock": return <svg {...p}><path d="M12 2.8 21 7.4v9.2L12 21.2 3 16.6V7.4Z"/><path d="M3 7.4 12 12l9-4.6"/><line x1="12" y1="12" x2="12" y2="21.2"/><path d="M7.5 5.1 16.5 9.7"/></svg>;
+    case "pricelist": return <svg {...p}><rect x="4" y="3" width="16" height="18" rx="2"/><line x1="8" y1="8" x2="12" y2="8"/><line x1="8" y1="12" x2="12" y2="12"/><line x1="8" y1="16" x2="12" y2="16"/><line x1="15" y1="8" x2="16.5" y2="8"/><line x1="15" y1="12" x2="16.5" y2="12"/><line x1="15" y1="16" x2="16.5" y2="16"/></svg>;
     case "settings": return <svg {...p}><line x1="4" y1="8" x2="20" y2="8"/><circle cx="9" cy="8" r="2.3"/><line x1="4" y1="16" x2="20" y2="16"/><circle cx="15" cy="16" r="2.3"/></svg>;
     default: return null;
   }
@@ -11111,6 +11133,176 @@ const scrapValueOf=(metals,sp)=>{
   return any?total:null;
 };
 
+// ── Price list (website / catalogue pricing) ───────────────────────────────
+// Products priced with the quote builder but with no client, job or quote behind them. Each keeps
+// its full build, so it can be re-costed whenever metal prices or markups move.
+// Re-run a saved build against TODAY's Pricing DB metal costs and markup tables. Spot-linked metal
+// lines re-cost from their Pricing DB row (cast or fabricated); every other line keeps its snapshot
+// cost. A manual price stays as typed. Same maths as the builder's save, so an unchanged build
+// returns exactly its saved price.
+const repriceBuild=(payload,pricing,tables)=>{
+  if(!payload)return null;
+  const lineItems=(payload.lineItems||[]).map(li=>{
+    const g=Number(li.metalGrams);if(!(g>0)||!li.pricingId)return li;
+    const db=(pricing||[]).find(p=>p.id===li.pricingId&&p.category==="Metals");
+    if(!db)return li;
+    const method=li.metalMethod==="fab"?"fab":"cast";
+    // A cost typed over by hand no longer matches grams × its snapshot rate: leave it as entered.
+    const snap=Number(method==="fab"?li.metalFabPerG:li.metalCastPerG);
+    if(!(Math.abs((Number(li.costLow)||0)-snap*g)<0.01))return li;
+    const cast=Number(db.baseCost)||0,fab=Number(db.baseCostFab!=null?db.baseCostFab:db.baseCost)||0;
+    const perG=method==="fab"?fab:cast;
+    if(!(perG>0))return li;
+    return{...li,metalCastPerG:cast,metalFabPerG:fab,costLow:(perG*g).toFixed(2),detail:`${g}g × ${fmt(perG)}/g · ${method==="fab"?"fabricated":"cast"}`};
+  });
+  const calc=calcQuote(lineItems,tables.markupTable||[],payload.markupOverride,!!payload.taxOnTop);
+  const stoneItems=payload.stoneMode==="sourcing"?(payload.stoneItems||[]):[];
+  const sc=stoneItems.length&&payload.stoneType?calcStoneQuote(stoneItems,payload.stoneType==="lab"?tables.lab:tables.nat,payload.stoneMarkupOverride):null;
+  const stoneClientTotal=sc?.clientTotal||0;
+  const accentStoneTotal=lineItems.filter(i=>i.markupMode==="natural"||i.markupMode==="lab")
+    .reduce((s,i)=>s+(calcStoneQuote([{cost:i.costLow}],i.markupMode==="lab"?tables.lab:tables.nat)?.clientTotal||0),0);
+  const manual=Number(payload.manualTotal)||0;
+  const price=manual>0?manual:withPayAllowance(calc.finalLow+stoneClientTotal+accentStoneTotal,payload.payAllowancePct);
+  const sourced=stoneItems.reduce((s,i)=>s+(Number(i.cost)||Number(i.costLow)||0),0);
+  return{payload:{...payload,lineItems,stoneClientTotal,accentStoneTotal},cost:Math.round(calc.base+calc.flatCost+sourced),price:Math.round(price)};
+};
+
+function PriceList({priceList=[],setPriceList,setView,pricing=[],markupTable=[],naturalStoneMarkup=[],labStoneMarkup=[],spotPrices={},onUpdateSpot}){
+  const isMobile=useIsMobile();
+  const save=next=>{if(!guardEdit())return false;setPriceList(prev=>{const n=typeof next==="function"?next(prev):next;persist(K.pl,n);return n;});return true;};
+  const[q,setQ]=useState("");
+  const[group,setGroup]=useState("All");
+  const[copied,setCopied]=useState(null);
+
+  // Every product's price at today's metal prices + markups, next to the price it was last saved at.
+  const rows=useMemo(()=>{
+    const tables={markupTable,nat:naturalStoneMarkup,lab:labStoneMarkup};
+    return priceList.map(it=>{
+      const now=it.pricing?repriceBuild(it.pricing,pricing,tables):null;
+      const saved=Number(it.price)||0;
+      return{it,now,saved,diff:now?now.price-saved:0};
+    });
+  },[priceList,pricing,markupTable,naturalStoneMarkup,labStoneMarkup]);
+  const changed=rows.filter(r=>r.now&&r.diff!==0);
+  const groups=["All",...[...new Set(priceList.map(i=>(i.group||"").trim()).filter(Boolean))].sort((a,b)=>a.localeCompare(b))];
+  const needle=q.trim().toLowerCase();
+  const shown=rows
+    .filter(r=>group==="All"||(r.it.group||"").trim()===group)
+    .filter(r=>!needle||`${r.it.name||""} ${r.it.group||""}`.toLowerCase().includes(needle))
+    .sort((a,b)=>(a.it.group||"~").localeCompare(b.it.group||"~")||String(a.it.name||"").localeCompare(String(b.it.name||"")));
+
+  const applyRows=list=>{
+    const map=new Map(list.map(r=>[r.it.id,r.now]));
+    save(prev=>prev.map(it=>{const n=map.get(it.id);return n?{...it,pricing:n.payload,cost:n.cost,prevPrice:Number(it.price)||0,price:n.price,pricedAt:today()}:it;}));
+  };
+  const applyAll=()=>{
+    if(!changed.length)return;
+    if(!window.confirm(`Update ${changed.length} product${changed.length!==1?"s":""} to today's price? Remember to change the same prices on your website.`))return;
+    applyRows(changed);
+  };
+  const duplicate=it=>{
+    const id=uid();
+    if(save(prev=>[...prev,{...it,id,name:`${it.name||"Product"} (copy)`,createdAt:today(),prevPrice:undefined}]))setView("plPrice_"+id);
+  };
+  const remove=it=>{if(window.confirm(`Delete "${it.name||"this product"}" from your price list?`))save(prev=>prev.filter(x=>x.id!==it.id));};
+  const copyPrice=(id,price)=>{
+    try{navigator.clipboard?.writeText(String(Math.round(price)));}catch(e){}
+    setCopied(id);setTimeout(()=>setCopied(c=>c===id?null:c),1400);
+  };
+  const exportCsv=()=>{
+    const head=["Product","Group",`Price today (inc ${TAX_LABEL})`,`Saved price (inc ${TAX_LABEL})`,`Your cost (ex ${TAX_LABEL})`,"Margin %","Last priced"];
+    const body=shown.map(({it,now,saved})=>{const price=now?now.price:saved,cost=now?now.cost:it.cost,m=stockMargin(price,cost);
+      return[it.name||"",it.group||"",price||"",saved||"",cost||"",m?m.pct:"",it.pricedAt||""];});
+    const csv="﻿"+[head,...body].map(r=>r.map(_csvCell).join(",")).join("\r\n");
+    const url=URL.createObjectURL(new Blob([csv],{type:"text/csv;charset=utf-8;"}));
+    const a=document.createElement("a");a.href=url;a.download=`price-list-${today()}.csv`;document.body.appendChild(a);a.click();a.remove();URL.revokeObjectURL(url);
+  };
+
+  const linkBtn={background:"none",border:"none",padding:0,color:GOLD_D,fontWeight:700,fontSize:12,cursor:"pointer",fontFamily:"inherit"};
+  const change=r=>!r.now?null:r.diff===0
+    ?<span style={{fontSize:11.5,color:WG}}>No change</span>
+    :<span style={{fontSize:11.5,fontWeight:700,color:r.diff>0?OK:DANGER}}>{r.diff>0?"▲ ":"▼ "}{fmtR(Math.abs(r.diff))}{r.saved>0?` (${r.diff>0?"+":""}${(r.diff/r.saved*100).toFixed(1)}%)`:""}</span>;
+  const actions=r=><div style={{display:"flex",gap:6,flexWrap:"wrap",justifyContent:isMobile?"flex-start":"flex-end"}}>
+    {r.now&&r.diff!==0&&<Btn xs onClick={()=>applyRows([r])}>Update</Btn>}
+    {r.now&&<Btn xs ghost onClick={()=>copyPrice(r.it.id,r.now.price)}>{copied===r.it.id?"✓ Copied":"Copy"}</Btn>}
+    <Btn xs ghost onClick={()=>setView("plPrice_"+r.it.id)}>{r.it.pricing?"Edit":"Price it"}</Btn>
+    <Btn xs ghost onClick={()=>duplicate(r.it)}>Duplicate</Btn>
+    <Btn xs ghost onClick={()=>remove(r.it)}>Delete</Btn>
+  </div>;
+  const cols="minmax(200px,2fr) 100px 110px 150px 80px 110px minmax(250px,auto)";
+
+  return <div>
+    <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-end",flexWrap:"wrap",gap:16,marginBottom:24}}>
+      <div>
+        <div style={{fontSize:11,fontWeight:700,color:WG,letterSpacing:"0.14em",textTransform:"uppercase",marginBottom:5}}>Website pricing</div>
+        <h1 style={{margin:0,fontSize:32,fontWeight:700,color:INK,letterSpacing:"-0.02em",fontFamily:"'Poppins',sans-serif"}}>Price list</h1>
+        <div style={{color:INK,fontSize:15,marginTop:6,lineHeight:1.5,maxWidth:640}}>Price your website and catalogue designs with the quote builder, without a client or job. When metal prices move, see every new price at a glance and update them in one click.</div>
+      </div>
+      <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
+        {priceList.length>0&&<Btn ghost onClick={exportCsv}>{ICON_CSV}Export CSV</Btn>}
+        <Btn onClick={()=>setView("plPrice_new")}>+ New product</Btn>
+      </div>
+    </div>
+
+    {priceList.length===0
+      ? <Card style={{marginTop:4}}><div style={{color:WG,fontSize:14,textAlign:"center",padding:"46px 0"}}>
+          <div style={{fontSize:38,marginBottom:12}}>🏷️</div>
+          <div style={{fontWeight:700,fontSize:16,color:INK,marginBottom:6}}>No products yet</div>
+          <div style={{maxWidth:420,margin:"0 auto 18px",lineHeight:1.55}}>Add a design, build its price exactly like a quote, and it's saved here. Use Duplicate to make variants, such as the same ring in 9ct, 18ct or platinum.</div>
+          <Btn onClick={()=>setView("plPrice_new")}>+ Price your first product</Btn>
+        </div></Card>
+      : <>
+          {/* Today's prices vs saved prices */}
+          <div style={{display:"flex",alignItems:"center",gap:12,flexWrap:"wrap",background:changed.length?GOLD_L:PARCH,border:`1px solid ${changed.length?GOLD+"66":BD}`,borderRadius:8,padding:"12px 16px",marginBottom:18,fontSize:13,color:INK,lineHeight:1.55}}>
+            <div style={{flex:"1 1 320px"}}>
+              {changed.length
+                ? <><strong>{changed.length} price{changed.length!==1?"s have":" has"} moved</strong> since last saved, based on spot prices from {fmtDate(spotPrices.updatedAt)} and your current markups.</>
+                : <>All prices match today's costs, using spot prices from {fmtDate(spotPrices.updatedAt)}.</>}
+              {onUpdateSpot&&<>{" "}<button onClick={onUpdateSpot} style={linkBtn}>Update spot prices</button></>}
+            </div>
+            {changed.length>0&&<Btn sm onClick={applyAll}>Update all {changed.length} price{changed.length!==1?"s":""}</Btn>}
+          </div>
+
+          <div style={{display:"flex",gap:10,flexWrap:"wrap",alignItems:"center",marginBottom:16}}>
+            <input value={q} onChange={e=>setQ(e.target.value)} placeholder="Search products…" style={{...SS.inp,marginTop:0,flex:"1 1 240px",maxWidth:340}}/>
+            {groups.length>1&&<select value={group} onChange={e=>setGroup(e.target.value)} style={{...SS.inp,marginTop:0,width:"auto"}}>{groups.map(g=><option key={g} value={g}>{g==="All"?"All groups":g}</option>)}</select>}
+          </div>
+
+          {shown.length===0
+            ? <div style={{fontSize:13,color:WG,fontStyle:"italic",padding:"24px 0",textAlign:"center"}}>No products match your search.</div>
+            : isMobile
+            ? <div style={{display:"flex",flexDirection:"column",gap:12}}>{shown.map(r=>{const m=r.now?stockMargin(r.now.price,r.now.cost):null;return <Card key={r.it.id}>
+                <div style={{fontWeight:700,fontSize:15,color:INK}}>{r.it.name||"Untitled product"}</div>
+                {r.it.group&&<div style={{fontSize:12,color:WG,marginTop:2}}>{r.it.group}</div>}
+                <div style={{display:"flex",alignItems:"baseline",gap:10,flexWrap:"wrap",marginTop:10}}>
+                  <span style={{fontSize:20,fontWeight:800,color:INK}}>{r.now?fmtR(r.now.price):"Not priced"}</span>
+                  {change(r)}
+                </div>
+                <div style={{fontSize:12,color:WG,marginTop:4}}>{r.now?<>Saved {fmtR(r.saved)} · cost {fmtR(r.now.cost)}{m?` · ${m.pct}% margin`:""} · priced {fmtDate(r.it.pricedAt)}</>:"Open it to build the price."}</div>
+                <div style={{marginTop:12}}>{actions(r)}</div>
+              </Card>;})}</div>
+            : <Card style={{padding:0,overflow:"hidden"}}>
+                <div style={{display:"grid",gridTemplateColumns:cols,gap:12,padding:"10px 18px",borderBottom:`1px solid ${BD}`,background:PARCH}}>
+                  {["Product","Your cost","Price today","Change since saved","Margin","Last priced",""].map(h=><div key={h} style={{fontSize:10,fontWeight:700,color:WG,textTransform:"uppercase",letterSpacing:"0.05em"}}>{h}</div>)}
+                </div>
+                {shown.map(r=>{const m=r.now?stockMargin(r.now.price,r.now.cost):null;return <div key={r.it.id} style={{display:"grid",gridTemplateColumns:cols,gap:12,padding:"12px 18px",borderBottom:`1px solid ${BD_SOFT}`,alignItems:"center",fontSize:13}}>
+                  <div style={{minWidth:0}}>
+                    <div style={{fontWeight:700,color:INK,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{r.it.name||"Untitled product"}</div>
+                    {r.it.group&&<div style={{fontSize:11.5,color:WG,marginTop:2}}>{r.it.group}</div>}
+                  </div>
+                  <div style={{color:WG}}>{r.now?fmtR(r.now.cost):""}</div>
+                  <div style={{fontWeight:800,color:INK,fontSize:14}}>{r.now?fmtR(r.now.price):<span style={{color:WG,fontWeight:400,fontSize:12}}>Not priced</span>}</div>
+                  <div>{change(r)}{r.now&&r.diff!==0&&<div style={{fontSize:11,color:WG,marginTop:2}}>was {fmtR(r.saved)}</div>}</div>
+                  <div style={{color:m?(m.pct>=0?OK:DANGER):WG,fontWeight:700,fontSize:12}}>{m?`${m.pct}%`:""}</div>
+                  <div style={{color:WG,fontSize:12}}>{r.it.pricedAt?fmtDate(r.it.pricedAt):""}</div>
+                  {actions(r)}
+                </div>;})}
+              </Card>}
+          <div style={{fontSize:12,color:WG,marginTop:12,lineHeight:1.6}}>Prices include {TAX_LABEL} and your payment processing allowance, the same as your quotes. Margin is worked out excluding {TAX_LABEL}. Metal added from the Pricing DB follows spot prices. Stones, labour and any cost you typed in yourself stay as you entered them.</div>
+        </>}
+  </div>;
+}
+
 const GEM_TYPES=["Diamond","Sapphire","Ruby","Emerald","Opal","Pearl","Aquamarine","Topaz","Amethyst","Garnet","Tourmaline","Tanzanite","Spinel","Morganite","Other"];
 const GEM_SHAPES=["","Round","Oval","Cushion","Princess","Emerald","Pear","Marquise","Radiant","Asscher","Heart","Trillion","Baguette","Cabochon","Other"];
 const PIECE_TYPES=["Ring","Necklace","Pendant","Bracelet","Bangle","Earrings","Brooch","Watch","Chain","Cufflinks","Other"];
@@ -11712,6 +11904,7 @@ export default function App(){
   const[todos,setTodos]=useState({people:[],items:[]});
   const[stock,setStock]=useState([]);
   const[gemCustody,setGemCustody]=useState([]);
+  const[priceList,setPriceList]=useState([]);
   const[view,setViewRaw]=useState("dashboard");
   const[selClient,setSelClient]=useState(null);
   const[selJob,setSelJob]=useState(null);
@@ -11875,7 +12068,7 @@ export default function App(){
       [K.pr]:setPricing,[K.biz]:setBiz,[K.no]:setNotes,[K.inv]:setInvoices,
       [K.mt]:setMarkupTable,[K.smn]:setNaturalStoneMarkup,[K.sml]:setLabStoneMarkup,[K.csr]:setCentreRates,
       [K.ap]:setAppointments,[K.pp]:setProposals,[K.td]:setTodos,[K.st]:setStock,
-      [K.gc]:setGemCustody,[K.spot]:setSpotPrices,
+      [K.gc]:setGemCustody,[K.pl]:setPriceList,[K.spot]:setSpotPrices,
       [K.tmt]:setTradeMarkupTable,[K.tsmn]:setTradeNatStoneMarkup,[K.tsml]:setTradeLabStoneMarkup,
     };
     // When a studio has no saved row for a key (a brand-new/empty studio, or one that just
@@ -11884,7 +12077,7 @@ export default function App(){
     // so a new studio is immediately usable. Keys must match keyToSetter exactly.
     const studioDefaults={
       [K.cl]:[],[K.jo]:[],[K.qu]:[],[K.pa]:[],[K.no]:[],[K.inv]:[],[K.pp]:[],[K.ap]:[],
-      [K.td]:{people:[],items:[]},[K.st]:[],[K.gc]:[],[K.biz]:{},
+      [K.td]:{people:[],items:[]},[K.st]:[],[K.gc]:[],[K.pl]:[],[K.biz]:{},
       [K.pr]:SEED_PRICING,[K.mt]:DEFAULT_MARKUP_TABLE,[K.smn]:DEFAULT_NATURAL_STONE_MARKUP,
       [K.sml]:DEFAULT_LAB_STONE_MARKUP,[K.csr]:DEFAULT_SETTING_RATES,[K.spot]:SEED_SPOT,
       [K.tmt]:DEFAULT_TRADE_MARKUP_TABLE,[K.tsmn]:DEFAULT_TRADE_NATURAL_STONE_MARKUP,[K.tsml]:DEFAULT_TRADE_LAB_STONE_MARKUP,
@@ -12025,12 +12218,12 @@ export default function App(){
   const buildDataSnapshot=useCallback(()=>({
     [K.cl]:clients,[K.jo]:jobs,[K.qu]:quotes,[K.pa]:payments,[K.pr]:pricing,[K.biz]:biz,[K.no]:notes,[K.inv]:invoices,
     [K.mt]:markupTable,[K.smn]:naturalStoneMarkup,[K.sml]:labStoneMarkup,[K.csr]:centreRates,[K.ap]:appointments,
-    [K.pp]:proposals,[K.td]:todos,[K.st]:stock,[K.gc]:gemCustody,[K.spot]:spotPrices,
+    [K.pp]:proposals,[K.td]:todos,[K.st]:stock,[K.gc]:gemCustody,[K.pl]:priceList,[K.spot]:spotPrices,
     [K.tmt]:tradeMarkupTable,[K.tsmn]:tradeNatStoneMarkup,[K.tsml]:tradeLabStoneMarkup,
-  }),[clients,jobs,quotes,payments,pricing,biz,notes,invoices,markupTable,naturalStoneMarkup,labStoneMarkup,centreRates,appointments,proposals,todos,stock,gemCustody,spotPrices,tradeMarkupTable,tradeNatStoneMarkup,tradeLabStoneMarkup]);
+  }),[clients,jobs,quotes,payments,pricing,biz,notes,invoices,markupTable,naturalStoneMarkup,labStoneMarkup,centreRates,appointments,proposals,todos,stock,gemCustody,priceList,spotPrices,tradeMarkupTable,tradeNatStoneMarkup,tradeLabStoneMarkup]);
   // Write each slice from a snapshot back to state + cloud. Setters are stable so no deps needed.
   const applyRestore=useCallback((data)=>{
-    const map={[K.cl]:setClients,[K.jo]:setJobs,[K.qu]:setQuotes,[K.pa]:setPayments,[K.pr]:setPricing,[K.biz]:setBiz,[K.no]:setNotes,[K.inv]:setInvoices,[K.mt]:setMarkupTable,[K.smn]:setNaturalStoneMarkup,[K.sml]:setLabStoneMarkup,[K.csr]:setCentreRates,[K.ap]:setAppointments,[K.pp]:setProposals,[K.td]:setTodos,[K.st]:setStock,[K.gc]:setGemCustody,[K.spot]:setSpotPrices,[K.tmt]:setTradeMarkupTable,[K.tsmn]:setTradeNatStoneMarkup,[K.tsml]:setTradeLabStoneMarkup};
+    const map={[K.cl]:setClients,[K.jo]:setJobs,[K.qu]:setQuotes,[K.pa]:setPayments,[K.pr]:setPricing,[K.biz]:setBiz,[K.no]:setNotes,[K.inv]:setInvoices,[K.mt]:setMarkupTable,[K.smn]:setNaturalStoneMarkup,[K.sml]:setLabStoneMarkup,[K.csr]:setCentreRates,[K.ap]:setAppointments,[K.pp]:setProposals,[K.td]:setTodos,[K.st]:setStock,[K.gc]:setGemCustody,[K.pl]:setPriceList,[K.spot]:setSpotPrices,[K.tmt]:setTradeMarkupTable,[K.tsmn]:setTradeNatStoneMarkup,[K.tsml]:setTradeLabStoneMarkup};
     Object.entries(data||{}).forEach(([k,v])=>{const set=map[k];if(set&&v!==undefined&&v!==null){set(v);persist(k,v);}});
   },[]);
   const backupNow=useCallback(()=>cloudSnapshot(buildDataSnapshot(),"manual"),[buildDataSnapshot]);
@@ -12153,6 +12346,7 @@ export default function App(){
     if(view.startsWith("invoiceDetail")||view==="invoices")return "invoices";
     if(view.startsWith("newQuote")||view.startsWith("editQuote")||view.startsWith("jobDetail")||view==="jobs")return "jobs";
     if(view.startsWith("stockPrice")||view==="stock")return "stock";
+    if(view.startsWith("plPrice"))return "pricelist";
     if(view==="clientDetail")return "clients";
     return view;
   },[view]);
@@ -12194,6 +12388,8 @@ export default function App(){
     if(view==="stock")return <StockBoard stock={stock} setStock={setStock} setView={setView} pricing={pricing} spotPrices={spotPrices} setSpotPrices={setSpotPrices} onUpdateSpot={()=>setSpotModal(true)}/>;
     if(view==="gemcustody")return <GemCustody custody={gemCustody} setCustody={setGemCustody} clients={clients} biz={biz}/>;
     if(view.startsWith("stockPrice_"))return <QuoteBuilder stockId={view.split("_")[1]} stock={stock} setStock={setStock} jobs={jobs} clients={clients} quotes={quotes} setQuotes={setQuotes} pricing={pricing} setPricing={setPricing} markupTable={markupTable} naturalStoneMarkup={naturalStoneMarkup} labStoneMarkup={labStoneMarkup} tradeMarkupTable={tradeMarkupTable} tradeNatStoneMarkup={tradeNatStoneMarkup} tradeLabStoneMarkup={tradeLabStoneMarkup} centreRates={centreRates} setCentreRates={setCentreRates} setView={setView}/>;
+    if(view==="pricelist")return <PriceList priceList={priceList} setPriceList={setPriceList} setView={setView} pricing={pricing} markupTable={markupTable} naturalStoneMarkup={naturalStoneMarkup} labStoneMarkup={labStoneMarkup} spotPrices={spotPrices} onUpdateSpot={()=>setSpotModal(true)}/>;
+    if(view.startsWith("plPrice_"))return <QuoteBuilder key={view} priceListId={view.split("_")[1]} priceList={priceList} setPriceList={setPriceList} jobs={jobs} clients={clients} quotes={quotes} setQuotes={setQuotes} pricing={pricing} setPricing={setPricing} markupTable={markupTable} naturalStoneMarkup={naturalStoneMarkup} labStoneMarkup={labStoneMarkup} tradeMarkupTable={tradeMarkupTable} tradeNatStoneMarkup={tradeNatStoneMarkup} tradeLabStoneMarkup={tradeLabStoneMarkup} centreRates={centreRates} setCentreRates={setCentreRates} setView={setView}/>;
     if(view==="pricing")return <PricingDB pricing={pricing} setPricing={setPricing} spotPrices={spotPrices} setSpotPrices={setSpotPrices} markupTable={markupTable} centreRates={centreRates} setCentreRates={setCentreRates} onUpdateSpot={()=>setSpotModal(true)}/>;
     if(view==="reports")return <Reports jobs={jobs} clients={clients} quotes={quotes} payments={payments} invoices={invoices} markupTable={markupTable} setView={setView} setSelJob={setSelJob} openJobs={openJobs} biz={biz}/>;
     if(view==="settings")return <Settings biz={biz} setBiz={setBiz} markupTable={markupTable} setMarkupTable={setMarkupTable} naturalStoneMarkup={naturalStoneMarkup} setNaturalStoneMarkup={setNaturalStoneMarkup} labStoneMarkup={labStoneMarkup} setLabStoneMarkup={setLabStoneMarkup} tradeMarkupTable={tradeMarkupTable} setTradeMarkupTable={setTradeMarkupTable} tradeNatStoneMarkup={tradeNatStoneMarkup} setTradeNatStoneMarkup={setTradeNatStoneMarkup} tradeLabStoneMarkup={tradeLabStoneMarkup} setTradeLabStoneMarkup={setTradeLabStoneMarkup} dataSafety={{backupNow,loadSnapshots:listCloudSnapshots,restoreSnapshot}} billing={billing}/>;
