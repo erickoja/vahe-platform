@@ -11182,12 +11182,45 @@ const repriceBuild=(payload,pricing,tables)=>{
   return{payload:{...payload,lineItems,stoneClientTotal,accentStoneTotal},cost:Math.round(calc.base+calc.flatCost+sourced),price:Math.round(price)};
 };
 
+// Product family from a variant's name, so variants list together under one heading with no extra
+// setup: drop a trailing "(…)" (stone option) and a trailing "in <metal>" part, plus any "(copy)".
+// "ELENA | Cross Pendant in 18ct White Gold (0.20ct lab-grown)" → "ELENA | Cross Pendant".
+const plFamilyOf=name=>{
+  let n=String(name||"").trim().replace(/\s*\(copy\)\s*$/i,"");
+  n=n.replace(/\s*\([^()]*\)\s*$/,"");
+  const i=n.toLowerCase().lastIndexOf(" in ");
+  if(i>0)n=n.slice(0,i);
+  return n.trim()||String(name||"").trim();
+};
+// What sets a variant apart within its family: "18ct White Gold (0.20ct lab-grown)".
+const plVariantOf=(name,family)=>{
+  const n=String(name||"").trim();
+  if(!family||!n.toLowerCase().startsWith(family.toLowerCase()))return n;
+  return n.slice(family.length).replace(/^\s*(in\b|[|,:·-])\s*/i,"").trim();
+};
+// Split a variant into its metal and stone option: "18ct White Gold (0.20ct lab-grown)" → ["18ct White Gold","0.20ct lab-grown"].
+const plSplitVariant=v=>{
+  const copy=/\s*\(copy\)\s*$/i.test(String(v||""));   // a fresh duplicate still sits under its metal
+  const m=String(v||"").replace(/\s*\(copy\)\s*$/i,"").match(/^(.+?)\s*\(([^()]+)\)\s*$/);
+  return m?[m[1].trim(),m[2].trim()+(copy?" (copy)":"")]:null;
+};
+const plNaturalSort=(a,b)=>String(a).localeCompare(String(b),undefined,{numeric:true,sensitivity:"base"});
+
 function PriceList({priceList=[],setPriceList,setView,pricing=[],markupTable=[],naturalStoneMarkup=[],labStoneMarkup=[],spotPrices={},onUpdateSpot}){
   const isMobile=useIsMobile();
   const save=next=>{if(!guardEdit())return false;setPriceList(prev=>{const n=typeof next==="function"?next(prev):next;persist(K.pl,n);return n;});return true;};
   const[q,setQ]=useState("");
   const[group,setGroup]=useState("All");
   const[copied,setCopied]=useState(null);
+  const[menuFor,setMenuFor]=useState(null);      // variant whose "More" menu is open
+  const[collapsed,setCollapsed]=useState(()=>{try{return JSON.parse(localStorage.getItem("pl_collapsed")||"[]");}catch(e){return [];}});
+  const toggleFamily=key=>setCollapsed(p=>{const n=p.includes(key)?p.filter(k=>k!==key):[...p,key];try{localStorage.setItem("pl_collapsed",JSON.stringify(n));}catch(e){}return n;});
+  useEffect(()=>{
+    if(!menuFor)return;
+    const close=()=>setMenuFor(null);
+    window.addEventListener("click",close);
+    return()=>window.removeEventListener("click",close);
+  },[menuFor]);
   // Scroll to + briefly highlight the product just saved in the builder, so it's easy to spot
   // even when a rename or new group moves it elsewhere in the list.
   const[flash,setFlash]=useState(()=>{const f=_plFlashId;_plFlashId=null;return f;});
@@ -11205,7 +11238,8 @@ function PriceList({priceList=[],setPriceList,setView,pricing=[],markupTable=[],
     return priceList.map(it=>{
       const now=it.pricing?repriceBuild(it.pricing,pricing,tables):null;
       const saved=Number(it.price)||0;
-      return{it,now,saved,diff:now?now.price-saved:0};
+      const family=plFamilyOf(it.name);
+      return{it,now,saved,diff:now?now.price-saved:0,family,variant:plVariantOf(it.name,family)};
     });
   },[priceList,pricing,markupTable,naturalStoneMarkup,labStoneMarkup]);
   const changed=rows.filter(r=>r.now&&r.diff!==0);
@@ -11213,8 +11247,26 @@ function PriceList({priceList=[],setPriceList,setView,pricing=[],markupTable=[],
   const needle=q.trim().toLowerCase();
   const shown=rows
     .filter(r=>group==="All"||(r.it.group||"").trim()===group)
-    .filter(r=>!needle||`${r.it.name||""} ${r.it.group||""}`.toLowerCase().includes(needle))
-    .sort((a,b)=>(a.it.group||"~").localeCompare(b.it.group||"~")||String(a.it.name||"").localeCompare(String(b.it.name||"")));
+    .filter(r=>!needle||`${r.it.name||""} ${r.it.group||""}`.toLowerCase().includes(needle));
+
+  // Families: same group + same family name. Variants sort naturally (9ct before 18ct), and when
+  // every variant reads "<metal> (<stone>)" they're sub-headed by metal so each row shows just the stone.
+  const families=useMemo(()=>{
+    const map=new Map();
+    shown.forEach(r=>{
+      const key=`${(r.it.group||"").trim().toLowerCase()}::${r.family.toLowerCase()}`;
+      if(!map.has(key))map.set(key,{key,title:r.family,group:(r.it.group||"").trim(),rows:[]});
+      map.get(key).rows.push(r);
+    });
+    return[...map.values()].map(f=>{
+      f.rows.sort((a,b)=>plNaturalSort(a.variant,b.variant));
+      const split=f.rows.length>1&&f.rows.every(r=>plSplitVariant(r.variant));
+      const prices=f.rows.filter(r=>r.now).map(r=>r.now.price);
+      const dates=f.rows.map(r=>r.it.pricedAt).filter(Boolean).sort();
+      return{...f,split,min:prices.length?Math.min(...prices):0,max:prices.length?Math.max(...prices):0,
+        changed:f.rows.filter(r=>r.now&&r.diff!==0).length,lastPriced:dates[dates.length-1]||""};
+    }).sort((a,b)=>(a.group||"~").localeCompare(b.group||"~")||plNaturalSort(a.title,b.title));
+  },[shown]);
 
   const applyRows=list=>{
     const map=new Map(list.map(r=>[r.it.id,r.now]));
@@ -11235,9 +11287,9 @@ function PriceList({priceList=[],setPriceList,setView,pricing=[],markupTable=[],
     setCopied(id);setTimeout(()=>setCopied(c=>c===id?null:c),1400);
   };
   const exportCsv=()=>{
-    const head=["Product","Group",`Price today (inc ${TAX_LABEL})`,`Saved price (inc ${TAX_LABEL})`,`Your cost (ex ${TAX_LABEL})`,"Margin %","Last priced"];
-    const body=shown.map(({it,now,saved})=>{const price=now?now.price:saved,cost=now?now.cost:it.cost,m=stockMargin(price,cost);
-      return[it.name||"",it.group||"",price||"",saved||"",cost||"",m?m.pct:"",it.pricedAt||""];});
+    const head=["Product","Variant","Full name","Group",`Price today (inc ${TAX_LABEL})`,`Saved price (inc ${TAX_LABEL})`,`Your cost (ex ${TAX_LABEL})`,"Margin %","Last priced"];
+    const body=families.flatMap(f=>f.rows.map(({it,now,saved,variant})=>{const price=now?now.price:saved,cost=now?now.cost:it.cost,m=stockMargin(price,cost);
+      return[f.title,f.rows.length>1?variant:"",it.name||"",it.group||"",price||"",saved||"",cost||"",m?m.pct:"",it.pricedAt||""];}));
     const csv="﻿"+[head,...body].map(r=>r.map(_csvCell).join(",")).join("\r\n");
     const url=URL.createObjectURL(new Blob([csv],{type:"text/csv;charset=utf-8;"}));
     const a=document.createElement("a");a.href=url;a.download=`price-list-${today()}.csv`;document.body.appendChild(a);a.click();a.remove();URL.revokeObjectURL(url);
@@ -11247,14 +11299,52 @@ function PriceList({priceList=[],setPriceList,setView,pricing=[],markupTable=[],
   const change=r=>!r.now?null:r.diff===0
     ?<span style={{fontSize:11.5,color:WG}}>No change</span>
     :<span style={{fontSize:11.5,fontWeight:700,color:r.diff>0?OK:DANGER}}>{r.diff>0?"▲ ":"▼ "}{fmtR(Math.abs(r.diff))}{r.saved>0?` (${r.diff>0?"+":""}${(r.diff/r.saved*100).toFixed(1)}%)`:""}</span>;
-  const actions=r=><div style={{display:"flex",gap:6,flexWrap:"wrap",justifyContent:isMobile?"flex-start":"flex-end"}}>
+  const menuItem={display:"block",width:"100%",textAlign:"left",background:"none",border:"none",padding:"8px 14px",fontSize:12.5,color:INK,cursor:"pointer",fontFamily:"inherit",whiteSpace:"nowrap"};
+  const actions=r=><div style={{display:"flex",gap:6,alignItems:"center",justifyContent:isMobile?"flex-start":"flex-end",position:"relative"}}>
     {r.now&&r.diff!==0&&<Btn xs onClick={()=>applyRows([r])}>Update</Btn>}
     {r.now&&<Btn xs ghost onClick={()=>copyPrice(r.it.id,r.now.price)}>{copied===r.it.id?"✓ Copied":"Copy"}</Btn>}
     <Btn xs ghost onClick={()=>setView("plPrice_"+r.it.id)}>{r.it.pricing?"Edit":"Price it"}</Btn>
-    <Btn xs ghost onClick={()=>duplicate(r.it)}>Duplicate</Btn>
-    <Btn xs ghost onClick={()=>remove(r.it)}>Delete</Btn>
+    <button aria-label="More actions" onClick={e=>{e.stopPropagation();setMenuFor(m=>m===r.it.id?null:r.it.id);}}
+      style={{background:menuFor===r.it.id?PARCH:"none",border:`1px solid ${menuFor===r.it.id?BD:"transparent"}`,borderRadius:8,width:30,height:28,cursor:"pointer",color:WG,fontSize:16,lineHeight:1,fontFamily:"inherit"}}>⋯</button>
+    {menuFor===r.it.id&&<div onClick={e=>e.stopPropagation()} style={{position:"absolute",top:"calc(100% + 4px)",right:isMobile?"auto":0,left:isMobile?0:"auto",zIndex:20,background:WHITE,border:`1px solid ${BD}`,borderRadius:10,boxShadow:SHADOW,padding:"4px 0",minWidth:170}}>
+      <button style={menuItem} onClick={()=>{setMenuFor(null);duplicate(r.it);}}>Duplicate as new variant</button>
+      <button style={{...menuItem,color:DANGER}} onClick={()=>{setMenuFor(null);remove(r.it);}}>Delete</button>
+    </div>}
   </div>;
-  const cols="minmax(200px,2fr) 100px 110px 150px 80px 110px minmax(250px,auto)";
+  const cols="minmax(180px,1fr) 110px 150px 70px 90px 230px";
+  const variantRow=(r,label,indent)=>{
+    const m=r.now?stockMargin(r.now.price,r.now.cost):null;
+    const bg=flash===r.it.id?GOLD_L:"transparent";
+    if(isMobile)return <div key={r.it.id} id={"pl-row-"+r.it.id} style={{padding:"12px 16px",borderTop:`1px solid ${BD_SOFT}`,background:bg,transition:"background .4s"}}>
+      <div style={{fontSize:13,color:INK,fontWeight:600}}>{label}</div>
+      <div style={{display:"flex",alignItems:"baseline",gap:10,flexWrap:"wrap",marginTop:4}}>
+        <span style={{fontSize:17,fontWeight:800,color:INK}}>{r.now?fmtR(r.now.price):"Not priced"}</span>
+        {r.now&&r.diff!==0&&change(r)}
+        {r.now&&<span style={{fontSize:11.5,color:WG}}>cost {fmtR(r.now.cost)}{m?` · ${m.pct}%`:""}</span>}
+      </div>
+      <div style={{marginTop:8}}>{actions(r)}</div>
+    </div>;
+    return <div key={r.it.id} id={"pl-row-"+r.it.id} style={{display:"grid",gridTemplateColumns:cols,gap:12,padding:`9px 18px 9px ${indent?34:18}px`,borderTop:`1px solid ${BD_SOFT}`,alignItems:"center",fontSize:13,background:bg,transition:"background .4s"}}>
+      <div style={{minWidth:0,color:INK,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}} title={r.it.name}>{label}</div>
+      <div style={{fontWeight:800,color:INK,fontSize:14}}>{r.now?fmtR(r.now.price):<span style={{color:WG,fontWeight:400,fontSize:12}}>Not priced</span>}</div>
+      <div>{change(r)}{r.now&&r.diff!==0&&<div style={{fontSize:11,color:WG,marginTop:2}}>was {fmtR(r.saved)}</div>}</div>
+      <div style={{color:m?(m.pct>=0?OK:DANGER):WG,fontWeight:700,fontSize:12}}>{m?`${m.pct}%`:""}</div>
+      <div style={{color:WG,fontSize:12.5}}>{r.now?fmtR(r.now.cost):""}</div>
+      {actions(r)}
+    </div>;
+  };
+  const familyBody=f=>{
+    if(f.rows.length===1)return variantRow(f.rows[0],f.rows[0].variant&&f.rows[0].variant!==f.rows[0].it.name?f.rows[0].variant:"Price",false);
+    if(!f.split)return f.rows.map(r=>variantRow(r,r.variant||r.it.name,false));
+    // Sub-head by metal; rows show just the stone option.
+    const out=[];let last=null;
+    f.rows.forEach(r=>{
+      const[metal,stone]=plSplitVariant(r.variant);
+      if(metal!==last){last=metal;out.push(<div key={"h-"+metal} style={{padding:isMobile?"10px 16px 4px":"10px 18px 4px",borderTop:`1px solid ${BD_SOFT}`,background:PARCH,fontSize:11,fontWeight:700,color:GOLD_D,textTransform:"uppercase",letterSpacing:"0.06em"}}>{metal}</div>);}
+      out.push(variantRow(r,stone,true));
+    });
+    return out;
+  };
 
   return <div>
     <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-end",flexWrap:"wrap",gap:16,marginBottom:24}}>
@@ -11293,37 +11383,29 @@ function PriceList({priceList=[],setPriceList,setView,pricing=[],markupTable=[],
             {groups.length>1&&<select value={group} onChange={e=>setGroup(e.target.value)} style={{...SS.inp,marginTop:0,width:"auto"}}>{groups.map(g=><option key={g} value={g}>{g==="All"?"All groups":g}</option>)}</select>}
           </div>
 
-          {shown.length===0
+          {families.length===0
             ? <div style={{fontSize:13,color:WG,fontStyle:"italic",padding:"24px 0",textAlign:"center"}}>No products match your search.</div>
-            : isMobile
-            ? <div style={{display:"flex",flexDirection:"column",gap:12}}>{shown.map(r=>{const m=r.now?stockMargin(r.now.price,r.now.cost):null;return <Card key={r.it.id} id={"pl-row-"+r.it.id} style={flash===r.it.id?{background:GOLD_L,transition:"background .4s"}:{transition:"background .4s"}}>
-                <div style={{fontWeight:700,fontSize:15,color:INK}}>{r.it.name||"Untitled product"}</div>
-                {r.it.group&&<div style={{fontSize:12,color:WG,marginTop:2}}>{r.it.group}</div>}
-                <div style={{display:"flex",alignItems:"baseline",gap:10,flexWrap:"wrap",marginTop:10}}>
-                  <span style={{fontSize:20,fontWeight:800,color:INK}}>{r.now?fmtR(r.now.price):"Not priced"}</span>
-                  {change(r)}
-                </div>
-                <div style={{fontSize:12,color:WG,marginTop:4}}>{r.now?<>Saved {fmtR(r.saved)} · cost {fmtR(r.now.cost)}{m?` · ${m.pct}% margin`:""} · priced {fmtDate(r.it.pricedAt)}</>:"Open it to build the price."}</div>
-                <div style={{marginTop:12}}>{actions(r)}</div>
-              </Card>;})}</div>
-            : <Card style={{padding:0,overflow:"hidden"}}>
-                <div style={{display:"grid",gridTemplateColumns:cols,gap:12,padding:"10px 18px",borderBottom:`1px solid ${BD}`,background:PARCH}}>
-                  {["Product","Your cost","Price today","Change since saved","Margin","Last priced",""].map(h=><div key={h} style={{fontSize:10,fontWeight:700,color:WG,textTransform:"uppercase",letterSpacing:"0.05em"}}>{h}</div>)}
-                </div>
-                {shown.map(r=>{const m=r.now?stockMargin(r.now.price,r.now.cost):null;return <div key={r.it.id} id={"pl-row-"+r.it.id} style={{display:"grid",gridTemplateColumns:cols,gap:12,padding:"12px 18px",borderBottom:`1px solid ${BD_SOFT}`,alignItems:"center",fontSize:13,background:flash===r.it.id?GOLD_L:"transparent",transition:"background .4s"}}>
-                  <div style={{minWidth:0}}>
-                    <div style={{fontWeight:700,color:INK,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{r.it.name||"Untitled product"}</div>
-                    {r.it.group&&<div style={{fontSize:11.5,color:WG,marginTop:2}}>{r.it.group}</div>}
-                  </div>
-                  <div style={{color:WG}}>{r.now?fmtR(r.now.cost):""}</div>
-                  <div style={{fontWeight:800,color:INK,fontSize:14}}>{r.now?fmtR(r.now.price):<span style={{color:WG,fontWeight:400,fontSize:12}}>Not priced</span>}</div>
-                  <div>{change(r)}{r.now&&r.diff!==0&&<div style={{fontSize:11,color:WG,marginTop:2}}>was {fmtR(r.saved)}</div>}</div>
-                  <div style={{color:m?(m.pct>=0?OK:DANGER):WG,fontWeight:700,fontSize:12}}>{m?`${m.pct}%`:""}</div>
-                  <div style={{color:WG,fontSize:12}}>{r.it.pricedAt?fmtDate(r.it.pricedAt):""}</div>
-                  {actions(r)}
-                </div>;})}
-              </Card>}
-          <div style={{fontSize:12,color:WG,marginTop:12,lineHeight:1.6}}>Prices include {TAX_LABEL} and your payment processing allowance, the same as your quotes. Margin is worked out excluding {TAX_LABEL}. Metal added from the Pricing DB follows spot prices. Stones, labour and any cost you typed in yourself stay as you entered them.</div>
+            : <>
+                {!isMobile&&<div style={{display:"grid",gridTemplateColumns:cols,gap:12,padding:"0 18px 8px"}}>
+                  {["Variant","Price today","Change since saved","Margin","Your cost",""].map(h=><div key={h} style={{fontSize:10,fontWeight:700,color:WG,textTransform:"uppercase",letterSpacing:"0.05em"}}>{h}</div>)}
+                </div>}
+                {families.map(f=>{
+                  const open=!collapsed.includes(f.key)||!!needle||f.rows.some(r=>r.it.id===flash);
+                  return <Card key={f.key} style={{padding:0,overflow:"visible"}}>
+                    <div onClick={()=>toggleFamily(f.key)} style={{display:"flex",alignItems:"center",gap:12,padding:isMobile?"14px 16px":"14px 18px",cursor:"pointer",flexWrap:"wrap"}}>
+                      <span style={{color:WG,fontSize:12,width:12,display:"inline-block",transform:open?"rotate(90deg)":"none",transition:"transform .15s"}}>▶</span>
+                      <div style={{flex:"1 1 260px",minWidth:0}}>
+                        <div style={{fontWeight:700,fontSize:15,color:INK}}>{f.title||"Untitled product"}</div>
+                        <div style={{fontSize:12,color:WG,marginTop:2}}>{[f.group,f.rows.length>1?`${f.rows.length} variants`:"",f.lastPriced?`priced ${fmtDate(f.lastPriced)}`:""].filter(Boolean).join(" · ")}</div>
+                      </div>
+                      {f.changed>0&&<span style={{fontSize:11,fontWeight:700,color:GOLD_D,background:GOLD_L,borderRadius:4,padding:"3px 8px"}}>{f.changed} to update</span>}
+                      {f.max>0&&<div style={{fontSize:14,fontWeight:800,color:INK,whiteSpace:"nowrap"}}>{f.min===f.max?fmtR(f.min):`${fmtR(f.min)} to ${fmtR(f.max)}`}</div>}
+                    </div>
+                    {open&&<div>{familyBody(f)}</div>}
+                  </Card>;
+                })}
+              </>}
+          <div style={{fontSize:12,color:WG,marginTop:12,lineHeight:1.6}}>Variants are grouped by name: everything before "in 18ct…" or a final "(…)" is treated as the product. Prices include {TAX_LABEL} and your payment processing allowance, the same as your quotes. Margin is worked out excluding {TAX_LABEL}. Metal added from the Pricing DB follows spot prices. Stones, labour and any cost you typed in yourself stay as you entered them.</div>
         </>}
   </div>;
 }
