@@ -2501,17 +2501,28 @@ const _mergedWrite=(k,v)=>{
   _writeChain[k]=(_writeChain[k]||Promise.resolve()).then(run,run);
   return _writeChain[k];
 };
+// Write bookkeeping for the background re-sync: a re-sync's cloud read can predate a save made while
+// it was in flight, so it must not apply a key that was saved (or still saving) during that window.
+const _localWriteAt={},_writeDoneAt={},_pendingWrites={};
+const _trackWrite=(k,promise)=>{
+  _pendingWrites[k]=(_pendingWrites[k]||0)+1;
+  const done=()=>{_pendingWrites[k]=Math.max(0,(_pendingWrites[k]||0)-1);_writeDoneAt[k]=Date.now();};
+  Promise.resolve(promise).then(done,done);
+};
+// True when a re-sync that started at `since` may hold an older value for k than this session has.
+const _savedSince=(k,since)=>(_pendingWrites[k]||0)>0||(_localWriteAt[k]||0)>=since||(_writeDoneAt[k]||0)>=since;
 const persist=(k,v)=>{
   // Always keep a local copy (offline resilience + instant reloads)
   _localSet(k,v);
+  _localWriteAt[k]=Date.now();
   if(_cloudActive&&supabase){
     // SAFETY GUARD: never push to the cloud until we've confirmed a successful
     // cloud read this session. Stops a stale/seed boot from wiping real data.
     if(!_cloudLoaded){console.warn("Skipped cloud save for",k,"— cloud not loaded yet");return;}
     if(!_studioId){console.warn("Skipped cloud save for",k,"— no studio resolved yet");return;}
-    if(MERGE_KEYS.has(k)){_mergedWrite(k,v);return;}   // merge-protected keys
+    if(MERGE_KEYS.has(k)){_trackWrite(k,_mergedWrite(k,v));return;}   // merge-protected keys
     _known[k]=v;
-    _cloudUpsert(k,v).then(({error})=>{if(error)console.warn("Cloud save failed for",k,error.message);});
+    _trackWrite(k,_cloudUpsert(k,v).then(({error})=>{if(error)console.warn("Cloud save failed for",k,error.message);}));
   }
 };
 
@@ -5582,7 +5593,10 @@ function QuoteBuilder({jobId:jobIdProp,editQuoteId,stockId,stock,setStock,priceL
       // The build's metal lines also give the piece's metal content (for its scrap value).
       if(plMode){
         const rec={name:title.trim(),group:plGroup.trim(),pricing:payload,cost:Math.round(costTotal),price:Math.round(retail),pricedAt:today()};
-        setPriceList(p=>{const n=plItem?p.map(x=>x.id===plItem.id?{...x,...rec}:x):[...p,{id:uid(),createdAt:today(),...rec}];persist(K.pl,n);return n;});
+        const id=plItem?.id||priceListId;   // "new" never matches a product, so it's added below
+        const newId=id==="new"?uid():id;
+        setPriceList(p=>{const n=p.some(x=>x.id===newId)?p.map(x=>x.id===newId?{...x,...rec}:x):[...p,{id:newId,createdAt:today(),...rec}];persist(K.pl,n);return n;});
+        _plFlashId=newId;
         setView("pricelist");
         return;
       }
@@ -11140,6 +11154,7 @@ const scrapValueOf=(metals,sp)=>{
 // lines re-cost from their Pricing DB row (cast or fabricated); every other line keeps its snapshot
 // cost. A manual price stays as typed. Same maths as the builder's save, so an unchanged build
 // returns exactly its saved price.
+let _plFlashId=null;   // product the builder just saved: the list scrolls to it and highlights it
 const repriceBuild=(payload,pricing,tables)=>{
   if(!payload)return null;
   const lineItems=(payload.lineItems||[]).map(li=>{
@@ -11173,6 +11188,16 @@ function PriceList({priceList=[],setPriceList,setView,pricing=[],markupTable=[],
   const[q,setQ]=useState("");
   const[group,setGroup]=useState("All");
   const[copied,setCopied]=useState(null);
+  // Scroll to + briefly highlight the product just saved in the builder, so it's easy to spot
+  // even when a rename or new group moves it elsewhere in the list.
+  const[flash,setFlash]=useState(()=>{const f=_plFlashId;_plFlashId=null;return f;});
+  useEffect(()=>{
+    if(!flash)return;
+    const el=document.getElementById("pl-row-"+flash);
+    if(el)el.scrollIntoView({block:"center",behavior:"smooth"});
+    const t=setTimeout(()=>setFlash(null),2600);
+    return()=>clearTimeout(t);
+  },[flash]);
 
   // Every product's price at today's metal prices + markups, next to the price it was last saved at.
   const rows=useMemo(()=>{
@@ -11271,7 +11296,7 @@ function PriceList({priceList=[],setPriceList,setView,pricing=[],markupTable=[],
           {shown.length===0
             ? <div style={{fontSize:13,color:WG,fontStyle:"italic",padding:"24px 0",textAlign:"center"}}>No products match your search.</div>
             : isMobile
-            ? <div style={{display:"flex",flexDirection:"column",gap:12}}>{shown.map(r=>{const m=r.now?stockMargin(r.now.price,r.now.cost):null;return <Card key={r.it.id}>
+            ? <div style={{display:"flex",flexDirection:"column",gap:12}}>{shown.map(r=>{const m=r.now?stockMargin(r.now.price,r.now.cost):null;return <Card key={r.it.id} id={"pl-row-"+r.it.id} style={flash===r.it.id?{background:GOLD_L,transition:"background .4s"}:{transition:"background .4s"}}>
                 <div style={{fontWeight:700,fontSize:15,color:INK}}>{r.it.name||"Untitled product"}</div>
                 {r.it.group&&<div style={{fontSize:12,color:WG,marginTop:2}}>{r.it.group}</div>}
                 <div style={{display:"flex",alignItems:"baseline",gap:10,flexWrap:"wrap",marginTop:10}}>
@@ -11285,7 +11310,7 @@ function PriceList({priceList=[],setPriceList,setView,pricing=[],markupTable=[],
                 <div style={{display:"grid",gridTemplateColumns:cols,gap:12,padding:"10px 18px",borderBottom:`1px solid ${BD}`,background:PARCH}}>
                   {["Product","Your cost","Price today","Change since saved","Margin","Last priced",""].map(h=><div key={h} style={{fontSize:10,fontWeight:700,color:WG,textTransform:"uppercase",letterSpacing:"0.05em"}}>{h}</div>)}
                 </div>
-                {shown.map(r=>{const m=r.now?stockMargin(r.now.price,r.now.cost):null;return <div key={r.it.id} style={{display:"grid",gridTemplateColumns:cols,gap:12,padding:"12px 18px",borderBottom:`1px solid ${BD_SOFT}`,alignItems:"center",fontSize:13}}>
+                {shown.map(r=>{const m=r.now?stockMargin(r.now.price,r.now.cost):null;return <div key={r.it.id} id={"pl-row-"+r.it.id} style={{display:"grid",gridTemplateColumns:cols,gap:12,padding:"12px 18px",borderBottom:`1px solid ${BD_SOFT}`,alignItems:"center",fontSize:13,background:flash===r.it.id?GOLD_L:"transparent",transition:"background .4s"}}>
                   <div style={{minWidth:0}}>
                     <div style={{fontWeight:700,color:INK,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{r.it.name||"Untitled product"}</div>
                     {r.it.group&&<div style={{fontSize:11.5,color:WG,marginTop:2}}>{r.it.group}</div>}
@@ -12128,8 +12153,12 @@ export default function App(){
         // If the cloud can't be reached, we block the app instead of risking an overwrite.
         const loadAllKeys=async()=>{
           const entries=Object.entries(keyToSetter);
+          const started=Date.now(),background=_cloudLoaded;
           const values=await Promise.all(entries.map(([k])=>_cloudGet(k)));
           entries.forEach(([k,setter],i)=>{
+            // Background re-sync: skip anything saved while the read was in flight, or the older
+            // cloud copy would overwrite it (e.g. a product saved just after returning to the tab).
+            if(background&&_savedSince(k,started))return;
             const v=values[i];
             if(v===null||v===undefined){if(k in studioDefaults){_known[k]=studioDefaults[k];setter(studioDefaults[k]);}}   // empty studio → clean default, never the prior studio's data
             else applyLoaded(k,v,setter);
