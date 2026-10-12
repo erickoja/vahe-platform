@@ -5382,7 +5382,9 @@ function QuoteBuilder({jobId:jobIdProp,editQuoteId,stockId,stock,setStock,priceL
   const plItem=plMode?(priceList||[]).find(p=>p.id===priceListId):null;
   const stockMode=!!stockId||plMode;
   const stockItem=stockId?(stock||[]).find(s=>s.id===stockId):null;
-  const[plSeed]=useState(()=>plItem?.pricing?repriceBuild(plItem.pricing,pricing,{markupTable,nat:naturalStoneMarkup,lab:labStoneMarkup})?.payload:null);
+  const[plSource]=useState(()=>plItem?null:(plMode&&_plStartFrom?(priceList||[]).find(p=>p.id===_plStartFrom)||null:null));
+  useEffect(()=>{if(plMode)_plStartFrom=null;},[]);   // eslint-disable-line react-hooks/exhaustive-deps
+  const[plSeed]=useState(()=>{const src=plItem||plSource;return src?.pricing?repriceBuild(src.pricing,pricing,{markupTable,nat:naturalStoneMarkup,lab:labStoneMarkup})?.payload:null;});
   const seed=existingQuote||(plMode?plSeed:stockMode?stockItem?.pricing:null);   // re-pricing seeds from the saved payload
   const jobId=existingQuote?.jobId||jobIdProp;
   const job=jobs.find(j=>j.id===jobId);
@@ -5396,7 +5398,7 @@ function QuoteBuilder({jobId:jobIdProp,editQuoteId,stockId,stock,setStock,priceL
   const[notes,setNotes]=useState(seed?.notes||"");
   const[clientDescription,setClientDescription]=useState(seed?.clientDescription||"");
   const[title,setTitle]=useState(plMode?(plItem?.name||""):(seed?.title??(job?.type||"")));   // prefill new quotes with the job type
-  const[plGroup,setPlGroup]=useState(plItem?.group||"");   // price list: product group, e.g. Engagement rings
+  const[plGroup,setPlGroup]=useState(plItem?.group||plSource?.group||"");   // price list: product group, e.g. Engagement rings
   const[pieceTitle,setPieceTitle]=useState(seed?.pieceTitle||"");  // custom piece name on documents; blank = use job type
   const[markupOverride,setMarkupOverride]=useState(seed?.markupOverride?String(seed.markupOverride):"");
   // Trade pricing: same builder, the lower trade markup profile. Auto-on for trade-account clients
@@ -5468,6 +5470,50 @@ function QuoteBuilder({jobId:jobIdProp,editQuoteId,stockId,stock,setStock,priceL
   const moveItem=(id,dir)=>{
     setItems(p=>{const i=p.findIndex(x=>x.id===id);if(i<0)return p;const n=[...p];const t=n[i+dir];if(!t)return p;n[i+dir]=n[i];n[i]=t;return n;});
   };
+  // ── In-place swaps, so a variant (9ct → 18ct, lab → natural, bigger stones) is a pick, not a re-add ──
+  const metalOptions=(pricing||[]).filter(p=>p.category==="Metals"&&p.metalKey&&p.unit==="g");
+  const metalLineText=(g,perG,method)=>`${g}g × ${fmt(perG)}/g · ${method==="fab"?"fabricated":"cast"}`;
+  // Swap a spot-linked metal line to another Pricing DB metal, keeping its grams and cast/fabricated choice.
+  const swapMetal=(id,metalId)=>{
+    const m=metalOptions.find(x=>x.id===metalId);if(!m)return;
+    const cast=Number(m.baseCost)||0,fab=Number(m.baseCostFab!=null?m.baseCostFab:m.baseCost)||0;
+    setItems(p=>p.map(li=>{
+      if(li.id!==id)return li;
+      const g=Number(li.metalGrams)||0,method=li.metalMethod==="fab"?"fab":"cast",perG=method==="fab"?fab:cast;
+      return{...li,description:m.name,pricingId:m.id,metalKey:m.metalKey,purity:m.purity,metalCastPerG:cast,metalFabPerG:fab,costLow:(perG*g).toFixed(2),detail:metalLineText(g,perG,method)};
+    }));
+  };
+  const setMetalGrams=(id,v)=>setItems(p=>p.map(li=>{
+    if(li.id!==id)return li;
+    const g=Number(v)||0,method=li.metalMethod==="fab"?"fab":"cast",perG=Number(method==="fab"?li.metalFabPerG:li.metalCastPerG)||0;
+    return{...li,metalGrams:v,costLow:(perG*g).toFixed(2),detail:metalLineText(g,perG,method)};
+  }));
+  // Diamond / fancy lines from the Pricing DB: the row (stored dbId, or matched by description for
+  // lines added before dbId existed) and the stone count (stored, or read from "6 stones × …").
+  const STONE_LINE_CATS=[...DIAMOND_CATS,FANCY_LAB_CAT];
+  const stoneDesc=it=>it.category===FANCY_LAB_CAT?`Lab grown ${it.name}`:`${it.category} ${it.sizeMm}mm`;
+  const stoneLineInfo=li=>{
+    if(li.metalMethod)return null;
+    let db=li.dbId?(pricing||[]).find(x=>x.id===li.dbId):null;
+    if(!db)db=(pricing||[]).find(x=>STONE_LINE_CATS.includes(x.category)&&stoneDesc(x)===li.description);
+    if(!db||!STONE_LINE_CATS.includes(db.category))return null;
+    const parsed=Number((String(li.detail||"").match(/^([\d.]+)\s*stones?\b/)||[])[1])||0;
+    const qty=li.dbQty!=null?li.dbQty:parsed;
+    if(li.dbQty==null&&!(parsed>0))return null;   // typed-over / manual price lines aren't swappable
+    return{db,qty};
+  };
+  const swapStone=(id,db,qty)=>setItems(p=>p.map(li=>{
+    if(li.id!==id)return li;
+    const q=Number(qty)||0;
+    return{...li,description:stoneDesc(db),detail:`${q} stone${q!==1?"s":""} × ${fmt(db.baseCost)}/stone (${db.caratWeight}ct each)`,costLow:(Number(db.baseCost)*q).toFixed(2),dbId:db.id,dbQty:qty};
+  }));
+  // Same size in the new stone type when it exists, else the nearest size.
+  const stoneInCategory=(cat,sizeMm)=>{
+    const list=(pricing||[]).filter(x=>x.category===cat);
+    const sz=Number(sizeMm)||0;
+    return list.find(x=>Number(x.sizeMm)===sz)||list.slice().sort((a,b)=>Math.abs(Number(a.sizeMm)-sz)-Math.abs(Number(b.sizeMm)-sz))[0]||null;
+  };
+  const swapSel={...SS.inp,marginTop:0,width:"auto",maxWidth:260,fontSize:12,padding:"4px 8px",borderRadius:6};
   const duplicateItem=id=>setItems(p=>{const i=p.findIndex(x=>x.id===id);if(i<0)return p;const n=[...p];n.splice(i+1,0,{...p[i],id:uid()});return n;});
 
   const addFromDB=(item,qty)=>{
@@ -5499,7 +5545,9 @@ function QuoteBuilder({jobId:jobIdProp,editQuoteId,stockId,stock,setStock,priceL
     // Snapshot both per-gram costs so the line's Cast/Fabricated toggle can switch without spot access.
     // metalKey/purity/pricingId also let Stock work out a piece's scrap value.
     const metalFields=isMetalLine?{metalMethod:"cast",metalGrams:q,metalKey:item.metalKey,purity:item.purity,pricingId:item.id,metalCastPerG:Number(item.baseCost)||0,metalFabPerG:Number(item.baseCostFab!=null?item.baseCostFab:item.baseCost)||0}:{};
-    setItems(p=>[...p,{id:uid(),description:desc,detail,costLow:String(totalCost),noMarkup:item.noMarkup||false,...metalFields}]);
+    // Diamond / fancy lines keep their Pricing DB row + count so the line can be swapped later (type, size, count).
+    const stoneFields=(isDiamond||isFancy)?{dbId:item.id,dbQty:q}:{};
+    setItems(p=>[...p,{id:uid(),description:desc,detail,costLow:String(totalCost),noMarkup:item.noMarkup||false,...metalFields,...stoneFields}]);
     setPQty(p=>({...p,[item.id]:""}));   // clear this row's qty; popup stays open for more adds
     markAdded(item.id,totalCost);
   };
@@ -5643,6 +5691,7 @@ function QuoteBuilder({jobId:jobIdProp,editQuoteId,stockId,stock,setStock,priceL
       <h1 style={{margin:0,fontSize:isMobile?19:24,fontWeight:700,color:INK,wordBreak:"break-word"}}>{plMode?(title.trim()||"New product"):stockMode?(seed?"Update price":"Generate price"):(isEditing?"Edit quote":"New quote")}{!plMode&&title.trim()?`: ${title.trim()}`:(stockMode&&stockItem?.title?`: ${stockItem.title}`:"")}</h1>
       {job&&<div style={{color:WG,fontSize:13,marginTop:3}}>{job.type} · {clientDisplayName(c)}</div>}
       {plMode&&<div style={{color:WG,fontSize:13,marginTop:3}}>Build it like a quote. No client or job is needed, and the total becomes this product's price on your price list.{plItem?.pricing?" Metal costs have been refreshed to today's prices.":""}</div>}
+      {plSource&&<div style={{marginTop:12,background:PARCH,border:`1px solid ${BD}`,borderRadius:6,padding:"10px 14px",fontSize:12.5,color:INK,lineHeight:1.5}}>Started from the build of <strong>{plSource.name}</strong>. Give it a name, adjust what's different, and save. The original isn't changed.</div>}
       {plItem?.needsPricing&&<div style={{marginTop:12,background:GOLD_L,border:`1px solid ${GOLD}66`,borderRadius:6,padding:"10px 14px",fontSize:12.5,color:GOLD_D,lineHeight:1.5}}>This variant was copied from another one as a starting point. Swap the metal and stone to match <strong>{plVariantOf(plItem.name,plFamilyOf(plItem.name))||"this variant"}</strong>, then save to give it its own price.</div>}
       {stockMode&&!plMode&&<div style={{color:WG,fontSize:13,marginTop:3}}>Pricing a stock piece — builds like a quote, but the total becomes this piece's price.</div>}
       {isEditing&&!stockMode&&<div style={{fontSize:12,color:WG,marginTop:2}}>Quote {quoteRef(existingQuote)} · created {fmtDate(existingQuote.createdAt)}</div>}
@@ -5719,6 +5768,30 @@ function QuoteBuilder({jobId:jobIdProp,editQuoteId,stockId,stock,setStock,priceL
                   style={{background:on?GOLD:WHITE,border:"none",borderLeft:i?`1px solid ${BD}`:"none",padding:"4px 10px",fontSize:12,fontWeight:600,color:on?WHITE:WG,cursor:on?"default":"pointer",lineHeight:1.3,whiteSpace:"nowrap"}}>{lbl}</button>;
               })}
             </div>}
+            {li.metalMethod&&<>
+              {metalOptions.length>1&&<select value={metalOptions.some(m=>m.id===li.pricingId)?li.pricingId:""} onChange={e=>swapMetal(li.id,e.target.value)} style={swapSel} title="Swap to another metal: keeps the grams and recalculates the cost">
+                {!metalOptions.some(m=>m.id===li.pricingId)&&<option value="">{li.description}</option>}
+                {metalOptions.map(m=><option key={m.id} value={m.id}>{m.name}</option>)}
+              </select>}
+              <span style={{display:"inline-flex",alignItems:"center",gap:4,fontSize:12,color:WG}} title="Metal weight: changing it recalculates the cost">
+                <input type="number" value={li.metalGrams} onChange={e=>setMetalGrams(li.id,e.target.value)} min="0" step="0.01" style={{...swapSel,width:72,textAlign:"right"}}/>g
+              </span>
+            </>}
+            {(()=>{const si=stoneLineInfo(li);if(!si)return null;
+              const isFancyLine=si.db.category===FANCY_LAB_CAT;
+              const sizes=(pricing||[]).filter(x=>x.category===si.db.category).sort((a,b)=>isFancyLine?String(a.name).localeCompare(String(b.name)):Number(a.sizeMm)-Number(b.sizeMm));
+              const types=DIAMOND_CATS.filter(c=>(pricing||[]).some(x=>x.category===c));
+              return <>
+                {!isFancyLine&&types.length>1&&<select value={si.db.category} onChange={e=>{const n=stoneInCategory(e.target.value,si.db.sizeMm);if(n)swapStone(li.id,n,si.qty);}} style={swapSel} title="Swap stone type: keeps the size (or nearest) and count">
+                  {types.map(c=><option key={c} value={c}>{c}</option>)}
+                </select>}
+                <select value={si.db.id} onChange={e=>{const n=sizes.find(x=>x.id===e.target.value);if(n)swapStone(li.id,n,si.qty);}} style={swapSel} title="Swap stone size: keeps the count">
+                  {sizes.map(x=><option key={x.id} value={x.id}>{isFancyLine?x.name:`${x.sizeMm}mm · ${x.caratWeight}ct`}</option>)}
+                </select>
+                <span style={{display:"inline-flex",alignItems:"center",gap:4,fontSize:12,color:WG}} title="Number of stones">
+                  ×<input type="number" value={si.qty} onChange={e=>swapStone(li.id,si.db,e.target.value)} min="0" step="1" style={{...swapSel,width:60,textAlign:"right"}}/>
+                </span>
+              </>;})()}
             <button
               onClick={()=>setItem(li.id,"noMarkup",!li.noMarkup)}
               title={li.noMarkup?"This line is excluded from your markup — click to include it":"This line is included in your markup — click to exclude it (charge at cost)"}
@@ -11158,7 +11231,8 @@ const scrapValueOf=(metals,sp)=>{
 // lines re-cost from their Pricing DB row (cast or fabricated); every other line keeps its snapshot
 // cost. A manual price stays as typed. Same maths as the builder's save, so an unchanged build
 // returns exactly its saved price.
-let _plFlashId=null;   // product the builder just saved: the list scrolls to it and highlights it
+let _plFlashId=null;
+let _plStartFrom=null;   // "+ New product" started from another product: the builder seeds from its build   // product the builder just saved: the list scrolls to it and highlights it
 const repriceBuild=(payload,pricing,tables)=>{
   if(!payload)return null;
   const lineItems=(payload.lineItems||[]).map(li=>{
@@ -11277,6 +11351,9 @@ function PriceList({priceList=[],setPriceList,setView,pricing=[],markupTable=[],
   // ── Copy variants from another product ──
   // Creates this product's missing variants using another product's variant names. Each copy starts
   // from this product's build and is flagged needsPricing until it's opened and saved in the builder.
+  const[newOpen,setNewOpen]=useState(false);
+  const[newFrom,setNewFrom]=useState("");
+  const startNew=()=>{_plStartFrom=newFrom||null;setNewOpen(false);setView("plPrice_new");};
   const[copyTo,setCopyTo]=useState(null);        // target family key
   const[copySrc,setCopySrc]=useState("");
   const[copySelfAs,setCopySelfAs]=useState("");
@@ -11392,7 +11469,7 @@ function PriceList({priceList=[],setPriceList,setView,pricing=[],markupTable=[],
       </div>
       <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
         {priceList.length>0&&<Btn ghost onClick={exportCsv}>{ICON_CSV}Export CSV</Btn>}
-        <Btn onClick={()=>setView("plPrice_new")}>+ New product</Btn>
+        <Btn onClick={()=>{if(!priceList.length)return setView("plPrice_new");setNewFrom("");setNewOpen(true);}}>+ New product</Btn>
       </div>
     </div>
 
@@ -11452,6 +11529,18 @@ function PriceList({priceList=[],setPriceList,setView,pricing=[],markupTable=[],
               </>}
           <div style={{fontSize:12,color:WG,marginTop:12,lineHeight:1.6}}>Variants are grouped by name: everything before "in 18ct…" or a final "(…)" is treated as the product. Prices include {TAX_LABEL} and your payment processing allowance, the same as your quotes. Margin is worked out excluding {TAX_LABEL}. Metal added from the Pricing DB follows spot prices. Stones, labour and any cost you typed in yourself stay as you entered them.</div>
         </>}
+
+    {newOpen&&<Modal title="New product" onClose={()=>setNewOpen(false)}>
+      <div style={{fontSize:13.5,color:INK,lineHeight:1.6}}>
+        <div style={{marginBottom:14}}>Start from scratch, or copy the line items from a product you've already priced (CAD, casting, setting, labour, metal and stones), then change only what's different.</div>
+        <Input label="Start from" as="select" value={newFrom} onChange={setNewFrom}
+          options={[{value:"",label:"Blank: no line items"},...allFamilies.flatMap(f=>f.rows.filter(r=>r.it.pricing&&!r.it.needsPricing).map(r=>({value:r.it.id,label:f.rows.length>1&&r.variant?`${f.title} · ${r.variant}`:(r.it.name||"Untitled product")})))]}/>
+        <div style={{display:"flex",gap:10,justifyContent:"flex-end",marginTop:6,paddingBottom:6}}>
+          <Btn ghost onClick={()=>setNewOpen(false)}>Cancel</Btn>
+          <Btn onClick={startNew}>Continue</Btn>
+        </div>
+      </div>
+    </Modal>}
 
     {copyTarget&&<Modal title="Copy variants from another product" onClose={()=>setCopyTo(null)}>
       {!sources.length
