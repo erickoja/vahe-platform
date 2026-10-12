@@ -5592,7 +5592,7 @@ function QuoteBuilder({jobId:jobIdProp,editQuoteId,stockId,stock,setStock,priceL
       const retail=manualOn?Number(manualTotal):grandTotal;
       // The build's metal lines also give the piece's metal content (for its scrap value).
       if(plMode){
-        const rec={name:title.trim(),group:plGroup.trim(),pricing:payload,cost:Math.round(costTotal),price:Math.round(retail),pricedAt:today()};
+        const rec={name:title.trim(),group:plGroup.trim(),pricing:payload,cost:Math.round(costTotal),price:Math.round(retail),pricedAt:today(),needsPricing:false};
         const id=plItem?.id||priceListId;   // "new" never matches a product, so it's added below
         const newId=id==="new"?uid():id;
         setPriceList(p=>{const n=p.some(x=>x.id===newId)?p.map(x=>x.id===newId?{...x,...rec}:x):[...p,{id:newId,createdAt:today(),...rec}];persist(K.pl,n);return n;});
@@ -5643,6 +5643,7 @@ function QuoteBuilder({jobId:jobIdProp,editQuoteId,stockId,stock,setStock,priceL
       <h1 style={{margin:0,fontSize:isMobile?19:24,fontWeight:700,color:INK,wordBreak:"break-word"}}>{plMode?(title.trim()||"New product"):stockMode?(seed?"Update price":"Generate price"):(isEditing?"Edit quote":"New quote")}{!plMode&&title.trim()?`: ${title.trim()}`:(stockMode&&stockItem?.title?`: ${stockItem.title}`:"")}</h1>
       {job&&<div style={{color:WG,fontSize:13,marginTop:3}}>{job.type} · {clientDisplayName(c)}</div>}
       {plMode&&<div style={{color:WG,fontSize:13,marginTop:3}}>Build it like a quote. No client or job is needed, and the total becomes this product's price on your price list.{plItem?.pricing?" Metal costs have been refreshed to today's prices.":""}</div>}
+      {plItem?.needsPricing&&<div style={{marginTop:12,background:GOLD_L,border:`1px solid ${GOLD}66`,borderRadius:6,padding:"10px 14px",fontSize:12.5,color:GOLD_D,lineHeight:1.5}}>This variant was copied from another one as a starting point. Swap the metal and stone to match <strong>{plVariantOf(plItem.name,plFamilyOf(plItem.name))||"this variant"}</strong>, then save to give it its own price.</div>}
       {stockMode&&!plMode&&<div style={{color:WG,fontSize:13,marginTop:3}}>Pricing a stock piece — builds like a quote, but the total becomes this piece's price.</div>}
       {isEditing&&!stockMode&&<div style={{fontSize:12,color:WG,marginTop:2}}>Quote {quoteRef(existingQuote)} · created {fmtDate(existingQuote.createdAt)}</div>}
       {linkedInvoice&&<div style={{display:"flex",alignItems:"center",gap:10,marginTop:12,background:GOLD_L,border:`1px solid ${GOLD}66`,borderRadius:6,padding:"10px 14px",fontSize:12.5,color:GOLD_D,lineHeight:1.5}}>
@@ -11239,7 +11240,7 @@ function PriceList({priceList=[],setPriceList,setView,pricing=[],markupTable=[],
   const rows=useMemo(()=>{
     const tables={markupTable,nat:naturalStoneMarkup,lab:labStoneMarkup};
     return priceList.map(it=>{
-      const now=it.pricing?repriceBuild(it.pricing,pricing,tables):null;
+      const now=it.pricing&&!it.needsPricing?repriceBuild(it.pricing,pricing,tables):null;
       const saved=Number(it.price)||0;
       const family=plFamilyOf(it.name);
       return{it,now,saved,diff:now?now.price-saved:0,family,variant:plVariantOf(it.name,family)};
@@ -11254,9 +11255,9 @@ function PriceList({priceList=[],setPriceList,setView,pricing=[],markupTable=[],
 
   // Families: same group + same family name. Variants sort naturally (9ct before 18ct), and when
   // every variant reads "<metal> (<stone>)" they're sub-headed by metal so each row shows just the stone.
-  const families=useMemo(()=>{
+  const buildFamilies=list=>{
     const map=new Map();
-    shown.forEach(r=>{
+    list.forEach(r=>{
       const key=`${(r.it.group||"").trim().toLowerCase()}::${r.family.toLowerCase()}`;
       if(!map.has(key))map.set(key,{key,title:r.family,group:(r.it.group||"").trim(),rows:[]});
       map.get(key).rows.push(r);
@@ -11267,9 +11268,40 @@ function PriceList({priceList=[],setPriceList,setView,pricing=[],markupTable=[],
       const prices=f.rows.filter(r=>r.now).map(r=>r.now.price);
       const dates=f.rows.map(r=>r.it.pricedAt).filter(Boolean).sort();
       return{...f,split,min:prices.length?Math.min(...prices):0,max:prices.length?Math.max(...prices):0,
-        changed:f.rows.filter(r=>r.now&&r.diff!==0).length,lastPriced:dates[dates.length-1]||""};
+        changed:f.rows.filter(r=>r.now&&r.diff!==0).length,toPrice:f.rows.filter(r=>r.it.needsPricing).length,lastPriced:dates[dates.length-1]||""};
     }).sort((a,b)=>(a.group||"~").localeCompare(b.group||"~")||plNaturalSort(a.title,b.title));
-  },[shown]);
+  };
+  const families=buildFamilies(shown);
+  const allFamilies=useMemo(()=>buildFamilies(rows),[rows]);   // eslint-disable-line react-hooks/exhaustive-deps
+
+  // ── Copy variants from another product ──
+  // Creates this product's missing variants using another product's variant names. Each copy starts
+  // from this product's build and is flagged needsPricing until it's opened and saved in the builder.
+  const[copyTo,setCopyTo]=useState(null);        // target family key
+  const[copySrc,setCopySrc]=useState("");
+  const[copySelfAs,setCopySelfAs]=useState("");
+  const copyTarget=copyTo?allFamilies.find(f=>f.key===copyTo):null;
+  const sources=copyTarget?allFamilies.filter(f=>f.key!==copyTarget.key&&f.rows.length>1):[];
+  const src=sources.find(f=>f.key===copySrc)||sources[0]||null;
+  const baseRow=copyTarget?(copyTarget.rows.find(r=>r.now)||copyTarget.rows[0]):null;
+  const unnamedRow=copyTarget?copyTarget.rows.find(r=>!r.variant):null;   // named with no metal/stone yet
+  const haveVariants=new Set(copyTarget?copyTarget.rows.map(r=>r.variant.toLowerCase()).filter(Boolean):[]);
+  const srcVariants=src?src.rows.map(r=>r.variant).filter(v=>v&&!haveVariants.has(v.toLowerCase())):[];
+  const selfAs=unnamedRow?(srcVariants.includes(copySelfAs)?copySelfAs:(srcVariants[0]||"")):"";
+  const toCreate=srcVariants.filter(v=>v!==selfAs);
+  const copyGroup=copyTarget?(copyTarget.group||src?.group||""):"";
+  const openCopy=f=>{setCopyTo(f.key);setCopySrc("");setCopySelfAs("");setMenuFor(null);};
+  const createCopies=()=>{
+    if(!copyTarget||!baseRow||(!toCreate.length&&!selfAs))return;
+    const title=copyTarget.title,base=baseRow.it;
+    const news=toCreate.map(v=>({...base,id:uid(),name:`${title} in ${v}`,group:copyGroup,needsPricing:true,createdAt:today(),prevPrice:undefined}));
+    const ok=save(prev=>[...prev.map(x=>{
+      if(unnamedRow&&selfAs&&x.id===unnamedRow.it.id)return{...x,name:`${title} in ${selfAs}`,group:copyGroup};
+      if(copyGroup&&copyTarget.rows.some(r=>r.it.id===x.id))return{...x,group:copyGroup};
+      return x;
+    }),...news]);
+    if(ok)setCopyTo(null);
+  };
 
   const applyRows=list=>{
     const map=new Map(list.map(r=>[r.it.id,r.now]));
@@ -11290,9 +11322,10 @@ function PriceList({priceList=[],setPriceList,setView,pricing=[],markupTable=[],
     setCopied(id);setTimeout(()=>setCopied(c=>c===id?null:c),1400);
   };
   const exportCsv=()=>{
-    const head=["Product","Variant","Full name","Group",`Price today (inc ${TAX_LABEL})`,`Saved price (inc ${TAX_LABEL})`,`Your cost (ex ${TAX_LABEL})`,"Margin %","Last priced"];
+    const head=["Product","Variant","Full name","Group",`Price today (inc ${TAX_LABEL})`,`Saved price (inc ${TAX_LABEL})`,`Your cost (ex ${TAX_LABEL})`,"Margin %","Last priced","Status"];
     const body=families.flatMap(f=>f.rows.map(({it,now,saved,variant})=>{const price=now?now.price:saved,cost=now?now.cost:it.cost,m=stockMargin(price,cost);
-      return[f.title,f.rows.length>1?variant:"",it.name||"",it.group||"",price||"",saved||"",cost||"",m?m.pct:"",it.pricedAt||""];}));
+      if(it.needsPricing)return[f.title,variant,it.name||"",it.group||"","","","","","","Needs pricing"];
+      return[f.title,f.rows.length>1?variant:"",it.name||"",it.group||"",price||"",saved||"",cost||"",m?m.pct:"",it.pricedAt||"",""];}));
     const csv="﻿"+[head,...body].map(r=>r.map(_csvCell).join(",")).join("\r\n");
     const url=URL.createObjectURL(new Blob([csv],{type:"text/csv;charset=utf-8;"}));
     const a=document.createElement("a");a.href=url;a.download=`price-list-${today()}.csv`;document.body.appendChild(a);a.click();a.remove();URL.revokeObjectURL(url);
@@ -11306,7 +11339,7 @@ function PriceList({priceList=[],setPriceList,setView,pricing=[],markupTable=[],
   const actions=r=><div style={{display:"flex",gap:6,alignItems:"center",justifyContent:isMobile?"flex-start":"flex-end",position:"relative"}}>
     {r.now&&r.diff!==0&&<Btn xs onClick={()=>applyRows([r])}>Update</Btn>}
     {r.now&&<Btn xs ghost onClick={()=>copyPrice(r.it.id,r.now.price)}>{copied===r.it.id?"✓ Copied":"Copy"}</Btn>}
-    <Btn xs ghost onClick={()=>setView("plPrice_"+r.it.id)}>{r.it.pricing?"Edit":"Price it"}</Btn>
+    <Btn xs ghost={!r.it.needsPricing} onClick={()=>setView("plPrice_"+r.it.id)}>{r.it.pricing&&!r.it.needsPricing?"Edit":"Price it"}</Btn>
     <button aria-label="More actions" onClick={e=>{e.stopPropagation();setMenuFor(m=>m===r.it.id?null:r.it.id);}}
       style={{background:menuFor===r.it.id?PARCH:"none",border:`1px solid ${menuFor===r.it.id?BD:"transparent"}`,borderRadius:8,width:30,height:28,cursor:"pointer",color:WG,fontSize:16,lineHeight:1,fontFamily:"inherit"}}>⋯</button>
     {menuFor===r.it.id&&<div onClick={e=>e.stopPropagation()} style={{position:"absolute",top:"calc(100% + 4px)",right:isMobile?"auto":0,left:isMobile?0:"auto",zIndex:20,background:WHITE,border:`1px solid ${BD}`,borderRadius:10,boxShadow:SHADOW,padding:"4px 0",minWidth:170}}>
@@ -11314,6 +11347,7 @@ function PriceList({priceList=[],setPriceList,setView,pricing=[],markupTable=[],
       <button style={{...menuItem,color:DANGER}} onClick={()=>{setMenuFor(null);remove(r.it);}}>Delete</button>
     </div>}
   </div>;
+  const needsBadge=<span style={{fontSize:11,fontWeight:700,color:GOLD_D,background:GOLD_L,borderRadius:4,padding:"3px 8px",whiteSpace:"nowrap"}}>Needs pricing</span>;
   const cols="minmax(180px,1fr) 110px 150px 70px 90px 230px";
   const variantRow=(r,label,indent)=>{
     const m=r.now?stockMargin(r.now.price,r.now.cost):null;
@@ -11321,7 +11355,7 @@ function PriceList({priceList=[],setPriceList,setView,pricing=[],markupTable=[],
     if(isMobile)return <div key={r.it.id} id={"pl-row-"+r.it.id} style={{padding:"12px 16px",borderTop:`1px solid ${BD_SOFT}`,background:bg,transition:"background .4s"}}>
       <div style={{fontSize:13,color:INK,fontWeight:600}}>{label}</div>
       <div style={{display:"flex",alignItems:"baseline",gap:10,flexWrap:"wrap",marginTop:4}}>
-        <span style={{fontSize:17,fontWeight:800,color:INK}}>{r.now?fmtR(r.now.price):"Not priced"}</span>
+        {r.now?<span style={{fontSize:17,fontWeight:800,color:INK}}>{fmtR(r.now.price)}</span>:r.it.needsPricing?needsBadge:<span style={{fontSize:13,color:WG}}>Not priced</span>}
         {r.now&&r.diff!==0&&change(r)}
         {r.now&&<span style={{fontSize:11.5,color:WG}}>cost {fmtR(r.now.cost)}{m?` · ${m.pct}%`:""}</span>}
       </div>
@@ -11329,7 +11363,7 @@ function PriceList({priceList=[],setPriceList,setView,pricing=[],markupTable=[],
     </div>;
     return <div key={r.it.id} id={"pl-row-"+r.it.id} style={{display:"grid",gridTemplateColumns:cols,gap:12,padding:`9px 18px 9px ${indent?34:18}px`,borderTop:`1px solid ${BD_SOFT}`,alignItems:"center",fontSize:13,background:bg,transition:"background .4s"}}>
       <div style={{minWidth:0,color:INK,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}} title={r.it.name}>{label}</div>
-      <div style={{fontWeight:800,color:INK,fontSize:14}}>{r.now?fmtR(r.now.price):<span style={{color:WG,fontWeight:400,fontSize:12}}>Not priced</span>}</div>
+      <div style={{fontWeight:800,color:INK,fontSize:14}}>{r.now?fmtR(r.now.price):r.it.needsPricing?needsBadge:<span style={{color:WG,fontWeight:400,fontSize:12}}>Not priced</span>}</div>
       <div>{change(r)}{r.now&&r.diff!==0&&<div style={{fontSize:11,color:WG,marginTop:2}}>was {fmtR(r.saved)}</div>}</div>
       <div style={{color:m?(m.pct>=0?OK:DANGER):WG,fontWeight:700,fontSize:12}}>{m?`${m.pct}%`:""}</div>
       <div style={{color:WG,fontSize:12.5}}>{r.now?fmtR(r.now.cost):""}</div>
@@ -11401,8 +11435,16 @@ function PriceList({priceList=[],setPriceList,setView,pricing=[],markupTable=[],
                         <div style={{fontWeight:700,fontSize:15,color:INK}}>{f.title||"Untitled product"}</div>
                         <div style={{fontSize:12,color:WG,marginTop:2}}>{[f.group,f.rows.length>1?`${f.rows.length} variants`:"",f.lastPriced?`priced ${fmtDate(f.lastPriced)}`:""].filter(Boolean).join(" · ")}</div>
                       </div>
+                      {f.toPrice>0&&<span style={{fontSize:11,fontWeight:700,color:GOLD_D,background:GOLD_L,borderRadius:4,padding:"3px 8px"}}>{f.toPrice} to price</span>}
                       {f.changed>0&&<span style={{fontSize:11,fontWeight:700,color:GOLD_D,background:GOLD_L,borderRadius:4,padding:"3px 8px"}}>{f.changed} to update</span>}
                       {f.max>0&&<div style={{fontSize:14,fontWeight:800,color:INK,whiteSpace:"nowrap"}}>{f.min===f.max?fmtR(f.min):`${fmtR(f.min)} to ${fmtR(f.max)}`}</div>}
+                      <div style={{position:"relative"}} onClick={e=>e.stopPropagation()}>
+                        <button aria-label="Product actions" onClick={e=>{e.stopPropagation();setMenuFor(m=>m==="fam:"+f.key?null:"fam:"+f.key);}}
+                          style={{background:menuFor==="fam:"+f.key?PARCH:"none",border:`1px solid ${menuFor==="fam:"+f.key?BD:"transparent"}`,borderRadius:8,width:30,height:28,cursor:"pointer",color:WG,fontSize:16,lineHeight:1,fontFamily:"inherit"}}>⋯</button>
+                        {menuFor==="fam:"+f.key&&<div style={{position:"absolute",top:"calc(100% + 4px)",right:0,zIndex:20,background:WHITE,border:`1px solid ${BD}`,borderRadius:10,boxShadow:SHADOW,padding:"4px 0",minWidth:230}}>
+                          <button style={menuItem} onClick={()=>openCopy(f)}>Copy variants from another product</button>
+                        </div>}
+                      </div>
                     </div>
                     {open&&<div>{familyBody(f)}</div>}
                   </Card>;
@@ -11410,6 +11452,28 @@ function PriceList({priceList=[],setPriceList,setView,pricing=[],markupTable=[],
               </>}
           <div style={{fontSize:12,color:WG,marginTop:12,lineHeight:1.6}}>Variants are grouped by name: everything before "in 18ct…" or a final "(…)" is treated as the product. Prices include {TAX_LABEL} and your payment processing allowance, the same as your quotes. Margin is worked out excluding {TAX_LABEL}. Metal added from the Pricing DB follows spot prices. Stones, labour and any cost you typed in yourself stay as you entered them.</div>
         </>}
+
+    {copyTarget&&<Modal title="Copy variants from another product" onClose={()=>setCopyTo(null)}>
+      {!sources.length
+        ? <div style={{fontSize:13.5,color:WG,lineHeight:1.6,paddingBottom:8}}>There's no other product with several variants to copy from yet.</div>
+        : <div style={{fontSize:13.5,color:INK,lineHeight:1.6}}>
+            <div style={{marginBottom:16}}>Adds the variants another product has to <strong>{copyTarget.title}</strong>. Each one starts as a copy of {copyTarget.rows.length>1?<>the <strong>{baseRow.variant||baseRow.it.name}</strong> build</>:"this product's build"} and is marked <strong>Needs pricing</strong> until you open it, swap the metal and stone, and save.</div>
+            <Input label="Copy variants from" as="select" value={src.key} onChange={v=>{setCopySrc(v);setCopySelfAs("");}} options={sources.map(f=>({value:f.key,label:`${f.title} (${f.rows.length} variants)`}))}/>
+            {unnamedRow&&srcVariants.length>0&&<Input label={<>Which variant is "{unnamedRow.it.name}"?</>} as="select" value={selfAs} onChange={setCopySelfAs} options={srcVariants}/>}
+            {toCreate.length>0
+              ? <>
+                  <div style={{...SS.lbl,marginBottom:6}}>Will add {toCreate.length} variant{toCreate.length!==1?"s":""}{copyGroup?<span style={{fontWeight:400,textTransform:"none",letterSpacing:0,color:WG}}> to {copyGroup}</span>:null}</div>
+                  <div style={{border:`1px solid ${BD_SOFT}`,borderRadius:8,maxHeight:230,overflowY:"auto",padding:"6px 12px",fontSize:12.5,color:INK,background:PARCH}}>
+                    {toCreate.map(v=><div key={v} style={{padding:"3px 0"}}>{copyTarget.title} in {v}</div>)}
+                  </div>
+                </>
+              : <div style={{fontSize:12.5,color:WG}}>{selfAs?"Nothing new to add; this will just rename the existing variant.":`${copyTarget.title} already has every variant ${src.title} has.`}</div>}
+            <div style={{display:"flex",gap:10,justifyContent:"flex-end",marginTop:18,paddingBottom:6}}>
+              <Btn ghost onClick={()=>setCopyTo(null)}>Cancel</Btn>
+              <Btn disabled={!toCreate.length&&!selfAs} onClick={createCopies}>{toCreate.length?`Add ${toCreate.length} variant${toCreate.length!==1?"s":""}`:"Rename"}</Btn>
+            </div>
+          </div>}
+    </Modal>}
   </div>;
 }
 
