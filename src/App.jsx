@@ -5654,9 +5654,12 @@ function QuoteBuilder({jobId:jobIdProp,editQuoteId,stockId,stock,setStock,priceL
     <Card>
       {/* ── Quote title + expiry + client description (quotes only; stock shows just an internal label) ── */}
       {plMode
-        ? <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"1fr 260px",gap:"0 24px",marginBottom:20}}>
-            <Input label="Product name" value={title} onChange={setTitle} placeholder="e.g. 1.5ct oval solitaire, 18ct yellow gold"/>
-            <Input label="Group (optional)" value={plGroup} onChange={setPlGroup} placeholder="e.g. Engagement rings"/>
+        ? <div style={{marginBottom:20}}>
+            <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"1fr 260px",gap:"0 24px"}}>
+              <Input label="Product name" value={title} onChange={setTitle} placeholder="e.g. MARY | Diamond Cross Pendant in 9ct White Gold (0.20ct lab-grown)"/>
+              <Input label="Group (optional)" value={plGroup} onChange={setPlGroup} placeholder="e.g. Religious & Symbolic"/>
+            </div>
+            <div style={{fontSize:12,color:WG,marginTop:6,lineHeight:1.55}}>To list variants together, name them <strong style={{color:INK}}>Product in Metal (Stone option)</strong>, for example "MARY | Diamond Cross Pendant in 9ct White Gold (0.20ct lab-grown)". Everything before "in" becomes the product heading, the metal becomes a sub-heading and the stone option becomes the row.</div>
           </div>
         : stockMode
         ? <div style={{marginBottom:20}}>
@@ -11260,7 +11263,7 @@ function PriceList({priceList=[],setPriceList,setView,pricing=[],markupTable=[],
     });
     return[...map.values()].map(f=>{
       f.rows.sort((a,b)=>plNaturalSort(a.variant,b.variant));
-      const split=f.rows.length>1&&f.rows.every(r=>plSplitVariant(r.variant));
+      const split=f.rows.every(r=>plSplitVariant(r.variant));
       const prices=f.rows.filter(r=>r.now).map(r=>r.now.price);
       const dates=f.rows.map(r=>r.it.pricedAt).filter(Boolean).sort();
       return{...f,split,min:prices.length?Math.min(...prices):0,max:prices.length?Math.max(...prices):0,
@@ -11334,7 +11337,7 @@ function PriceList({priceList=[],setPriceList,setView,pricing=[],markupTable=[],
     </div>;
   };
   const familyBody=f=>{
-    if(f.rows.length===1)return variantRow(f.rows[0],f.rows[0].variant&&f.rows[0].variant!==f.rows[0].it.name?f.rows[0].variant:"Price",false);
+    if(f.rows.length===1&&!f.split)return variantRow(f.rows[0],f.rows[0].variant&&f.rows[0].variant!==f.rows[0].it.name?f.rows[0].variant:"Price",false);
     if(!f.split)return f.rows.map(r=>variantRow(r,r.variant||r.it.name,false));
     // Sub-head by metal; rows show just the stone option.
     const out=[];let last=null;
