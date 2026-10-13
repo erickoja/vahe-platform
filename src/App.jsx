@@ -1882,15 +1882,16 @@ const computeFollowUps=({jobs,clients,quotes,payments,invoices,proposals,markupT
 const tradeRepairUninvoiced=(job,client,invoices)=>
   client?.accountType==="trade"&&job?.clientId===client?.id&&job?.type==="Repair"&&
   Number(job?.totalOverride)>0&&!(invoices||[]).some(i=>i.jobId===job?.id);
-// Effective invoice status for display/aggregation. A manual "Paid" always wins. Otherwise, when
-// a job has a single invoice and its recorded payments cover the total, it auto-shows Paid.
-// Payments link to the job (not the invoice), so we only auto-pay when it's unambiguous — a job
-// with multiple invoices keeps its manual status to avoid crediting one payment against both.
+// Effective invoice status for display/aggregation. A manual "Paid" always wins. Otherwise it
+// auto-shows Paid once trade-in credit + recorded payments cover the total. Payments link to the
+// job (not the invoice), so job cash is allocated oldest-invoice-first via invoicePaidBalanceMap —
+// one payment is never credited against two invoices.
 const invoicePaidByPayments=(inv,payments,invoices)=>{
   if(!inv||inv.status==="Paid")return inv?.status==="Paid";
-  if((invoices||[]).filter(i=>i.jobId===inv.jobId).length>1)return false;
-  const paid=(payments||[]).filter(p=>p.jobId===inv.jobId&&p.status==="Received").reduce((s,p)=>s+Number(p.amount||0),0);
-  return Number(inv.totalIncGST)>0&&paid>=Number(inv.totalIncGST)-0.5;
+  if(!(Number(inv.totalIncGST)>0))return false;
+  const jobInvs=(invoices||[]).filter(i=>i.jobId===inv.jobId);
+  const{balMap}=invoicePaidBalanceMap(jobInvs.some(i=>i.id===inv.id)?jobInvs:[...jobInvs,inv],payments);
+  return (balMap[inv.id]??Infinity)<=0.5;
 };
 const invoiceEffectiveStatus=(inv,payments,invoices)=>{
   if(inv?.status==="Paid")return "Paid";
