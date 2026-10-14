@@ -1707,10 +1707,13 @@ let _markupBuffer=0;
 const setMarkupBuffer=v=>{_markupBuffer=Number(v)||0;};
 // Quote price rounding (global): customer-facing quote prices are rounded to the
 // nearest $_quoteRounding so totals don't land on odd figures like $4,587.
+// Optional small-price tier: prices under $_quoteRoundUnder use the finer $_quoteRoundSmall step
+// instead (e.g. repairs to the nearest $5, bigger pieces to the nearest $50).
 // 0 = off. Set from business settings on load. Manual quoted prices are never rounded.
-let _quoteRounding=0;
-const setQuoteRounding=v=>{_quoteRounding=Number(v)||0;};
-const roundQ=n=>_quoteRounding>0?Math.round(n/_quoteRounding)*_quoteRounding:n;
+let _quoteRounding=0,_quoteRoundSmall=0,_quoteRoundUnder=0;
+const setQuoteRounding=(v,small,under)=>{_quoteRounding=Number(v)||0;_quoteRoundSmall=Number(small)||0;_quoteRoundUnder=Number(under)||0;};
+const quoteRoundStep=n=>_quoteRoundSmall>0&&_quoteRoundUnder>0&&Math.abs(n)<_quoteRoundUnder?_quoteRoundSmall:_quoteRounding;
+const roundQ=n=>{const st=quoteRoundStep(n);return st>0?Math.round(n/st)*st:n;};
 // Payment processing allowance (global): the studio's default %, stamped onto each NEW quote
 // (q.payAllowancePct) so existing quotes and issued invoices never reprice when the setting changes.
 // Card surcharges are banned from 1 Oct 2026, so the cost is built into the quoted price instead.
@@ -9857,6 +9860,8 @@ function Settings({biz,setBiz,markupTable,setMarkupTable,naturalStoneMarkup,setN
   const[mt,setMt]=useState(markupTable.map(b=>({...b})));
   const[buffer,setBuffer]=useState(String(biz.markupBuffer||0));
   const[rounding,setRounding]=useState(String(biz.quoteRounding||0));
+  const[roundSmall,setRoundSmall]=useState(String(biz.quoteRoundingSmall||0));
+  const[roundUnder,setRoundUnder]=useState(String(biz.quoteRoundingUnder||0));
   const[payAllow,setPayAllow]=useState(String(biz.payAllowancePct??1.5));
   const setMtRow=(id,k,v)=>setMt(p=>p.map(b=>b.id===id?{...b,[k]:v}:b));
   const[smn,setSmn]=useState((naturalStoneMarkup||[]).map(b=>({...b})));
@@ -9871,7 +9876,7 @@ function Settings({biz,setBiz,markupTable,setMarkupTable,naturalStoneMarkup,setN
   const showToast=msg=>{setToast(msg);setTimeout(()=>setToast(null),2400);};
   // Preserve markup-table-owned settings (buffer / rounding) so saving business details can't wipe them.
   const saveBiz=()=>{
-    const nb={...bForm,markupBuffer:biz.markupBuffer||0,quoteRounding:biz.quoteRounding||0,payAllowancePct:biz.payAllowancePct,salespeople:(bForm.salespeople||[]).map(s=>String(s).trim()).filter(Boolean)};
+    const nb={...bForm,markupBuffer:biz.markupBuffer||0,quoteRounding:biz.quoteRounding||0,quoteRoundingSmall:biz.quoteRoundingSmall||0,quoteRoundingUnder:biz.quoteRoundingUnder||0,payAllowancePct:biz.payAllowancePct,salespeople:(bForm.salespeople||[]).map(s=>String(s).trim()).filter(Boolean)};
     setBiz(nb);persist(K.biz,nb);
     // Sync this studio's name + acceptance-notification email to the studios table, so the
     // server-side email function can reach the right studio. RLS lets an owner update its studio.
@@ -9884,7 +9889,7 @@ function Settings({biz,setBiz,markupTable,setMarkupTable,naturalStoneMarkup,setN
   };
   // Region & currency: choosing a preset fills the currency + tax fields (still editable after).
   const applyPreset=key=>{const p=REGION_PRESETS[key];if(!p)return;setBForm(f=>({...f,region:key,currencySymbol:p.sym,currencyCode:p.code,taxLabel:p.taxLabel,taxRatePct:p.taxPct,locale:p.locale,taxIdLabel:p.taxId}));};
-  const saveMt=()=>{setMarkupTable(mt);persist(K.mt,mt);const pa=Math.min(10,Math.max(0,Number(payAllow)||0));const nb={...biz,markupBuffer:Number(buffer)||0,quoteRounding:Number(rounding)||0,payAllowancePct:pa};setBiz(nb);persist(K.biz,nb);setMarkupBuffer(Number(buffer)||0);setQuoteRounding(Number(rounding)||0);setPayAllowancePct(pa);showToast("Markup table saved");};
+  const saveMt=()=>{setMarkupTable(mt);persist(K.mt,mt);const pa=Math.min(10,Math.max(0,Number(payAllow)||0));const nb={...biz,markupBuffer:Number(buffer)||0,quoteRounding:Number(rounding)||0,quoteRoundingSmall:Number(roundSmall)||0,quoteRoundingUnder:Math.max(0,Number(roundUnder)||0),payAllowancePct:pa};setBiz(nb);persist(K.biz,nb);setMarkupBuffer(Number(buffer)||0);setQuoteRounding(nb.quoteRounding,nb.quoteRoundingSmall,nb.quoteRoundingUnder);setPayAllowancePct(pa);showToast("Markup table saved");};
   const saveSmNTable=()=>{setNaturalStoneMarkup(smn);persist(K.smn,smn);showToast("Natural stone markup saved");};
   const saveSmLTable=()=>{setLabStoneMarkup(sml);persist(K.sml,sml);showToast("Lab-grown stone markup saved");};
   // Trade markup profile — lower wholesale markups, applied to trade-account quotes.
@@ -10051,14 +10056,34 @@ function Settings({biz,setBiz,markupTable,setMarkupTable,naturalStoneMarkup,setN
         <div>
           <label style={SS.lbl}>Round quote prices</label>
           <select value={rounding} onChange={e=>setRounding(e.target.value)} style={{...SS.inp,marginTop:4}}>
-            <option value="0">Off — exact figures</option>
+            <option value="0">Off, exact figures</option>
             <option value="5">Nearest {CUR_SYM}5</option>
             <option value="10">Nearest {CUR_SYM}10</option>
             <option value="25">Nearest {CUR_SYM}25</option>
             <option value="50">Nearest {CUR_SYM}50</option>
             <option value="100">Nearest {CUR_SYM}100</option>
           </select>
-          <div style={{fontSize:12,color:WG,lineHeight:1.6,marginTop:8}}>Rounds every calculated quote price — jewellery, stones and totals — so quotes don't land on odd figures. Example: nearest {CUR_SYM}10 turns <strong style={{color:INK}}>{CUR_SYM}4,587</strong> into <strong style={{color:INK}}>{CUR_SYM}4,590</strong>; nearest {CUR_SYM}50 makes it <strong style={{color:INK}}>{CUR_SYM}4,600</strong>. Manual quoted prices are never rounded. Applies everywhere prices are recalculated, including existing quotes.</div>
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginTop:10}}>
+            <div>
+              <label style={{...SS.lbl,fontSize:10}}>But for prices under</label>
+              <div style={{position:"relative",marginTop:4}}>
+                <span style={{position:"absolute",left:14,top:"50%",transform:"translateY(-50%)",fontSize:13,color:WG,pointerEvents:"none"}}>{CUR_SYM}</span>
+                <input type="number" value={roundUnder} onChange={e=>setRoundUnder(e.target.value)} min="0" step="50" placeholder="0" style={{...SS.inp,marginTop:0,paddingLeft:28}}/>
+              </div>
+            </div>
+            <div>
+              <label style={{...SS.lbl,fontSize:10}}>Round to</label>
+              <select value={roundSmall} onChange={e=>setRoundSmall(e.target.value)} style={{...SS.inp,marginTop:4}}>
+                <option value="0">Same as above</option>
+                <option value="1">Nearest {CUR_SYM}1</option>
+                <option value="5">Nearest {CUR_SYM}5</option>
+                <option value="10">Nearest {CUR_SYM}10</option>
+                <option value="25">Nearest {CUR_SYM}25</option>
+                <option value="50">Nearest {CUR_SYM}50</option>
+              </select>
+            </div>
+          </div>
+          <div style={{fontSize:12,color:WG,lineHeight:1.6,marginTop:8}}>Rounds every calculated quote price (jewellery, stones and totals) so quotes don't land on odd figures. Example: nearest {CUR_SYM}50 turns <strong style={{color:INK}}>{CUR_SYM}4,587</strong> into <strong style={{color:INK}}>{CUR_SYM}4,600</strong>. Use the second row to round smaller jobs like repairs more finely: with prices under <strong style={{color:INK}}>{CUR_SYM}1,000</strong> set to the nearest <strong style={{color:INK}}>{CUR_SYM}5</strong>, a {CUR_SYM}187 repair becomes <strong style={{color:INK}}>{CUR_SYM}185</strong> instead of {CUR_SYM}200. Manual quoted prices are never rounded. Applies everywhere prices are recalculated, including existing quotes.</div>
         </div>
       </div>
       <div style={{display:"flex",justifyContent:"flex-end"}}><Btn onClick={saveMt}>Save markup table</Btn></div>
@@ -12308,7 +12333,7 @@ export default function App(){
   // figures like "balance owing by job" with the default buffer/rounding, showing wrong
   // values for a moment until the effect fires and a re-render snaps them correct.
   setMarkupBuffer(biz?.markupBuffer||0);
-  setQuoteRounding(biz?.quoteRounding||0);
+  setQuoteRounding(biz?.quoteRounding||0,biz?.quoteRoundingSmall||0,biz?.quoteRoundingUnder||0);
   setPayAllowancePct(biz?.payAllowancePct??1.5);
 
   // Load all persisted data on mount
