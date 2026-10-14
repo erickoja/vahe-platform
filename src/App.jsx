@@ -4437,7 +4437,7 @@ function JobImages({job,setJobs}){
     {images.length>0&&<div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(150px,1fr))",gap:12}}>
       {images.map(img=>(
         <div key={img.id} style={{border:`1px solid ${BD}`,borderRadius:4,overflow:"hidden",background:PARCH}}>
-          <div onClick={()=>urls[img.path]&&setLightbox(urls[img.path])} style={{width:"100%",height:130,background:`#EEE center/cover no-repeat`,backgroundImage:urls[img.path]?`url(${urls[img.path]})`:"none",cursor:urls[img.path]?"zoom-in":"default",display:"flex",alignItems:"center",justifyContent:"center"}}>
+          <div onClick={()=>{if(!urls[img.path])return;const list=images.map(x=>urls[x.path]).filter(Boolean);setLightbox({list,i:list.indexOf(urls[img.path])});}} style={{width:"100%",height:130,background:`#EEE center/cover no-repeat`,backgroundImage:urls[img.path]?`url(${urls[img.path]})`:"none",cursor:urls[img.path]?"zoom-in":"default",display:"flex",alignItems:"center",justifyContent:"center"}}>
             {!urls[img.path]&&<span style={{fontSize:11,color:failed[img.path]?DANGER:WG}}>{failed[img.path]?"couldn't load":"loading…"}</span>}
           </div>
           <div style={{padding:"7px 8px"}}>
@@ -4455,11 +4455,7 @@ function JobImages({job,setJobs}){
         </div>
       ))}
     </div>}
-    {lightbox&&<div onClick={()=>setLightbox(null)} style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.85)",zIndex:600,display:"flex",alignItems:"center",justifyContent:"center",padding:"30px 16px",cursor:"zoom-out"}}>
-      <button onClick={e=>{e.stopPropagation();setLightbox(null);}} aria-label="Close image" style={{position:"fixed",top:14,right:14,width:46,height:46,borderRadius:"50%",background:"rgba(0,0,0,0.6)",border:"1px solid rgba(255,255,255,0.5)",color:WHITE,fontSize:26,lineHeight:1,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",zIndex:601}}>×</button>
-      <img src={lightbox} alt="" style={{maxWidth:"100%",maxHeight:"100%",borderRadius:4,boxShadow:"0 20px 80px rgba(0,0,0,0.6)"}}/>
-      <div style={{position:"fixed",bottom:16,left:0,right:0,textAlign:"center",color:"rgba(255,255,255,0.7)",fontSize:12,pointerEvents:"none"}}>Tap the image or ✕ to close</div>
-    </div>}
+    {lightbox&&<ImageViewer photos={lightbox.list} index={lightbox.i} onClose={()=>setLightbox(null)}/>}
   </Card>;
 }
 
