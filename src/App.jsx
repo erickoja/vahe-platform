@@ -2606,12 +2606,25 @@ const uploadJobImage=async(jobId,blob)=>{
   if(error)throw error;
   return path;
 };
+// Last reason a signed image URL couldn't be made (shown on the gallery so a stuck image
+// explains itself instead of sitting on "loading…" forever).
+let _lastImageErr="";
+const _withTimeout=(p,ms)=>Promise.race([p,new Promise((_,rej)=>setTimeout(()=>rej(new Error("Storage didn't respond (timed out)")),ms))]);
 const signedImageUrl=async(path)=>{
-  try{
-    const{data,error}=await supabase.storage.from(IMG_BUCKET).createSignedUrl(path,86400);
+  const attempt=async()=>{
+    const{data,error}=await _withTimeout(supabase.storage.from(IMG_BUCKET).createSignedUrl(path,86400),15000);
     if(error)throw error;
-    return data?.signedUrl||null;
-  }catch(e){return null;}
+    if(!data?.signedUrl)throw new Error("No link returned");
+    return data.signedUrl;
+  };
+  try{return await attempt();}
+  catch(e){
+    // A stale session makes storage reject every request: refresh the token once and retry.
+    if(_isAuthError(e)&&await _tryRefreshSession()){try{return await attempt();}catch(e2){e=e2;}}
+    _lastImageErr=e?.message||String(e);
+    console.warn("Image link failed",path,e);
+    return null;
+  }
 };
 const deleteJobImage=async(path)=>{
   try{await supabase.storage.from(IMG_BUCKET).remove([path]);}catch(e){}
@@ -4351,23 +4364,27 @@ function ActivityLog({jobId,notes,setNotes}){
 function JobImages({job,setJobs}){
   const images=job.images||[];
   const[urls,setUrls]=useState({});
+  const[failed,setFailed]=useState({});
+  const[loadErr,setLoadErr]=useState("");
+  const[reload,setReload]=useState(0);
   const[busy,setBusy]=useState(false);
   const[err,setErr]=useState("");
   const[lightbox,setLightbox]=useState(null);
 
   useEffect(()=>{
     let cancelled=false;
-    (async()=>{
-      if(!imagesEnabled()||!images.length)return;
-      const map={};
-      for(const img of images){
-        const u=await signedImageUrl(img.path);
-        if(u)map[img.path]=u;
-      }
-      if(!cancelled)setUrls(map);
-    })();
+    if(!imagesEnabled()||!images.length)return;
+    setFailed({});setLoadErr("");
+    // Sign all images in parallel and show each as soon as its link is ready, so one slow or
+    // failing image can't hold the rest on "loading…".
+    images.forEach(async img=>{
+      const u=await signedImageUrl(img.path);
+      if(cancelled)return;
+      if(u)setUrls(prev=>({...prev,[img.path]:u}));
+      else{setFailed(prev=>({...prev,[img.path]:true}));setLoadErr(_lastImageErr);}
+    });
     return()=>{cancelled=true;};
-  },[job.id,images.map(i=>i.path).join(",")]);
+  },[job.id,images.map(i=>i.path).join(","),reload]);
 
   const saveImages=(next)=>setJobs(p=>{const n=p.map(j=>j.id===job.id?{...j,images:next}:j);persist(K.jo,n);return n;});
 
@@ -4412,12 +4429,16 @@ function JobImages({job,setJobs}){
       </label>
     </div>
     {err&&<div style={{background:DANGER+"15",border:`1px solid ${DANGER}44`,color:DANGER,fontSize:12,padding:"8px 12px",borderRadius:4,marginBottom:12}}>{err}</div>}
+    {Object.keys(failed).length>0&&<div style={{background:DANGER+"15",border:`1px solid ${DANGER}44`,color:DANGER,fontSize:12,padding:"8px 12px",borderRadius:4,marginBottom:12,display:"flex",justifyContent:"space-between",alignItems:"center",gap:10,flexWrap:"wrap"}}>
+      <span>Couldn't load {Object.keys(failed).length===1?"1 image":Object.keys(failed).length+" images"}{loadErr?<>: <strong>{loadErr}</strong></>:""}. The files are still saved.</span>
+      <button onClick={()=>setReload(n=>n+1)} style={{background:WHITE,border:`1px solid ${DANGER}66`,color:DANGER,borderRadius:4,padding:"4px 12px",fontSize:11,fontWeight:700,cursor:"pointer",fontFamily:"inherit",flexShrink:0}}>Retry</button>
+    </div>}
     {images.length===0&&!busy&&<div style={{fontSize:13,color:WG,fontStyle:"italic",padding:"8px 0"}}>No images yet. Upload reference shots, CAD renders, progress photos or the finished piece.</div>}
     {images.length>0&&<div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(150px,1fr))",gap:12}}>
       {images.map(img=>(
         <div key={img.id} style={{border:`1px solid ${BD}`,borderRadius:4,overflow:"hidden",background:PARCH}}>
           <div onClick={()=>urls[img.path]&&setLightbox(urls[img.path])} style={{width:"100%",height:130,background:`#EEE center/cover no-repeat`,backgroundImage:urls[img.path]?`url(${urls[img.path]})`:"none",cursor:urls[img.path]?"zoom-in":"default",display:"flex",alignItems:"center",justifyContent:"center"}}>
-            {!urls[img.path]&&<span style={{fontSize:11,color:WG}}>loading…</span>}
+            {!urls[img.path]&&<span style={{fontSize:11,color:failed[img.path]?DANGER:WG}}>{failed[img.path]?"couldn't load":"loading…"}</span>}
           </div>
           <div style={{padding:"7px 8px"}}>
             {img.name&&<div title={img.name} style={{fontSize:10.5,fontWeight:600,color:INK,marginBottom:6,lineHeight:1.35,wordBreak:"break-word"}}>{img.name}</div>}
