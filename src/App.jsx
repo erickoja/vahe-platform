@@ -6698,7 +6698,7 @@ function PublicRepairBody({snap,responded,decision,responderName,onRespond}){
         <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(150px,1fr))",gap:12}}>
           {snap.photos.map((p,i)=>(
             <figure key={i} style={{margin:0}}>
-              <img src={p.url} alt={p.caption||"Repair photo"} onClick={()=>setPhoto(p.url)}
+              <img src={p.url} alt={p.caption||"Repair photo"} onClick={()=>setPhoto({list:snap.photos.map(x=>x.url),i})}
                 style={{width:"100%",height:140,objectFit:"cover",borderRadius:6,border:`1px solid ${BD}`,display:"block",cursor:"zoom-in"}}/>
               {p.caption&&<figcaption style={{fontSize:11,color:WG,marginTop:5,lineHeight:1.4}}>{p.caption}</figcaption>}
             </figure>
@@ -6736,11 +6736,91 @@ function PublicRepairBody({snap,responded,decision,responderName,onRespond}){
       </div>
       <div style={{textAlign:"center",fontSize:10,color:WG,marginTop:26}}>{`All prices inclusive of ${TAX_LABEL} · Quoted in ${CUR_CODE}`}</div>
     </div>
-    {photo&&<div onClick={()=>setPhoto(null)} style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.85)",zIndex:600,display:"flex",alignItems:"center",justifyContent:"center",padding:"30px 16px",cursor:"zoom-out"}}>
-      <button onClick={e=>{e.stopPropagation();setPhoto(null);}} aria-label="Close image" style={{position:"fixed",top:14,right:14,width:46,height:46,borderRadius:"50%",background:"rgba(0,0,0,0.6)",border:"1px solid rgba(255,255,255,0.5)",color:WHITE,fontSize:26,lineHeight:1,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",zIndex:601}}>×</button>
-      <img src={photo} alt="" style={{maxWidth:"100%",maxHeight:"100%",borderRadius:4,boxShadow:"0 20px 80px rgba(0,0,0,0.6)"}}/>
-      <div style={{position:"fixed",bottom:16,left:0,right:0,textAlign:"center",color:"rgba(255,255,255,0.7)",fontSize:12,pointerEvents:"none"}}>Tap the image or ✕ to close</div>
-    </div>}
+    {photo&&<ImageViewer photos={photo.list} index={photo.i} onClose={()=>setPhoto(null)}/>}
+  </div>;
+}
+
+// Full-screen photo viewer for client-facing pages. Tap/click the photo to zoom in (and again to
+// zoom out), pinch or scroll-wheel to zoom freely, drag to move around a zoomed photo. Only the ✕,
+// Escape, or a tap on the dark background closes it, so zooming never closes the photo by accident.
+// With several photos, arrows (or ←/→ keys) step through them.
+function ImageViewer({photos,index=0,onClose}){
+  const list=(photos||[]).filter(Boolean);
+  const[i,setI]=useState(Math.min(index,Math.max(0,list.length-1)));
+  const[v,setV]=useState({s:1,x:0,y:0});
+  const vr=useRef(v);vr.current=v;
+  const ptrs=useRef(new Map());
+  const g=useRef(null);           // current gesture: {moved,t0,start,pinch}
+  const MAX=5;
+  const clampS=s=>Math.min(MAX,Math.max(1,s));
+  // Zoom to scale s2 keeping the viewport point (px,py) fixed under the finger/cursor.
+  const zoomAt=(s2,px,py,base=vr.current)=>{
+    s2=clampS(s2);
+    if(s2<=1.001){setV({s:1,x:0,y:0});return;}
+    const cx=window.innerWidth/2,cy=window.innerHeight/2;
+    setV({s:s2,x:px-cx-s2*(px-cx-base.x)/base.s,y:py-cy-s2*(py-cy-base.y)/base.s});
+  };
+  const go=d=>{if(list.length<2)return;setI(n=>(n+d+list.length)%list.length);setV({s:1,x:0,y:0});};
+  useEffect(()=>{
+    const onKey=e=>{if(e.key==="Escape")onClose();else if(e.key==="ArrowRight")go(1);else if(e.key==="ArrowLeft")go(-1);};
+    window.addEventListener("keydown",onKey);
+    const prev=document.body.style.overflow;document.body.style.overflow="hidden";
+    return()=>{window.removeEventListener("keydown",onKey);document.body.style.overflow=prev;};
+  },[list.length]);
+  const dist=(a,b)=>Math.hypot(a.x-b.x,a.y-b.y);
+  const onDown=e=>{
+    e.currentTarget.setPointerCapture?.(e.pointerId);
+    ptrs.current.set(e.pointerId,{x:e.clientX,y:e.clientY});
+    const pts=[...ptrs.current.values()];
+    if(pts.length===1)g.current={moved:false,t0:Date.now(),start:{x:e.clientX,y:e.clientY},view:vr.current,onImg:e.target.tagName==="IMG"};
+    else if(pts.length===2){g.current={...(g.current||{}),moved:true,pinch:{d:dist(pts[0],pts[1]),view:vr.current}};}
+  };
+  const onMove=e=>{
+    if(!ptrs.current.has(e.pointerId)||!g.current)return;
+    ptrs.current.set(e.pointerId,{x:e.clientX,y:e.clientY});
+    const pts=[...ptrs.current.values()];
+    if(pts.length>=2&&g.current.pinch){
+      const{d,view}=g.current.pinch;
+      const mx=(pts[0].x+pts[1].x)/2,my=(pts[0].y+pts[1].y)/2;
+      zoomAt(view.s*dist(pts[0],pts[1])/d,mx,my,view);
+      return;
+    }
+    const dx=e.clientX-g.current.start.x,dy=e.clientY-g.current.start.y;
+    if(Math.abs(dx)>6||Math.abs(dy)>6)g.current.moved=true;
+    if(g.current.moved&&vr.current.s>1&&!g.current.pinch){const b=g.current.view;setV({s:b.s,x:b.x+dx,y:b.y+dy});}
+    else if(g.current.moved&&vr.current.s===1&&!g.current.pinch){g.current.swipe=dx;}
+  };
+  const onUp=e=>{
+    ptrs.current.delete(e.pointerId);
+    const st=g.current;
+    if(ptrs.current.size>0){                       // one finger of a pinch lifted: carry on panning from here
+      const p=[...ptrs.current.values()][0];
+      g.current={moved:true,t0:0,start:p,view:vr.current};return;
+    }
+    g.current=null;
+    if(!st)return;
+    if(!st.moved&&Date.now()-st.t0<400){           // a tap
+      if(st.onImg){vr.current.s>1?setV({s:1,x:0,y:0}):zoomAt(2.5,e.clientX,e.clientY);}
+      else if(vr.current.s>1)setV({s:1,x:0,y:0});
+      else onClose();
+    }else if(st.swipe&&Math.abs(st.swipe)>60)go(st.swipe<0?1:-1);
+  };
+  const onWheel=e=>zoomAt(vr.current.s*(e.deltaY<0?1.2:1/1.2),e.clientX,e.clientY);
+  const stop=e=>e.stopPropagation();
+  const btn={position:"fixed",width:46,height:46,borderRadius:"50%",background:"rgba(0,0,0,0.6)",border:"1px solid rgba(255,255,255,0.5)",color:WHITE,fontSize:26,lineHeight:1,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",zIndex:602,fontFamily:"inherit"};
+  if(!list.length)return null;
+  return <div onPointerDown={onDown} onPointerMove={onMove} onPointerUp={onUp} onPointerCancel={onUp} onWheel={onWheel}
+    style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.9)",zIndex:600,display:"flex",alignItems:"center",justifyContent:"center",padding:"30px 16px",touchAction:"none",userSelect:"none",overflow:"hidden"}}>
+    <img src={list[i]} alt="" draggable={false}
+      style={{maxWidth:"100%",maxHeight:"100%",borderRadius:4,boxShadow:"0 20px 80px rgba(0,0,0,0.6)",transform:`translate(${v.x}px,${v.y}px) scale(${v.s})`,transition:g.current?"none":"transform .2s ease",cursor:v.s>1?"grab":"zoom-in",willChange:"transform"}}/>
+    <button onPointerDown={stop} onClick={onClose} aria-label="Close image" style={{...btn,top:14,right:14}}>×</button>
+    {list.length>1&&<>
+      <button onPointerDown={stop} onClick={()=>go(-1)} aria-label="Previous photo" style={{...btn,left:12,top:"50%",transform:"translateY(-50%)"}}>‹</button>
+      <button onPointerDown={stop} onClick={()=>go(1)} aria-label="Next photo" style={{...btn,right:12,top:"50%",transform:"translateY(-50%)"}}>›</button>
+    </>}
+    <div style={{position:"fixed",bottom:16,left:0,right:0,textAlign:"center",color:"rgba(255,255,255,0.75)",fontSize:12,pointerEvents:"none",padding:"0 16px"}}>
+      {list.length>1?`${i+1} of ${list.length} · `:""}{v.s>1?"Drag to look around · tap to zoom out":"Tap the photo or pinch to zoom · ✕ to close"}
+    </div>
   </div>;
 }
 
@@ -6951,7 +7031,7 @@ function PublicProposalPage({token}){
             </div>
             {(()=>{const photos=o.photos&&o.photos.length?o.photos:(o.photo?[o.photo]:[]);return photos.length>0&&
               <div style={{display:"flex",gap:8,flexWrap:"wrap",marginTop:14}}>
-                {photos.map((src,i)=><img key={i} src={src} alt={`${o.label} ${i+1}`} onClick={e=>{e.stopPropagation();setPhoto(src);}}
+                {photos.map((src,i)=><img key={i} src={src} alt={`${o.label} ${i+1}`} onClick={e=>{e.stopPropagation();setPhoto({list:photos,i});}}
                   style={{width:84,height:84,objectFit:"cover",borderRadius:6,border:`1px solid ${BD}`,cursor:"zoom-in"}}/>)}
               </div>;})()}
             {(()=>{const emb=videoEmbed(o.video);if(!emb)return null;return <div style={{marginTop:14}} onClick={e=>e.stopPropagation()}>
@@ -7025,11 +7105,7 @@ function PublicProposalPage({token}){
       </div>}
       <div style={{textAlign:"center",fontSize:10,color:WG,marginTop:24}}>{`All prices inclusive of ${TAX_LABEL} · Quoted in ${CUR_CODE}`}</div>
     </div>
-    {photo&&<div onClick={()=>setPhoto(null)} style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.85)",zIndex:600,display:"flex",alignItems:"center",justifyContent:"center",padding:"30px 16px",cursor:"zoom-out"}}>
-      <button onClick={e=>{e.stopPropagation();setPhoto(null);}} aria-label="Close image" style={{position:"fixed",top:14,right:14,width:46,height:46,borderRadius:"50%",background:"rgba(0,0,0,0.6)",border:"1px solid rgba(255,255,255,0.5)",color:WHITE,fontSize:26,lineHeight:1,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",zIndex:601}}>×</button>
-      <img src={photo} alt="" style={{maxWidth:"100%",maxHeight:"100%",borderRadius:4,boxShadow:"0 20px 80px rgba(0,0,0,0.6)"}}/>
-      <div style={{position:"fixed",bottom:16,left:0,right:0,textAlign:"center",color:"rgba(255,255,255,0.7)",fontSize:12,pointerEvents:"none"}}>Tap the image or ✕ to close</div>
-    </div>}
+    {photo&&<ImageViewer photos={photo.list} index={photo.i} onClose={()=>setPhoto(null)}/>}
   </div>);
 }
 
