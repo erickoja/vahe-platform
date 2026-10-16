@@ -4931,6 +4931,10 @@ function JobDetailInner({jobId,jobs,setJobs,clients,setClients,quotes,setQuotes,
           ))}
         </div>;
       })()}
+      {/* A gold trade-in entered on the quote AND recorded as a payment counts twice. */}
+      {jobTradeIn>0&&jp.some(p=>p.method==="Gold/Silver trade in"||p.type==="Trade-in credit")&&<div style={{background:WARN+"15",border:`1px solid ${WARN}55`,color:INK,fontSize:12.5,lineHeight:1.55,padding:"10px 12px",borderRadius:4,marginBottom:14}}>
+        <strong style={{color:WARN}}>Trade-in counted twice.</strong> This job has a {fmt(jobTradeIn)} gold trade-in on its quote and a trade-in recorded as a payment below, so it's being taken off the balance twice. Remove one of them: delete the trade-in payment, or clear the trade-in on the quote.
+      </div>}
       {jp.length===0&&<div style={{color:WG,fontSize:14}}>No payments yet.</div>}
       {jp.map(p=>(
         <div key={p.id} style={{display:"flex",flexDirection:isMobile?"column":"row",justifyContent:"space-between",alignItems:isMobile?"stretch":"center",gap:isMobile?6:0,padding:"9px 0",borderBottom:`1px solid ${BD}`}}>
