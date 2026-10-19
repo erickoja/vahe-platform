@@ -11491,6 +11491,16 @@ function PriceList({priceList=[],setPriceList,setView,pricing=[],markupTable=[],
   const toCreate=srcVariants.filter(v=>v!==selfAs);
   const copyGroup=copyTarget?(copyTarget.group||src?.group||""):"";
   const openCopy=f=>{setCopyTo(f.key);setCopySrc("");setCopySelfAs("");setMenuFor(null);};
+  // ── Change group: moves every variant of a product into a group in one go ──
+  const[groupFor,setGroupFor]=useState(null);    // family key
+  const[groupText,setGroupText]=useState("");
+  const groupTarget=groupFor?allFamilies.find(f=>f.key===groupFor):null;
+  const openGroup=f=>{setGroupFor(f.key);setGroupText(f.group||"");setMenuFor(null);};
+  const saveGroup=()=>{
+    if(!groupTarget)return;
+    const g=groupText.trim(),ids=new Set(groupTarget.rows.map(r=>r.it.id));
+    if(save(prev=>prev.map(x=>ids.has(x.id)?{...x,group:g}:x))){if(g&&group!=="All"&&group!==g)setGroup(g);setGroupFor(null);}
+  };
   const createCopies=()=>{
     if(!copyTarget||!baseRow||(!toCreate.length&&!selfAs))return;
     const title=copyTarget.title,base=baseRow.it;
@@ -11642,6 +11652,7 @@ function PriceList({priceList=[],setPriceList,setView,pricing=[],markupTable=[],
                         <button aria-label="Product actions" onClick={e=>{e.stopPropagation();setMenuFor(m=>m==="fam:"+f.key?null:"fam:"+f.key);}}
                           style={{background:menuFor==="fam:"+f.key?PARCH:"none",border:`1px solid ${menuFor==="fam:"+f.key?BD:"transparent"}`,borderRadius:8,width:30,height:28,cursor:"pointer",color:WG,fontSize:16,lineHeight:1,fontFamily:"inherit"}}>⋯</button>
                         {menuFor==="fam:"+f.key&&<div style={{position:"absolute",top:"calc(100% + 4px)",right:0,zIndex:20,background:WHITE,border:`1px solid ${BD}`,borderRadius:10,boxShadow:SHADOW,padding:"4px 0",minWidth:230}}>
+                          <button style={menuItem} onClick={()=>openGroup(f)}>Change group</button>
                           <button style={menuItem} onClick={()=>openCopy(f)}>Copy variants from another product</button>
                         </div>}
                       </div>
@@ -11661,6 +11672,19 @@ function PriceList({priceList=[],setPriceList,setView,pricing=[],markupTable=[],
         <div style={{display:"flex",gap:10,justifyContent:"flex-end",marginTop:6,paddingBottom:6}}>
           <Btn ghost onClick={()=>setNewOpen(false)}>Cancel</Btn>
           <Btn onClick={startNew}>Continue</Btn>
+        </div>
+      </div>
+    </Modal>}
+
+    {groupTarget&&<Modal title="Change group" onClose={()=>setGroupFor(null)}>
+      <div style={{fontSize:13.5,color:INK,lineHeight:1.6}}>
+        <div style={{marginBottom:14}}>Moves all {groupTarget.rows.length>1?<>{groupTarget.rows.length} variants of </>:null}<strong>{groupTarget.title||"this product"}</strong> into the group you choose. Pick an existing group or type a new one. Leave it blank for no group.</div>
+        <label style={SS.lbl} htmlFor="pl-group-input">Group</label>
+        <input id="pl-group-input" autoFocus value={groupText} onChange={e=>setGroupText(e.target.value)} onKeyDown={e=>{if(e.key==="Enter")saveGroup();}} placeholder="e.g. Ring Builder Settings" list="pl-groups" style={{...SS.inp,marginBottom:14}}/>
+        <datalist id="pl-groups">{groups.filter(g=>g!=="All").map(g=><option key={g} value={g}/>)}</datalist>
+        <div style={{display:"flex",gap:10,justifyContent:"flex-end",marginTop:6,paddingBottom:6}}>
+          <Btn ghost onClick={()=>setGroupFor(null)}>Cancel</Btn>
+          <Btn onClick={saveGroup}>Save group</Btn>
         </div>
       </div>
     </Modal>}
