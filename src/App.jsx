@@ -8149,11 +8149,25 @@ function InvoiceDetailView({invoiceId,invoices,setInvoices,jobs,clients,payments
     {staged&&<div style={{fontSize:12,color:WG,marginBottom:18}}>Requesting <strong style={{color:INK}}>{fmt(dueNow)}</strong> now of the <strong style={{color:INK}}>{fmt(balance)}</strong> outstanding · <strong style={{color:INK}}>{fmt(remainingAfter)}</strong> payable later.</div>}
     <Card>
       <label style={SS.lbl}>Amount due now — this request <span style={{fontWeight:400,color:WG,textTransform:"none",letterSpacing:0}}>(optional)</span></label>
-      <div style={{position:"relative",maxWidth:220,marginTop:4}}>
-        <span style={{position:"absolute",left:10,top:"50%",transform:"translateY(-50%)",fontSize:13,color:WG,pointerEvents:"none"}}>$</span>
-        <input type="number" min="0" step="0.01" value={inv.requestAmount||""} onChange={e=>setRequestAmount(e.target.value)} placeholder={`Full balance: ${fmt(balance)}`}
-          style={{...SS.inp,marginTop:0,padding:"9px 10px 9px 24px",textAlign:"right",fontWeight:staged?700:400,borderColor:staged?GOLD:BD}}/>
-      </div>
+      {(()=>{
+        // 50% deposit = what's still needed for the client to have paid half the invoice (anything
+        // already received counts toward it), capped at the outstanding balance.
+        const half=Math.min(balance,Math.max(0,Math.round((Number(inv.totalIncGST||0)*0.5-(paidTotal+invTradeIn))*100)/100));
+        const halfOn=half>0&&Math.abs((Number(inv.requestAmount)||0)-half)<0.005;
+        return <div style={{display:"flex",alignItems:"center",gap:10,flexWrap:"wrap",marginTop:4}}>
+          <div style={{position:"relative",width:220,maxWidth:"100%"}}>
+            <span style={{position:"absolute",left:10,top:"50%",transform:"translateY(-50%)",fontSize:13,color:WG,pointerEvents:"none"}}>$</span>
+            <input type="number" min="0" step="0.01" value={inv.requestAmount||""} onChange={e=>setRequestAmount(e.target.value)} placeholder={`Full balance: ${fmt(balance)}`}
+              style={{...SS.inp,marginTop:0,padding:"9px 10px 9px 24px",textAlign:"right",fontWeight:staged?700:400,borderColor:staged?GOLD:BD}}/>
+          </div>
+          <button type="button" disabled={half<=0} onClick={()=>setRequestAmount(halfOn?"":String(half))}
+            title={half>0?`Request ${fmt(half)}, half of the ${fmt(inv.totalIncGST)} invoice${paidTotal+invTradeIn>0?" less what's already been received":""}`:"The client has already paid at least half"}
+            style={{display:"inline-flex",alignItems:"center",gap:7,background:halfOn?GOLD:WHITE,color:halfOn?WHITE:(half>0?INK:WG),border:`1px solid ${halfOn?GOLD:BD}`,borderRadius:999,padding:"8px 14px",fontSize:12.5,fontWeight:700,cursor:half>0?"pointer":"default",fontFamily:"inherit",opacity:half>0?1:0.55}}>
+            <span style={{width:14,height:14,borderRadius:4,border:`1.5px solid ${halfOn?WHITE:BD}`,display:"inline-flex",alignItems:"center",justifyContent:"center",fontSize:10,lineHeight:1}}>{halfOn?"✓":""}</span>
+            50% deposit{half>0?` · ${fmt(half)}`:""}
+          </button>
+        </div>;
+      })()}
       <div style={{fontSize:11,color:WG,marginTop:8,lineHeight:1.5}}>Set this to request a <strong>specific staged amount</strong> now (e.g. the diamond balance) instead of the full outstanding balance. The invoice and client link will show <strong>"Due now"</strong> with the remainder noted as payable later. Leave blank to request the full balance. {staged&&<button onClick={()=>setRequestAmount("")} style={{background:"none",border:`1px solid ${BD}`,borderRadius:6,padding:"2px 8px",fontSize:11,fontWeight:700,color:WG,cursor:"pointer",fontFamily:"inherit",marginLeft:4}}>Clear</button>}</div>
       <div style={{fontSize:11,color:GOLD_D,marginTop:8}}>After changing this, click <strong>{ICON_LINK}Copy link</strong> above to refresh what the client sees.</div>
     </Card>
