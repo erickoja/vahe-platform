@@ -7156,7 +7156,7 @@ function PublicProposalPage({token}){
         <span style={{fontSize:12,fontWeight:700,color:"rgba(255,255,255,0.6)",textTransform:"uppercase",letterSpacing:"0.06em"}}>Combined total · {selectedOpts.length} piece{selectedOpts.length!==1?"s":""}</span>
         <span style={{textAlign:"right"}}>
           <span style={{fontSize:20,fontWeight:800,color:WHITE}}>{fmtR(comboPrice)} <span style={{fontSize:11,fontWeight:400,color:"rgba(255,255,255,0.5)"}}>inc {TAX_LABEL}</span></span>
-          {comboSaving>0.005&&<span style={{display:"block",fontSize:12,fontWeight:700,color:"#7FD7A6",marginTop:2}}>You save {fmtR(comboSaving)}</span>}
+          {comboSaving>0.005&&<span style={{display:"block",fontSize:12,fontWeight:700,color:"#7FD7A6",marginTop:2}}>Total discount {fmtR(comboSaving)}</span>}
         </span>
       </div>}
 
@@ -7189,7 +7189,7 @@ function PublicProposalPage({token}){
         return <div style={{marginTop:16,background:PARCH,border:`1px solid ${BD}`,borderRadius:4,padding:"14px 16px"}}>
           {/* Multi-select already shows the combined total in the dark bar above, so don't repeat it */}
           {!multi&&row(`Total price (inc ${TAX_LABEL})`,fmtR(comboPrice))}
-          {!multi&&comboSaving>0.005&&row("You save",fmtR(comboSaving),true)}
+          {!multi&&comboSaving>0.005&&row("Discount",fmtR(comboSaving),true)}
           {multi&&!showDeposit&&row(`Combined total (inc ${TAX_LABEL})`,fmtR(comboPrice))}
           {showDeposit&&row(fixed!=null?"Deposit requested":`${pct}% deposit`,fmtR(depositTarget))}
           {tradeIn>0.005&&<div style={{display:"flex",justifyContent:"space-between",fontSize:13,color:WG,padding:"2px 0"}}><span>Gold trade-in credit</span><span style={{color:OK,fontWeight:600}}>− {fmtR(tradeIn)}</span></div>}
