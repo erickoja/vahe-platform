@@ -1820,6 +1820,22 @@ const jobChargeTotal=(job,quotes,markupTable,invoices)=>{
 // Sum of gold trade-in credits on a job's approved quotes. It's a credit RECEIVED (like paying in
 // gold) — it does NOT reduce the sale price (jobChargeTotal), it's counted alongside payments.
 const jobTradeInCredit=(job,quotes)=>(quotes||[]).filter(q=>q.jobId===job?.id&&q.status==="Approved").reduce((s,q)=>s+(Number(q.tradeInCredit)||0),0)+(Number(job?.repairTradeIn)||0);
+// A quote's trade-in only counts as RECEIVED once the gold is in hand (q.tradeInReceived ticked).
+// Older quotes have no flag and were always treated as received, so undefined = received.
+// The credit still nets the amount owing either way; only the "received" figures wait for the gold.
+const quoteTradeInReceived=q=>q?.tradeInReceived!==false;
+const quoteTradeInPending=q=>quoteTradeInReceived(q)?0:(Number(q?.tradeInCredit)||0);
+// Gold trade-in value actually received (repair trade-ins are handed over at intake, so always received)
+const jobTradeInReceived=(job,quotes)=>(quotes||[]).filter(q=>q.jobId===job?.id&&q.status==="Approved"&&quoteTradeInReceived(q)).reduce((s,q)=>s+(Number(q.tradeInCredit)||0),0)+(Number(job?.repairTradeIn)||0);
+const jobTradeInPending=(job,quotes)=>jobTradeInCredit(job,quotes)-jobTradeInReceived(job,quotes);
+// Portion of an invoice's trade-in whose gold hasn't been received yet (from its source quote(s))
+const invTradeInPending=(inv,quotes)=>{
+  const ids=(inv?.quoteIds&&inv.quoteIds.length)?inv.quoteIds:(inv?.quoteId?[inv.quoteId]:[]);
+  const pend=ids.reduce((s,id)=>s+quoteTradeInPending((quotes||[]).find(q=>q.id===id)),0);
+  return Math.min(Number(inv?.tradeInCredit)||0,pend);
+};
+// Month a received trade-in lands in: the day it was ticked received, else the quote's last update
+const quoteTradeInMonth=q=>String(q.tradeInReceivedAt||q.updatedAt||q.createdAt||"").slice(0,7);
 // True if the job has any agreed charge (override or approved quote)
 const jobHasCharge=(job,quotes)=>Number(job?.totalOverride)>0||(quotes||[]).some(q=>q.jobId===job.id&&q.status==="Approved");
 // ── Follow-ups: correspondence still awaiting a client response, for manual one-click reminders ──
@@ -1867,7 +1883,7 @@ const computeFollowUps=({jobs,clients,quotes,payments,invoices,proposals,markupT
     if(jobIsClosed(j)||j.parked)return;
     if(jobsWithSentInvoice.has(j.id))return;
     if(!jobHasCharge(j,quotes))return;
-    if(jobPaidCash(j.id)+jobTradeInCredit(j,quotes)>0.5)return;
+    if(jobPaidCash(j.id)+jobTradeInReceived(j,quotes)>0.5)return;
     const total=jobChargeTotal(j,quotes,markupTable,invoices);
     if(total<=0.5)return;
     const apprQ=(quotes||[]).filter(q=>q.jobId===j.id&&q.status==="Approved").sort((a,b)=>String(b.createdAt||"").localeCompare(String(a.createdAt||"")))[0];
@@ -2092,7 +2108,7 @@ const buildProposalSnapshot=({proposal,job,client,biz,quotes,markupTable,payment
 // Frozen client-facing snapshot of a tax invoice, stored alongside proposals in the
 // same public table (kind:"invoice"). Re-written each time the link is shared so it
 // reflects the invoice's current totals/balance.
-const buildInvoiceSnapshot=({inv,job,client,biz,payments})=>{
+const buildInvoiceSnapshot=({inv,job,client,biz,payments,quotes})=>{
   const paidTotal=(payments||[]).filter(p=>p.jobId===inv.jobId&&p.status==="Received").reduce((s,p)=>s+Number(p.amount||0),0);
   const invTradeIn=Number(inv.tradeInCredit)||0;const balance=Math.max(0,inv.totalIncGST-invTradeIn-paidTotal);
   const requestAmount=Number(inv.requestAmount)||0;
@@ -2117,6 +2133,7 @@ const buildInvoiceSnapshot=({inv,job,client,biz,payments})=>{
     gst:inv.gst,
     totalIncGST:inv.totalIncGST,
     tradeIn:invTradeIn,
+    tradeInPending:invTradeInPending(inv,quotes)>0.005,   // gold not handed over yet → labelled "on receipt of gold"
     tradeInNote:inv.tradeInNote||"",
     paidTotal,
     balance,
@@ -3570,8 +3587,9 @@ function Dashboard({clients,jobs,quotes,payments,invoices,appointments=[],propos
   const daysAgo=d=>{const n=Math.round((Date.now()-parseISO(d).getTime())/86400000);return n<=0?"today":n===1?"1 day ago":`${n} days ago`;};
   const activeRanked=active.map(j=>{
     const cash=payments.filter(p=>p.jobId===j.id&&p.status==="Received").reduce((s,p)=>s+Number(p.amount||0),0);
-    const tradeIn=jobTradeInCredit(j,quotes);            // gold trade-in credit — also value received
-    const received=cash+tradeIn;                         // "money in" = cash + trade-in
+    const tradeIn=jobTradeInReceived(j,quotes);          // gold trade-in in hand — also value received
+    const received=cash+tradeIn;                         // "money in" = cash + gold received
+    const goldDue=jobTradeInPending(j,quotes);           // agreed trade-in gold not yet handed over
     const jp=proposals.filter(p=>p.jobId===j.id);
     const propAccepted=jp.some(p=>p.status==="accepted");
     const sentProp=jp.filter(p=>p.status==="sent").sort((a,b)=>String(b.createdAt||"").localeCompare(String(a.createdAt||"")))[0];
@@ -3581,7 +3599,7 @@ function Dashboard({clients,jobs,quotes,payments,invoices,appointments=[],propos
     const ready=j.stage==="Ready for collection";
     const inProd=PROD_STAGES.includes(j.stage);
     const total=jobHasCharge(j,quotes)?jobChargeTotal(j,quotes,markupTable,invoices):0;
-    const owing=Math.max(0,total-received);
+    const owing=Math.max(0,total-received-goldDue);     // cash still owed (agreed gold nets it)
     const awaiting=propSent&&!propAccepted&&!approved;   // proposal out, no yes yet
     const awaitDays=awaiting&&sentProp?.createdAt?Math.round((Date.now()-parseISO(sentProp.createdAt).getTime())/86400000):null;
     const stale=awaiting&&awaitDays!=null&&awaitDays>21;   // sent 3+ weeks ago, still no reply → effectively dead
@@ -3607,9 +3625,9 @@ function Dashboard({clients,jobs,quotes,payments,invoices,appointments=[],propos
   const thisMonth=(d=>`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}`)(new Date());
   // Cash-received view: actual payments received this month (deposits included), regardless of invoicing
   // Value received this month = cash payments dated this month + gold trade-in credits on approved
-  // quotes whose most recent activity was this month (trade-ins have no date of their own).
+  // quotes, dated the day the gold was ticked received (older ones: the quote's last update).
   const monthReceived=payments.filter(p=>p.status==="Received"&&p.date?.startsWith(thisMonth)).reduce((s,p)=>s+Number(p.amount||0),0)
-    +quotes.filter(q=>q.status==="Approved"&&(Number(q.tradeInCredit)||0)>0&&String(q.updatedAt||q.createdAt||"").slice(0,7)===thisMonth).reduce((s,q)=>s+Number(q.tradeInCredit),0);
+    +quotes.filter(q=>q.status==="Approved"&&(Number(q.tradeInCredit)||0)>0&&quoteTradeInReceived(q)&&quoteTradeInMonth(q)===thisMonth).reduce((s,q)=>s+Number(q.tradeInCredit),0);
   const balanceOwing=jobs.map(j=>{
     if(!jobHasCharge(j,quotes))return null;
     const total=jobChargeTotal(j,quotes,markupTable,invoices);
@@ -3630,7 +3648,7 @@ function Dashboard({clients,jobs,quotes,payments,invoices,appointments=[],propos
 
   // ── Revenue trend (6 months) + month-over-month comparison ──
   const receivedForMonth=mk=>payments.filter(p=>p.status==="Received"&&p.date?.startsWith(mk)).reduce((s,p)=>s+Number(p.amount||0),0)
-    +quotes.filter(q=>q.status==="Approved"&&(Number(q.tradeInCredit)||0)>0&&String(q.updatedAt||q.createdAt||"").slice(0,7)===mk).reduce((s,q)=>s+Number(q.tradeInCredit),0);
+    +quotes.filter(q=>q.status==="Approved"&&(Number(q.tradeInCredit)||0)>0&&quoteTradeInReceived(q)&&quoteTradeInMonth(q)===mk).reduce((s,q)=>s+Number(q.tradeInCredit),0);
   const revSeries=[...Array(6)].map((_,i)=>{const d=new Date();d.setDate(1);d.setMonth(d.getMonth()-(5-i));const mk=`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}`;return {mk,label:new Date(mk+"-01").toLocaleDateString(LOCALE,{month:"short"}),value:receivedForMonth(mk)};});
   const lastMonthReceived=revSeries.length>1?revSeries[revSeries.length-2].value:0;
   const monthTrend=lastMonthReceived>0?{pct:Math.round(((monthReceived-lastMonthReceived)/lastMonthReceived)*100),up:monthReceived>=lastMonthReceived}:null;
@@ -3657,7 +3675,7 @@ function Dashboard({clients,jobs,quotes,payments,invoices,appointments=[],propos
     const c=clients.find(x=>x.id===j.clientId);
     const sentQs=quotes.filter(q=>q.jobId===j.id&&q.status==="Sent"&&(!q.validUntil||String(q.validUntil)>=today()));
     const approved=jobHasCharge(j,quotes);
-    const paid=approved?payments.filter(p=>p.jobId===j.id&&p.status==="Received").reduce((s,p)=>s+Number(p.amount||0),0)+jobTradeInCredit(j,quotes):0;
+    const paid=approved?payments.filter(p=>p.jobId===j.id&&p.status==="Received").reduce((s,p)=>s+Number(p.amount||0),0)+jobTradeInReceived(j,quotes):0;
     const detail=approved?"approved total":sentQs.length>1?`avg of ${sentQs.length} sent quotes`:sentQs.length===1?"1 sent quote":"—";
     return {id:j.id,name:`${j.type} · ${clientDisplayName(c)}`,amt,detail,approved,paid};
   }).filter(x=>x.amt>0).sort((a,b)=>b.amt-a.amt);
@@ -3912,7 +3930,7 @@ function Clients({clients,setClients,jobs,payments,setView,setSelClient,quotes=[
     {filtered.map(c=>{
       const cj=jobs.filter(j=>j.clientId===c.id);
       const spent=cj.flatMap(j=>payments.filter(p=>p.jobId===j.id&&p.status==="Received")).reduce((s,p)=>s+Number(p.amount||0),0);
-      const received=spent+cj.reduce((s,j)=>s+jobTradeInCredit(j,quotes),0);   // cash + gold trade-in
+      const received=spent+cj.reduce((s,j)=>s+jobTradeInReceived(j,quotes),0);   // cash + gold trade-in received
       return <Card key={c.id} onClick={()=>{setSelClient(c.id);setView("clientDetail");}}>
         <div style={{display:"flex",flexDirection:isMobile?"column":"row",justifyContent:"space-between",alignItems:isMobile?"stretch":"flex-start",gap:isMobile?12:0}}>
           <div style={{display:"flex",gap:14,alignItems:"flex-start",flex:1,minWidth:0}}>
@@ -3950,8 +3968,9 @@ function ClientDetail({clientId,clients,setClients,jobs,setJobs,quotes,payments,
   const cj=jobs.filter(j=>j.clientId===clientId);
   const spent=cj.flatMap(j=>payments.filter(p=>p.jobId===j.id&&p.status==="Received")).reduce((s,p)=>s+Number(p.amount||0),0);
   const charged=cj.reduce((s,j)=>s+jobChargeTotal(j,quotes,markupTable,invoices),0);
-  const tradeIn=cj.reduce((s,j)=>s+jobTradeInCredit(j,quotes),0);
-  const owing=Math.max(0,charged-spent-tradeIn);   // trade-in credits count toward what's covered
+  const tradeIn=cj.reduce((s,j)=>s+jobTradeInReceived(j,quotes),0);   // gold trade-in in hand
+  const goldDue=cj.reduce((s,j)=>s+jobTradeInPending(j,quotes),0);    // agreed gold not yet handed over
+  const owing=Math.max(0,charged-spent-tradeIn-goldDue);   // trade-in credits count toward what's covered
   // Funds held = money RECEIVED that hasn't been EARNED yet. Once a job is delivered (a done stage),
   // its agreed charge is earned even if it was billed by proposal and never invoiced in-app — so only
   // a genuine overpayment beyond the charge is still credit. Before delivery, money received but not
@@ -4291,8 +4310,8 @@ function Jobs({clients,jobs,setJobs,quotes,setQuotes,payments,setPayments,notes,
       const od=j.deadline&&j.deadline<today()&&!jobIsDone(j);
       const total=jobChargeTotal(j,quotes,markupTable,invoices);
       const paid=payments.filter(p=>p.jobId===j.id&&p.status==="Received").reduce((s,p)=>s+Number(p.amount||0),0);
-      const tradeIn=jobTradeInCredit(j,quotes);            // gold trade-in credit (value received)
-      const owing=total-paid-tradeIn;
+      const tradeIn=jobTradeInReceived(j,quotes);          // gold trade-in in hand (value received)
+      const owing=total-paid-jobTradeInCredit(j,quotes);   // agreed trade-in nets the cash owed
       const isOverride=Number(j.totalOverride)>0;
       return <Card key={j.id} onClick={()=>{setSelJob(j.id);setView("jobDetail");}}>
         <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start"}}>
@@ -4796,7 +4815,14 @@ function JobDetailInner({jobId,jobs,setJobs,clients,setClients,quotes,setQuotes,
   const paidTotal=jp.filter(p=>p.status==="Received").reduce((s,p)=>s+Number(p.amount||0),0);
   const usingOverride=Number(job.totalOverride)>0;
   const jobTotal=jobChargeTotal(job,quotes,markupTable,invoices);
-  const jobTradeIn=jobTradeInCredit(job,quotes);            // gold trade-in credit received
+  const jobTradeIn=jobTradeInCredit(job,quotes);            // gold trade-in credit agreed (nets the balance)
+  const goldIn=jobTradeInReceived(job,quotes);              // ...of which the gold is in hand
+  const goldDue=jobTradeIn-goldIn;                          // ...and still to be handed over
+  const goldDueQuotes=quotes.filter(q=>q.jobId===job.id&&q.status==="Approved"&&quoteTradeInPending(q)>0);
+  // Tick the gold as received on every approved quote still waiting on it (dated today for monthly figures)
+  const goldInQuotes=quotes.filter(q=>q.jobId===job.id&&q.status==="Approved"&&(Number(q.tradeInCredit)||0)>0&&quoteTradeInReceived(q));
+  const markGoldNotReceived=()=>{if(!guardEdit())return;const ids=new Set(goldInQuotes.map(q=>q.id));setQuotes(p=>{const n=p.map(q=>ids.has(q.id)?{...q,tradeInReceived:false,tradeInReceivedAt:null}:q);persist(K.qu,n);return n;});};
+  const markGoldReceived=()=>{if(!guardEdit())return;const ids=new Set(goldDueQuotes.map(q=>q.id));setQuotes(p=>{const n=p.map(q=>ids.has(q.id)?{...q,tradeInReceived:true,tradeInReceivedAt:today()}:q);persist(K.qu,n);return n;});};
   const balance=jobTotal-paidTotal-jobTradeIn;
   const[editStage,setEditStage]=useState(false);
   const[editJobModal,setEditJobModal]=useState(false);
@@ -4815,7 +4841,7 @@ function JobDetailInner({jobId,jobs,setJobs,clients,setClients,quotes,setQuotes,
   const refreshLinks=async(pmts)=>{
     if(!supabaseEnabled||!supabase)return;
     ji.filter(iv=>iv.publicToken).forEach(iv=>{
-      const snap=buildInvoiceSnapshot({inv:iv,job,client:c,biz,payments:pmts});
+      const snap=buildInvoiceSnapshot({inv:iv,job,client:c,biz,payments:pmts,quotes});
       supabase.from(PUBLIC_PROPOSALS_TABLE).update({data:snap}).eq("token",iv.publicToken).then(()=>{}).catch(()=>{});
     });
     const livePr=(proposals||[]).filter(pr=>pr.jobId===jobId&&pr.token&&pr.status!=="accepted");
@@ -4915,11 +4941,12 @@ function JobDetailInner({jobId,jobs,setJobs,clients,setClients,quotes,setQuotes,
         <Btn sm onClick={()=>setPayModal(true)}>+ Record payment</Btn>
       </div>
       {jobTotal>0&&(()=>{
-        const totalReceived=paidTotal+jobTradeIn;   // gold trade-in counts as value received
+        const totalReceived=paidTotal+goldIn;   // gold trade-in counts as value received once it's in hand
         const stats=[
           [usingOverride?"Total charge":"Approx. quote",fmt(jobTotal),INK,null],
-          ["Received",fmt(totalReceived),OK,jobTradeIn>0?`${fmt(paidTotal)} paid · ${fmt(jobTradeIn)} gold trade-in`:null],
-          ["Outstanding",fmt(Math.max(0,balance)),balance>0.5?WARN:OK,null],
+          ["Received",fmt(totalReceived),OK,goldIn>0?`${fmt(paidTotal)} paid · ${fmt(goldIn)} gold trade-in`:null],
+          ...(goldDue>0.005?[["Gold to come",fmt(goldDue),GOLD_D,"Trade-in gold not yet received"]]:[]),
+          ["Outstanding",fmt(Math.max(0,balance)),balance>0.5?WARN:OK,goldDue>0.005?"in cash, after the gold trade-in":null],
         ];
         return <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":`repeat(${stats.length},1fr)`,gap:10,marginBottom:14}}>
           {stats.map(([l,v,col,sub])=>(
@@ -4931,6 +4958,11 @@ function JobDetailInner({jobId,jobs,setJobs,clients,setClients,quotes,setQuotes,
           ))}
         </div>;
       })()}
+      {goldDue>0.005&&<div style={{display:"flex",flexDirection:isMobile?"column":"row",alignItems:isMobile?"stretch":"center",justifyContent:"space-between",gap:10,background:GOLD_L,border:`1px solid ${BD}`,borderRadius:4,padding:"10px 12px",marginBottom:14,fontSize:12.5,color:INK,lineHeight:1.5}}>
+        <span>The client is trading in {fmt(goldDue)} of gold that you haven't received yet. Tick it off once it's in your hands.</span>
+        <Btn sm onClick={markGoldReceived}>✓ Gold received</Btn>
+      </div>}
+      {goldDue<=0.005&&goldInQuotes.length>0&&<div style={{fontSize:12,color:WG,marginTop:-6,marginBottom:14}}>Gold trade-in counted as received. <button onClick={markGoldNotReceived} style={{background:"none",border:"none",padding:0,color:GOLD_D,fontWeight:700,fontSize:12,cursor:"pointer",fontFamily:"inherit",textDecoration:"underline"}}>Not received yet?</button></div>}
       {/* A gold trade-in entered on the quote AND recorded as a payment counts twice. */}
       {jobTradeIn>0&&jp.some(p=>p.method==="Gold/Silver trade in"||p.type==="Trade-in credit")&&<div style={{background:WARN+"15",border:`1px solid ${WARN}55`,color:INK,fontSize:12.5,lineHeight:1.55,padding:"10px 12px",borderRadius:4,marginBottom:14}}>
         <strong style={{color:WARN}}>Trade-in counted twice.</strong> This job has a {fmt(jobTradeIn)} gold trade-in on its quote and a trade-in recorded as a payment below, so it's being taken off the balance twice. Remove one of them: delete the trade-in payment, or clear the trade-in on the quote.
@@ -5442,6 +5474,8 @@ function QuoteBuilder({jobId:jobIdProp,editQuoteId,stockId,stock,setStock,priceL
   const[stoneOverride,setStoneOverride]=useState(seed?.stoneMarkupOverride?String(seed.stoneMarkupOverride):"");
   const[tradeInCredit,setTradeInCredit]=useState(seed?.tradeInCredit?String(seed.tradeInCredit):"");
   const[tradeInNote,setTradeInNote]=useState(seed?.tradeInNote||"");
+  // Gold in hand yet? New trade-ins start unticked; older quotes with no flag were always treated as received.
+  const[tradeInReceived,setTradeInReceived]=useState(seed?.tradeInReceived!==undefined?!!seed.tradeInReceived:(Number(seed?.tradeInCredit)||0)>0);
   const[manualTotal,setManualTotal]=useState(seed?.manualTotal?String(seed.manualTotal):"");
   const[validUntil,setValidUntil]=useState(seed?.validUntil||"");
   const[pricingModal,setPricingModal]=useState(false);
@@ -5682,7 +5716,7 @@ function QuoteBuilder({jobId:jobIdProp,editQuoteId,stockId,stock,setStock,priceL
       // Update existing quote — preserve id, jobId, createdAt
       const updated={...existingQuote,status,title:title.trim(),pieceTitle:pieceTitle.trim(),markupOverride:Number(markupOverride)||0,pricingMode:tradePricing?"trade":"retail",tradeMult:tradeMultVal,taxOnTop,payAllowancePct:allowPct,manualTotal:Number(manualTotal)||0,priceLockedAt:Number(manualTotal)>0?existingQuote.priceLockedAt:undefined,validUntil,notes,lineItems:validItems,
         stoneMode,stoneType:stoneMode==="sourcing"?stoneType:"",stoneItems:stoneMode==="sourcing"?validStoneItems:[],stoneMarkupOverride:Number(stoneOverride)||0,
-        stoneNotes,stoneClientTotal:stoneCalc?.clientTotal||0,accentStoneTotal,tradeInCredit:Number(tradeInCredit)||0,tradeInNote:tradeInNote.trim(),clientDescription,updatedAt:today()};
+        stoneNotes,stoneClientTotal:stoneCalc?.clientTotal||0,accentStoneTotal,tradeInCredit:Number(tradeInCredit)||0,tradeInNote:tradeInNote.trim(),tradeInReceived,tradeInReceivedAt:tradeInReceived?(seed?.tradeInReceivedAt||today()):null,clientDescription,updatedAt:today()};
       const nextQuotes=quotes.map(q=>q.id===editQuoteId?updated:q);
       setQuotes(()=>{persist(K.qu,nextQuotes);return nextQuotes;});
       // Invoiced quote edited → bring the invoice's figures in line with the new quote.
@@ -5699,7 +5733,7 @@ function QuoteBuilder({jobId:jobIdProp,editQuoteId,stockId,stock,setStock,priceL
     }else{
       const q={id:uid(),jobId,status,title:title.trim(),pieceTitle:pieceTitle.trim(),markupOverride:Number(markupOverride)||0,pricingMode:tradePricing?"trade":"retail",tradeMult:tradeMultVal,taxOnTop,payAllowancePct:allowPct,manualTotal:Number(manualTotal)||0,createdAt:today(),validUntil,notes,lineItems:validItems,
         stoneMode,stoneType:stoneMode==="sourcing"?stoneType:"",stoneItems:stoneMode==="sourcing"?validStoneItems:[],stoneMarkupOverride:Number(stoneOverride)||0,
-        stoneNotes,stoneClientTotal:stoneCalc?.clientTotal||0,accentStoneTotal,tradeInCredit:Number(tradeInCredit)||0,tradeInNote:tradeInNote.trim(),clientDescription};
+        stoneNotes,stoneClientTotal:stoneCalc?.clientTotal||0,accentStoneTotal,tradeInCredit:Number(tradeInCredit)||0,tradeInNote:tradeInNote.trim(),tradeInReceived,tradeInReceivedAt:tradeInReceived?(seed?.tradeInReceivedAt||today()):null,clientDescription};
       setQuotes(p=>{const n=[...p,q];persist(K.qu,n);return n;});
     }
     setView("jobDetail_"+jobId);
@@ -6072,6 +6106,10 @@ function QuoteBuilder({jobId:jobIdProp,editQuoteId,stockId,stock,setStock,priceL
         </div>
         {tradeInN>0&&<div style={{marginTop:10}}>
           <Input label="Trade-in note (weight / purity / test — shown on the documents)" value={tradeInNote} onChange={setTradeInNote} placeholder="e.g. 14.2g 18ct yellow, X-ray tested"/>
+          <label style={{display:"flex",alignItems:"flex-start",gap:8,marginTop:10,fontSize:13,color:INK,cursor:"pointer",lineHeight:1.45}}>
+            <input type="checkbox" checked={tradeInReceived} onChange={e=>setTradeInReceived(e.target.checked)} style={{marginTop:2,accentColor:OK}}/>
+            <span><strong>Gold received</strong> <span style={{color:WG}}>· {tradeInReceived?"the gold is in your hands, so it counts as received":"leave unticked until the client hands the gold over; it still comes off the balance but won't show as received"}</span></span>
+          </label>
         </div>}
       </div>}
 
@@ -6878,7 +6916,7 @@ function PublicInvoiceBody({snap}){
           {snap.discount>0&&<div style={{display:"flex",justifyContent:"space-between",fontSize:13,color:OK,padding:"3px 0"}}><span>{snap.discountLabel||"Discount"}</span><span>−{fmt(snap.discount)}</span></div>}
           <div style={{display:"flex",justifyContent:"space-between",fontSize:13,color:WG,padding:"3px 0"}}><span>Includes {TAX_LABEL}</span><span>{fmt(snap.gst)}</span></div>
           <div style={{display:"flex",justifyContent:"space-between",fontSize:17,fontWeight:800,color:INK,borderTop:`2px solid ${INK}`,marginTop:8,paddingTop:10}}><span>{`Total (inc ${TAX_LABEL})`}</span><span>{fmt(snap.totalIncGST)}</span></div>
-          {snap.tradeIn>0&&<div style={{display:"flex",justifyContent:"space-between",fontSize:13,color:OK,padding:"6px 0 3px"}}><span>Gold trade-in credit</span><span>−{fmt(snap.tradeIn)}</span></div>}
+          {snap.tradeIn>0&&<div style={{display:"flex",justifyContent:"space-between",fontSize:13,color:OK,padding:"6px 0 3px"}}><span>Gold trade-in credit{snap.tradeInPending?" (on receipt of gold)":""}</span><span>−{fmt(snap.tradeIn)}</span></div>}
           {snap.paidTotal>0&&<div style={{display:"flex",justifyContent:"space-between",fontSize:13,color:OK,padding:"6px 0 3px"}}><span>Paid to date</span><span>−{fmt(snap.paidTotal)}</span></div>}
           {snap.staged
             ?<>
@@ -7586,7 +7624,7 @@ function QuoteDetailView({quoteId,quotes,setQuotes,jobs,clients,biz,markupTable,
           ...(accentStoneTotal>0?[["Accent stones",fmtR(accentStoneTotal),"#CDB2C1"]]:[]),
           ...(stoneCalc?[["Stone",fmtR(stoneCalc.clientTotal),q.stoneType==="lab"?"#CDB2C1":"#A6CBB4"]]:[]),
           ...(payAllowanceAmt>0.005?[[`Card fee allowance (${q.payAllowancePct}%)`,fmtR(payAllowanceAmt),"#CDB2C1"]]:[]),
-          ...(qTradeIn>0?[["Gold trade-in credit","−"+fmtR(qTradeIn),"#E79A9A"]]:[]),
+          ...(qTradeIn>0?[[quoteTradeInReceived(q)?"Gold trade-in credit":"Gold trade-in credit · gold to come","−"+fmtR(qTradeIn),"#E79A9A"]]:[]),
           [qTradeIn>0?"Amount payable":(manual?(q.priceLockedAt?"Accepted price — locked":"Quoted price — manual"):"Combined total"),qTradeIn>0?fmtR(qPayable):grandStr,OK],
         ];
         return <div style={{background:INK,borderRadius:4,padding:"14px 20px",marginBottom:16,display:"grid",gridTemplateColumns:`repeat(${cells.length},1fr)`,gap:1}}>
@@ -7802,7 +7840,7 @@ const nextInvoiceNumber=(invoices,biz)=>{
 };
 
 // ── Invoice print view ───────────────────────────────────────────────────
-function InvoicePrintView({inv,job,client,biz,payments,onClose}){
+function InvoicePrintView({inv,job,client,biz,payments,quotes=[],onClose}){
   const paidTotal=(payments||[]).filter(p=>p.jobId===inv.jobId&&p.status==="Received").reduce((s,p)=>s+Number(p.amount||0),0);
   const invDiscount=Number(inv.discount)||0;
   const invSubtotal=inv.subtotalIncGST??inv.totalIncGST;
@@ -7900,7 +7938,7 @@ function InvoicePrintView({inv,job,client,biz,payments,onClose}){
         {/* totals */}
         <div style={{padding:"28px 56px 40px",display:"flex",justifyContent:"flex-end"}}>
           <div style={{minWidth:300}}>
-            {[...(invDiscount>0?[["Subtotal",fmt(invSubtotal)],[inv.discountLabel||"Discount","−"+fmt(invDiscount)]]:[]),[`Total (incl. ${TAX_LABEL})`,fmt(inv.totalIncGST)],[`Includes ${TAX_LABEL}`,fmt(inv.gst)],...(invTradeIn>0?[["Gold trade-in credit","−"+fmt(invTradeIn)]]:[]),["Paid to date",fmt(paidTotal)],...((staged||invTradeIn>0)?[["Balance outstanding",fmt(balance)]]:[])].map(([l,v])=>(
+            {[...(invDiscount>0?[["Subtotal",fmt(invSubtotal)],[inv.discountLabel||"Discount","−"+fmt(invDiscount)]]:[]),[`Total (incl. ${TAX_LABEL})`,fmt(inv.totalIncGST)],[`Includes ${TAX_LABEL}`,fmt(inv.gst)],...(invTradeIn>0?[[invTradeInPending(inv,quotes)>0.005?"Gold trade-in credit (on receipt of gold)":"Gold trade-in credit","−"+fmt(invTradeIn)]]:[]),["Paid to date",fmt(paidTotal)],...((staged||invTradeIn>0)?[["Balance outstanding",fmt(balance)]]:[])].map(([l,v])=>(
               <div key={l} style={{display:"flex",justifyContent:"space-between",fontSize:13,padding:"8px 0",borderBottom:`1px solid ${BD_SOFT}`}}>
                 <span style={{color:WG}}>{l}</span><span style={{fontWeight:600,color:INK}}>{v}</span>
               </div>
@@ -8077,7 +8115,7 @@ function InvoiceDetailView({invoiceId,invoices,setInvoices,jobs,clients,payments
   const discount=Number(inv.discount)||0;
   const bankTransferAmt=Math.round((Number(inv.payAllowance)||0)*100)/100;   // card fee allowance recorded on the invoice
   const paidTotal=(payments||[]).filter(p=>p.jobId===inv.jobId&&p.status==="Received").reduce((s,p)=>s+Number(p.amount||0),0);
-  const invTradeIn=Number(inv.tradeInCredit)||0;const balance=Math.max(0,inv.totalIncGST-invTradeIn-paidTotal);
+  const invTradeIn=Number(inv.tradeInCredit)||0;const invGoldDue=invTradeInPending(inv,quotes);const balance=Math.max(0,inv.totalIncGST-invTradeIn-paidTotal);
   // Staged request: optionally request only a specific amount now (e.g. the diamond balance),
   // with the rest noted as payable later. Blank = request the full outstanding balance.
   const requestAmount=Number(inv.requestAmount)||0;
@@ -8094,7 +8132,7 @@ function InvoiceDetailView({invoiceId,invoices,setInvoices,jobs,clients,payments
     setLinkBusy(true);
     let token=inv.publicToken;
     if(!token){token=proposalToken();setInvoices(p=>{const n=p.map(x=>x.id===invoiceId?{...x,publicToken:token}:x);persist(K.inv,n);return n;});}
-    const snapshot=buildInvoiceSnapshot({inv,job,client:c,biz,payments});
+    const snapshot=buildInvoiceSnapshot({inv,job,client:c,biz,payments,quotes});
     const{error}=await supabase.from(PUBLIC_PROPOSALS_TABLE).upsert({token,studio_id:_studioId,data:snapshot,status:"sent",created_at:new Date().toISOString()},{onConflict:"token"});
     setLinkBusy(false);
     if(error){alert("Couldn't create the link: "+error.message+"\n\nIf it mentions a missing table, the proposals Supabase setup (supabase-public-proposals.sql) hasn't been run.");return;}
@@ -8106,7 +8144,7 @@ function InvoiceDetailView({invoiceId,invoices,setInvoices,jobs,clients,payments
     downloadInvoiceCsv([invoiceCsvRow(inv,{jobs,clients,payments,allInvoices:invoices,paidMap,balMap})],`invoice-${(inv.number||inv.id||"").replace(/[^\w-]/g,"")||"export"}.csv`);
   };
   return <div>
-    {showPrint&&<InvoicePrintView inv={inv} job={job} client={c} biz={biz} payments={payments} onClose={()=>setShowPrint(false)}/>}
+    {showPrint&&<InvoicePrintView inv={inv} job={job} client={c} biz={biz} payments={payments} quotes={quotes} onClose={()=>setShowPrint(false)}/>}
     <div style={{display:"flex",gap:12,marginBottom:18,alignItems:"center"}}>
       <button onClick={()=>setView("invoices")} style={{background:"none",border:"none",cursor:"pointer",color:GOLD,fontSize:13,fontWeight:700,fontFamily:"inherit",padding:0}}>← Invoices</button>
       {job&&<><span style={{color:BD}}>·</span><button onClick={()=>setView("jobDetail_"+inv.jobId)} style={{background:"none",border:"none",cursor:"pointer",color:WG,fontSize:13,fontFamily:"inherit",padding:0}}>View job</button></>}
@@ -8139,10 +8177,11 @@ function InvoiceDetailView({invoiceId,invoices,setInvoices,jobs,clients,payments
       <span style={{fontSize:11,color:WG}}>Re-copy to refresh totals before sending.</span>
     </div>}
     <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:12,marginBottom:staged?10:18}}>
-      {[["Invoice total",fmt(inv.totalIncGST),INK],["Received",fmt(paidTotal+invTradeIn),OK],[staged?"Due now":"Balance due",fmt(dueNow),dueNow>0.5?WARN:OK]].map(([l,v,col])=>(
+      {[["Invoice total",fmt(inv.totalIncGST),INK],["Received",fmt(paidTotal+invTradeIn-invGoldDue),OK,invGoldDue>0.005?`plus ${fmt(invGoldDue)} trade-in gold to come`:null],[staged?"Due now":"Balance due",fmt(dueNow),dueNow>0.5?WARN:OK]].map(([l,v,col,sub])=>(
         <div key={l} style={{background:WHITE,border:`1px solid ${BD}`,borderRadius:4,padding:"14px 16px"}}>
           <div style={{fontSize:10,color:WG,fontWeight:700,textTransform:"uppercase",letterSpacing:"0.08em"}}>{l}</div>
           <div style={{fontSize:20,fontWeight:700,color:col,marginTop:4}}>{v}</div>
+          {sub&&<div style={{fontSize:11,color:WG,marginTop:3}}>{sub}</div>}
         </div>
       ))}
     </div>
@@ -8244,7 +8283,7 @@ function InvoiceDetailView({invoiceId,invoices,setInvoices,jobs,clients,payments
           {discount>0&&<div style={{display:"flex",justifyContent:"space-between",fontSize:13,padding:"4px 0",color:OK}}><span>{inv.discountLabel||"Discount"}</span><span>−{fmt(discount)}</span></div>}
           <div style={{display:"flex",justifyContent:"space-between",fontSize:13,padding:"4px 0",color:WG}}><span>Includes {TAX_LABEL}</span><span>{fmt(inv.gst)}</span></div>
           <div style={{display:"flex",justifyContent:"space-between",fontSize:17,fontWeight:800,color:INK,borderTop:`2px solid ${INK}`,marginTop:8,paddingTop:10}}><span>Total (incl. {TAX_LABEL})</span><span>{fmt(inv.totalIncGST)}</span></div>
-          {invTradeIn>0&&<div style={{display:"flex",justifyContent:"space-between",fontSize:13,padding:"6px 0 2px",color:OK}}><span>Gold trade-in credit</span><span>−{fmt(invTradeIn)}</span></div>}
+          {invTradeIn>0&&<div style={{display:"flex",justifyContent:"space-between",fontSize:13,padding:"6px 0 2px",color:OK}}><span>Gold trade-in credit{invGoldDue>0.005?" (on receipt of gold)":""}</span><span>−{fmt(invTradeIn)}</span></div>}
           {paidTotal>0&&<div style={{display:"flex",justifyContent:"space-between",fontSize:13,padding:"6px 0 2px",color:OK}}><span>Paid to date</span><span>−{fmt(paidTotal)}</span></div>}
           {(invTradeIn>0||paidTotal>0)&&<div style={{display:"flex",justifyContent:"space-between",fontSize:15,fontWeight:800,color:balance>0.5?WARN:OK,marginTop:2}}><span>Balance due</span><span>{fmt(balance)}</span></div>}
         </div>
@@ -8307,8 +8346,8 @@ function InvoicesList({invoices,jobs,clients,quotes,setQuotes,payments,setInvoic
   const delInv=(id,e)=>{e.stopPropagation();if(!guardEdit())return;const iv=invoices.find(x=>x.id===id);if(!confirm(`Delete invoice ${iv?.number||""}? This can't be undone. Payments and the quote are not affected.`))return;setInvoices(p=>{const n=p.filter(x=>x.id!==id);persist(K.inv,n);return n;});};
   // True net invoice figures. Payments are job-level, so distribute each job's received cash
   // across its invoices (oldest first), netting each invoice's gold trade-in credit first.
-  // Result: Total invoiced = Collected (cash + trade-ins) + Outstanding, so the three reconcile.
-  let grossInvoiced=0,totalPaid=0,totalOut=0;
+  // Result: Total invoiced = Collected (cash + trade-ins in hand) + gold to come + Outstanding.
+  let grossInvoiced=0,totalPaid=0,totalOut=0,totalGoldDue=0;
   {
     const byJob={};
     invoices.forEach(i=>{(byJob[i.jobId]=byJob[i.jobId]||[]).push(i);});
@@ -8320,8 +8359,10 @@ function InvoicesList({invoices,jobs,clients,quotes,setQuotes,payments,setInvoic
         const cashApplied=Math.min(cash,afterTradeIn);
         cash-=cashApplied;
         const bal=Math.max(0,afterTradeIn-cashApplied);
+        const goldDue=invTradeInPending(inv,quotes);   // trade-in gold not handed over yet
         grossInvoiced+=gross;
-        totalPaid+=gross-bal;   // trade-in credit + cash applied = value received against this invoice
+        totalPaid+=gross-bal-goldDue;   // trade-in in hand + cash applied = value received against this invoice
+        totalGoldDue+=goldDue;
         totalOut+=bal;
       });
     });
@@ -8366,10 +8407,11 @@ function InvoicesList({invoices,jobs,clients,quotes,setQuotes,payments,setInvoic
       </div>
     </Modal>}
     {invoices.length>0&&<div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:12,marginBottom:18}}>
-      {[["Total invoiced",fmt(grossInvoiced),INK],["Outstanding",fmt(totalOut),totalOut>0?WARN:OK],["Collected",fmt(totalPaid),OK]].map(([l,v,col])=>(
+      {[["Total invoiced",fmt(grossInvoiced),INK],["Outstanding",fmt(totalOut),totalOut>0?WARN:OK],["Collected",fmt(totalPaid),OK,totalGoldDue>0.005?`plus ${fmt(totalGoldDue)} trade-in gold to come`:null]].map(([l,v,col,sub])=>(
         <div key={l} style={{background:WHITE,border:`1px solid ${BD}`,borderRadius:4,padding:"14px 16px"}}>
           <div style={{fontSize:10,color:WG,fontWeight:700,textTransform:"uppercase",letterSpacing:"0.08em"}}>{l}</div>
           <div style={{fontSize:20,fontWeight:700,color:col,marginTop:4}}>{v}</div>
+          {sub&&<div style={{fontSize:11,color:WG,marginTop:3}}>{sub}</div>}
         </div>
       ))}
     </div>}
@@ -9727,7 +9769,7 @@ function Reports({jobs,clients,quotes,payments,invoices,markupTable,setView,setS
   const monthData=months.map(m=>({
     month:new Date(m+"-01").toLocaleDateString(LOCALE,{month:"short",year:"numeric"}),
     paid:payments.filter(p=>p.date?.startsWith(m)&&p.status==="Received").reduce((s,p)=>s+Number(p.amount||0),0)
-      +quotes.filter(q=>q.status==="Approved"&&(Number(q.tradeInCredit)||0)>0&&String(q.updatedAt||q.createdAt||"").slice(0,7)===m).reduce((s,q)=>s+Number(q.tradeInCredit),0),
+      +quotes.filter(q=>q.status==="Approved"&&(Number(q.tradeInCredit)||0)>0&&quoteTradeInReceived(q)&&quoteTradeInMonth(q)===m).reduce((s,q)=>s+Number(q.tradeInCredit),0),
   }));
   const maxPaid=Math.max(...monthData.map(m=>m.paid),1);
   const jobsByType=JOB_TYPES.map(t=>({type:t,count:jobs.filter(j=>j.type===t).length})).filter(x=>x.count>0).sort((a,b)=>b.count-a.count);
@@ -9738,7 +9780,8 @@ function Reports({jobs,clients,quotes,payments,invoices,markupTable,setView,setS
   const avgBase=totalQ>0?quotes.reduce((s,q)=>s+calcQuote(q.lineItems,markupTable,effMarkupOverride(q),gstOnMarkupFor(q)).baseLow,0)/totalQ:0;
   const avgFinal=totalQ>0?quotes.reduce((s,q)=>{if(quoteIsManual(q))return s+Number(q.manualTotal);const c=calcQuote(q.lineItems,markupTable,effMarkupOverride(q),gstOnMarkupFor(q));return s+(c.bracket?(c.isRange?c.finalHigh:c.finalLow):0);},0)/totalQ:0;
   const cashPaid=payments.filter(p=>p.status==="Received").reduce((s,p)=>s+Number(p.amount||0),0);
-  const totalTradeIn=jobs.reduce((s,j)=>s+jobTradeInCredit(j,quotes),0);   // gold trade-in credits = value received
+  const totalTradeIn=jobs.reduce((s,j)=>s+jobTradeInReceived(j,quotes),0);   // gold trade-in in hand = value received
+  const totalGoldDue=jobs.reduce((s,j)=>s+jobTradeInPending(j,quotes),0);   // agreed trade-in gold not yet handed over
   const totalPaid=cashPaid+totalTradeIn;                                    // total value received (cash + trade-in)
   // Sales = agreed charge across all jobs (override or approved quotes)
   const totalSales=jobs.reduce((s,j)=>s+jobChargeTotal(j,quotes,markupTable,invoices),0);
@@ -9748,9 +9791,9 @@ function Reports({jobs,clients,quotes,payments,invoices,markupTable,setView,setS
   },0);
   // Funds held = client money received beyond a job's agreed charge — deposits on jobs with no
   // approved quote, plus any overpayments. This is the per-job overpay that Outstanding floors away,
-  // so it makes Total sales / received / outstanding reconcile: outstanding = (sales − received) + held.
+  // so it makes Total sales / received / outstanding reconcile: outstanding = (sales − received − gold to come) + held.
   const heldRows=jobs.map(j=>{
-    const received=payments.filter(p=>p.jobId===j.id&&p.status==="Received").reduce((a,p)=>a+Number(p.amount||0),0)+jobTradeInCredit(j,quotes);
+    const received=payments.filter(p=>p.jobId===j.id&&p.status==="Received").reduce((a,p)=>a+Number(p.amount||0),0)+jobTradeInReceived(j,quotes);
     const charge=jobChargeTotal(j,quotes,markupTable,invoices);
     return {j,c:clients.find(c=>c.id===j.clientId),received,charge,held:received-charge,noCharge:!jobHasCharge(j,quotes)};
   }).filter(r=>r.held>1).sort((a,b)=>b.held-a.held);
@@ -9775,7 +9818,7 @@ function Reports({jobs,clients,quotes,payments,invoices,markupTable,setView,setS
     salesJobs.forEach(j=>{
       const who=(j.salesperson||"").trim();if(!who)return;
       const sale=jobChargeTotal(j,quotes,markupTable,invoices);
-      const received=payments.filter(p=>p.jobId===j.id&&p.status==="Received").reduce((s,p)=>s+Number(p.amount||0),0)+jobTradeInCredit(j,quotes);
+      const received=payments.filter(p=>p.jobId===j.id&&p.status==="Received").reduce((s,p)=>s+Number(p.amount||0),0)+jobTradeInReceived(j,quotes);
       if(!m[who])m[who]={who,jobs:0,sales:0,received:0};
       m[who].jobs++;m[who].sales+=sale;m[who].received+=received;
     });
@@ -9793,7 +9836,7 @@ function Reports({jobs,clients,quotes,payments,invoices,markupTable,setView,setS
       <Stat label="Quote conversion" value={`${conv}%`} sub={`${appQ} of ${totalQ} approved`} tint="mint" icon={ICON_CHECK}/>
       <Stat label="Avg base cost" value={fmtR(avgBase)} tint="slate" icon={ICON_DOLLAR}/>
       <Stat label="Avg final price" value={fmtR(avgFinal)} tint="slate" icon={ICON_DOLLAR}/>
-      <Stat label="Total received" value={fmtR(totalPaid)} sub={totalTradeIn>0?"cash + gold trade-ins":undefined} tint="mint" icon={ICON_MONEY}/>
+      <Stat label="Total received" value={fmtR(totalPaid)} sub={totalGoldDue>0.005?`${totalTradeIn>0?"cash + gold trade-ins · ":""}${fmtR(totalGoldDue)} gold to come`:totalTradeIn>0?"cash + gold trade-ins":undefined} tint="mint" icon={ICON_MONEY}/>
       <Stat label="Outstanding" value={fmtR(outstanding)} sub="balance owed" tint={outstanding>0?"peach":"mint"} icon={ICON_MONEY}/>
       {fundsHeld>0.5&&<Stat label="Funds held" value={fmtR(fundsHeld)} sub={showHeld?"hide breakdown":"deposits beyond agreed charge · tap to see jobs"} onClick={()=>setShowHeld(v=>!v)} tint="peach" icon={ICON_MONEY}/>}
     </div>
