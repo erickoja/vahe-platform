@@ -7105,7 +7105,7 @@ function PublicProposalPage({token}){
 
       {accepted&&<div style={{background:OK+"12",border:`1px solid ${OK}55`,borderRadius:4,padding:"16px 18px",margin:"20px 0 4px"}}>
         <div style={{fontSize:15,fontWeight:800,color:OK,marginBottom:3}}>✓ Thank you, {acceptedName||"and welcome"}!</div>
-        <div style={{fontSize:13,color:INK,lineHeight:1.6}}>You've accepted <strong>{selectedOpts.length?selectedOpts.map(o=>o.label).join(" + "):"your option"}</strong>{comboPrice>0?` at ${fmtR(comboPrice)} (inc ${TAX_LABEL})`:""}. The studio has been notified and will be in touch about your deposit and next steps.</div>
+        <div style={{fontSize:13,color:INK,lineHeight:1.6}}>You've accepted <strong>{selectedOpts.length?selectedOpts.map(o=>o.label).join(" + "):"your option"}</strong>.{comboToPay>0?<> Your total to pay is <strong>{fmtR(comboToPay)}</strong> (inc {TAX_LABEL}){(comboSaving>0.005||comboTradeIn>0.005)?`, after your ${[comboSaving>0.005?`${fmtR(comboSaving)} discount`:"",comboTradeIn>0.005?`${fmtR(comboTradeIn)} gold trade-in`:""].filter(Boolean).join(" and ")}`:""}.</>:""} The studio has been notified and will be in touch about your deposit and next steps.</div>
       </div>}
 
       {/* Options */}
