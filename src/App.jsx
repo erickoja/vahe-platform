@@ -1791,12 +1791,23 @@ const effMarkupOverride=q=>{const mo=Number(q?.markupOverride)||0;if(mo>0)return
 // piece (e.g. a necklace bought wholesale) where the retail multiplier shouldn't bake the tax in.
 // It's a single boolean, so trade + taxOnTop never double-charges tax. Stones are unaffected.
 const gstOnMarkupFor=q=>q?.pricingMode==="trade"||!!q?.taxOnTop;
-// Grand total for a quote, inc GST — manual price wins; else jewellery + centre stone + stone-markup accents.
-const quoteGrandTotal=(q,markupTable)=>{
+// Quote price BEFORE any quote discount, inc GST — manual price wins; else jewellery + centre stone + stone-markup accents.
+const quoteGross=(q,markupTable)=>{
   if(quoteIsManual(q))return Number(q.manualTotal);
   const c=calcQuote(q.lineItems,markupTable,effMarkupOverride(q),gstOnMarkupFor(q));
   return withPayAllowance((c.isRange?c.finalHigh:c.finalLow)+(q.stoneClientTotal||0)+(q.accentStoneTotal||0),q.payAllowancePct);
 };
+// Per-quote discount (q.discountType "amount" | "pct", q.discountValue, q.discountLabel). Unlike a gold
+// trade-in it IS a reduction in the sale price, so GST is worked out on the discounted figure.
+const quoteDiscountOn=(q,gross)=>{
+  const v=Number(q?.discountValue)||0;if(v<=0||!(gross>0))return 0;
+  const d=q.discountType==="pct"?Math.round(gross*Math.min(v,100))/100:v;
+  return Math.min(gross,d);
+};
+const quoteDiscount=(q,markupTable)=>quoteDiscountOn(q,quoteGross(q,markupTable));
+const quoteDiscountLabel=q=>(q?.discountLabel||"").trim()||"Discount";
+// Grand total for a quote, inc GST, after its discount — the agreed price used by every financial view.
+const quoteGrandTotal=(q,markupTable)=>{const g=quoteGross(q,markupTable);return g-quoteDiscountOn(q,g);};
 // Freeze an accepted quote at the price the client agreed to (as its manual price), so later quote
 // edits or markup/rounding setting changes can't move the agreed charge. The price comes from the
 // proposal's send-time baseline (what the client's link showed); falls back to the link's own data,
@@ -1806,7 +1817,15 @@ const lockAcceptedPrice=(q,p,markupTable,row)=>{
   const cents=p?.syncState?.opts?.[q.id]?.t;
   const opt=(row?.data?.options||[]).find(o=>o.id===q.id);
   const price=cents!=null?cents/100:(opt&&opt.price!=null)?Number(opt.price):quoteGrandTotal(q,markupTable);
-  return price>0?{...q,manualTotal:price,priceLockedAt:today()}:q;
+  if(!(price>0))return q;
+  // The agreed price is AFTER the quote discount. Lock the pre-discount price and pin the discount as a
+  // fixed amount, so the discount still shows on the documents and the net stays exactly what was agreed.
+  const v=Number(q.discountValue)||0;
+  if(v>0){
+    const d=q.discountType==="pct"?Math.round(price/(1-Math.min(v,99.99)/100)*Math.min(v,99.99))/100:v;
+    return{...q,manualTotal:Math.round((price+d)*100)/100,discountType:"amount",discountValue:d,priceLockedAt:today()};
+  }
+  return{...q,manualTotal:price,priceLockedAt:today()};
 };
 // Total agreed charge for a job, used by every financial view.
 // Uses the manual Total Charge Override when set; otherwise sums approved quotes.
@@ -1814,7 +1833,9 @@ const jobChargeTotal=(job,quotes,markupTable,invoices)=>{
   const ov=Number(job?.totalOverride);
   const base=ov>0?ov:(quotes||[]).filter(q=>q.jobId===job.id&&q.status==="Approved").reduce((s,q)=>s+quoteGrandTotal(q,markupTable),0);
   // Subtract any discounts applied on this job's invoices so "amount owing" matches the billed total.
-  const disc=(invoices||[]).filter(i=>i.jobId===job.id).reduce((s,i)=>s+(Number(i.discount)||0),0);
+  // The part of an invoice discount that came from its quote(s) is already in quoteGrandTotal, so skip it
+  // (unless a manual job total override replaced the quotes).
+  const disc=(invoices||[]).filter(i=>i.jobId===job.id).reduce((s,i)=>s+(Number(i.discount)||0)-(ov>0?0:(Number(i.quoteDiscount)||0)),0);
   return Math.max(0,base-disc);
 };
 // Sum of gold trade-in credits on a job's approved quotes. It's a credit RECEIVED (like paying in
@@ -1996,7 +2017,9 @@ function videoEmbed(url){
 // invoice creation and the "Update from quote" re-sync so the two always produce the same result.
 const invoiceContentFromQuote=(q,job,markupTable)=>{
   const calc=calcQuote(q.lineItems,markupTable,effMarkupOverride(q),gstOnMarkupFor(q));
-  const totalIncGST=quoteGrandTotal(q,markupTable);
+  const gross=quoteGross(q,markupTable);
+  const qDisc=quoteDiscountOn(q,gross);   // the quote's own discount carries onto the invoice
+  const totalIncGST=gross-qDisc;
   const gst=totalIncGST-totalIncGST/(1+GST_RATE);
   const exGST=totalIncGST-gst;
   const descriptionOverride=q.clientDescription||job?.description||"";
@@ -2007,8 +2030,8 @@ const invoiceContentFromQuote=(q,job,markupTable)=>{
     const sDetails=(q.stoneItems||[]).map(s=>(s.detail||"").trim()).filter(Boolean);
     lineItems.push({id:uid(),description:sDescs.length?sDescs.join(" + "):(q.stoneType==="lab"?"Lab-grown":"Natural")+" diamond / gemstone",detail:sDetails.length?sDetails.join(" · "):"Supplied & set",costLow:centreInc.toFixed(2),noMarkup:true});
   }
-  if(!lineItems.length)lineItems.push({id:uid(),description:quoteLabel(q),detail:"As quoted",costLow:totalIncGST.toFixed(2),noMarkup:true});
-  return{exGST,gst,totalIncGST,lineItems,tradeInCredit:Number(q.tradeInCredit)||0,tradeInNote:q.tradeInNote||"",descriptionOverride,calc};
+  if(!lineItems.length)lineItems.push({id:uid(),description:quoteLabel(q),detail:"As quoted",costLow:gross.toFixed(2),noMarkup:true});
+  return{exGST,gst,totalIncGST,subtotalIncGST:gross,discount:qDisc,quoteDiscount:qDisc,discountLabel:qDisc>0?quoteDiscountLabel(q):"",lineItems,tradeInCredit:Number(q.tradeInCredit)||0,tradeInNote:q.tradeInNote||"",descriptionOverride,calc};
 };
 
 // Fresh line items for one quote on a combined invoice (incl. its centre stone, or a fallback
@@ -2021,13 +2044,16 @@ const quoteInvoiceLineItems=(q,markupTable)=>{
     const sDetails=(q.stoneItems||[]).map(s=>(s.detail||"").trim()).filter(Boolean);
     lineItems.push({id:uid(),description:sDescs.length?sDescs.join(" + "):(q.stoneType==="lab"?"Lab-grown":"Natural")+" diamond / gemstone",detail:sDetails.length?sDetails.join(" · "):"Supplied & set",costLow:centreInc.toFixed(2),noMarkup:true});
   }
-  if(!lineItems.length)lineItems.push({id:uid(),description:quoteLabel(q),detail:"As quoted",costLow:quoteGrandTotal(q,markupTable).toFixed(2),noMarkup:true});
+  if(!lineItems.length)lineItems.push({id:uid(),description:quoteLabel(q),detail:"As quoted",costLow:quoteGross(q,markupTable).toFixed(2),noMarkup:true});
   return lineItems;
 };
 // Financial fields of an invoice, derived from its quotes (GST-inclusive model). Single source of
 // truth shared by invoice creation AND re-sync after a quote edit, so the two can never diverge.
 const invoiceFieldsFromQuotes=(qs,job,markupTable)=>{
-  const totalIncGST=qs.reduce((s,q)=>s+quoteGrandTotal(q,markupTable),0);   // manual price wins per quote
+  const subtotalIncGST=qs.reduce((s,q)=>s+quoteGross(q,markupTable),0);   // before quote discounts; manual price wins per quote
+  const discQs=qs.filter(q=>quoteDiscount(q,markupTable)>0);
+  const quoteDisc=discQs.reduce((s,q)=>s+quoteDiscount(q,markupTable),0);   // quotes' own discounts carry onto the invoice
+  const totalIncGST=subtotalIncGST-quoteDisc;
   const payAllowance=qs.reduce((s,q)=>s+quotePayAllowance(q,markupTable),0);   // internal record: card-fee allowance inside the total
   const gst=totalIncGST-totalIncGST/(1+GST_RATE);
   const exGST=totalIncGST-gst;
@@ -2036,8 +2062,9 @@ const invoiceFieldsFromQuotes=(qs,job,markupTable)=>{
     ?(qs[0].clientDescription||job?.description||"")
     :(job?.description||qs.map(q=>q.clientDescription||quoteLabel(q)).filter(Boolean).join(" + "));
   const notes=qs.map(q=>q.notes).filter(Boolean).join("\n");
-  const customerLines=qs.length>1?qs.map(q=>({id:uid(),description:(q.clientDescription||"").trim()||job?.description||quoteLabel(q),amount:quoteGrandTotal(q,markupTable)})):null;
-  return{exGST,gst,totalIncGST,payAllowance,lineItems,notes,tradeInCredit:qs.reduce((s,q)=>s+(Number(q.tradeInCredit)||0),0),tradeInNote:qs.map(q=>(q.tradeInNote||"").trim()).filter(Boolean).join(" · "),descriptionOverride,customerLines};
+  const customerLines=qs.length>1?qs.map(q=>({id:uid(),description:(q.clientDescription||"").trim()||job?.description||quoteLabel(q),amount:quoteGross(q,markupTable)})):null;
+  const discountLabel=quoteDisc>0?(discQs.length===1?quoteDiscountLabel(discQs[0]):"Discount"):"";
+  return{exGST,gst,totalIncGST,subtotalIncGST,discount:quoteDisc,quoteDiscount:quoteDisc,discountLabel,payAllowance,lineItems,notes,tradeInCredit:qs.reduce((s,q)=>s+(Number(q.tradeInCredit)||0),0),tradeInNote:qs.map(q=>(q.tradeInNote||"").trim()).filter(Boolean).join(" · "),descriptionOverride,customerLines};
 };
 // Build one invoice from one or more approved quotes on a job. For 2+ quotes it itemises per
 // option (customerLines) so the client sees each piece and its price.
@@ -2045,17 +2072,18 @@ const invoiceFieldsFromQuotes=(qs,job,markupTable)=>{
 const buildCombinedInvoice=(qs,job,invoices,markupTable,biz)=>
   ({id:uid(),jobId:job.id,quoteId:qs[0].id,quoteIds:qs.map(q=>q.id),number:nextInvoiceNumber(invoices,biz),date:today(),status:"Unpaid",...invoiceFieldsFromQuotes(qs,job,markupTable)});
 // Re-derive an existing invoice's figures from its (just-edited) quotes. Keeps identity and
-// history — id, number, date, status — and re-applies any manual discount onto the fresh gross
-// (same net/GST model as setDiscount: subtotalIncGST = gross, totalIncGST = net of discount).
+// history — id, number, date, status — and re-applies any extra invoice-level discount on top of the
+// quotes' own discounts (same net/GST model as setDiscount: subtotalIncGST = gross, totalIncGST = net).
 const resyncInvoiceWithQuotes=(inv,allQuotes,job,markupTable)=>{
   const ids=inv.quoteIds||(inv.quoteId?[inv.quoteId]:[]);
   const qs=ids.map(id=>allQuotes.find(q=>q.id===id)).filter(Boolean);
   if(!qs.length)return inv;   // quotes gone — leave the invoice untouched
-  const fields=invoiceFieldsFromQuotes(qs,job,markupTable);   // fields.totalIncGST is the gross
-  const sub=fields.totalIncGST;
-  const disc=Math.min(Math.max(0,Number(inv.discount)||0),sub);
+  const fields=invoiceFieldsFromQuotes(qs,job,markupTable);   // fields.subtotalIncGST is the gross
+  const sub=fields.subtotalIncGST;
+  const extra=(Number(inv.discount)||0)-(Number(inv.quoteDiscount)||0);   // discount added on the invoice itself
+  const disc=Math.min(Math.max(0,fields.quoteDiscount+extra),sub);
   const net=sub-disc;
-  return{...inv,...fields,subtotalIncGST:sub,discount:disc,totalIncGST:net,gst:net-net/(1+GST_RATE)};
+  return{...inv,...fields,subtotalIncGST:sub,discount:disc,discountLabel:extra>0.005?(inv.discountLabel||fields.discountLabel||"Discount"):fields.discountLabel,totalIncGST:net,gst:net-net/(1+GST_RATE)};
 };
 
 const buildProposalSnapshot=({proposal,job,client,biz,quotes,markupTable,payments,photoMap})=>{
@@ -2077,7 +2105,10 @@ const buildProposalSnapshot=({proposal,job,client,biz,quotes,markupTable,payment
     return{
       id:q.id,
       label:quoteLabel(q),
-      price:priceKnown?quoteGrandTotal(q,markupTable):null,
+      price:priceKnown?quoteGrandTotal(q,markupTable):null,   // after the quote's own discount
+      priceBefore:priceKnown&&quoteDiscount(q,markupTable)>0?quoteGross(q,markupTable):null,
+      discount:priceKnown?quoteDiscount(q,markupTable):0,
+      discountLabel:quoteDiscountLabel(q)+(q.discountType==="pct"&&Number(q.discountValue)>0?` (${Number(q.discountValue)}%)`:""),
       description:q.clientDescription||job?.description||"",
       recommended:proposal.recommendedId===q.id,
       photo:photos[0]||null,   // back-compat: first image
@@ -5011,8 +5042,8 @@ function JobDetailInner({jobId,jobs,setJobs,clients,setClients,quotes,setQuotes,
         const calc=calcQuote(q.lineItems,markupTable,effMarkupOverride(q),gstOnMarkupFor(q));
         const hasInv=quoteHasInvoice(invoices,q.id);
         const manual=quoteIsManual(q);
-        const stoneTotal=(q.stoneClientTotal||0)+(q.accentStoneTotal||0);
-        const priceStr=manual?fmtR(Number(q.manualTotal)):(calc.base>0&&!calc.bracket&&!calc.overridden)?"—":fmtR(withPayAllowance(calc.finalLow+stoneTotal,q.payAllowancePct));
+        const qDisc=quoteDiscount(q,markupTable);
+        const priceStr=(!manual&&calc.base>0&&!calc.bracket&&!calc.overridden)?"—":fmtR(quoteGrandTotal(q,markupTable));   // after any quote discount
         return <div key={q.id} style={{display:"flex",flexDirection:isMobile?"column":"row",justifyContent:"space-between",alignItems:isMobile?"stretch":"center",gap:isMobile?8:0,padding:"10px 0",borderBottom:`1px solid ${BD}`}}>
           <div style={{display:"flex",alignItems:"center",gap:10,minWidth:0,flex:1}}>
             {jq.length>1&&<div style={{display:"flex",flexDirection:"column",flexShrink:0}}>
@@ -5021,7 +5052,7 @@ function JobDetailInner({jobId,jobs,setJobs,clients,setClients,quotes,setQuotes,
             </div>}
             <div style={{cursor:"pointer",flex:1,minWidth:0}} onClick={()=>setView("quoteDetail_"+q.id)}>
               <div style={{fontWeight:600,fontSize:14,color:INK}}>{quoteLabel(q)} <span style={{fontWeight:400,color:WG,fontSize:12}}>{q.title?.trim()?quoteRef(q):""}</span></div>
-              <div style={{fontSize:12,color:WG,marginTop:1}}>{manual?<>Manual quoted price → </>:<>Base: {fmt(calc.baseLow)} → {calc.mult}× → </>}<strong style={{color:OK}}>{priceStr}</strong></div>
+              <div style={{fontSize:12,color:WG,marginTop:1}}>{manual?<>Manual quoted price → </>:<>Base: {fmt(calc.baseLow)} → {calc.mult}× → </>}<strong style={{color:OK}}>{priceStr}</strong>{qDisc>0&&priceStr!=="—"&&<span> (after {fmtR(qDisc)} {quoteDiscountLabel(q).toLowerCase()})</span>}</div>
             </div>
           </div>
           <div style={{display:"flex",gap:8,alignItems:"center",flexWrap:"wrap",flexShrink:0}}>
@@ -5475,6 +5506,10 @@ function QuoteBuilder({jobId:jobIdProp,editQuoteId,stockId,stock,setStock,priceL
   const[tradeInCredit,setTradeInCredit]=useState(seed?.tradeInCredit?String(seed.tradeInCredit):"");
   const[tradeInNote,setTradeInNote]=useState(seed?.tradeInNote||"");
   // Gold in hand yet? New trade-ins start unticked; older quotes with no flag were always treated as received.
+  // Per-quote discount: a $ amount or a % of the quote price, shown on the quote, proposal & invoice.
+  const[discountType,setDiscountType]=useState(seed?.discountType==="pct"?"pct":"amount");
+  const[discountValue,setDiscountValue]=useState(Number(seed?.discountValue)>0?String(seed.discountValue):"");
+  const[discountLabel,setDiscountLabel]=useState(seed?.discountLabel||"");
   const[tradeInReceived,setTradeInReceived]=useState(seed?.tradeInReceived!==undefined?!!seed.tradeInReceived:(Number(seed?.tradeInCredit)||0)>0);
   const[manualTotal,setManualTotal]=useState(seed?.manualTotal?String(seed.manualTotal):"");
   const[validUntil,setValidUntil]=useState(seed?.validUntil||"");
@@ -5675,7 +5710,9 @@ function QuoteBuilder({jobId:jobIdProp,editQuoteId,stockId,stock,setStock,priceL
   const allowanceAmt=grandTotal-preAllowance;
   const manualOn=Number(manualTotal)>0;
   const tradeInN=Number(tradeInCredit)||0;                                   // gold trade-in credit (deduction)
-  const payableTotal=Math.max(0,(manualOn?Number(manualTotal):grandTotal)-tradeInN);   // amount payable after trade-in
+  const preDiscount=manualOn?Number(manualTotal):grandTotal;                  // quote price before its discount
+  const discountN=stockMode?0:quoteDiscountOn({discountType,discountValue},preDiscount);   // quote discount ($)
+  const payableTotal=Math.max(0,preDiscount-discountN-tradeInN);   // amount payable after discount + trade-in
 
   // If this quote is already on an invoice, editing it can drift the invoice's figures — warn, and
   // offer to re-sync the invoice (same maths as invoice creation; keeps number/date/status/discount).
@@ -5716,7 +5753,7 @@ function QuoteBuilder({jobId:jobIdProp,editQuoteId,stockId,stock,setStock,priceL
       // Update existing quote — preserve id, jobId, createdAt
       const updated={...existingQuote,status,title:title.trim(),pieceTitle:pieceTitle.trim(),markupOverride:Number(markupOverride)||0,pricingMode:tradePricing?"trade":"retail",tradeMult:tradeMultVal,taxOnTop,payAllowancePct:allowPct,manualTotal:Number(manualTotal)||0,priceLockedAt:Number(manualTotal)>0?existingQuote.priceLockedAt:undefined,validUntil,notes,lineItems:validItems,
         stoneMode,stoneType:stoneMode==="sourcing"?stoneType:"",stoneItems:stoneMode==="sourcing"?validStoneItems:[],stoneMarkupOverride:Number(stoneOverride)||0,
-        stoneNotes,stoneClientTotal:stoneCalc?.clientTotal||0,accentStoneTotal,tradeInCredit:Number(tradeInCredit)||0,tradeInNote:tradeInNote.trim(),tradeInReceived,tradeInReceivedAt:tradeInReceived?(seed?.tradeInReceivedAt||today()):null,clientDescription,updatedAt:today()};
+        stoneNotes,stoneClientTotal:stoneCalc?.clientTotal||0,accentStoneTotal,tradeInCredit:Number(tradeInCredit)||0,tradeInNote:tradeInNote.trim(),tradeInReceived,tradeInReceivedAt:tradeInReceived?(seed?.tradeInReceivedAt||today()):null,discountType,discountValue:stockMode?0:(Number(discountValue)||0),discountLabel:discountLabel.trim(),clientDescription,updatedAt:today()};
       const nextQuotes=quotes.map(q=>q.id===editQuoteId?updated:q);
       setQuotes(()=>{persist(K.qu,nextQuotes);return nextQuotes;});
       // Invoiced quote edited → bring the invoice's figures in line with the new quote.
@@ -5733,7 +5770,7 @@ function QuoteBuilder({jobId:jobIdProp,editQuoteId,stockId,stock,setStock,priceL
     }else{
       const q={id:uid(),jobId,status,title:title.trim(),pieceTitle:pieceTitle.trim(),markupOverride:Number(markupOverride)||0,pricingMode:tradePricing?"trade":"retail",tradeMult:tradeMultVal,taxOnTop,payAllowancePct:allowPct,manualTotal:Number(manualTotal)||0,createdAt:today(),validUntil,notes,lineItems:validItems,
         stoneMode,stoneType:stoneMode==="sourcing"?stoneType:"",stoneItems:stoneMode==="sourcing"?validStoneItems:[],stoneMarkupOverride:Number(stoneOverride)||0,
-        stoneNotes,stoneClientTotal:stoneCalc?.clientTotal||0,accentStoneTotal,tradeInCredit:Number(tradeInCredit)||0,tradeInNote:tradeInNote.trim(),tradeInReceived,tradeInReceivedAt:tradeInReceived?(seed?.tradeInReceivedAt||today()):null,clientDescription};
+        stoneNotes,stoneClientTotal:stoneCalc?.clientTotal||0,accentStoneTotal,tradeInCredit:Number(tradeInCredit)||0,tradeInNote:tradeInNote.trim(),tradeInReceived,tradeInReceivedAt:tradeInReceived?(seed?.tradeInReceivedAt||today()):null,discountType,discountValue:stockMode?0:(Number(discountValue)||0),discountLabel:discountLabel.trim(),clientDescription};
       setQuotes(p=>{const n=[...p,q];persist(K.qu,n);return n;});
     }
     setView("jobDetail_"+jobId);
@@ -6064,8 +6101,9 @@ function QuoteBuilder({jobId:jobIdProp,editQuoteId,stockId,stock,setStock,priceL
                    stoneMode==="client"?[["Stone","Client supplying",WG,"+ "]]:
                    []),
                 ...(allowanceAmt>0.005&&!manualOn?[[`Card fee allowance (${allowPct}%)`,fmtR(allowanceAmt),"#96627C","+ "]]:[]),
+                ...(discountN>0?[[(discountLabel.trim()||"Discount")+(discountType==="pct"?` (${Number(discountValue)}%)`:""),fmtR(discountN),DANGER,"− "]]:[]),
                 ...(tradeInN>0?[["Gold trade-in credit",fmtR(tradeInN),DANGER,"− "]]:[]),
-                [tradeInN>0?"Amount payable":(manualOn?"Total — manual price":"Total"),fmtR(payableTotal),OK,"= "],
+                [tradeInN>0?"Amount payable":discountN>0?"Total after discount":(manualOn?"Total — manual price":"Total"),fmtR(payableTotal),OK,"= "],
               ].map(([label,val,col,prefix],i,arr)=>(
                 <div key={label} style={{flex:1,padding:"12px 16px",background:i===arr.length-1?INK:PARCH,borderRight:i<arr.length-1?`1px solid ${BD}`:"none"}}>
                   <div style={{fontSize:10,fontWeight:700,color:i===arr.length-1?"rgba(255,255,255,0.5)":WG,textTransform:"uppercase",letterSpacing:"0.06em",marginBottom:4}}>{label}</div>
@@ -6089,6 +6127,27 @@ function QuoteBuilder({jobId:jobIdProp,editQuoteId,stockId,stock,setStock,priceL
             </div>
           </div>
         </div>
+      </div>}
+
+      {/* ── Quote discount (client quotes only) ── */}
+      {!stockMode&&<div style={{borderTop:`1px solid ${BD}`,marginTop:16,paddingTop:18,marginBottom:8}}>
+        <div style={{display:"flex",alignItems:"flex-start",gap:14,flexWrap:"wrap"}}>
+          <div style={{flex:1,minWidth:240}}>
+            <div style={{fontSize:11,fontWeight:700,color:WG,textTransform:"uppercase",letterSpacing:"0.08em"}}>Discount</div>
+            <div style={{fontSize:11,color:WG,marginTop:3,lineHeight:1.5}}>Taken off this quote's price. It shows on the quote, proposal &amp; invoice so the client sees the saving, and {TAX_LABEL} is worked out on the discounted price.</div>
+          </div>
+          <div style={{display:"flex",gap:6,flexShrink:0}}>
+            <div style={{display:"flex",borderRadius:4,overflow:"hidden",border:`1px solid ${BD}`}}>
+              {[["amount",CUR_SYM],["pct","%"]].map(([k,l])=><button key={k} type="button" onClick={()=>setDiscountType(k)} style={{background:discountType===k?INK:WHITE,color:discountType===k?WHITE:WG,border:"none",padding:"0 12px",fontSize:13,fontWeight:700,cursor:"pointer",fontFamily:"inherit"}}>{l}</button>)}
+            </div>
+            <input type="number" value={discountValue} onChange={e=>setDiscountValue(e.target.value)} placeholder="0" min="0" step={discountType==="pct"?"0.5":"0.01"} max={discountType==="pct"?"100":undefined}
+              style={{...SS.inp,marginTop:0,width:110,fontSize:14,padding:"8px 10px",textAlign:"right",fontWeight:discountN>0?800:400,borderColor:discountN>0?DANGER:BD}}/>
+          </div>
+        </div>
+        {Number(discountValue)>0&&<div style={{marginTop:10}}>
+          <Input label="Discount label (shown to the client)" value={discountLabel} onChange={setDiscountLabel} placeholder="Discount"/>
+          {discountN>0&&<div style={{fontSize:12,color:WG,marginTop:6}}>{fmtR(preDiscount)} less {fmtR(discountN)} = <strong style={{color:INK}}>{fmtR(preDiscount-discountN)}</strong> inc {TAX_LABEL}</div>}
+        </div>}
       </div>}
 
       {/* ── Gold trade-in credit (client quotes only: a stock or price list price has no client to credit) ── */}
@@ -7063,8 +7122,10 @@ function PublicProposalPage({token}){
                 {o.description&&<div style={{fontSize:13,color:WG,lineHeight:1.6,marginTop:6}}>{o.description}</div>}
               </div>
               <div style={{textAlign:"right",flexShrink:0}}>
+                {o.price!=null&&o.priceBefore!=null&&o.discount>0.005&&<div style={{fontSize:13,color:WG,textDecoration:"line-through"}}>{fmtR(o.priceBefore)}</div>}
                 <div style={{fontSize:22,fontWeight:800,color:INK}}>{o.price!=null?fmtR(o.price):"—"}</div>
                 <div style={{fontSize:10,color:WG}}>inc {TAX_LABEL}</div>
+                {o.price!=null&&o.discount>0.005&&<div style={{fontSize:11,color:OK,fontWeight:700,marginTop:2}}>{o.discountLabel||"Discount"} −{fmtR(o.discount)}</div>}
               </div>
             </div>
             {(()=>{const photos=o.photos&&o.photos.length?o.photos:(o.photo?[o.photo]:[]);return photos.length>0&&
@@ -7161,7 +7222,10 @@ function ProposalPreview({quote,job,clients=[],biz,calc,payments=[],reconcilePay
   const stoneTotal=quote.stoneClientTotal||0;
   const markupUndef=!manual&&calc.base>0&&!calc.bracket&&!calc.overridden;   // jewellery costs present but no markup tier
   const settingTotal=markupUndef?0:calc.finalLow;
-  const grandProposalTotal=manual?Number(quote.manualTotal):withPayAllowance(settingTotal+stoneTotal+(quote.accentStoneTotal||0),quote.payAllowancePct);
+  const preDiscountTotal=manual?Number(quote.manualTotal):withPayAllowance(settingTotal+stoneTotal+(quote.accentStoneTotal||0),quote.payAllowancePct);
+  const qDisc=markupUndef?0:quoteDiscountOn(quote,preDiscountTotal);   // per-quote discount, shown to the client
+  const qDiscLabel=quoteDiscountLabel(quote)+(quote.discountType==="pct"?` (${Number(quote.discountValue)}%)`:"");
+  const grandProposalTotal=preDiscountTotal-qDisc;
   const priceDisplay=markupUndef?"Quote pending":fmtR(grandProposalTotal);
   const depositAmt=markupUndef?null:fmtR(grandProposalTotal*deposit/100);
   // Payments already recorded against this job → outstanding balance to request. Payments are
@@ -7216,14 +7280,15 @@ function ProposalPreview({quote,job,clients=[],biz,calc,payments=[],reconcilePay
     try{
       const esc=_emlEsc;
       const row=(l,v,col)=>`<tr><td style="padding:7px 0;color:#666666;font-size:14px">${esc(l)}</td><td style="padding:7px 0;text-align:right;font-weight:700;font-size:14px${col?`;color:${col}`:""}">${esc(v)}</td></tr>`;
-      const moneyRows=(hasPaid||qTrade>0)
+      const discRows=qDisc>0?row("Price",fmtR(preDiscountTotal))+row(qDiscLabel,"− "+fmtR(qDisc),"#2D7A4F"):"";
+      const moneyRows=discRows+((hasPaid||qTrade>0)
         ? row(`Total (inc ${TAX_LABEL})`,priceDisplay)
           +(qTrade>0?row("Gold trade-in credit","− "+fmtR(qTrade),"#2D7A4F"):"")
           +(hasPaid?row("Payments received","− "+fmtR(paidTotal),"#2D7A4F"):"")
           +row(paidInFull?"Paid in full":"Balance now due",fmtR(outstanding))
         : row(`Total (inc ${TAX_LABEL})`,priceDisplay)
           +(depositAmt?row(`${deposit}% deposit to proceed`,depositAmt):"")
-          +row("Valid until",validUntil);
+          +row("Valid until",validUntil));
       const contact=[biz?.email,biz?.phone].filter(Boolean).map(esc).join(" &middot; ");
       const html=`<div style="font-family:Arial,Helvetica,sans-serif;max-width:560px;margin:0 auto;color:#1a1a1a;padding:8px">`
         +`<div style="border-bottom:2px solid #eeeeee;padding-bottom:14px;margin-bottom:20px"><div style="font-size:20px;font-weight:700;letter-spacing:0.02em">${esc(biz.name||"Your jeweller")}</div>${contact?`<div style="font-size:12px;color:#888888;margin-top:4px">${contact}</div>`:""}</div>`
@@ -7377,6 +7442,12 @@ function ProposalPreview({quote,job,clients=[],biz,calc,payments=[],reconcilePay
           {/* Total row — when payments are recorded, show total, payments received and balance due */}
           {!markupUndef&&(hasPaid||qTrade>0)
             ?<div style={{marginTop:12,background:INK,borderRadius:4,padding:"18px 22px",fontFamily:"'Poppins',sans-serif"}}>
+              {qDisc>0&&<><div style={{display:"flex",justifyContent:"space-between",alignItems:"center",fontSize:13,color:"rgba(255,255,255,0.65)",padding:"3px 0"}}>
+                <span>Price</span><span style={{color:WHITE,fontWeight:600}}>{fmtR(preDiscountTotal)}</span>
+              </div>
+              <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",fontSize:13,color:"rgba(255,255,255,0.65)",padding:"3px 0"}}>
+                <span>{qDiscLabel}</span><span style={{color:"#7FD7A6",fontWeight:600}}>− {fmtR(qDisc)}</span>
+              </div></>}
               <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",fontSize:13,color:"rgba(255,255,255,0.65)",padding:"3px 0"}}>
                 <span>Total price (inc. {TAX_LABEL})</span><span style={{color:WHITE,fontWeight:600}}>{priceDisplay}</span>
               </div>
@@ -7400,6 +7471,7 @@ function ProposalPreview({quote,job,clients=[],biz,calc,payments=[],reconcilePay
                 <div style={{fontSize:10,color:"rgba(255,255,255,0.3)",fontFamily:"'Poppins',sans-serif"}}>{`Inc. ${TAX_LABEL} · Quoted in ${CUR_CODE}`}</div>
               </div>
               <div style={{textAlign:"right"}}>
+                {qDisc>0&&<div style={{fontSize:12,color:"rgba(255,255,255,0.55)",marginBottom:2,fontFamily:"'Poppins',sans-serif"}}><span style={{textDecoration:"line-through"}}>{fmtR(preDiscountTotal)}</span> · {qDiscLabel} <span style={{color:"#7FD7A6",fontWeight:700}}>− {fmtR(qDisc)}</span></div>}
                 <div style={{fontSize:30,fontWeight:800,color:WHITE,letterSpacing:"-0.02em",fontFamily:"'Poppins',sans-serif"}}>{priceDisplay}</div>
                 {depositAmt&&<div style={{fontSize:11,color:"rgba(255,255,255,0.5)",marginTop:4,fontFamily:"'Poppins',sans-serif"}}>
                   {deposit}% deposit to commence: <span style={{color:WHITE,fontWeight:700}}>{depositAmt}</span>
@@ -7501,7 +7573,8 @@ function QuoteDetailView({quoteId,quotes,setQuotes,jobs,clients,biz,markupTable,
   const markupUndef=!manual&&calc.base>0&&!calc.bracket&&!calc.overridden;
   const grandStr=markupUndef?"—":fmtR(grandTotal);
   const qTradeIn=Number(q.tradeInCredit)||0;
-  const qPayable=Math.max(0,grandTotal-qTradeIn);
+  const qDisc=markupUndef?0:quoteDiscountOn(q,grandTotal);   // per-quote discount
+  const qPayable=Math.max(0,grandTotal-qDisc-qTradeIn);
   // Set this quote's status only — other quotes on the job are left untouched, so a job can hold
   // several approved quotes at once (needed when a client accepts a multi-item bundle proposal).
   // The job's agreed charge sums every approved quote, so multiple approvals total up correctly.
@@ -7618,14 +7691,15 @@ function QuoteDetailView({quoteId,quotes,setQuotes,jobs,clients,biz,markupTable,
       </div>}
 
       {/* Grand total bar — shown when there's a centre stone, accent stones on stone markup, or a manual price */}
-      {(stoneCalc||accentStoneTotal>0||manual||qTradeIn>0||payAllowanceAmt>0.005)&&(()=>{
+      {(stoneCalc||accentStoneTotal>0||manual||qTradeIn>0||qDisc>0||payAllowanceAmt>0.005)&&(()=>{
         const cells=[
           ...(manual&&!q.lineItems.length?[]:[["Jewellery piece",(manual&&calc.base>0&&!calc.bracket&&!calc.overridden)?"—":fmtR(calc.finalLow),GOLD]]),
           ...(accentStoneTotal>0?[["Accent stones",fmtR(accentStoneTotal),"#CDB2C1"]]:[]),
           ...(stoneCalc?[["Stone",fmtR(stoneCalc.clientTotal),q.stoneType==="lab"?"#CDB2C1":"#A6CBB4"]]:[]),
           ...(payAllowanceAmt>0.005?[[`Card fee allowance (${q.payAllowancePct}%)`,fmtR(payAllowanceAmt),"#CDB2C1"]]:[]),
+          ...(qDisc>0?[[quoteDiscountLabel(q)+(q.discountType==="pct"?` (${Number(q.discountValue)}%)`:""),"−"+fmtR(qDisc),"#E79A9A"]]:[]),
           ...(qTradeIn>0?[[quoteTradeInReceived(q)?"Gold trade-in credit":"Gold trade-in credit · gold to come","−"+fmtR(qTradeIn),"#E79A9A"]]:[]),
-          [qTradeIn>0?"Amount payable":(manual?(q.priceLockedAt?"Accepted price — locked":"Quoted price — manual"):"Combined total"),qTradeIn>0?fmtR(qPayable):grandStr,OK],
+          [qTradeIn>0?"Amount payable":qDisc>0?(q.priceLockedAt?"Accepted price — locked":"Total after discount"):(manual?(q.priceLockedAt?"Accepted price — locked":"Quoted price — manual"):"Combined total"),(qTradeIn>0||qDisc>0)?fmtR(qPayable):grandStr,OK],
         ];
         return <div style={{background:INK,borderRadius:4,padding:"14px 20px",marginBottom:16,display:"grid",gridTemplateColumns:`repeat(${cells.length},1fr)`,gap:1}}>
           {cells.map(([l,v,col])=>(
@@ -8078,12 +8152,13 @@ function InvoiceDetailView({invoiceId,invoices,setInvoices,jobs,clients,payments
   const canResync=!!srcQuote&&(!inv.quoteIds||inv.quoteIds.length<=1)&&!hasCustomerLines;
   // Does re-syncing actually change anything? Compare the quote's current gross + trade-in to what the
   // invoice holds, and count a pending discount (which the re-sync would clear) as a difference too.
-  const freshTotal=srcQuote?quoteGrandTotal(srcQuote,markupTable):0;
+  const freshTotal=srcQuote?quoteGross(srcQuote,markupTable):0;   // pre-discount, compared with the invoice's gross
+  const freshQDisc=srcQuote?quoteDiscount(srcQuote,markupTable):0;
   const freshTradeIn=srcQuote?Number(srcQuote.tradeInCredit)||0:0;
   const invGross=inv.subtotalIncGST??inv.totalIncGST??0;
-  const totalDiffers=Math.abs(freshTotal-invGross)>0.005;
+  const totalDiffers=Math.abs(freshTotal-invGross)>0.005||Math.abs(freshQDisc-(Number(inv.quoteDiscount)||0))>0.005;
   const tradeInDiffers=Math.abs(freshTradeIn-(Number(inv.tradeInCredit)||0))>0.005;
-  const hasDiscount=(Number(inv.discount)||0)>0.005;
+  const hasDiscount=(Number(inv.discount)||0)-(Number(inv.quoteDiscount)||0)>0.005;   // extra discount added on the invoice
   // A deliberate invoice discount is not a reason to nag "update needed" — only a changed quote is.
   const invoiceDiffers=canResync&&(totalDiffers||tradeInDiffers);
   const updateFromQuote=()=>{
@@ -8096,7 +8171,7 @@ function InvoiceDetailView({invoiceId,invoices,setInvoices,jobs,clients,payments
     if(hasDiscount)changed.push("discount cleared");
     const content=invoiceContentFromQuote(srcQuote,job,markupTable);
     // Reset subtotalIncGST to the fresh gross too — otherwise a later discount would net off a stale baseline.
-    setInvoices(p=>{const n=p.map(i=>i.id===inv.id?{...i,...content,subtotalIncGST:content.totalIncGST,discount:0,discountLabel:""}:i);persist(K.inv,n);return n;});
+    setInvoices(p=>{const n=p.map(i=>i.id===inv.id?{...i,...content}:i);persist(K.inv,n);return n;});   // content carries the quote's own discount
     setResyncMsg("✓ Updated: "+changed.join(", "));setTimeout(()=>setResyncMsg(""),3000);
   };
   const setRequestAmount=v=>setInvoices(p=>{const n=p.map(x=>x.id===invoiceId?{...x,requestAmount:v}:x);persist(K.inv,n);return n;});
