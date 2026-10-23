@@ -7077,6 +7077,8 @@ function PublicProposalPage({token}){
   const selectedOpts=opts.filter(o=>selectedIds.includes(o.id));
   const comboPrice=selectedOpts.reduce((s,o)=>s+(o.price!=null?o.price:0),0);
   const comboSaving=selectedOpts.reduce((s,o)=>s+(o.price!=null&&o.discount>0.005?Number(o.discount):0),0);   // quote discounts on the picked pieces
+  const comboTradeIn=selectedOpts.reduce((s,o)=>s+(Number(o.tradeIn)||0),0);   // gold trade-in on the picked pieces
+  const comboToPay=Math.max(0,comboPrice-comboTradeIn);   // what the client actually pays, after discounts + trade-in
   // A description identical to the piece's title adds nothing, so it's hidden
   const sameText=(a,b)=>String(a||"").trim().toLowerCase()===String(b||"").trim().toLowerCase();
   const toggle=id=>{if(accepted)return;multi?setPicks(p=>p.includes(id)?p.filter(x=>x!==id):[...p,id]):setPicks([id]);};
@@ -7151,21 +7153,33 @@ function PublicProposalPage({token}){
         })}
       </div>
 
-      {/* Combined total (multi-select) */}
-      {multi&&selectedOpts.length>0&&<div style={{display:"flex",justifyContent:"space-between",alignItems:"baseline",marginTop:14,padding:"12px 16px",background:INK,borderRadius:4}}>
-        <span style={{fontSize:12,fontWeight:700,color:"rgba(255,255,255,0.6)",textTransform:"uppercase",letterSpacing:"0.06em"}}>Combined total · {selectedOpts.length} piece{selectedOpts.length!==1?"s":""}</span>
-        <span style={{textAlign:"right"}}>
-          <span style={{fontSize:20,fontWeight:800,color:WHITE}}>{fmtR(comboPrice)} <span style={{fontSize:11,fontWeight:400,color:"rgba(255,255,255,0.5)"}}>inc {TAX_LABEL}</span></span>
-          {comboSaving>0.005&&<span style={{display:"block",fontSize:12,fontWeight:700,color:"#7FD7A6",marginTop:2}}>Total discount {fmtR(comboSaving)}</span>}
-        </span>
-      </div>}
+      {/* Price summary: does the maths for the client and lands on what they actually pay —
+          pieces at full price, less quote discounts, less gold trade-in = total to pay. */}
+      {selectedOpts.length>0&&(multi||comboSaving>0.005||comboTradeIn>0.005)&&(()=>{
+        const gross=comboPrice+comboSaving;
+        const breakdown=comboSaving>0.005||comboTradeIn>0.005;
+        const line=(l,v)=><div style={{display:"flex",justifyContent:"space-between",fontSize:13,color:"rgba(255,255,255,0.65)",padding:"3px 0"}}><span>{l}</span><span style={{color:v.startsWith("−")?"#7FD7A6":WHITE,fontWeight:600}}>{v}</span></div>;
+        return <div style={{marginTop:14,padding:"14px 16px",background:INK,borderRadius:4}}>
+          {breakdown&&<div style={{marginBottom:10}}>
+            {line(multi?`${selectedOpts.length} piece${selectedOpts.length!==1?"s":""}`:"Price",fmtR(gross))}
+            {comboSaving>0.005&&line("Discount","− "+fmtR(comboSaving))}
+            {comboTradeIn>0.005&&line("Gold trade-in credit","− "+fmtR(comboTradeIn))}
+          </div>}
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"baseline",gap:12,borderTop:breakdown?"1px solid rgba(255,255,255,0.18)":"none",paddingTop:breakdown?10:0}}>
+            <span style={{fontSize:12,fontWeight:700,color:"rgba(255,255,255,0.6)",textTransform:"uppercase",letterSpacing:"0.06em"}}>{breakdown?"Total to pay":`Combined total · ${selectedOpts.length} piece${selectedOpts.length!==1?"s":""}`}</span>
+            <span style={{fontSize:breakdown?24:20,fontWeight:800,color:WHITE,whiteSpace:"nowrap"}}>{fmtR(comboToPay)} <span style={{fontSize:11,fontWeight:400,color:"rgba(255,255,255,0.5)"}}>inc {TAX_LABEL}</span></span>
+          </div>
+          {comboSaving>0.005&&comboTradeIn<=0.005&&<div style={{textAlign:"right",fontSize:12,fontWeight:700,color:"#7FD7A6",marginTop:4}}>You're saving {fmtR(comboSaving)}</div>}
+        </div>;
+      })()}
 
       {/* Amount due now: a fixed figure if the studio typed one, otherwise the deposit % of whatever
           the client actually selected — so a bundle scales to the pieces they pick. Payments +
-          trade-in already received are credited against it. */}
+          trade-in already received are credited against it. The totals live in the summary above,
+          so this box just says what's due now and how that figure is reached, in words. */}
       {selectedOpts.length>0&&comboPrice>0&&(()=>{
         const paid=Number(snap.paidTotal)||0;
-        const tradeIn=selectedOpts.reduce((s,o)=>s+(Number(o.tradeIn)||0),0);
+        const tradeIn=comboTradeIn;
         const tradeInNote=selectedOpts.map(o=>(o.tradeInNote||"").trim()).filter(Boolean).join(" · ");
         const pct=snap.depositPercent||50;
         const note=(snap.paymentNote||"").trim();
@@ -7182,20 +7196,16 @@ function PublicProposalPage({token}){
           {note&&<div style={{fontSize:12,color:WG,marginTop:6,fontStyle:"italic"}}>{note}</div>}
         </div>;
         const dueLabel=dueNowAmt<=0.005?(remaining<=0.005?"Paid in full":"Nothing due now"):(remaining>0.005?"Amount due now":"Balance now due");
-        // Show the deposit itself when it's what sets the amount due (i.e. not capped by the full balance),
-        // so the client can see how "due now" is reached: deposit, less trade-in and payments.
-        const showDeposit=remaining>0.005&&depositTarget-paid-tradeIn<=fullDue+0.005;
-        const row=(l,v,green)=><div style={{display:"flex",justifyContent:"space-between",fontSize:13,color:WG,padding:"2px 0"}}><span>{l}</span><span style={{color:green?OK:INK,fontWeight:600}}>{v}</span></div>;
+        // Deposit sets the amount due unless the credits already cover more than it (then it's the balance)
+        const byDeposit=remaining>0.005&&depositTarget-paid-tradeIn<=fullDue+0.005;
+        const less=[tradeIn>0.005?`your ${fmtR(tradeIn)} gold trade-in`:"",paid>0.005?`${fmtR(paid)} already paid`:""].filter(Boolean).join(" and ");
+        const how=byDeposit
+          ?`${fixed!=null?`Deposit of ${fmtR(depositTarget)}`:`${pct}% deposit of ${fmtR(depositTarget)}`}${less?`, less ${less}`:""}`
+          :(less?`${fmtR(comboPrice)} total, less ${less}`:"");
         return <div style={{marginTop:16,background:PARCH,border:`1px solid ${BD}`,borderRadius:4,padding:"14px 16px"}}>
-          {/* Multi-select already shows the combined total in the dark bar above, so don't repeat it */}
-          {!multi&&row(`Total price (inc ${TAX_LABEL})`,fmtR(comboPrice))}
-          {!multi&&comboSaving>0.005&&row("Discount",fmtR(comboSaving),true)}
-          {multi&&!showDeposit&&row(`Combined total (inc ${TAX_LABEL})`,fmtR(comboPrice))}
-          {showDeposit&&row(fixed!=null?"Deposit requested":`${pct}% deposit`,fmtR(depositTarget))}
-          {tradeIn>0.005&&<div style={{display:"flex",justifyContent:"space-between",fontSize:13,color:WG,padding:"2px 0"}}><span>Gold trade-in credit</span><span style={{color:OK,fontWeight:600}}>− {fmtR(tradeIn)}</span></div>}
-          {paid>0.005&&<div style={{display:"flex",justifyContent:"space-between",fontSize:13,color:WG,padding:"2px 0"}}><span>Payments received</span><span style={{color:OK,fontWeight:600}}>− {fmtR(paid)}</span></div>}
-          <div style={{display:"flex",justifyContent:"space-between",alignItems:"baseline",borderTop:`1px solid ${BD}`,marginTop:8,paddingTop:10}}><span style={{fontSize:13,fontWeight:700,color:INK}}>{dueLabel}</span><span style={{fontSize:18,fontWeight:800,color:dueNowAmt<=0.005?OK:INK}}>{fmtR(dueNowAmt)}</span></div>
-          {remaining>0.005&&<div style={{display:"flex",justifyContent:"space-between",fontSize:12,color:WG,paddingTop:6}}><span>Remaining on completion</span><span style={{color:INK,fontWeight:600}}>{fmtR(remaining)}</span></div>}
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"baseline",gap:12}}><span style={{fontSize:13,fontWeight:700,color:INK}}>{dueLabel}</span><span style={{fontSize:18,fontWeight:800,color:dueNowAmt<=0.005?OK:INK}}>{fmtR(dueNowAmt)}</span></div>
+          {how&&<div style={{fontSize:12,color:WG,marginTop:2,lineHeight:1.5}}>{how}</div>}
+          {remaining>0.005&&<div style={{display:"flex",justifyContent:"space-between",fontSize:12,color:WG,borderTop:`1px solid ${BD}`,marginTop:10,paddingTop:8}}><span>Remaining on completion</span><span style={{color:INK,fontWeight:600}}>{fmtR(remaining)}</span></div>}
           {tradeInNote&&<div style={{fontSize:12,color:WG,marginTop:10,lineHeight:1.5,fontStyle:"italic"}}>Trade-in: {tradeInNote}</div>}
           {note&&<div style={{fontSize:12,color:WG,marginTop:tradeInNote?4:10,lineHeight:1.5,fontStyle:"italic"}}>{note}</div>}
         </div>;
@@ -7208,7 +7218,7 @@ function PublicProposalPage({token}){
         <input value={name} onChange={e=>setName(e.target.value)} placeholder="Type your full name to confirm" style={{...SS.inp,marginTop:0,marginBottom:12}}/>
         <button onClick={accept} disabled={!picks.length||!name.trim()||busy}
           style={{width:"100%",background:(!picks.length||!name.trim()||busy)?BD:INK,color:WHITE,border:"none",borderRadius:4,padding:"14px",fontSize:15,fontWeight:800,cursor:(!picks.length||!name.trim()||busy)?"not-allowed":"pointer",fontFamily:"inherit",letterSpacing:"0.02em"}}>
-          {busy?"Submitting…":multi?`Accept ${picks.length} piece${picks.length!==1?"s":""}${comboPrice>0?` for ${fmtR(comboPrice)}`:""}`:`Accept${selectedOpts[0]?` ${selectedOpts[0].label}`:""}`}
+          {busy?"Submitting…":multi?`Accept ${picks.length} piece${picks.length!==1?"s":""}${comboToPay>0?` for ${fmtR(comboToPay)}`:""}`:`Accept${selectedOpts[0]?` ${selectedOpts[0].label}`:""}`}
         </button>
         <div style={{fontSize:11,color:WG,marginTop:10,lineHeight:1.5}}>By accepting you agree to the terms below. This records your selection and notifies the studio. It is not a payment. The studio will then send you an invoice to arrange payment.</div>
       </div>}
