@@ -7127,7 +7127,7 @@ function PublicProposalPage({token}){
               <div style={{textAlign:"right",flexShrink:0}}>
                 {o.price!=null&&o.priceBefore!=null&&o.discount>0.005&&<div style={{display:"flex",alignItems:"center",justifyContent:"flex-end",gap:8,flexWrap:"wrap",marginBottom:2}}>
                   <span style={{fontSize:13,color:WG,textDecoration:"line-through"}}>{fmtR(o.priceBefore)}</span>
-                  <span style={{fontSize:11,fontWeight:800,color:OK,background:OK+"14",borderRadius:3,padding:"2px 7px",whiteSpace:"nowrap"}}>{/^discount$/i.test((o.discountLabel||"").trim())||!o.discountLabel?"":o.discountLabel+": "}Save {fmtR(o.discount)}</span>
+                  <span style={{fontSize:11,fontWeight:800,color:OK,background:OK+"14",borderRadius:3,padding:"2px 7px",whiteSpace:"nowrap"}}>{(o.discountLabel||"").trim()||"Discount"} {fmtR(o.discount)}</span>
                 </div>}
                 <div style={{fontSize:22,fontWeight:800,color:INK}}>{o.price!=null?fmtR(o.price):"—"}</div>
                 <div style={{fontSize:10,color:WG}}>inc {TAX_LABEL}</div>
