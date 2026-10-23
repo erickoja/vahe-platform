@@ -7076,6 +7076,9 @@ function PublicProposalPage({token}){
   const selectedIds=accepted?String(acceptedOption||"").split(",").map(s=>s.trim()).filter(Boolean):picks;
   const selectedOpts=opts.filter(o=>selectedIds.includes(o.id));
   const comboPrice=selectedOpts.reduce((s,o)=>s+(o.price!=null?o.price:0),0);
+  const comboSaving=selectedOpts.reduce((s,o)=>s+(o.price!=null&&o.discount>0.005?Number(o.discount):0),0);   // quote discounts on the picked pieces
+  // A description identical to the piece's title adds nothing, so it's hidden
+  const sameText=(a,b)=>String(a||"").trim().toLowerCase()===String(b||"").trim().toLowerCase();
   const toggle=id=>{if(accepted)return;multi?setPicks(p=>p.includes(id)?p.filter(x=>x!==id):[...p,id]):setPicks([id]);};
 
   return wrap(<div style={{maxWidth:680,margin:"0 auto"}}>
@@ -7105,7 +7108,7 @@ function PublicProposalPage({token}){
 
       {/* Options */}
       <div style={{fontSize:9,fontWeight:700,color:WG,letterSpacing:"0.16em",textTransform:"uppercase",margin:"24px 0 6px"}}>{accepted?"Your selection":multi?"Choose the pieces you'd like":opts.length>1?"Choose an option":"Your quote"}</div>
-      {!accepted&&multi&&<div style={{fontSize:12,color:WG,marginBottom:12}}>Tick every piece you'd like — you can choose more than one.</div>}
+      {!accepted&&multi&&<div style={{fontSize:12,color:WG,marginBottom:12}}>Tick every piece you'd like. You can choose more than one.</div>}
       <div style={{display:"flex",flexDirection:"column",gap:12}}>
         {opts.map(o=>{
           const isSel=selectedIds.includes(o.id);
@@ -7119,13 +7122,15 @@ function PublicProposalPage({token}){
                   {!accepted&&<div style={{width:18,height:18,borderRadius:multi?4:"50%",border:`2px solid ${isSel?GOLD:BD}`,flexShrink:0,display:"flex",alignItems:"center",justifyContent:"center"}}>{isSel&&(multi?<span style={{color:GOLD,fontSize:13,fontWeight:900,lineHeight:1}}>✓</span>:<div style={{width:9,height:9,borderRadius:"50%",background:GOLD}}/>)}</div>}
                   <div style={{fontSize:16,fontWeight:700,color:INK}}>{o.label}</div>
                 </div>
-                {o.description&&<div style={{fontSize:13,color:WG,lineHeight:1.6,marginTop:6}}>{o.description}</div>}
+                {o.description&&!sameText(o.description,o.label)&&<div style={{fontSize:13,color:WG,lineHeight:1.6,marginTop:6}}>{o.description}</div>}
               </div>
               <div style={{textAlign:"right",flexShrink:0}}>
-                {o.price!=null&&o.priceBefore!=null&&o.discount>0.005&&<div style={{fontSize:13,color:WG,textDecoration:"line-through"}}>{fmtR(o.priceBefore)}</div>}
+                {o.price!=null&&o.priceBefore!=null&&o.discount>0.005&&<div style={{display:"flex",alignItems:"center",justifyContent:"flex-end",gap:8,flexWrap:"wrap",marginBottom:2}}>
+                  <span style={{fontSize:13,color:WG,textDecoration:"line-through"}}>{fmtR(o.priceBefore)}</span>
+                  <span style={{fontSize:11,fontWeight:800,color:OK,background:OK+"14",borderRadius:3,padding:"2px 7px",whiteSpace:"nowrap"}}>{/^discount$/i.test((o.discountLabel||"").trim())||!o.discountLabel?"":o.discountLabel+": "}Save {fmtR(o.discount)}</span>
+                </div>}
                 <div style={{fontSize:22,fontWeight:800,color:INK}}>{o.price!=null?fmtR(o.price):"—"}</div>
                 <div style={{fontSize:10,color:WG}}>inc {TAX_LABEL}</div>
-                {o.price!=null&&o.discount>0.005&&<div style={{fontSize:11,color:OK,fontWeight:700,marginTop:2}}>{o.discountLabel||"Discount"} −{fmtR(o.discount)}</div>}
               </div>
             </div>
             {(()=>{const photos=o.photos&&o.photos.length?o.photos:(o.photo?[o.photo]:[]);return photos.length>0&&
@@ -7149,7 +7154,10 @@ function PublicProposalPage({token}){
       {/* Combined total (multi-select) */}
       {multi&&selectedOpts.length>0&&<div style={{display:"flex",justifyContent:"space-between",alignItems:"baseline",marginTop:14,padding:"12px 16px",background:INK,borderRadius:4}}>
         <span style={{fontSize:12,fontWeight:700,color:"rgba(255,255,255,0.6)",textTransform:"uppercase",letterSpacing:"0.06em"}}>Combined total · {selectedOpts.length} piece{selectedOpts.length!==1?"s":""}</span>
-        <span style={{fontSize:20,fontWeight:800,color:WHITE}}>{fmtR(comboPrice)} <span style={{fontSize:11,fontWeight:400,color:"rgba(255,255,255,0.5)"}}>inc {TAX_LABEL}</span></span>
+        <span style={{textAlign:"right"}}>
+          <span style={{fontSize:20,fontWeight:800,color:WHITE}}>{fmtR(comboPrice)} <span style={{fontSize:11,fontWeight:400,color:"rgba(255,255,255,0.5)"}}>inc {TAX_LABEL}</span></span>
+          {comboSaving>0.005&&<span style={{display:"block",fontSize:12,fontWeight:700,color:"#7FD7A6",marginTop:2}}>You save {fmtR(comboSaving)}</span>}
+        </span>
       </div>}
 
       {/* Amount due now: a fixed figure if the studio typed one, otherwise the deposit % of whatever
@@ -7174,8 +7182,16 @@ function PublicProposalPage({token}){
           {note&&<div style={{fontSize:12,color:WG,marginTop:6,fontStyle:"italic"}}>{note}</div>}
         </div>;
         const dueLabel=dueNowAmt<=0.005?(remaining<=0.005?"Paid in full":"Nothing due now"):(remaining>0.005?"Amount due now":"Balance now due");
+        // Show the deposit itself when it's what sets the amount due (i.e. not capped by the full balance),
+        // so the client can see how "due now" is reached: deposit, less trade-in and payments.
+        const showDeposit=remaining>0.005&&depositTarget-paid-tradeIn<=fullDue+0.005;
+        const row=(l,v,green)=><div style={{display:"flex",justifyContent:"space-between",fontSize:13,color:WG,padding:"2px 0"}}><span>{l}</span><span style={{color:green?OK:INK,fontWeight:600}}>{v}</span></div>;
         return <div style={{marginTop:16,background:PARCH,border:`1px solid ${BD}`,borderRadius:4,padding:"14px 16px"}}>
-          <div style={{display:"flex",justifyContent:"space-between",fontSize:13,color:WG,padding:"2px 0"}}><span>{multi?"Combined total":"Total price"} (inc {TAX_LABEL})</span><span style={{color:INK,fontWeight:600}}>{fmtR(comboPrice)}</span></div>
+          {/* Multi-select already shows the combined total in the dark bar above, so don't repeat it */}
+          {!multi&&row(`Total price (inc ${TAX_LABEL})`,fmtR(comboPrice))}
+          {!multi&&comboSaving>0.005&&row("You save",fmtR(comboSaving),true)}
+          {multi&&!showDeposit&&row(`Combined total (inc ${TAX_LABEL})`,fmtR(comboPrice))}
+          {showDeposit&&row(fixed!=null?"Deposit requested":`${pct}% deposit`,fmtR(depositTarget))}
           {tradeIn>0.005&&<div style={{display:"flex",justifyContent:"space-between",fontSize:13,color:WG,padding:"2px 0"}}><span>Gold trade-in credit</span><span style={{color:OK,fontWeight:600}}>− {fmtR(tradeIn)}</span></div>}
           {paid>0.005&&<div style={{display:"flex",justifyContent:"space-between",fontSize:13,color:WG,padding:"2px 0"}}><span>Payments received</span><span style={{color:OK,fontWeight:600}}>− {fmtR(paid)}</span></div>}
           <div style={{display:"flex",justifyContent:"space-between",alignItems:"baseline",borderTop:`1px solid ${BD}`,marginTop:8,paddingTop:10}}><span style={{fontSize:13,fontWeight:700,color:INK}}>{dueLabel}</span><span style={{fontSize:18,fontWeight:800,color:dueNowAmt<=0.005?OK:INK}}>{fmtR(dueNowAmt)}</span></div>
@@ -7192,7 +7208,7 @@ function PublicProposalPage({token}){
         <input value={name} onChange={e=>setName(e.target.value)} placeholder="Type your full name to confirm" style={{...SS.inp,marginTop:0,marginBottom:12}}/>
         <button onClick={accept} disabled={!picks.length||!name.trim()||busy}
           style={{width:"100%",background:(!picks.length||!name.trim()||busy)?BD:INK,color:WHITE,border:"none",borderRadius:4,padding:"14px",fontSize:15,fontWeight:800,cursor:(!picks.length||!name.trim()||busy)?"not-allowed":"pointer",fontFamily:"inherit",letterSpacing:"0.02em"}}>
-          {busy?"Submitting…":multi?`Accept ${picks.length} piece${picks.length!==1?"s":""}${comboPrice>0?` — ${fmtR(comboPrice)}`:""}`:`Accept${selectedOpts[0]?` — ${selectedOpts[0].label}`:""}`}
+          {busy?"Submitting…":multi?`Accept ${picks.length} piece${picks.length!==1?"s":""}${comboPrice>0?` for ${fmtR(comboPrice)}`:""}`:`Accept${selectedOpts[0]?` ${selectedOpts[0].label}`:""}`}
         </button>
         <div style={{fontSize:11,color:WG,marginTop:10,lineHeight:1.5}}>By accepting you agree to the terms below. This records your selection and notifies the studio. It is not a payment. The studio will then send you an invoice to arrange payment.</div>
       </div>}
