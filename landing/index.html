@@ -68,7 +68,7 @@
   }
 
   *{box-sizing:border-box}
-  .page{background:var(--bg);color:var(--text);font-family:var(--sans);font-size:16px;line-height:1.65;-webkit-font-smoothing:antialiased;overflow-x:hidden}
+  .page{background:var(--bg);color:var(--text);font-family:var(--sans);font-size:16px;line-height:1.65;-webkit-font-smoothing:antialiased;overflow-x:hidden;overflow-x:clip}
   .wrap{max-width:var(--edge);margin:0 auto;padding:0 28px}
   a{color:inherit}
   h1,h2,h3{color:var(--strong);text-wrap:balance;margin:0;letter-spacing:-.02em;font-weight:700}
@@ -85,7 +85,24 @@
   .top-nav{display:flex;align-items:center;gap:24px}
   .top-nav a.lnk{font-size:.9rem;font-weight:500;color:var(--text);text-decoration:none}
   .top-nav a.lnk:hover{color:var(--accent)}
-  @media (max-width:680px){.top-nav a.lnk{display:none}}
+  .nav-links{display:flex;align-items:center;gap:24px}
+  .nav-toggle{display:none;align-items:center;justify-content:center;width:44px;height:44px;padding:0;border:1.5px solid var(--line);border-radius:10px;background:var(--surface);color:var(--strong);cursor:pointer}
+  .nav-toggle span{display:block;position:relative;width:20px;height:2px;border-radius:2px;background:currentColor;transition:background .16s ease}
+  .nav-toggle span::before,.nav-toggle span::after{content:"";position:absolute;left:0;width:20px;height:2px;border-radius:2px;background:currentColor;transition:transform .2s ease}
+  .nav-toggle span::before{top:-6px}
+  .nav-toggle span::after{top:6px}
+  .topbar.menu-open .nav-toggle span{background:transparent}
+  .topbar.menu-open .nav-toggle span::before{transform:translateY(6px) rotate(45deg)}
+  .topbar.menu-open .nav-toggle span::after{transform:translateY(-6px) rotate(-45deg)}
+  @media (max-width:680px){
+    .top-nav{gap:10px}
+    .topbar .logo-plate svg{width:150px;height:25px}
+    .nav-toggle{display:inline-flex}
+    .nav-links{display:none;position:absolute;top:100%;left:0;right:0;flex-direction:column;align-items:stretch;gap:0;padding:6px 20px 14px;background:var(--surface);border-bottom:1px solid var(--line);box-shadow:var(--shadow)}
+    .topbar.menu-open .nav-links{display:flex}
+    .nav-links a.lnk{padding:14px 4px;font-size:1.05rem;font-weight:600;color:var(--strong);border-bottom:1px solid var(--line)}
+    .nav-links a.lnk:last-child{border-bottom:0}
+  }
 
   /* buttons — soft-rounded rects, terracotta primary */
   .btn{display:inline-flex;align-items:center;gap:9px;font-family:var(--sans);font-size:.95rem;font-weight:600;text-decoration:none;padding:13px 24px;border-radius:11px;border:1.5px solid transparent;cursor:pointer;transition:transform .16s ease,background .16s ease,color .16s ease,box-shadow .16s ease}
@@ -1586,11 +1603,14 @@
         <span class="logo-plate" style="display:inline-block;background:#fff;border-radius:6px;padding:5px 9px;line-height:0"><svg role="img" aria-label="Workshop Pilot" viewBox="100 440 1240 200" width="196" height="32" style="display:block"><image href="/logo.webp" width="1448" height="1086"/></svg></span>
       </a>
       <nav class="top-nav">
-        <a class="lnk" href="#features">Features</a>
-        <a class="lnk" href="#pricing">Pricing</a>
-        <a class="lnk" href="#faq">FAQ</a>
-        <a class="lnk" href="#contact">Contact</a>
+        <div class="nav-links" id="site-menu">
+          <a class="lnk" href="#features">Features</a>
+          <a class="lnk" href="#pricing">Pricing</a>
+          <a class="lnk" href="#faq">FAQ</a>
+          <a class="lnk" href="#contact">Contact</a>
+        </div>
         <a class="btn btn-primary btn-sm" href="https://app.workshoppilot.app">Log in</a>
+        <button class="nav-toggle" type="button" aria-controls="site-menu" aria-expanded="false" aria-label="Open menu"><span></span></button>
       </nav>
     </div>
   </header>
@@ -1630,7 +1650,7 @@
                 </div>
                 <div class="doc-rt">
                   <div class="doc-num">QT-1042</div>
-                  <div class="doc-dates">Valid until: <b>30 Sep 2026</b></div>
+                  <div class="doc-dates">Issued: <b style="color:rgba(255,255,255,.7)">31 Aug 2026</b><br>Valid until: <b>30 Sep 2026</b></div>
                 </div>
               </div>
               <div class="doc-2col">
@@ -1643,10 +1663,10 @@
               </div>
               <div class="doc-sec">
                 <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:6px"><div class="doc-lbl" style="margin:0">Price breakdown</div><div style="font-size:9.5px;color:#8b837c">All prices inclusive of GST</div></div>
-                <div class="doc-row"><div><div class="t">18ct yellow gold solitaire</div><div class="s">Design, materials &amp; craftsmanship</div></div><div class="amt">$3,090.00</div></div>
-                <div class="doc-row"><div><div class="t">Oval lab-grown diamond 1.10ct</div><div class="s">Centre stone &middot; inc. GST</div></div><div class="amt">$3,000.00</div></div>
+                <div class="doc-row"><div><div class="t">18ct yellow gold solitaire</div><div class="s">1.10ct D/VVS2 oval lab-grown diamond, finger size O.</div></div><div class="amt">$3,090</div></div>
+                <div class="doc-row"><div><div class="t">Oval lab-grown diamond 1.10ct</div><div class="s">Centre stone &middot; inc. GST</div></div><div class="amt">$3,000</div></div>
                 <div class="doc-total">
-                  <div class="grand"><div><div class="k">Total quoted price</div><div style="font-size:9.5px;color:rgba(255,255,255,.3);margin-top:2px">Inc. GST &middot; Quoted in AUD</div></div><div style="text-align:right"><div class="g">$6,090.00</div><div style="font-size:10.5px;color:rgba(255,255,255,.5);margin-top:4px">50% deposit to commence: <b style="color:#fff">$3,045.00</b></div></div></div>
+                  <div class="grand"><div><div class="k">Total quoted price</div><div style="font-size:9.5px;color:rgba(255,255,255,.3);margin-top:2px">Inc. GST &middot; Quoted in AUD</div></div><div style="text-align:right"><div class="g">$6,090</div><div style="font-size:10.5px;color:rgba(255,255,255,.5);margin-top:4px">50% deposit to commence: <b style="color:#fff">$3,045</b></div></div></div>
                 </div>
               </div>
             </div>
@@ -1785,10 +1805,11 @@
               <div class="doc-opt">
                 <div class="head"><div><div class="ot">9ct yellow gold &middot; Marquise &amp; Round</div><div class="od">Lab-grown diamonds, lighter weight band.</div></div><div class="op">$2,300<small>inc GST</small></div></div>
               </div>
+              <div style="font-size:11.5px;color:#8b837c;margin-top:14px">To proceed, a 50% deposit of <b style="color:#17130f">$1,350</b> is required.</div>
               <div class="doc-accept">
                 <div class="h">Accept this proposal</div>
                 <div class="doc-namefield">Type your full name to confirm</div>
-                <div class="doc-acceptbtn">Accept &mdash; 18ct yellow gold &middot; $2,700</div>
+                <div class="doc-acceptbtn">Accept 18ct yellow gold &middot; Marquise &amp; Round</div>
               </div>
             </div>
           </div>
@@ -2144,6 +2165,19 @@
     setTimeout(function(){
       if(els[0]&&!els[0].classList.contains('in')){els.forEach(function(e){e.classList.add('in');});}
     },3000);
+  })();
+</script>
+
+<script>
+  // phone menu: the hamburger opens/closes the nav links
+  (function(){
+    var bar=document.querySelector('.topbar'),btn=bar&&bar.querySelector('.nav-toggle');
+    if(!btn)return;
+    function set(open){bar.classList.toggle('menu-open',open);btn.setAttribute('aria-expanded',open?'true':'false');btn.setAttribute('aria-label',open?'Close menu':'Open menu');}
+    btn.addEventListener('click',function(){set(!bar.classList.contains('menu-open'));});
+    bar.querySelectorAll('.nav-links a').forEach(function(a){a.addEventListener('click',function(){set(false);});});
+    document.addEventListener('keydown',function(e){if(e.key==='Escape')set(false);});
+    document.addEventListener('click',function(e){if(!bar.contains(e.target))set(false);});
   })();
 </script>
 

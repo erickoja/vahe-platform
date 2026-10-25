@@ -73,7 +73,7 @@
   }
 
   *{box-sizing:border-box}
-  .page{background:var(--bg);color:var(--text);font-family:var(--sans);font-size:16px;line-height:1.65;-webkit-font-smoothing:antialiased;overflow-x:hidden}
+  .page{background:var(--bg);color:var(--text);font-family:var(--sans);font-size:16px;line-height:1.65;-webkit-font-smoothing:antialiased;overflow-x:hidden;overflow-x:clip}
   .wrap{max-width:var(--edge);margin:0 auto;padding:0 28px}
   a{color:inherit}
   h1,h2,h3{color:var(--strong);text-wrap:balance;margin:0;letter-spacing:-.02em;font-weight:700}
@@ -90,7 +90,24 @@
   .top-nav{display:flex;align-items:center;gap:24px}
   .top-nav a.lnk{font-size:.9rem;font-weight:500;color:var(--text);text-decoration:none}
   .top-nav a.lnk:hover{color:var(--accent)}
-  @media (max-width:680px){.top-nav a.lnk{display:none}}
+  .nav-links{display:flex;align-items:center;gap:24px}
+  .nav-toggle{display:none;align-items:center;justify-content:center;width:44px;height:44px;padding:0;border:1.5px solid var(--line);border-radius:10px;background:var(--surface);color:var(--strong);cursor:pointer}
+  .nav-toggle span{display:block;position:relative;width:20px;height:2px;border-radius:2px;background:currentColor;transition:background .16s ease}
+  .nav-toggle span::before,.nav-toggle span::after{content:"";position:absolute;left:0;width:20px;height:2px;border-radius:2px;background:currentColor;transition:transform .2s ease}
+  .nav-toggle span::before{top:-6px}
+  .nav-toggle span::after{top:6px}
+  .topbar.menu-open .nav-toggle span{background:transparent}
+  .topbar.menu-open .nav-toggle span::before{transform:translateY(6px) rotate(45deg)}
+  .topbar.menu-open .nav-toggle span::after{transform:translateY(-6px) rotate(-45deg)}
+  @media (max-width:680px){
+    .top-nav{gap:10px}
+    .topbar .logo-plate svg{width:150px;height:25px}
+    .nav-toggle{display:inline-flex}
+    .nav-links{display:none;position:absolute;top:100%;left:0;right:0;flex-direction:column;align-items:stretch;gap:0;padding:6px 20px 14px;background:var(--surface);border-bottom:1px solid var(--line);box-shadow:var(--shadow)}
+    .topbar.menu-open .nav-links{display:flex}
+    .nav-links a.lnk{padding:14px 4px;font-size:1.05rem;font-weight:600;color:var(--strong);border-bottom:1px solid var(--line)}
+    .nav-links a.lnk:last-child{border-bottom:0}
+  }
 
   /* buttons — soft-rounded rects, terracotta primary */
   .btn{display:inline-flex;align-items:center;gap:9px;font-family:var(--sans);font-size:.95rem;font-weight:600;text-decoration:none;padding:13px 24px;border-radius:11px;border:1.5px solid transparent;cursor:pointer;transition:transform .16s ease,background .16s ease,color .16s ease,box-shadow .16s ease}
@@ -483,6 +500,15 @@
   .qb-money .mi b{font-size:9px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--qbmut);display:block;margin-bottom:3px}
   .qb-money .mi span{font-size:10.5px;color:var(--qbmut)}
   .qb-money .mv{background:#fff;border:1px solid var(--qbline);border-radius:8px;padding:9px 14px;font-size:11px;color:var(--qbmut);min-width:120px;text-align:right}
+  .qb-discin{display:flex;gap:6px;flex:none}
+  .qb-discin .sg{display:flex;border:1px solid var(--qbline);border-radius:6px;overflow:hidden}
+  .qb-discin .sg b{padding:9px 11px;font-size:11px;font-weight:700;color:var(--qbmut);background:#fff}
+  .qb-discin .sg b.on{background:var(--qbink);color:#fff}
+  .qb-discin .mv{min-width:80px}
+  .qb-allow{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-top:12px}
+  .qb-allow .tg{display:inline-flex;align-items:center;gap:8px;background:#fff;border:1px solid var(--qbline);border-radius:8px;padding:7px 13px;font-size:11px;font-weight:700;color:var(--qbmut)}
+  .qb-allow .tg i{width:14px;height:14px;border-radius:4px;border:1px solid var(--qbline);background:#fff}
+  .qb-allow .nt{font-size:11px;color:var(--qbmut)}
   .qb-actions{display:flex;justify-content:flex-end;gap:10px;margin-top:18px}
   .qb-actions .cancel{border:1px solid var(--qbline);background:#fff;color:var(--qbink);border-radius:8px;padding:8px 16px;font-size:12px;font-weight:700}
   .qb-actions .save{background:var(--qbacc);color:#fff;border-radius:8px;padding:8px 18px;font-size:12px;font-weight:700}
@@ -508,6 +534,10 @@
   .iv-stat .k{font-size:9px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--qbmut)}
   .iv-stat .v{font-size:20px;font-weight:800;margin-top:7px}
   .iv-stat .v.ok{color:var(--qbok)}
+  .iv-stat .v.warn{color:#b8741a}
+  .iv-amtrow{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-top:4px}
+  .iv-half{display:inline-flex;align-items:center;gap:7px;background:var(--qbacc);color:#fff;border:1px solid var(--qbacc);border-radius:999px;padding:7px 13px;font-size:11px;font-weight:700}
+  .iv-half .bx{width:13px;height:13px;border-radius:4px;border:1.5px solid #fff;display:inline-flex;align-items:center;justify-content:center;font-size:9px;line-height:1}
   .iv-req{font-size:11px;color:var(--qbmut);margin-top:12px}
   .iv-req b{color:var(--qbink)}
   .iv-card{background:#fff;border:1px solid var(--qbline);border-radius:10px;padding:15px 18px;margin-top:14px}
@@ -919,7 +949,35 @@
   .db-owing{font-size:11.5px;font-weight:700;color:#b06a10;white-space:nowrap}
   .db-badge{font-size:9px;font-weight:700;letter-spacing:.03em;text-transform:uppercase;color:var(--qbmut);border:1px solid var(--qbline);border-radius:5px;padding:3px 8px;white-space:nowrap}
   .db-dot{width:8px;height:8px;border-radius:50%;flex:none}
-  @media(max-width:900px){.db-2col,.db-2colb{grid-template-columns:1fr}}
+  .db-who{display:flex;align-items:center;gap:11px;min-width:0;flex:1}
+  .db-av{width:32px;height:32px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;font-size:11.5px;font-weight:700;flex:none;letter-spacing:.02em}
+  .db-who .nm .sig{display:flex;gap:9px;flex-wrap:wrap;align-items:center;color:var(--qbmut)}
+  .db-stage{display:inline-flex;align-items:center;gap:5px;font-size:11px;font-weight:600;white-space:nowrap}
+  .db-stage i{width:7px;height:7px;border-radius:50%}
+  .db-pay{width:140px;max-width:100%;flex:none}
+  .db-pay .tr,.db-owe .tr{height:6px;border-radius:3px;background:var(--qbline);overflow:hidden}
+  .db-pay .tr i,.db-owe .tr i{display:block;height:100%;background:#BA7067;border-radius:3px}
+  .db-pay .cap{font-size:10.5px;color:var(--qbmut);margin-top:4px;white-space:nowrap}
+  .db-pay .cap b{color:var(--qbink)} .db-pay .cap b.ok{color:var(--qbok)}
+  .db-waiting{font-size:11px;font-weight:600;color:var(--qbmut)}
+  .db-fuchips{display:flex;gap:6px;flex-wrap:wrap;margin:-4px 0 6px}
+  .db-fuchips span{font-size:10.5px;font-weight:700;border-radius:20px;padding:3px 10px}
+  .db-remind{flex:none;font-size:11px;font-weight:600;color:var(--qbink);border:1px solid var(--qbline);border-radius:8px;padding:5px 11px;white-space:nowrap}
+  .db-who .nm .sig .amt{color:var(--qbink);font-weight:700;display:inline}
+  .db-owtotal{font-size:15px;font-weight:800;color:#B06A10;white-space:nowrap}
+  .db-owtotal span{font-size:10.5px;font-weight:600;color:var(--qbmut)}
+  .db-row.db-owe{display:block}
+  .db-owe .top{display:flex;justify-content:space-between;align-items:baseline;gap:12px}
+  .db-owe .top b{font-size:13px;font-weight:600;color:var(--qbink);min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .db-owe .top b .mut{color:var(--qbmut);font-weight:400}
+  .db-owe .due{font-size:12.5px;font-weight:700;color:#B06A10;white-space:nowrap}
+  .db-owe .due span{font-size:10.5px;opacity:.75}
+  .db-owe .tr{height:4px;margin-top:6px}
+  .db-owe .tr i{background:var(--qbok)}
+  .db-owe .cap{font-size:10.5px;color:var(--qbmut);margin-top:4px}
+  .db-owe .cap b{color:var(--qbok);font-weight:700}
+  @media(max-width:900px){.db-2col,.db-2colb{grid-template-columns:minmax(0,1fr)}}
+  @media(max-width:560px){.db-row:has(.db-pay) .db-who{flex-basis:100%}.db-pay{flex:1 1 100%;width:auto;max-width:240px;padding-left:43px}}
   @media(max-width:560px){.db-stats{grid-template-columns:1fr 1fr}.db-row{flex-wrap:wrap}}
 
   /* ── "What you send out" output documents ── */
@@ -1591,11 +1649,14 @@
         <span class="logo-plate" style="display:inline-block;background:#fff;border-radius:6px;padding:5px 9px;line-height:0"><svg role="img" aria-label="Workshop Pilot" viewBox="100 440 1240 200" width="196" height="32" style="display:block"><image href="/logo.webp" width="1448" height="1086"/></svg></span>
       </a>
       <nav class="top-nav">
-        <a class="lnk" href="/features.html">Features</a>
-        <a class="lnk" href="/#pricing">Pricing</a>
-        <a class="lnk" href="/#faq">FAQ</a>
-        <a class="lnk" href="/#contact">Contact</a>
+        <div class="nav-links" id="site-menu">
+          <a class="lnk" href="/features.html">Features</a>
+          <a class="lnk" href="/#pricing">Pricing</a>
+          <a class="lnk" href="/#faq">FAQ</a>
+          <a class="lnk" href="/#contact">Contact</a>
+        </div>
         <a class="btn btn-primary btn-sm" href="https://app.workshoppilot.app">Log in</a>
+        <button class="nav-toggle" type="button" aria-controls="site-menu" aria-expanded="false" aria-label="Open menu"><span></span></button>
       </nav>
     </div>
   </header>
@@ -1759,15 +1820,23 @@
                   <div class="db-card">
                     <div class="db-cardhead"><span class="db-cardtitle">Active jobs</span><span class="db-viewall">View all</span></div>
                     <div class="db-rows">
-                      <div class="db-row"><div class="nm"><b>Engagement ring <span class="mut">&middot; Jordan &amp; Alex Rivera</span></b><div class="sig" style="color:var(--qbmut)">Due 3 Sep 2026</div></div><div class="db-right"><span class="db-in">$3,725 in</span><span class="db-badge">3D printing</span></div></div>
-                      <div class="db-row"><div class="nm"><b>Wedding bands <span class="mut">&middot; Priya &amp; Sam</span></b><div class="sig" style="color:#2e7d57;font-weight:700">Ready to collect</div></div><div class="db-right"><span class="db-badge">Ready for collection</span></div></div>
-                      <div class="db-row"><div class="nm"><b>Eternity ring <span class="mut">&middot; Chen</span></b><div class="sig" style="color:var(--qbmut)">Due 2 Sep 2026</div></div><div class="db-right"><span class="db-in">$1,200 in</span><span class="db-badge">Stone setting</span></div></div>
-                      <div class="db-row"><div class="nm"><b>Signet ring <span class="mut">&middot; Marcus Lee</span></b><div class="sig" style="color:#a65a50;font-weight:700">&#9203; Proposal sent &middot; 3 days ago</div></div><div class="db-right"><span class="db-badge">Quoted</span></div></div>
-                      <div class="db-row" style="opacity:.58"><div class="nm"><b>Pendant remodel <span class="mut">&middot; Aisha Kaur</span></b><div class="sig" style="color:var(--qbmut)">Quote out, no reply yet</div></div><div class="db-right"><span class="db-badge">Quoted</span></div></div>
-                      <div class="db-row"><div class="nm"><b>Bracelet repair <span class="mut">&middot; Tom Ford</span></b><div class="sig" style="color:var(--qbmut)">Due 29 Aug 2026</div></div><div class="db-right"><span class="db-owing">$980 owing</span><span class="db-badge">Polishing / Finish</span></div></div>
+                      <div class="db-row"><div class="db-who"><span class="db-av" style="background:#8A6FA81F;color:#8A6FA8">JA</span><div class="nm"><b>Jordan &amp; Alex Rivera <span class="mut">&middot; Engagement ring</span></b><div class="sig"><span class="db-stage" style="color:#8A6FA8"><i style="background:#8A6FA8"></i>3D printing</span><span>Due 3 Sep 2026</span></div></div></div><div class="db-pay"><div class="tr"><i style="width:50%"></i></div><div class="cap"><b>$3,725.00</b> of $7,450.00</div></div></div>
+                      <div class="db-row"><div class="db-who"><span class="db-av" style="background:#2D7A4F1F;color:#2D7A4F">PS</span><div class="nm"><b>Priya &amp; Sam <span class="mut">&middot; Wedding bands</span></b><div class="sig"><span class="db-stage" style="color:#2D7A4F"><i style="background:#2D7A4F"></i>Ready for collection</span></div></div></div><div class="db-pay"><div class="tr"><i style="width:100%;background:#2D7A4F"></i></div><div class="cap"><b class="ok">Paid in full</b></div></div></div>
+                      <div class="db-row"><div class="db-who"><span class="db-av" style="background:#C47A2E1F;color:#C47A2E">C</span><div class="nm"><b>Chen <span class="mut">&middot; Eternity ring</span></b><div class="sig"><span class="db-stage" style="color:#C47A2E"><i style="background:#C47A2E"></i>Stone setting</span><span>Due 2 Sep 2026</span></div></div></div><div class="db-pay"><div class="tr"><i style="width:21%"></i></div><div class="cap"><b>$1,200.00</b> of $5,770.00</div></div></div>
+                      <div class="db-row"><div class="db-who"><span class="db-av" style="background:#5E90781F;color:#5E9078">ML</span><div class="nm"><b>Marcus Lee <span class="mut">&middot; Signet ring</span></b><div class="sig"><span class="db-stage" style="color:#5E9078"><i style="background:#5E9078"></i>Quoted</span><span style="color:#A65A50;font-weight:600">&#9203; Proposal sent &middot; 3 days ago</span></div></div></div></div>
+                      <div class="db-row" style="opacity:.58"><div class="db-who"><span class="db-av" style="background:#5E90781F;color:#5E9078">AK</span><div class="nm"><b>Aisha Kaur <span class="mut">&middot; Pendant remodel</span></b><div class="sig"><span class="db-stage" style="color:#5E9078"><i style="background:#5E9078"></i>Quoted</span><span>&#9203; Proposal sent &middot; 12 days ago</span></div></div></div></div>
+                      <div class="db-row"><div class="db-who"><span class="db-av" style="background:#8B9E3A1F;color:#8B9E3A">TF</span><div class="nm"><b>Tom Ford <span class="mut">&middot; Bracelet repair</span></b><div class="sig"><span class="db-stage" style="color:#8B9E3A"><i style="background:#8B9E3A"></i>Polishing / Finish</span><span>Due 29 Aug 2026</span></div></div></div><div class="db-pay"><div class="tr"><i style="width:0%"></i></div><div class="cap"><b>$0.00</b> of $980.00</div></div></div>
                     </div>
                   </div>
                   <div class="db-side">
+                    <div class="db-card">
+                      <div class="db-cardhead"><span class="db-cardtitle">Needs a follow-up</span><span class="db-waiting">2 waiting</span></div>
+                      <div class="db-fuchips"><span style="color:#B06A10;background:#B06A1014">1 invoice unpaid</span><span style="color:#A65A50;background:#A65A5014">1 proposal, no reply</span></div>
+                      <div class="db-rows">
+                        <div class="db-row"><div class="db-who"><span class="db-av" style="background:#B06A101F;color:#B06A10">TF</span><div class="nm"><b>Tom Ford <span class="mut">&middot; Bracelet repair</span></b><div class="sig"><span style="color:#B06A10;font-weight:600">Invoice unpaid <b class="amt">$980.00</b></span><span>9d ago</span></div></div></div><span class="db-remind">&#9993; Remind</span></div>
+                        <div class="db-row"><div class="db-who"><span class="db-av" style="background:#A65A501F;color:#A65A50">AK</span><div class="nm"><b>Aisha Kaur <span class="mut">&middot; Pendant remodel</span></b><div class="sig"><span style="color:#A65A50;font-weight:600">Proposal, no reply</span><span>12d ago</span></div></div></div><span class="db-remind">&#9993; Remind</span></div>
+                      </div>
+                    </div>
                     <div class="db-card">
                       <div class="db-cardhead"><span class="db-cardtitle">Upcoming appointments</span><span class="db-viewall">View all</span></div>
                       <div class="db-rows">
@@ -1777,11 +1846,11 @@
                       </div>
                     </div>
                     <div class="db-card">
-                      <div class="db-cardtitle" style="margin-bottom:12px">Balance owing by job</div>
+                      <div class="db-cardhead" style="align-items:baseline"><span class="db-cardtitle">Balance owing by job</span><span class="db-owtotal">$9,275.00 <span>total owing</span></span></div>
                       <div class="db-rows">
-                        <div class="db-row"><div class="nm"><b>Engagement ring <span class="mut">&middot; Jordan &amp; Alex Rivera</span></b><div class="sig" style="color:var(--qbmut)">3D printing</div></div><span class="db-owing" style="font-size:14px">$3,725 owing</span></div>
-                        <div class="db-row"><div class="nm"><b>Eternity ring <span class="mut">&middot; Chen</span></b><div class="sig" style="color:var(--qbmut)">Stone setting</div></div><span class="db-owing" style="font-size:14px">$4,570 owing</span></div>
-                        <div class="db-row"><div class="nm"><b>Bracelet repair <span class="mut">&middot; Tom Ford</span></b><div class="sig" style="color:var(--qbmut)">Polishing / Finish</div></div><span class="db-owing" style="font-size:14px">$980 owing</span></div>
+                        <div class="db-row db-owe"><div class="top"><b>Chen <span class="mut">&middot; Eternity ring</span></b><span class="due">$4,570.00 <span>to pay</span></span></div><div class="tr"><i style="width:21%"></i></div><div class="cap"><b>$1,200.00 paid</b> of $5,770.00</div></div>
+                        <div class="db-row db-owe"><div class="top"><b>Jordan &amp; Alex Rivera <span class="mut">&middot; Engagement ring</span></b><span class="due">$3,725.00 <span>to pay</span></span></div><div class="tr"><i style="width:50%"></i></div><div class="cap"><b>$3,725.00 paid</b> of $7,450.00</div></div>
+                        <div class="db-row db-owe"><div class="top"><b>Tom Ford <span class="mut">&middot; Bracelet repair</span></b><span class="due">$980.00 <span>to pay</span></span></div><div class="tr"><i style="width:0%"></i></div><div class="cap">Nothing paid yet of $980.00</div></div>
                       </div>
                     </div>
                   </div>
@@ -2108,8 +2177,10 @@
                   <div class="jp"><span class="k">Jewellery piece</span><div class="v">$2,950</div></div>
                   <div class="tt"><span class="k">Total</span><div class="v">= $2,950</div></div>
                 </div>
+                <div class="qb-allow"><span class="tg"><i></i>Include card fee allowance</span><span class="nt">Off for this quote, e.g. a client paying by bank transfer.</span></div>
 
-                <div class="qb-money"><div class="mi"><b>Gold trade-in credit</b><span>Trading in old gold? Enter the credit you&rsquo;re giving &mdash; it shows as a deduction and reduces the balance.</span></div><span class="mv">$ 0.00</span></div>
+                <div class="qb-money"><div class="mi"><b>Discount</b><span>Taken off this quote&rsquo;s price. It shows on the quote, proposal &amp; invoice so the client sees the saving, and GST is worked out on the discounted price.</span></div><span class="qb-discin"><span class="sg"><b class="on">$</b><b>%</b></span><span class="mv">0</span></span></div>
+                <div class="qb-money"><div class="mi"><b>Gold trade-in credit</b><span>Trading in old gold? Enter the credit you&rsquo;re giving &mdash; it shows on the quote, proposal &amp; invoice as a deduction and reduces the balance.</span></div><span class="mv">$ 0.00</span></div>
                 <div class="qb-money"><div class="mi"><b>Manual quoted price</b><span>Quoted verbally? Enter the final price (inc GST) &mdash; it becomes the quote total everywhere, no line items needed.</span></div><span class="mv">$ 0.00</span></div>
                 <div class="qb-fld"><div class="qb-lbl">Internal notes <span style="color:var(--qbmut);text-transform:none;letter-spacing:0;font-weight:400">(not visible to client)</span></div><div class="qb-in area" style="color:var(--qbmut)">e.g. Price locked at approval. Metal prices current as of today.</div></div>
 
@@ -2413,14 +2484,17 @@
 
                 <div class="iv-stats">
                   <div class="iv-stat"><div class="k">Invoice total</div><div class="v">$7,450.00</div></div>
-                  <div class="iv-stat"><div class="k">Received</div><div class="v ok">$3,725.00</div></div>
-                  <div class="iv-stat"><div class="k">Due now</div><div class="v ok">$0.00</div></div>
+                  <div class="iv-stat"><div class="k">Received</div><div class="v ok">$0.00</div></div>
+                  <div class="iv-stat"><div class="k">Due now</div><div class="v warn">$3,725.00</div></div>
                 </div>
-                <div class="iv-req">Requesting <b>$0.00</b> now of the <b>$3,725.00</b> outstanding &middot; <b>$3,725.00</b> payable later.</div>
+                <div class="iv-req">Requesting <b>$3,725.00</b> now of the <b>$7,450.00</b> outstanding &middot; <b>$3,725.00</b> payable later.</div>
 
                 <div class="iv-card">
                   <div class="qb-lbl">Amount due now &mdash; this request <span style="font-weight:400;color:var(--qbmut);text-transform:none;letter-spacing:0">(optional)</span></div>
-                  <span class="iv-amt"><span class="cur">$</span><span>3725</span></span>
+                  <div class="iv-amtrow">
+                    <span class="iv-amt"><span class="cur">$</span><span>3725</span></span>
+                    <span class="iv-half"><span class="bx">&#10003;</span>50% deposit &middot; $3,725.00</span>
+                  </div>
                   <div class="iv-help">Set this to request a <b>specific staged amount</b> now (e.g. the diamond balance) instead of the full outstanding balance. The invoice and client link will show <b>&ldquo;Due now&rdquo;</b> with the remainder noted as payable later. Leave blank to request the full balance. <span class="iv-clear">Clear</span></div>
                   <div class="iv-help" style="color:var(--qbacc2)">After changing this, click <b style="color:var(--qbacc2)">Copy link</b> above to refresh what the client sees.</div>
                 </div>
@@ -2465,15 +2539,13 @@
                 <div class="iv-tot">
                   <div class="iv-totrow"><span>Includes GST</span><span>$677.27</span></div>
                   <div class="iv-totrow grand"><span>Total (incl. GST)</span><span>$7,450.00</span></div>
-                  <div class="iv-totrow"><span>Paid to date</span><span>&minus;$3,725.00</span></div>
-                  <div class="iv-totrow bal"><span>Balance due</span><span>$3,725.00</span></div>
                 </div>
 
                 <div class="iv-markas"><span class="iv-malbl">Mark as:</span><span class="iv-mabtn on">&#10003; Unpaid</span><span class="iv-mabtn">Paid</span><span class="iv-mabtn">Overdue</span></div>
               </div>
             </div>
           </div>
-          <figcaption>Turn accepted options into a GST invoice, with staged deposits and a running balance that always ties out.</figcaption>
+          <figcaption>Turn accepted options into a GST invoice. One click requests a 50% deposit, and the running balance always ties out.</figcaption>
         </figure>
           </div>
           <div class="qbpanel qbpanel-metals">
@@ -2915,6 +2987,13 @@
               <div class="qb-main">
                 <div class="db-eyebrow">Studio</div>
                 <div class="db-h1" style="font-size:24px;margin-bottom:16px">Stock</div>
+                <div class="db-stats" style="margin-bottom:18px">
+                  <div class="db-stat"><div class="db-val">6</div><div class="db-lbl">Pieces</div></div>
+                  <div class="db-stat"><div class="db-val">5</div><div class="db-lbl">Available</div></div>
+                  <div class="db-stat"><div class="db-val">$22,740</div><div class="db-lbl">Retail value</div><div class="db-sub">excludes sold</div></div>
+                  <div class="db-stat"><div class="db-val">$11,863</div><div class="db-lbl">Potential margin</div><div class="db-sub">cost $8,810 &middot; excl. GST</div></div>
+                  <div class="db-stat"><div class="db-val">$3,120</div><div class="db-lbl">Scrap value</div><div class="db-sub">metal only &middot; 5 of 5 pieces weighed</div></div>
+                </div>
                 <div class="stk-grid">
                   <div class="stk-card"><div class="stk-img"><span class="stk-status avail">Available</span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2"><path d="M6 3h12l3 6-9 12L3 9z"/><path d="M3 9h18M9 3 6 9l6 12 6-12-3-6"/></svg></div><div class="stk-body"><div class="stk-title">Solitaire diamond ring</div><div class="stk-sku">SKU R-1042</div><div class="stk-meta">18ct white gold &middot; 0.70ct centre</div><div class="stk-price">$4,200</div></div></div>
                   <div class="stk-card"><div class="stk-img"><span class="stk-status avail">Available</span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2"><path d="M6 3h12l3 6-9 12L3 9z"/><path d="M3 9h18M9 3 6 9l6 12 6-12-3-6"/></svg></div><div class="stk-body"><div class="stk-title">Tennis bracelet</div><div class="stk-sku">SKU B-2010</div><div class="stk-meta">Platinum &middot; 3.00ct total</div><div class="stk-price">$9,800</div></div></div>
@@ -2926,7 +3005,7 @@
               </div>
             </div>
           </div>
-          <figcaption>Track finished pieces and loose stones, with photos, SKU, cost and retail price, then price one straight into a quote.</figcaption>
+          <figcaption>Track finished pieces and loose stones, with photos, SKU, cost and retail price, see their scrap value at today&rsquo;s spot price, then price one straight into a quote.</figcaption>
         </figure>
           </div>
 
@@ -2961,6 +3040,7 @@
                   <div class="db-stat"><div class="db-val">62%</div><div class="db-lbl">Quote conversion</div><div class="db-sub">193 of 312 approved</div></div>
                   <div class="db-stat"><div class="db-val">$3,180</div><div class="db-lbl">Avg final price</div></div>
                   <div class="db-stat"><div class="db-val" style="color:#b06a10">$9,275</div><div class="db-lbl">Outstanding</div><div class="db-sub">balance owed</div></div>
+                  <div class="db-stat peach"><div class="db-val">$2,400</div><div class="db-lbl">Funds held</div><div class="db-sub">deposits beyond agreed charge &middot; tap to see jobs</div></div>
                 </div>
                 <div class="db-card" style="margin-bottom:16px">
                   <div class="db-cardtitle" style="margin-bottom:14px">Received (cash + trade-ins) &middot; last 6 months</div>
@@ -3082,9 +3162,10 @@
                     <div class="f-field"><label class="f-l">ABN</label><div class="f-in">12 345 678 901</div></div>
                   </div>
                   <div class="f-field"><label class="f-l">Address</label><div class="f-in">24 Collins Street, Melbourne VIC 3000</div></div>
-                  <div class="f-grid2">
+                  <div class="f-grid3">
                     <div class="f-field"><label class="f-l">Deposit required (%)</label><div class="f-in">30</div></div>
                     <div class="f-field"><label class="f-l">Quote validity (days)</label><div class="f-in">30</div></div>
+                    <div class="f-field"><label class="f-l">Follow-up after (days)</label><div class="f-in">7</div></div>
                   </div>
                   <div class="f-field"><label class="f-l">Google review link</label><div class="f-in">https://g.page/r/aurelia-fine-jewellery</div><div class="f-note">Adds a <b style="color:var(--qbink)">Review us on Google</b> button to the ready-for-collection email.</div></div>
                   <div class="set-save"><span class="ri-btn fill">Save business details</span></div>
@@ -3416,10 +3497,10 @@
                 </div>
                 <div class="doc-sec">
                   <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:6px"><div class="doc-lbl" style="margin:0">Price breakdown</div><div style="font-size:9.5px;color:#8b837c">All prices inclusive of GST</div></div>
-                  <div class="doc-row"><div><div class="t">Platinum solitaire, hidden halo</div><div class="s">Design, materials &amp; craftsmanship</div></div><div class="amt">$4,500.00</div></div>
-                  <div class="doc-row"><div><div class="t">Lab-Grown Emerald 1.5ct D VVS2</div><div class="s">Centre stone &middot; inc. GST</div></div><div class="amt">$2,950.00</div></div>
+                  <div class="doc-row"><div><div class="t">Platinum solitaire engagement ring</div><div class="s">Hidden-halo solitaire set with a lab-grown emerald, finger size H, in platinum 950.</div></div><div class="amt">$4,500</div></div>
+                  <div class="doc-row"><div><div class="t">Lab-Grown Emerald 1.5ct D VVS2</div><div class="s">Centre stone &middot; inc. GST</div></div><div class="amt">$2,950</div></div>
                   <div class="doc-total">
-                    <div class="grand"><div><div class="k">Total quoted price</div><div style="font-size:9.5px;color:rgba(255,255,255,.3);margin-top:2px">Inc. GST &middot; Quoted in AUD</div></div><div style="text-align:right"><div class="g">$7,450.00</div><div style="font-size:10.5px;color:rgba(255,255,255,.5);margin-top:4px">30% deposit to commence: <b style="color:#fff">$2,235.00</b></div></div></div>
+                    <div class="grand"><div><div class="k">Total quoted price</div><div style="font-size:9.5px;color:rgba(255,255,255,.3);margin-top:2px">Inc. GST &middot; Quoted in AUD</div></div><div style="text-align:right"><div class="g">$7,450</div><div style="font-size:10.5px;color:rgba(255,255,255,.5);margin-top:4px">30% deposit to commence: <b style="color:#fff">$2,235</b></div></div></div>
                   </div>
                 </div>
                 <div class="doc-sec"><div class="doc-lbl">Terms &amp; conditions</div><div class="doc-terms">All custom jewellery requires a deposit before work commences. The final balance is due prior to collection. Quoted prices are valid for the period stated above. All pieces are handcrafted to order and cannot be returned unless faulty. Estimated completion times are indicative only.</div></div>
@@ -3490,15 +3571,12 @@
                   <div class="doc-opt">
                     <div class="head"><div><div class="ot">18ct white gold &middot; Lab-Grown Emerald 1.2ct</div><div class="od">Classic solitaire in 18ct white gold, F VS1 centre.</div></div><div class="op">$6,180<small>inc GST</small></div></div>
                   </div>
-                  <div class="doc-hl">
-                    <div class="r due"><span class="k">Deposit to proceed (30%)</span><span class="v">$2,235.00</span></div>
-                    <div class="r" style="padding-top:8px"><span style="font-size:11px">Balance due on completion</span><span></span></div>
-                  </div>
+                  <div style="font-size:11.5px;color:#8b837c;margin-top:14px">To proceed, a 30% deposit of <b style="color:#1b1712">$2,235</b> is required.</div>
                   <div class="doc-accept">
                     <div class="h">Accept this proposal</div>
                     <div class="doc-namefield">Type your full name to confirm</div>
-                    <div class="doc-acceptbtn">Accept &mdash; Platinum solitaire &middot; $7,450</div>
-                    <div style="font-size:10px;color:#8b837c;margin-top:10px;line-height:1.5">By accepting you agree to the terms. This records your selection and notifies the studio. It is not a payment.</div>
+                    <div class="doc-acceptbtn">Accept Platinum solitaire &middot; Lab-Grown Emerald 1.5ct</div>
+                    <div style="font-size:10px;color:#8b837c;margin-top:10px;line-height:1.5">By accepting you agree to the terms below. This records your selection and notifies the studio. It is not a payment. The studio will then send you an invoice to arrange payment.</div>
                   </div>
                 </div>
                 <div class="doc-foot">All prices inclusive of GST &middot; Quoted in AUD</div>
@@ -3808,6 +3886,19 @@
     setTimeout(function(){
       if(els[0]&&!els[0].classList.contains('in')){els.forEach(function(e){e.classList.add('in');});}
     },3000);
+  })();
+</script>
+
+<script>
+  // phone menu: the hamburger opens/closes the nav links
+  (function(){
+    var bar=document.querySelector('.topbar'),btn=bar&&bar.querySelector('.nav-toggle');
+    if(!btn)return;
+    function set(open){bar.classList.toggle('menu-open',open);btn.setAttribute('aria-expanded',open?'true':'false');btn.setAttribute('aria-label',open?'Close menu':'Open menu');}
+    btn.addEventListener('click',function(){set(!bar.classList.contains('menu-open'));});
+    bar.querySelectorAll('.nav-links a').forEach(function(a){a.addEventListener('click',function(){set(false);});});
+    document.addEventListener('keydown',function(e){if(e.key==='Escape')set(false);});
+    document.addEventListener('click',function(e){if(!bar.contains(e.target))set(false);});
   })();
 </script>
 
