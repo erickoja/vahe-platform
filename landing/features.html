@@ -27,9 +27,10 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <style>html,body{margin:0;padding:0;background:#FBF9F8}
-  .jump{display:flex;flex-wrap:wrap;justify-content:center;gap:8px;margin-top:22px}
-  .jump a{padding:7px 14px;border:1px solid var(--line);border-radius:999px;background:var(--surface);font-size:.85rem;font-weight:500;color:inherit;text-decoration:none}
-  .jump a:hover{border-color:var(--accent)}
+  .jump{display:flex;flex-wrap:wrap;justify-content:center;align-items:center;gap:6px 18px;margin-top:18px;font-size:.9rem}
+  .jump span{color:var(--muted)}
+  .jump a{color:var(--accent);font-weight:600;text-decoration:none;border-bottom:1px solid transparent}
+  .jump a:hover{border-bottom-color:currentColor}
   main section[id]{scroll-margin-top:0}
 </style>
 <script type="application/ld+json">{"@context":"https://schema.org","@type":"SoftwareApplication","name":"Workshop Pilot","applicationCategory":"BusinessApplication","operatingSystem":"Web browser","url":"https://workshoppilot.app/","description":"Quoting, proposals, job tracking and invoicing software for jewellers and workshops.","offers":{"@type":"Offer","price":"49","priceCurrency":"AUD"}}</script>
@@ -1608,19 +1609,14 @@
           <h1 style="font-size:clamp(2rem,4.5vw,3.2rem);line-height:1.1;margin:0 0 14px">Everything inside Workshop Pilot.</h1>
           <p>From pricing a centre stone to the documents your clients receive. All included in one plan: <b>$49/month</b>, no extras.</p>
           <nav class="jump" aria-label="On this page">
-            <a href="#app">The app</a><a href="#quoting">Quoting</a><a href="#documents">Documents</a><a href="#stock">Stock</a><a href="#more">More</a>
+            <span>Jump to</span><a href="#quoting">Quoting</a><a href="#documents">Documents</a><a href="#stock">Stock</a><a href="#more">More</a>
           </nav>
         </div>
       </div>
     </section>
 
-    <section class="section shotshow shots-app" id="app" style="padding-top:28px">
+    <section class="section shotshow shots-app" id="app" style="padding-top:44px">
       <div class="wrap">
-        <div class="sec-head reveal">
-          <p class="eyebrow">Inside the app</p>
-          <h2>The real workspace, screen by screen.</h2>
-          <p>The actual screens you work in, from a dashboard that reads your whole studio at a glance to quoting a bespoke piece, proposing it, invoicing it, and repricing your metals to the day&rsquo;s spot. Everything a bespoke studio runs on, in one place.</p>
-        </div>
         <div class="qbtabs reveal">
           <input type="radio" name="qbtab" id="qbtab-dash" checked>
           <input type="radio" name="qbtab" id="qbtab-job">
