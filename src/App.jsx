@@ -11095,8 +11095,9 @@ function TaskRow({it,ch,doingIt,pr,accent,job,jobClient,onOpenJob,onSetDue,onTog
   const hasChips=doingIt||ch||pr||job;
   const jumpJob=e=>{e.stopPropagation();onOpenJob&&onOpenJob();};
   const bc=h?GOLD:borderCol;   // solid gold on hover so the outline stays clearly visible
+  const touch=useIsMobile();   // no hover on phones/tablets, so keep a visible delete button there
   return <div onMouseEnter={()=>setH(true)} onMouseLeave={()=>setH(false)}
-    style={{display:"flex",alignItems:"flex-start",gap:11,background:h?WHITE:PARCH,border:`1px solid ${bc}`,borderLeft:accent?`3px solid ${DANGER}`:`1px solid ${bc}`,borderRadius:6,padding:"12px 13px",boxShadow:h?SHADOW:"none",transition:"background 0.14s,box-shadow 0.14s,border-color 0.14s"}}>
+    style={{position:"relative",display:"flex",alignItems:"flex-start",gap:11,background:h?WHITE:PARCH,border:`1px solid ${bc}`,borderLeft:accent?`3px solid ${DANGER}`:`1px solid ${bc}`,borderRadius:6,padding:"12px 13px",boxShadow:h?SHADOW:"none",transition:"background 0.14s,box-shadow 0.14s,border-color 0.14s"}}>
     <button onClick={onToggleDone} title={it.done?"Mark as not done":"Mark as done"} style={{flexShrink:0,marginTop:1,width:19,height:19,borderRadius:6,border:`2px solid ${it.done?OK:"#C9C9CD"}`,background:it.done?OK:WHITE,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",padding:0}}>{it.done&&<span style={{color:WHITE,fontSize:11,fontWeight:900,lineHeight:1}}>✓</span>}</button>
     {!it.done&&<button onClick={onToggleDoing} title={doingIt?"Mark as not in progress":"Mark as in progress"} style={{flexShrink:0,marginTop:1,width:19,height:19,borderRadius:"50%",border:`2px solid ${doingIt?WARN:"#C9C9CD"}`,background:doingIt?GOLD_L:WHITE,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",padding:0}}>{doingIt&&<span style={{width:8,height:8,borderRadius:"50%",background:WARN,display:"block"}}/>}</button>}
     <div onClick={onOpen} title="Open task details" style={{flex:1,minWidth:0,cursor:"pointer"}}>
@@ -11114,13 +11115,15 @@ function TaskRow({it,ch,doingIt,pr,accent,job,jobClient,onOpenJob,onSetDue,onTog
       {it.notes&&it.notes.trim()&&<div style={{fontSize:11.5,color:WG,marginTop:(hasChips||job)?6:3,lineHeight:1.4,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{it.notes.trim()}</div>}
       {it.done&&it.completedAt&&<div style={{fontSize:11,color:OK,fontWeight:600,marginTop:(hasChips||job||(it.notes&&it.notes.trim()))?6:3}}>✓ Completed {new Date(it.completedAt).toLocaleDateString(LOCALE,{day:"numeric",month:"short",year:"numeric"})}</div>}
     </div>
-    {!it.done&&(onTogglePriority||onSetDue)&&<div style={{display:"flex",alignItems:"center",gap:2,flexShrink:0,alignSelf:"center",opacity:h?1:0,pointerEvents:h?"auto":"none",transition:"opacity 0.14s"}}>
-      {onTogglePriority&&<button onClick={e=>{e.stopPropagation();onTogglePriority();}} title={it.priority==="high"?"Remove high priority":"Mark high priority"} style={{background:"none",border:"none",cursor:"pointer",color:it.priority==="high"?DANGER:WG,fontSize:14,lineHeight:1,padding:"0 3px"}}>⚑</button>}
-      {onSetDue&&<label onClick={e=>e.stopPropagation()} title={it.due?"Change due date":"Set due date"} style={{position:"relative",display:"inline-flex",cursor:"pointer",color:it.due?GOLD_D:WG,fontSize:13,lineHeight:1,padding:"0 3px"}}>📅
+    {/* Hover tools float over the row so they never steal width from the task text. */}
+    {!touch&&<div style={{position:"absolute",top:6,right:6,display:"flex",alignItems:"center",gap:2,background:WHITE,border:`1px solid ${BD_SOFT}`,borderRadius:6,padding:"4px 4px",boxShadow:SHADOW,opacity:h?1:0,pointerEvents:h?"auto":"none",transition:"opacity 0.14s"}}>
+      {!it.done&&onTogglePriority&&<button onClick={e=>{e.stopPropagation();onTogglePriority();}} title={it.priority==="high"?"Remove high priority":"Mark high priority"} style={{background:"none",border:"none",cursor:"pointer",color:it.priority==="high"?DANGER:WG,fontSize:14,lineHeight:1,padding:"0 3px"}}>⚑</button>}
+      {!it.done&&onSetDue&&<label onClick={e=>e.stopPropagation()} title={it.due?"Change due date":"Set due date"} style={{position:"relative",display:"inline-flex",cursor:"pointer",color:it.due?GOLD_D:WG,fontSize:13,lineHeight:1,padding:"0 3px"}}>📅
         <input type="date" value={it.due||""} onChange={e=>onSetDue(e.target.value)} style={{position:"absolute",inset:0,width:"100%",height:"100%",opacity:0,cursor:"pointer",border:"none",padding:0}}/>
       </label>}
+      <button onClick={e=>{e.stopPropagation();onRemove();}} title="Delete task" style={{background:"none",border:"none",cursor:"pointer",color:WG,fontSize:16,lineHeight:1,padding:"0 3px"}}>×</button>
     </div>}
-    <button onClick={onRemove} title="Delete task" style={{flexShrink:0,alignSelf:"center",background:"none",border:"none",cursor:"pointer",color:WG,fontSize:17,lineHeight:1,padding:"0 2px",opacity:h?0.85:0.25,transition:"opacity 0.14s"}}>×</button>
+    {touch&&<button onClick={onRemove} title="Delete task" style={{flexShrink:0,alignSelf:"center",background:"none",border:"none",cursor:"pointer",color:WG,fontSize:17,lineHeight:1,padding:"0 2px",opacity:0.4}}>×</button>}
   </div>;
 }
 
@@ -11197,6 +11200,17 @@ function TodoBoard({todos,setTodos,jobs=[],clients=[],setView,setSelJob}){
   const[showDone,setShowDone]=useState({});            // per-person: is the Completed section expanded
   const[renameId,setRenameId]=useState(null);          // person whose name is being edited inline
   const[renameText,setRenameText]=useState("");
+  // Masonry column count follows the board's own width (min ~330px per column).
+  const boardRef=useRef(null);
+  const[colCount,setColCount]=useState(3);
+  useEffect(()=>{
+    const el=boardRef.current;if(!el)return;
+    const measure=()=>setColCount(Math.max(1,Math.floor((el.clientWidth+20)/(330+20))));
+    measure();
+    const ro=typeof ResizeObserver!=="undefined"?new ResizeObserver(measure):null;
+    ro?ro.observe(el):window.addEventListener("resize",measure);
+    return()=>{ro?ro.disconnect():window.removeEventListener("resize",measure);};
+  },[people.length>0]);
   const toggleShowDone=pid=>setShowDone(s=>({...s,[pid]:!s[pid]}));
   const save=next=>{if(!guardEdit())return;setTodos(next);persist(K.td,next);};
   const addPerson=()=>{const name=newPerson.trim();if(!name)return;save({people:[...people,{id:uid(),name}],items});setNewPerson("");};
@@ -11331,9 +11345,11 @@ function TodoBoard({todos,setTodos,jobs=[],clients=[],setView,setSelJob}){
             </div>
           </div>
 
-          {/* Person cards — flex-wrap so cards grow to a comfortable width and fill each row evenly */}
-          <div style={{display:"flex",flexWrap:"wrap",gap:20,alignItems:"flex-start"}}>
-            {orderedPeople.map(person=>{
+          {/* Person cards — balanced masonry columns: each card drops into the currently shortest column,
+              so a long list never leaves a big blank gap under its short neighbours. */}
+          <div ref={boardRef} style={{display:"flex",gap:20,alignItems:"flex-start"}}>
+            {(()=>{
+            const cards=orderedPeople.map(person=>{
               const list=items.filter(i=>i.personId===person.id);
               const fullOpen=list.filter(i=>!i.done);
               const fullDone=list.filter(i=>i.done);
@@ -11348,7 +11364,9 @@ function TodoBoard({todos,setTodos,jobs=[],clients=[],setView,setSelJob}){
               const showCompleted=(!!showDone[person.id]||statusFilter==="done"||!!q)&&done.length>0;
               // With a filter active, drop cards that have nothing matching.
               if(filterActive&&open.length===0&&done.length===0)return null;
-              return <div key={person.id} style={{flex:isMobile?"1 1 100%":"1 1 360px",minWidth:0,maxWidth:isMobile?"100%":560,background:WHITE,border:`1px solid ${BD_SOFT}`,borderRadius:RADIUS,boxShadow:SHADOW,padding:isMobile?"16px 14px 18px":"22px 22px 24px",display:"flex",flexDirection:"column"}}>
+              // Rough height estimate (in "row" units) used to balance the columns.
+              const weight=3+open.reduce((s,it)=>s+1+(isDoing(it)||it.jobId||it.priority==="high"||it.due?0.7:0)+(it.jobId?0.4:0)+Math.floor((it.text||"").length/34)*0.45,0)+(doneCount?0.5:0)+(showCompleted?done.length*1.2:0);
+              return {weight,el:<div key={person.id} style={{width:"100%",background:WHITE,border:`1px solid ${BD_SOFT}`,borderRadius:RADIUS,boxShadow:SHADOW,padding:isMobile?"16px 14px 18px":"22px 22px 24px",display:"flex",flexDirection:"column"}}>
                 {/* Person header */}
                 <div style={{display:"flex",alignItems:"center",gap:12,marginBottom:16,paddingBottom:16,borderBottom:`1px solid ${BD_SOFT}`}}>
                   <div style={{width:38,height:38,borderRadius:"50%",background:GOLD_L,color:GOLD_D,display:"flex",alignItems:"center",justifyContent:"center",fontSize:15,fontWeight:800,flexShrink:0}}>{(person.name||"?").slice(0,1).toUpperCase()}</div>
@@ -11360,7 +11378,7 @@ function TodoBoard({todos,setTodos,jobs=[],clients=[],setView,setSelJob}){
                           <button onClick={()=>setRenameId(null)} title="Cancel" style={{background:"none",border:"none",cursor:"pointer",color:WG,fontSize:16,lineHeight:1,padding:0,flexShrink:0}}>×</button>
                         </div>
                       :<div style={{display:"flex",alignItems:"center",gap:6}}>
-                          <div style={{fontWeight:800,fontSize:16,color:INK,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{person.name}</div>
+                          <div title={person.name} style={{fontWeight:800,fontSize:16,color:INK,lineHeight:1.3,overflow:"hidden",display:"-webkit-box",WebkitLineClamp:2,WebkitBoxOrient:"vertical",wordBreak:"break-word"}}>{person.name}</div>
                           <button onClick={()=>startRename(person)} title="Edit name" style={{background:"none",border:"none",cursor:"pointer",color:WG,fontSize:12,lineHeight:1,padding:0,flexShrink:0}}>✎</button>
                         </div>}
                     <div style={{fontSize:11,color:WG,marginTop:1}}>{fullOpen.length} open{fullDoing.length?<span style={{color:WARN,fontWeight:700}}> · {fullDoing.length} in progress</span>:""}{fullDone.length?` · ${fullDone.length} done`:""}{overdueCount>0&&<span style={{color:DANGER,fontWeight:700}}> · {overdueCount} overdue</span>}</div>
@@ -11395,8 +11413,12 @@ function TodoBoard({todos,setTodos,jobs=[],clients=[],setView,setSelJob}){
                         </div>}
                       </div>}
                     </>}
-              </div>;
-            })}
+              </div>};
+            }).filter(Boolean);
+            const cols=Array.from({length:Math.max(1,Math.min(colCount,cards.length))},()=>({h:0,els:[]}));
+            cards.forEach(c=>{const t=cols.reduce((m,x)=>x.h<m.h?x:m,cols[0]);t.els.push(c.el);t.h+=c.weight+1.5;});
+            return cols.map((c,i)=><div key={i} style={{flex:"1 1 0",minWidth:0,maxWidth:cards.length<colCount?520:undefined,display:"flex",flexDirection:"column",gap:20}}>{c.els}</div>);
+            })()}
           </div>
         </>}
 
