@@ -1895,7 +1895,7 @@ const computeFollowUps=({jobs,clients,quotes,payments,invoices,proposals,markupT
     if(p.status!=="sent")return;
     const job=jobById(p.jobId);if(!job||jobIsClosed(job)||job.parked)return;
     if((quotes||[]).some(q=>q.jobId===job.id&&q.status==="Approved"))return;
-    const waited=_daysSinceISO(p.lastRemindedAt||p.createdAt);
+    const waited=_daysSinceISO(p.lastRemindedAt||p.renewedAt||p.createdAt);
     if(waited<days)return;
     rows.push({id:"prop_"+p.id,type:"proposal",proposal:p,job,client:clientForJob(job),amount:0,waited,lastRemindedAt:p.lastRemindedAt||null,link:p.token?`${origin}/?p=${p.token}`:""});
   });
@@ -2086,6 +2086,12 @@ const resyncInvoiceWithQuotes=(inv,allQuotes,job,markupTable)=>{
   return{...inv,...fields,subtotalIncGST:sub,discount:disc,discountLabel:extra>0.005?(inv.discountLabel||fields.discountLabel||"Discount"):fields.discountLabel,totalIncGST:net,gst:net-net/(1+GST_RATE)};
 };
 
+// A proposal's validity window starts from when it was last renewed (Edit / Update from quote / Renew
+// re-publish it at current prices), falling back to when it was first created.
+const proposalValidFrom=p=>String(p?.renewedAt||p?.createdAt||today()).slice(0,10);
+const proposalExpiryISO=(p,biz)=>addDays(proposalValidFrom(p),biz?.quoteValidityDays||30);
+const proposalIsExpired=(p,biz)=>!!(p?.createdAt||p?.renewedAt)&&proposalExpiryISO(p,biz)<today();
+
 const buildProposalSnapshot=({proposal,job,client,biz,quotes,markupTable,payments,photoMap})=>{
   const validityDays=biz?.quoteValidityDays||30;
   const created=proposal.createdAt||today();
@@ -2130,7 +2136,7 @@ const buildProposalSnapshot=({proposal,job,client,biz,quotes,markupTable,payment
     paidTotal,
     dueNow:proposal.dueNow??null,
     paymentNote:proposal.paymentNote||"",
-    validUntil:addDays(String(created).slice(0,10),validityDays),
+    validUntil:addDays(proposalValidFrom(proposal),validityDays),
     terms:biz?.quoteTerms||"All custom jewellery requires a deposit before work commences. The final balance is due prior to collection. Quoted prices are valid for the period stated above. Price variations may apply if material costs change significantly. All pieces are handcrafted to order and cannot be returned unless faulty. Estimated completion times are indicative only.",
     createdAt:created,
   };
@@ -3595,7 +3601,7 @@ function Dashboard({clients,jobs,quotes,payments,invoices,appointments=[],propos
   // it drops out of active tracking here. Frozen = a sent proposal, no acceptance, no approved quote,
   // no money in, and every sent proposal past expiry (createdAt + the studio's quote-validity window).
   const validityDays=biz?.quoteValidityDays||30;
-  const propExpired=p=>p?.createdAt?addDays(String(p.createdAt).slice(0,10),validityDays)<today():false;
+  const propExpired=p=>proposalIsExpired(p,{quoteValidityDays:validityDays});
   const isFrozen=j=>{
     const jp=proposals.filter(p=>p.jobId===j.id);
     const sent=jp.filter(p=>p.status==="sent");
@@ -4187,7 +4193,7 @@ function Jobs({clients,jobs,setJobs,quotes,setQuotes,payments,setPayments,notes,
     const cash=payments.filter(p=>p.jobId===j.id&&p.status==="Received").reduce((s,p)=>s+Number(p.amount||0),0);
     if(cash>0||jobTradeInCredit(j,quotes)>0)return false;
     const vd=biz?.quoteValidityDays||30;
-    return sent.every(p=>p.createdAt&&addDays(String(p.createdAt).slice(0,10),vd)<today());
+    return sent.every(p=>proposalIsExpired(p,{quoteValidityDays:vd}));
   };
   const[paidNoQuoteOnly,setPaidNoQuoteOnly]=useState(false);   // money in but no approved quote/override
   // A job with money received but no agreed charge — a deposit against a quote that was never
@@ -6434,7 +6440,7 @@ function JobProposals({job,client,quotes,proposals,setProposals,setQuotes,biz,ma
       // Edit an existing proposal: keep its id/token/status, update the fields, re-publish to the same link.
       const existing=proposals.find(x=>x.id===editingId);
       if(!existing){setBusy(false);setEditingId(null);setBuilder(false);return;}
-      const proposal={...existing,...fields};
+      const proposal={...existing,...fields,renewedAt:today()};   // re-publishing restarts the validity window
       proposal.syncState=proposalState(proposal);   // baseline for "Update from quote" differs-detection
       const snapshot=buildProposalSnapshot({proposal,job,client,biz,quotes,markupTable,payments,photoMap});
       const{error}=await supabase.from(PUBLIC_PROPOSALS_TABLE).update({data:snapshot}).eq("token",proposal.token);
@@ -6531,17 +6537,22 @@ function JobProposals({job,client,quotes,proposals,setProposals,setQuotes,biz,ma
   // No baseline yet (proposals sent before this was added) → treat as "may differ" so the button stays usable.
   const proposalDiffers=pp=>!pp.syncState||proposalChanges(pp).length>0;
   // Rebuild the client's live link from the CURRENT quotes & payments (prices, trade-in, balance).
+  // Pushing current prices to the link also restarts its validity window (renew=true), so an expired
+  // proposal comes back to life at today's prices.
   const resendProposal=async p=>{
+    if(!guardEdit())return;
     if(!supabaseEnabled||!supabase||!p.token)return;
     const changes=proposalChanges(p);   // work out what changed BEFORE we reset the baseline
+    const wasExpired=proposalIsExpired(p,biz);
+    const renewed={...p,renewedAt:today()};
     try{
       const photoMap=await jobImageMap(job);
-      const snap=buildProposalSnapshot({proposal:p,job,client,biz,quotes,markupTable,payments,photoMap});
+      const snap=buildProposalSnapshot({proposal:renewed,job,client,biz,quotes,markupTable,payments,photoMap});
       const{error}=await supabase.from(PUBLIC_PROPOSALS_TABLE).update({data:snap}).eq("token",p.token);
       if(error){alert("Couldn't update the proposal link: "+error.message);return;}
-      const msg=changes.length?("✓ Updated: "+changes.join(", ")):(p.syncState?"✓ Already up to date":"✓ Link refreshed");
+      const msg=wasExpired?`✓ Renewed to ${fmtDate(proposalExpiryISO(renewed,biz))}`:changes.length?("✓ Updated: "+changes.join(", ")):(p.syncState?"✓ Already up to date":"✓ Link refreshed");
       setResent(p.id);setResentMsg(msg);setTimeout(()=>setResent(c=>c===p.id?"":c),2800);
-      save(proposals.map(x=>x.id===p.id?{...x,syncState:proposalState(p)}:x));
+      save(proposals.map(x=>x.id===p.id?{...x,renewedAt:renewed.renewedAt,syncState:proposalState(p)}:x));
     }catch(e){alert("Couldn't update the proposal link.");}
   };
 
@@ -6559,14 +6570,18 @@ function JobProposals({job,client,quotes,proposals,setProposals,setQuotes,biz,ma
 
     {jobProposals.map(p=>{
       const accepted=p.status==="accepted";
+      const expired=!accepted&&p.status==="sent"&&proposalIsExpired(p,biz);
       return <div key={p.id} style={{border:`1px solid ${accepted?OK+"66":BD}`,borderRadius:4,padding:"12px 14px",marginBottom:10,background:accepted?OK+"08":WHITE}}>
         <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:12,flexWrap:"wrap"}}>
           <div style={{flex:1,minWidth:200}}>
             <div style={{display:"flex",alignItems:"center",gap:10}}>
               <span style={{fontWeight:700,fontSize:14,color:INK}}>{(p.optionIds||[]).length} option{(p.optionIds||[]).length!==1?"s":""}</span>
-              <Badge label={accepted?"Accepted":p.status==="sent"?"Sent":"Draft"} color={accepted?OK:p.status==="sent"?GOLD_D:WG}/>
-              <span style={{fontSize:12,color:WG}}>{fmtDate(p.createdAt)}</span>
+              <Badge label={accepted?"Accepted":expired?"Expired":p.status==="sent"?"Sent":"Draft"} color={accepted?OK:expired?DANGER:p.status==="sent"?GOLD_D:WG}/>
+              <span style={{fontSize:12,color:WG}}>{fmtDate(p.createdAt)}{p.status==="sent"&&!accepted?<span style={{color:expired?DANGER:WG,fontWeight:expired?700:400}}> · {expired?"expired":"valid until"} {fmtDate(proposalExpiryISO(p,biz))}</span>:null}</span>
             </div>
+            {expired&&<div style={{fontSize:12,color:DANGER,marginTop:6,display:"flex",alignItems:"center",gap:10,flexWrap:"wrap"}}>The client's link shows "This quote has expired".
+              <button onClick={()=>resendProposal(p)} style={{background:GOLD,border:`1px solid ${GOLD}`,borderRadius:6,padding:"4px 11px",fontSize:12,fontWeight:700,color:WHITE,cursor:"pointer",fontFamily:"inherit"}}>↻ Renew at today's prices</button>
+            </div>}
             <div style={{fontSize:12,color:WG,marginTop:4}}>{(p.optionIds||[]).map(optLabel).join(" · ")}</div>
             {accepted&&<div style={{fontSize:13,color:OK,fontWeight:700,marginTop:6}}>✓ {p.acceptedName||"Client"} accepted “{optLabel(p.acceptedQuoteId)}”{p.acceptedAt?` on ${fmtDate(p.acceptedAt)}`:""} — quote approved.</div>}
           </div>
@@ -6574,7 +6589,7 @@ function JobProposals({job,client,quotes,proposals,setProposals,setQuotes,biz,ma
             <button onClick={()=>copyLink(p)} style={{background:copied===p.id?OK:GOLD_L,border:`1px solid ${copied===p.id?OK:GOLD}`,borderRadius:6,padding:"5px 12px",fontSize:12,fontWeight:700,color:copied===p.id?WHITE:GOLD_D,cursor:"pointer",fontFamily:"inherit"}}>{copied===p.id?"✓ Copied":"Copy link"}</button>
             <EmailClientButton to={client?.email} clientName={clientDisplayName(client)} biz={biz} linkUrl={linkFor(p)} docType="proposal" defaultSubject={`Your proposal from ${biz?.name||"us"}`} defaultMessage={`Thank you for considering ${biz?.name||"us"} for your piece. Please review your proposal using the button below — you can accept your preferred option online.`}/>
             <button onClick={()=>window.open(linkFor(p),"_blank")} style={{background:"none",border:`1px solid ${BD}`,borderRadius:6,padding:"5px 12px",fontSize:12,fontWeight:700,color:WG,cursor:"pointer",fontFamily:"inherit"}}>Preview</button>
-            {(()=>{const differs=proposalDiffers(p),showMsg=resent===p.id;
+            {(()=>{const differs=proposalDiffers(p)||expired,showMsg=resent===p.id;
               return <button onClick={()=>resendProposal(p)} title={differs?"Push the latest quote prices & payments to the client's link":"The client's link already matches the current quote"}
                 style={{background:showMsg?OK:"none",border:`1px solid ${showMsg?OK:differs?GOLD:BD}`,borderRadius:6,padding:"5px 12px",fontSize:12,fontWeight:700,color:showMsg?WHITE:differs?GOLD_D:WG,cursor:"pointer",fontFamily:"inherit",opacity:showMsg||differs?1:0.7}}>
                 {showMsg?resentMsg:differs?"↻ Update from quote":"✓ Matches quote"}</button>;})()}
