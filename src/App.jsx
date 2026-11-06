@@ -11696,6 +11696,34 @@ function PriceList({priceList=[],setPriceList,setView,pricing=[],markupTable=[],
     const g=groupText.trim(),ids=new Set(groupTarget.rows.map(r=>r.it.id));
     if(save(prev=>prev.map(x=>ids.has(x.id)?{...x,group:g}:x))){if(g&&group!=="All"&&group!==g)setGroup(g);setGroupFor(null);}
   };
+  // ── Rename a product: swaps the product part of every variant's name, keeping "in 18ct… (…)" ──
+  const[renameFor,setRenameFor]=useState(null);  // family key
+  const[renameText,setRenameText]=useState("");
+  const renameTarget=renameFor?allFamilies.find(f=>f.key===renameFor):null;
+  const openRename=f=>{setRenameFor(f.key);setRenameText(f.title||"");setMenuFor(null);};
+  const renamedName=(it,oldTitle,newTitle)=>{
+    const n=String(it.name||"").trim();
+    if(oldTitle&&n.toLowerCase().startsWith(oldTitle.toLowerCase()))return newTitle+n.slice(oldTitle.length);
+    const v=plVariantOf(n,oldTitle);
+    return v&&v!==n?`${newTitle} in ${v}`:newTitle;
+  };
+  const renameHasIn=/\sin\s/i.test(renameText.trim());   // " in " would split the name into product + variant
+  const saveRename=()=>{
+    const t=renameText.trim();
+    if(!renameTarget||!t)return;
+    const ids=new Set(renameTarget.rows.map(r=>r.it.id)),old=renameTarget.title;
+    if(save(prev=>prev.map(x=>ids.has(x.id)?{...x,name:renamedName(x,old,t)}:x)))setRenameFor(null);
+  };
+  // ── Rename a single variant: edit its full name ──
+  const[renameItemId,setRenameItemId]=useState(null);
+  const[renameItemText,setRenameItemText]=useState("");
+  const renameItem=renameItemId?priceList.find(x=>x.id===renameItemId):null;
+  const openRenameItem=it=>{setRenameItemId(it.id);setRenameItemText(it.name||"");setMenuFor(null);};
+  const saveRenameItem=()=>{
+    const t=renameItemText.trim();
+    if(!renameItem||!t)return;
+    if(save(prev=>prev.map(x=>x.id===renameItem.id?{...x,name:t}:x)))setRenameItemId(null);
+  };
   const createCopies=()=>{
     if(!copyTarget||!baseRow||(!toCreate.length&&!selfAs))return;
     const title=copyTarget.title,base=baseRow.it;
@@ -11748,6 +11776,7 @@ function PriceList({priceList=[],setPriceList,setView,pricing=[],markupTable=[],
     <button aria-label="More actions" onClick={e=>{e.stopPropagation();setMenuFor(m=>m===r.it.id?null:r.it.id);}}
       style={{background:menuFor===r.it.id?PARCH:"none",border:`1px solid ${menuFor===r.it.id?BD:"transparent"}`,borderRadius:8,width:30,height:28,cursor:"pointer",color:WG,fontSize:16,lineHeight:1,fontFamily:"inherit"}}>⋯</button>
     {menuFor===r.it.id&&<div onClick={e=>e.stopPropagation()} style={{position:"absolute",top:"calc(100% + 4px)",right:isMobile?"auto":0,left:isMobile?0:"auto",zIndex:20,background:WHITE,border:`1px solid ${BD}`,borderRadius:10,boxShadow:SHADOW,padding:"4px 0",minWidth:170}}>
+      <button style={menuItem} onClick={()=>openRenameItem(r.it)}>Rename variant</button>
       <button style={menuItem} onClick={()=>{setMenuFor(null);duplicate(r.it);}}>Duplicate as new variant</button>
       <button style={{...menuItem,color:DANGER}} onClick={()=>{setMenuFor(null);remove(r.it);}}>Delete</button>
     </div>}
@@ -11837,7 +11866,10 @@ function PriceList({priceList=[],setPriceList,setView,pricing=[],markupTable=[],
                     <div onClick={()=>toggleFamily(f.key)} style={{display:"flex",alignItems:"center",gap:12,padding:isMobile?"14px 16px":"14px 18px",cursor:"pointer",flexWrap:"wrap"}}>
                       <span style={{color:WG,fontSize:12,width:12,display:"inline-block",transform:open?"rotate(90deg)":"none",transition:"transform .15s"}}>▶</span>
                       <div style={{flex:"1 1 260px",minWidth:0}}>
-                        <div style={{fontWeight:700,fontSize:15,color:INK}}>{f.title||"Untitled product"}</div>
+                        <div style={{display:"flex",alignItems:"center",gap:6}}>
+                          <span style={{fontWeight:700,fontSize:15,color:INK}}>{f.title||"Untitled product"}</span>
+                          <button onClick={e=>{e.stopPropagation();openRename(f);}} title="Rename product" style={{background:"none",border:"none",cursor:"pointer",color:WG,fontSize:12,lineHeight:1,padding:"2px 3px",flexShrink:0}}>✎</button>
+                        </div>
                         <div style={{fontSize:12,color:WG,marginTop:2}}>{[f.group,f.rows.length>1?`${f.rows.length} variants`:"",f.lastPriced?`priced ${fmtDate(f.lastPriced)}`:""].filter(Boolean).join(" · ")}</div>
                       </div>
                       {f.toPrice>0&&<span style={{fontSize:11,fontWeight:700,color:GOLD_D,background:GOLD_L,borderRadius:4,padding:"3px 8px"}}>{f.toPrice} to price</span>}
@@ -11847,6 +11879,7 @@ function PriceList({priceList=[],setPriceList,setView,pricing=[],markupTable=[],
                         <button aria-label="Product actions" onClick={e=>{e.stopPropagation();setMenuFor(m=>m==="fam:"+f.key?null:"fam:"+f.key);}}
                           style={{background:menuFor==="fam:"+f.key?PARCH:"none",border:`1px solid ${menuFor==="fam:"+f.key?BD:"transparent"}`,borderRadius:8,width:30,height:28,cursor:"pointer",color:WG,fontSize:16,lineHeight:1,fontFamily:"inherit"}}>⋯</button>
                         {menuFor==="fam:"+f.key&&<div style={{position:"absolute",top:"calc(100% + 4px)",right:0,zIndex:20,background:WHITE,border:`1px solid ${BD}`,borderRadius:10,boxShadow:SHADOW,padding:"4px 0",minWidth:230}}>
+                          <button style={menuItem} onClick={()=>openRename(f)}>Rename product</button>
                           <button style={menuItem} onClick={()=>openGroup(f)}>Change group</button>
                           <button style={menuItem} onClick={()=>openCopy(f)}>Copy variants from another product</button>
                         </div>}
@@ -11867,6 +11900,38 @@ function PriceList({priceList=[],setPriceList,setView,pricing=[],markupTable=[],
         <div style={{display:"flex",gap:10,justifyContent:"flex-end",marginTop:6,paddingBottom:6}}>
           <Btn ghost onClick={()=>setNewOpen(false)}>Cancel</Btn>
           <Btn onClick={startNew}>Continue</Btn>
+        </div>
+      </div>
+    </Modal>}
+
+    {renameTarget&&<Modal title="Rename product" onClose={()=>setRenameFor(null)}>
+      <div style={{fontSize:13.5,color:INK,lineHeight:1.6}}>
+        <div style={{marginBottom:14}}>{renameTarget.rows.length>1?<>Renames all {renameTarget.rows.length} variants of <strong>{renameTarget.title}</strong>. Their metal and stone details stay as they are.</>:<>Renames <strong>{renameTarget.title}</strong>.</>}</div>
+        <label style={SS.lbl} htmlFor="pl-rename-input">Product name</label>
+        <input id="pl-rename-input" autoFocus value={renameText} onChange={e=>setRenameText(e.target.value)} onKeyDown={e=>{if(e.key==="Enter")saveRename();}} style={{...SS.inp,marginBottom:10}}/>
+        {renameHasIn&&<div style={{fontSize:12,color:WARN,marginBottom:10}}>Heads up: the word "in" is used to separate the product from its metal, so this name may be split up. Try a different word if the list looks wrong after saving.</div>}
+        {renameText.trim()&&renameTarget.rows.length>0&&<>
+          <div style={{...SS.lbl,marginBottom:6}}>Preview</div>
+          <div style={{border:`1px solid ${BD_SOFT}`,borderRadius:8,maxHeight:180,overflowY:"auto",padding:"6px 12px",fontSize:12.5,color:INK,background:PARCH,marginBottom:6}}>
+            {renameTarget.rows.map(r=><div key={r.it.id} style={{padding:"3px 0"}}>{renamedName(r.it,renameTarget.title,renameText.trim())}</div>)}
+          </div>
+        </>}
+        <div style={{display:"flex",gap:10,justifyContent:"flex-end",marginTop:12,paddingBottom:6}}>
+          <Btn ghost onClick={()=>setRenameFor(null)}>Cancel</Btn>
+          <Btn disabled={!renameText.trim()} onClick={saveRename}>Save name</Btn>
+        </div>
+      </div>
+    </Modal>}
+
+    {renameItem&&<Modal title="Rename variant" onClose={()=>setRenameItemId(null)}>
+      <div style={{fontSize:13.5,color:INK,lineHeight:1.6}}>
+        <div style={{marginBottom:14}}>Edit the full name. Keep the product name at the start, followed by "in" and the metal (stone in brackets), so it stays grouped with its other variants. For example: <em>ARIEL TENNIS 3.12ct in 9ct gold (lab grown accents)</em>.</div>
+        <label style={SS.lbl} htmlFor="pl-rename-item">Full name</label>
+        <input id="pl-rename-item" autoFocus value={renameItemText} onChange={e=>setRenameItemText(e.target.value)} onKeyDown={e=>{if(e.key==="Enter")saveRenameItem();}} style={{...SS.inp,marginBottom:10}}/>
+        {renameItemText.trim()&&<div style={{fontSize:12,color:WG}}>Will show under <strong style={{color:INK}}>{plFamilyOf(renameItemText.trim())}</strong> as <strong style={{color:INK}}>{plVariantOf(renameItemText.trim(),plFamilyOf(renameItemText.trim()))||"Price"}</strong></div>}
+        <div style={{display:"flex",gap:10,justifyContent:"flex-end",marginTop:16,paddingBottom:6}}>
+          <Btn ghost onClick={()=>setRenameItemId(null)}>Cancel</Btn>
+          <Btn disabled={!renameItemText.trim()} onClick={saveRenameItem}>Save name</Btn>
         </div>
       </div>
     </Modal>}
