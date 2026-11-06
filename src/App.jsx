@@ -5492,7 +5492,21 @@ function QuoteBuilder({jobId:jobIdProp,editQuoteId,stockId,stock,setStock,priceL
   const[notes,setNotes]=useState(seed?.notes||"");
   const[clientDescription,setClientDescription]=useState(seed?.clientDescription||"");
   const[title,setTitle]=useState(plMode?(plItem?.name||""):(seed?.title??(job?.type||"")));   // prefill new quotes with the job type
-  const[plGroup,setPlGroup]=useState(plItem?.group||plSource?.group||"");   // price list: product group, e.g. Engagement rings
+  // "+ Add a variant" hands over the product name + group; consumed once.
+  const[plPresetVal]=useState(()=>{const p=plMode&&!plItem?_plPreset:null;return p;});
+  useEffect(()=>{if(plMode)_plPreset=null;},[]);   // eslint-disable-line react-hooks/exhaustive-deps
+  const[plGroup,setPlGroup]=useState(plItem?.group??plPresetVal?.group??plSource?.group??"");   // price list: product group, e.g. Engagement rings
+  // Product / metal / option as three separate boxes (no special wording needed to group variants).
+  const[plName,setPlName]=useState(()=>plItem?plParts(plItem):{product:plPresetVal?.product||"",metal:"",option:""});
+  const plLists=useMemo(()=>{
+    if(!plMode)return{products:[],metals:[],options:[],groups:[],groupOf:{}};
+    const parts=(priceList||[]).map(it=>({...plParts(it),group:(it.group||"").trim()}));
+    const u=a=>[...new Set(a.filter(Boolean))].sort(plNaturalSort);
+    const groupOf={};parts.forEach(p=>{if(p.group&&!groupOf[p.product.toLowerCase()])groupOf[p.product.toLowerCase()]=p.group;});
+    return{products:u(parts.map(p=>p.product)),metals:u(parts.map(p=>p.metal)),options:u(parts.map(p=>p.option.replace(/ copy$/,""))),groups:u(parts.map(p=>p.group)),groupOf};
+  },[plMode,priceList]);
+  // Picking an existing product fills its group when the group box is still empty.
+  const setPlNameAuto=v=>{setPlName(v);const g=plLists.groupOf[String(v.product||"").trim().toLowerCase()];if(g&&!plGroup.trim())setPlGroup(g);};
   const[pieceTitle,setPieceTitle]=useState(seed?.pieceTitle||"");  // custom piece name on documents; blank = use job type
   const[markupOverride,setMarkupOverride]=useState(seed?.markupOverride?String(seed.markupOverride):"");
   // Trade pricing: same builder, the lower trade markup profile. Auto-on for trade-account clients
@@ -5729,7 +5743,7 @@ function QuoteBuilder({jobId:jobIdProp,editQuoteId,stockId,stock,setStock,priceL
     const baseValidItems=items.filter(i=>i.description.trim()&&Number(i.costLow)>0);
     const hasSourcedStones=stoneMode==="sourcing"&&validStoneItems.length>0;
     if(!baseValidItems.length&&!validAccentItems.length&&!hasSourcedStones&&!manualOn)return alert("Add at least one cost item — a line item, a sourced stone, or a manual quoted price.");
-    if(plMode&&!title.trim())return alert("Give this product a name.");
+    if(plMode&&!String(plName.product||"").trim())return alert("Give this product a name.");
     if(stockMode){
       // Persist the full pricing payload (so it can be reopened & re-priced), plus the resulting
       // cost + retail (inc GST) onto the stock piece. Retail auto-fills but stays editable in Stock.
@@ -5742,7 +5756,8 @@ function QuoteBuilder({jobId:jobIdProp,editQuoteId,stockId,stock,setStock,priceL
       const retail=manualOn?Number(manualTotal):grandTotal;
       // The build's metal lines also give the piece's metal content (for its scrap value).
       if(plMode){
-        const rec={name:title.trim(),group:plGroup.trim(),pricing:payload,cost:Math.round(costTotal),price:Math.round(retail),pricedAt:today(),needsPricing:false};
+        const pP=String(plName.product||"").trim(),pM=String(plName.metal||"").trim(),pO=String(plName.option||"").trim(),pName=plComposeName(pP,pM,pO);
+        const rec={name:pName,product:pP,metal:pM,option:pO,group:plGroup.trim(),pricing:{...payload,title:pName},cost:Math.round(costTotal),price:Math.round(retail),pricedAt:today(),needsPricing:false};
         const id=plItem?.id||priceListId;   // "new" never matches a product, so it's added below
         const newId=id==="new"?uid():id;
         setPriceList(p=>{const n=p.some(x=>x.id===newId)?p.map(x=>x.id===newId?{...x,...rec}:x):[...p,{id:newId,createdAt:today(),...rec}];persist(K.pl,n);return n;});
@@ -5790,11 +5805,11 @@ function QuoteBuilder({jobId:jobIdProp,editQuoteId,stockId,stock,setStock,priceL
 
   return <div>
     <div style={{marginBottom:20}}>
-      <h1 style={{margin:0,fontSize:isMobile?19:24,fontWeight:700,color:INK,wordBreak:"break-word"}}>{plMode?(title.trim()||"New product"):stockMode?(seed?"Update price":"Generate price"):(isEditing?"Edit quote":"New quote")}{!plMode&&title.trim()?`: ${title.trim()}`:(stockMode&&stockItem?.title?`: ${stockItem.title}`:"")}</h1>
+      <h1 style={{margin:0,fontSize:isMobile?19:24,fontWeight:700,color:INK,wordBreak:"break-word"}}>{plMode?(String(plName.product||"").trim()?plComposeName(String(plName.product).trim(),String(plName.metal||"").trim(),String(plName.option||"").trim()):"New product"):stockMode?(seed?"Update price":"Generate price"):(isEditing?"Edit quote":"New quote")}{!plMode&&title.trim()?`: ${title.trim()}`:(stockMode&&stockItem?.title?`: ${stockItem.title}`:"")}</h1>
       {job&&<div style={{color:WG,fontSize:13,marginTop:3}}>{job.type} · {clientDisplayName(c)}</div>}
       {plMode&&<div style={{color:WG,fontSize:13,marginTop:3}}>Build it like a quote. No client or job is needed, and the total becomes this product's price on your price list.{plItem?.pricing?" Metal costs have been refreshed to today's prices.":""}</div>}
       {plSource&&<div style={{marginTop:12,background:PARCH,border:`1px solid ${BD}`,borderRadius:6,padding:"10px 14px",fontSize:12.5,color:INK,lineHeight:1.5}}>Started from the build of <strong>{plSource.name}</strong>. Give it a name, adjust what's different, and save. The original isn't changed.</div>}
-      {plItem?.needsPricing&&<div style={{marginTop:12,background:GOLD_L,border:`1px solid ${GOLD}66`,borderRadius:6,padding:"10px 14px",fontSize:12.5,color:GOLD_D,lineHeight:1.5}}>This variant was copied from another one as a starting point. Swap the metal and stone to match <strong>{plVariantOf(plItem.name,plFamilyOf(plItem.name))||"this variant"}</strong>, then save to give it its own price.</div>}
+      {plItem?.needsPricing&&<div style={{marginTop:12,background:GOLD_L,border:`1px solid ${GOLD}66`,borderRadius:6,padding:"10px 14px",fontSize:12.5,color:GOLD_D,lineHeight:1.5}}>This variant was copied from another one as a starting point. Swap the metal and stone to match <strong>{plVariantLabel(plParts(plItem))||"this variant"}</strong>, then save to give it its own price.</div>}
       {stockMode&&!plMode&&<div style={{color:WG,fontSize:13,marginTop:3}}>Pricing a stock piece — builds like a quote, but the total becomes this piece's price.</div>}
       {isEditing&&!stockMode&&<div style={{fontSize:12,color:WG,marginTop:2}}>Quote {quoteRef(existingQuote)} · created {fmtDate(existingQuote.createdAt)}</div>}
       {linkedInvoice&&<div style={{display:"flex",alignItems:"center",gap:10,marginTop:12,background:GOLD_L,border:`1px solid ${GOLD}66`,borderRadius:6,padding:"10px 14px",fontSize:12.5,color:GOLD_D,lineHeight:1.5}}>
@@ -5807,11 +5822,12 @@ function QuoteBuilder({jobId:jobIdProp,editQuoteId,stockId,stock,setStock,priceL
       {/* ── Quote title + expiry + client description (quotes only; stock shows just an internal label) ── */}
       {plMode
         ? <div style={{marginBottom:20}}>
-            <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"1fr 260px",gap:"0 24px"}}>
-              <Input label="Product name" value={title} onChange={setTitle} placeholder="e.g. MARY | Diamond Cross Pendant in 9ct White Gold (0.20ct lab-grown)"/>
-              <Input label="Group (optional)" value={plGroup} onChange={setPlGroup} placeholder="e.g. Religious & Symbolic"/>
+            <PlNameFields value={plName} onChange={setPlNameAuto} products={plLists.products} metals={plLists.metals} options={plLists.options}/>
+            <div style={{maxWidth:isMobile?"none":340,marginTop:12}}>
+              <label style={SS.lbl}>Group (optional)</label>
+              <input value={plGroup} onChange={e=>setPlGroup(e.target.value)} list="pl-dl-group" placeholder="e.g. Religious & Symbolic" style={{...SS.inp}}/>
+              <datalist id="pl-dl-group">{plLists.groups.map(g=><option key={g} value={g}/>)}</datalist>
             </div>
-            <div style={{fontSize:12,color:WG,marginTop:6,lineHeight:1.55}}>To list variants together, name them <strong style={{color:INK}}>Product in Metal (Stone option)</strong>, for example "MARY | Diamond Cross Pendant in 9ct White Gold (0.20ct lab-grown)". Everything before "in" becomes the product heading, the metal becomes a sub-heading and the stone option becomes the row.</div>
           </div>
         : stockMode
         ? <div style={{marginBottom:20}}>
@@ -11601,6 +11617,42 @@ const plSplitVariant=v=>{
   return m?[m[1].trim(),m[2].trim()+(copy?" (copy)":"")]:null;
 };
 const plNaturalSort=(a,b)=>String(a).localeCompare(String(b),undefined,{numeric:true,sensitivity:"base"});
+// Product / metal / option as separate fields. Newer items store them explicitly (typed into their own
+// boxes in the builder); older items fall back to parsing their name, so nothing needs re-entering.
+const plParts=it=>{
+  if(it&&String(it.product||"").trim())return{product:String(it.product).trim(),metal:String(it.metal||"").trim(),option:String(it.option||"").trim()};
+  const name=String(it?.name||"").trim(),product=plFamilyOf(name),v0=plVariantOf(name,product),v=v0===name?"":v0;
+  const sp=plSplitVariant(v);
+  return sp?{product,metal:sp[0],option:sp[1]}:{product,metal:"",option:v};
+};
+const plVariantLabel=p=>[p.metal,p.option].filter(Boolean).join(" · ");
+const plComposeName=(product,metal,option)=>`${product||""}${metal?` in ${metal}`:""}${option?` (${option})`:""}`.trim();
+let _plPreset=null;   // "+ Add variant" on a product: the builder pre-fills its product name and group
+// The three name boxes (product / metal / option), each suggesting what's already on the list,
+// with a live preview of where the item will appear. Used by the builder and the Edit name window.
+function PlNameFields({value,onChange,products=[],metals=[],options=[],autoFocus,onEnter}){
+  const isMobile=useIsMobile();
+  const set=k=>e=>onChange({...value,[k]:e.target.value});
+  const key=e=>{if(e.key==="Enter"&&onEnter)onEnter();};
+  const p=String(value.product||"").trim(),m=String(value.metal||"").trim(),o=String(value.option||"").trim();
+  const existing=p&&products.some(x=>x.toLowerCase()===p.toLowerCase());
+  const box=(k,label,ph,list,hint)=><div style={{minWidth:0}}>
+    <label style={SS.lbl}>{label}</label>
+    <input value={value[k]||""} onChange={set(k)} onKeyDown={key} placeholder={ph} list={"pl-dl-"+k} autoFocus={autoFocus&&k==="product"} style={{...SS.inp,marginBottom:4}}/>
+    <datalist id={"pl-dl-"+k}>{list.map(x=><option key={x} value={x}/>)}</datalist>
+    {hint&&<div style={{fontSize:11.5,color:WG,lineHeight:1.4}}>{hint}</div>}
+  </div>;
+  return <div>
+    <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"1.4fr 1fr 1fr",gap:"10px 16px"}}>
+      {box("product","Product","e.g. ARIEL TENNIS 3.12ct",products,p?(existing?"✓ Adds to this existing product":"New product"):"Pick an existing one to add a variant to it")}
+      {box("metal","Metal (optional)","e.g. 18ct yellow gold",metals,"Variants with a metal get a heading per metal")}
+      {box("option","Stones / option (optional)","e.g. Lab grown accents",options,null)}
+    </div>
+    {p&&<div style={{marginTop:10,fontSize:12.5,color:WG,background:PARCH,border:`1px solid ${BD_SOFT}`,borderRadius:8,padding:"8px 12px"}}>
+      Shows as <strong style={{color:INK}}>{p}</strong>{(m||o)&&<> › <strong style={{color:INK}}>{[m,o].filter(Boolean).join(" › ")}</strong></>}
+    </div>}
+  </div>;
+}
 
 function PriceList({priceList=[],setPriceList,setView,pricing=[],markupTable=[],naturalStoneMarkup=[],labStoneMarkup=[],spotPrices={},onUpdateSpot}){
   const isMobile=useIsMobile();
@@ -11637,8 +11689,8 @@ function PriceList({priceList=[],setPriceList,setView,pricing=[],markupTable=[],
     return priceList.map(it=>{
       const now=it.pricing&&!it.needsPricing?repriceBuild(it.pricing,pricing,tables):null;
       const saved=Number(it.price)||0;
-      const family=plFamilyOf(it.name);
-      return{it,now,saved,diff:now?now.price-saved:0,family,variant:plVariantOf(it.name,family)};
+      const parts=plParts(it);
+      return{it,now,saved,diff:now?now.price-saved:0,family:parts.product,metal:parts.metal,option:parts.option,variant:plVariantLabel(parts)};
     });
   },[priceList,pricing,markupTable,naturalStoneMarkup,labStoneMarkup]);
   const changed=rows.filter(r=>r.now&&r.diff!==0);
@@ -11659,7 +11711,7 @@ function PriceList({priceList=[],setPriceList,setView,pricing=[],markupTable=[],
     });
     return[...map.values()].map(f=>{
       f.rows.sort((a,b)=>plNaturalSort(a.variant,b.variant));
-      const split=f.rows.every(r=>plSplitVariant(r.variant));
+      const split=f.rows.length>1&&f.rows.every(r=>r.metal&&r.option);
       const prices=f.rows.filter(r=>r.now).map(r=>r.now.price);
       const dates=f.rows.map(r=>r.it.pricedAt).filter(Boolean).sort();
       const web=f.rows.filter(r=>!r.it.needsPricing).map(r=>r.saved>0?r.saved:(r.now?r.now.price:0)).filter(v=>v>0);
@@ -11685,11 +11737,14 @@ function PriceList({priceList=[],setPriceList,setView,pricing=[],markupTable=[],
   const sources=copyTarget?allFamilies.filter(f=>f.key!==copyTarget.key&&f.rows.length>1):[];
   const src=sources.find(f=>f.key===copySrc)||sources[0]||null;
   const baseRow=copyTarget?(copyTarget.rows.find(r=>r.now)||copyTarget.rows[0]):null;
+  const vKey=r=>`${r.metal}|${r.option}`.toLowerCase();
   const unnamedRow=copyTarget?copyTarget.rows.find(r=>!r.variant):null;   // named with no metal/stone yet
-  const haveVariants=new Set(copyTarget?copyTarget.rows.map(r=>r.variant.toLowerCase()).filter(Boolean):[]);
-  const srcVariants=src?src.rows.map(r=>r.variant).filter(v=>v&&!haveVariants.has(v.toLowerCase())):[];
+  const haveVariants=new Set(copyTarget?copyTarget.rows.filter(r=>r.variant).map(vKey):[]);
+  const srcRows=src?src.rows.filter(r=>r.variant&&!haveVariants.has(vKey(r))):[];
+  const srcVariants=srcRows.map(vKey);
   const selfAs=unnamedRow?(srcVariants.includes(copySelfAs)?copySelfAs:(srcVariants[0]||"")):"";
-  const toCreate=srcVariants.filter(v=>v!==selfAs);
+  const selfRow=srcRows.find(r=>vKey(r)===selfAs)||null;
+  const toCreate=srcRows.filter(r=>vKey(r)!==selfAs);
   const copyGroup=copyTarget?(copyTarget.group||src?.group||""):"";
   const openCopy=f=>{setCopyTo(f.key);setCopySrc("");setCopySelfAs("");setMenuFor(null);};
   // ── Change group: moves every variant of a product into a group in one go ──
@@ -11707,35 +11762,40 @@ function PriceList({priceList=[],setPriceList,setView,pricing=[],markupTable=[],
   const[renameText,setRenameText]=useState("");
   const renameTarget=renameFor?allFamilies.find(f=>f.key===renameFor):null;
   const openRename=f=>{setRenameFor(f.key);setRenameText(f.title||"");setMenuFor(null);};
-  const renamedName=(it,oldTitle,newTitle)=>{
-    const n=String(it.name||"").trim();
-    if(oldTitle&&n.toLowerCase().startsWith(oldTitle.toLowerCase()))return newTitle+n.slice(oldTitle.length);
-    const v=plVariantOf(n,oldTitle);
-    return v&&v!==n?`${newTitle} in ${v}`:newTitle;
-  };
-  const renameHasIn=/\sin\s/i.test(renameText.trim());   // " in " would split the name into product + variant
+  const renamedName=(it,oldTitle,newTitle)=>{const p=plParts(it);return plComposeName(newTitle,p.metal,p.option);};
   const saveRename=()=>{
     const t=renameText.trim();
     if(!renameTarget||!t)return;
     const ids=new Set(renameTarget.rows.map(r=>r.it.id)),old=renameTarget.title;
-    if(save(prev=>prev.map(x=>ids.has(x.id)?{...x,name:renamedName(x,old,t)}:x)))setRenameFor(null);
+    if(save(prev=>prev.map(x=>{if(!ids.has(x.id))return x;const pp=plParts(x);return{...x,product:t,metal:pp.metal,option:pp.option,name:renamedName(x,old,t)};})))setRenameFor(null);
   };
-  // ── Rename a single variant: edit its full name ──
+  // ── Edit a single variant's product / metal / option ──
   const[renameItemId,setRenameItemId]=useState(null);
-  const[renameItemText,setRenameItemText]=useState("");
+  const[renameParts,setRenameParts]=useState({product:"",metal:"",option:""});
   const renameItem=renameItemId?priceList.find(x=>x.id===renameItemId):null;
-  const openRenameItem=it=>{setRenameItemId(it.id);setRenameItemText(it.name||"");setMenuFor(null);};
+  const openRenameItem=it=>{setRenameItemId(it.id);setRenameParts(plParts(it));setMenuFor(null);};
+  
   const saveRenameItem=()=>{
-    const t=renameItemText.trim();
-    if(!renameItem||!t)return;
-    if(save(prev=>prev.map(x=>x.id===renameItem.id?{...x,name:t}:x)))setRenameItemId(null);
+    const product=renameParts.product.trim(),metal=renameParts.metal.trim(),option=renameParts.option.trim();
+    if(!renameItem||!product)return;
+    if(save(prev=>prev.map(x=>x.id===renameItem.id?{...x,product,metal,option,name:plComposeName(product,metal,option)}:x)))setRenameItemId(null);
   };
+  // Add a variant to an existing product: opens the builder with the product name and group filled in,
+  // starting from one of its priced variants so only the metal and stones need changing.
+  const addVariant=f=>{
+    const base=f.rows.find(r=>r.it.pricing&&!r.it.needsPricing)||f.rows[0];
+    _plStartFrom=base?base.it.id:null;_plPreset={product:f.title,group:f.group||""};
+    setMenuFor(null);setView("plPrice_new");
+  };
+  // Suggestions for the product / metal / option boxes, from what's already on the list.
+  const uniq=a=>[...new Set(a.filter(Boolean))].sort(plNaturalSort);
+  const allProducts=uniq(rows.map(r=>r.family)),allMetals=uniq(rows.map(r=>r.metal)),allOptions=uniq(rows.map(r=>r.option.replace(/ copy$/,"")));
   const createCopies=()=>{
     if(!copyTarget||!baseRow||(!toCreate.length&&!selfAs))return;
     const title=copyTarget.title,base=baseRow.it;
-    const news=toCreate.map(v=>({...base,id:uid(),name:`${title} in ${v}`,group:copyGroup,needsPricing:true,createdAt:today(),prevPrice:undefined}));
+    const news=toCreate.map(r=>({...base,id:uid(),product:title,metal:r.metal,option:r.option,name:plComposeName(title,r.metal,r.option),group:copyGroup,needsPricing:true,createdAt:today(),prevPrice:undefined}));
     const ok=save(prev=>[...prev.map(x=>{
-      if(unnamedRow&&selfAs&&x.id===unnamedRow.it.id)return{...x,name:`${title} in ${selfAs}`,group:copyGroup};
+      if(unnamedRow&&selfRow&&x.id===unnamedRow.it.id)return{...x,product:title,metal:selfRow.metal,option:selfRow.option,name:plComposeName(title,selfRow.metal,selfRow.option),group:copyGroup};
       if(copyGroup&&copyTarget.rows.some(r=>r.it.id===x.id))return{...x,group:copyGroup};
       return x;
     }),...news]);
@@ -11753,7 +11813,8 @@ function PriceList({priceList=[],setPriceList,setView,pricing=[],markupTable=[],
   };
   const duplicate=it=>{
     const id=uid();
-    if(save(prev=>[...prev,{...it,id,name:`${it.name||"Product"} (copy)`,createdAt:today(),prevPrice:undefined}]))setView("plPrice_"+id);
+    const pp=plParts(it),opt=`${pp.option||"option"} copy`;   // the builder opens straight away to set its real metal/option
+    if(save(prev=>[...prev,{...it,id,product:pp.product,metal:pp.metal,option:opt,name:plComposeName(pp.product,pp.metal,opt),createdAt:today(),prevPrice:undefined}]))setView("plPrice_"+id);
   };
   const remove=it=>{if(window.confirm(`Delete "${it.name||"this product"}" from your price list?`))save(prev=>prev.filter(x=>x.id!==it.id));};
   const copyPrice=(id,price)=>{
@@ -11789,15 +11850,15 @@ function PriceList({priceList=[],setPriceList,setView,pricing=[],markupTable=[],
     <button aria-label="More actions" onClick={e=>{e.stopPropagation();setMenuFor(m=>m===r.it.id?null:r.it.id);}}
       style={{background:menuFor===r.it.id?PARCH:"none",border:`1px solid ${menuFor===r.it.id?BD:"transparent"}`,borderRadius:8,width:30,height:28,cursor:"pointer",color:WG,fontSize:16,lineHeight:1,fontFamily:"inherit"}}>⋯</button>
     {menuFor===r.it.id&&<div onClick={e=>e.stopPropagation()} style={{position:"absolute",top:"calc(100% + 4px)",right:isMobile?"auto":0,left:isMobile?0:"auto",zIndex:20,background:WHITE,border:`1px solid ${BD}`,borderRadius:10,boxShadow:SHADOW,padding:"4px 0",minWidth:170}}>
-      <button style={menuItem} onClick={()=>openRenameItem(r.it)}>Rename variant</button>
+      <button style={menuItem} onClick={()=>openRenameItem(r.it)}>Edit name</button>
       <button style={menuItem} onClick={()=>{setMenuFor(null);duplicate(r.it);}}>Duplicate as new variant</button>
       <button style={{...menuItem,color:DANGER}} onClick={()=>{setMenuFor(null);remove(r.it);}}>Delete</button>
     </div>}
   </div>;
-  const cols="minmax(160px,1fr) 110px 130px 80px 70px 290px";
+  const cols="minmax(160px,1fr) 120px 140px 100px 90px 290px";
   const colHead=<div style={{display:"grid",gridTemplateColumns:cols,gap:12,padding:"8px 18px",borderTop:`1px solid ${BD_SOFT}`}}>
     {[["Variant"],["Website price","The price you last saved here. This is what your website should show."],["Today's price","What this variant works out to at today's metal prices and your current markups."],["Your cost","Today's cost, excluding "+TAX_LABEL+"."],["Margin","Your website price against today's cost, excluding "+TAX_LABEL+"."],[""]].map(([h,tip])=>
-      <div key={h||"act"} style={{fontSize:10,fontWeight:700,color:WG,textTransform:"uppercase",letterSpacing:"0.05em",display:"flex",alignItems:"center"}}>{h}{tip&&<InfoDot text={tip}/>}</div>)}
+      <div key={h||"act"} style={{fontSize:10,fontWeight:700,color:WG,textTransform:"uppercase",letterSpacing:"0.05em",display:"flex",alignItems:"center",whiteSpace:"nowrap"}}>{h}{tip&&<InfoDot text={tip}/>}</div>)}
   </div>;
   const variantRow=(r,label,indent)=>{
     const web=webPrice(r);
@@ -11829,7 +11890,7 @@ function PriceList({priceList=[],setPriceList,setView,pricing=[],markupTable=[],
     // Sub-head by metal; rows show just the stone option.
     const out=[head];let last=null;
     f.rows.forEach(r=>{
-      const[metal,stone]=plSplitVariant(r.variant);
+      const metal=r.metal,stone=r.option;
       if(metal!==last){last=metal;out.push(<div key={"h-"+metal} style={{padding:isMobile?"8px 14px 4px":"8px 18px 4px",borderTop:`1px solid ${BD_SOFT}`,background:PARCH,fontSize:11,fontWeight:700,color:GOLD_D,textTransform:"uppercase",letterSpacing:"0.06em"}}>{metal}</div>);}
       out.push(variantRow(r,stone,true));
     });
@@ -11925,13 +11986,14 @@ function PriceList({priceList=[],setPriceList,setView,pricing=[],markupTable=[],
                           style={{background:menuFor==="fam:"+f.key?PARCH:"none",border:`1px solid ${menuFor==="fam:"+f.key?BD:"transparent"}`,borderRadius:8,width:30,height:28,cursor:"pointer",color:WG,fontSize:16,lineHeight:1,fontFamily:"inherit"}}>⋯</button>
                         {menuFor==="fam:"+f.key&&<div style={{position:"absolute",top:"calc(100% + 4px)",right:0,zIndex:20,background:WHITE,border:`1px solid ${BD}`,borderRadius:10,boxShadow:SHADOW,padding:"4px 0",minWidth:230}}>
                           {f.changed>0&&<button style={menuItem} onClick={()=>{setMenuFor(null);applyRows(f.rows.filter(r=>r.now&&r.diff!==0));}}>Accept {f.changed} new price{f.changed!==1?"s":""}</button>}
+                          <button style={menuItem} onClick={()=>addVariant(f)}>+ Add a variant</button>
                           <button style={menuItem} onClick={()=>openRename(f)}>Rename product</button>
                           <button style={menuItem} onClick={()=>openGroup(f)}>Change group</button>
                           <button style={menuItem} onClick={()=>openCopy(f)}>Copy variants from another product</button>
                         </div>}
                       </div>
                     </div>
-                    {open&&<div>{familyBody(f)}</div>}
+                    {open&&<div>{familyBody(f)}<div style={{borderTop:`1px solid ${BD_SOFT}`,padding:isMobile?"10px 14px":"10px 18px"}}><button onClick={()=>addVariant(f)} style={linkBtn}>+ Add a variant</button></div></div>}
                   </Card>;
                 })}
               </div>)}
@@ -11955,7 +12017,6 @@ function PriceList({priceList=[],setPriceList,setView,pricing=[],markupTable=[],
         <div style={{marginBottom:14}}>{renameTarget.rows.length>1?<>Renames all {renameTarget.rows.length} variants of <strong>{renameTarget.title}</strong>. Their metal and stone details stay as they are.</>:<>Renames <strong>{renameTarget.title}</strong>.</>}</div>
         <label style={SS.lbl} htmlFor="pl-rename-input">Product name</label>
         <input id="pl-rename-input" autoFocus value={renameText} onChange={e=>setRenameText(e.target.value)} onKeyDown={e=>{if(e.key==="Enter")saveRename();}} style={{...SS.inp,marginBottom:10}}/>
-        {renameHasIn&&<div style={{fontSize:12,color:WARN,marginBottom:10}}>Heads up: the word "in" is used to separate the product from its metal, so this name may be split up. Try a different word if the list looks wrong after saving.</div>}
         {renameText.trim()&&renameTarget.rows.length>0&&<>
           <div style={{...SS.lbl,marginBottom:6}}>Preview</div>
           <div style={{border:`1px solid ${BD_SOFT}`,borderRadius:8,maxHeight:180,overflowY:"auto",padding:"6px 12px",fontSize:12.5,color:INK,background:PARCH,marginBottom:6}}>
@@ -11969,15 +12030,13 @@ function PriceList({priceList=[],setPriceList,setView,pricing=[],markupTable=[],
       </div>
     </Modal>}
 
-    {renameItem&&<Modal title="Rename variant" onClose={()=>setRenameItemId(null)}>
+    {renameItem&&<Modal title="Edit variant name" onClose={()=>setRenameItemId(null)} wide>
       <div style={{fontSize:13.5,color:INK,lineHeight:1.6}}>
-        <div style={{marginBottom:14}}>Edit the full name. Keep the product name at the start, followed by "in" and the metal (stone in brackets), so it stays grouped with its other variants. For example: <em>ARIEL TENNIS 3.12ct in 9ct gold (lab grown accents)</em>.</div>
-        <label style={SS.lbl} htmlFor="pl-rename-item">Full name</label>
-        <input id="pl-rename-item" autoFocus value={renameItemText} onChange={e=>setRenameItemText(e.target.value)} onKeyDown={e=>{if(e.key==="Enter")saveRenameItem();}} style={{...SS.inp,marginBottom:10}}/>
-        {renameItemText.trim()&&<div style={{fontSize:12,color:WG}}>Will show under <strong style={{color:INK}}>{plFamilyOf(renameItemText.trim())}</strong> as <strong style={{color:INK}}>{plVariantOf(renameItemText.trim(),plFamilyOf(renameItemText.trim()))||"Price"}</strong></div>}
+        <div style={{marginBottom:14}}>Change the product to move this variant to a different product.</div>
+        <PlNameFields value={renameParts} onChange={setRenameParts} products={allProducts} metals={allMetals} options={allOptions} autoFocus onEnter={saveRenameItem}/>
         <div style={{display:"flex",gap:10,justifyContent:"flex-end",marginTop:16,paddingBottom:6}}>
           <Btn ghost onClick={()=>setRenameItemId(null)}>Cancel</Btn>
-          <Btn disabled={!renameItemText.trim()} onClick={saveRenameItem}>Save name</Btn>
+          <Btn disabled={!renameParts.product.trim()} onClick={saveRenameItem}>Save name</Btn>
         </div>
       </div>
     </Modal>}
@@ -12001,12 +12060,12 @@ function PriceList({priceList=[],setPriceList,setView,pricing=[],markupTable=[],
         : <div style={{fontSize:13.5,color:INK,lineHeight:1.6}}>
             <div style={{marginBottom:16}}>Adds the variants another product has to <strong>{copyTarget.title}</strong>. Each one starts as a copy of {copyTarget.rows.length>1?<>the <strong>{baseRow.variant||baseRow.it.name}</strong> build</>:"this product's build"} and is marked <strong>Needs pricing</strong> until you open it, swap the metal and stone, and save.</div>
             <Input label="Copy variants from" as="select" value={src.key} onChange={v=>{setCopySrc(v);setCopySelfAs("");}} options={sources.map(f=>({value:f.key,label:`${f.title} (${f.rows.length} variants)`}))}/>
-            {unnamedRow&&srcVariants.length>0&&<Input label={<>Which variant is "{unnamedRow.it.name}"?</>} as="select" value={selfAs} onChange={setCopySelfAs} options={srcVariants}/>}
+            {unnamedRow&&srcRows.length>0&&<Input label={<>Which variant is "{unnamedRow.it.name}"?</>} as="select" value={selfAs} onChange={setCopySelfAs} options={srcRows.map(r=>({value:vKey(r),label:r.variant}))}/>}
             {toCreate.length>0
               ? <>
                   <div style={{...SS.lbl,marginBottom:6}}>Will add {toCreate.length} variant{toCreate.length!==1?"s":""}{copyGroup?<span style={{fontWeight:400,textTransform:"none",letterSpacing:0,color:WG}}> to {copyGroup}</span>:null}</div>
                   <div style={{border:`1px solid ${BD_SOFT}`,borderRadius:8,maxHeight:230,overflowY:"auto",padding:"6px 12px",fontSize:12.5,color:INK,background:PARCH}}>
-                    {toCreate.map(v=><div key={v} style={{padding:"3px 0"}}>{copyTarget.title} in {v}</div>)}
+                    {toCreate.map(r=><div key={vKey(r)} style={{padding:"3px 0"}}>{r.variant}</div>)}
                   </div>
                 </>
               : <div style={{fontSize:12.5,color:WG}}>{selfAs?"Nothing new to add; this will just rename the existing variant.":`${copyTarget.title} already has every variant ${src.title} has.`}</div>}
