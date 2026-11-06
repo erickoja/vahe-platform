@@ -11609,8 +11609,11 @@ function PriceList({priceList=[],setPriceList,setView,pricing=[],markupTable=[],
   const[group,setGroup]=useState("All");
   const[copied,setCopied]=useState(null);
   const[menuFor,setMenuFor]=useState(null);      // variant whose "More" menu is open
-  const[collapsed,setCollapsed]=useState(()=>{try{return JSON.parse(localStorage.getItem("pl_collapsed")||"[]");}catch(e){return [];}});
-  const toggleFamily=key=>setCollapsed(p=>{const n=p.includes(key)?p.filter(k=>k!==key):[...p,key];try{localStorage.setItem("pl_collapsed",JSON.stringify(n));}catch(e){}return n;});
+  const[show,setShow]=useState("all");            // all | changed (new price today) | toprice
+  // Products start collapsed (one tidy line each); the ones you open are remembered on this device.
+  const[openKeys,setOpenKeys]=useState(()=>{try{return JSON.parse(localStorage.getItem("pl_open")||"[]");}catch(e){return [];}});
+  const storeOpen=n=>{try{localStorage.setItem("pl_open",JSON.stringify(n));}catch(e){}return n;};
+  const toggleFamily=key=>setOpenKeys(p=>storeOpen(p.includes(key)?p.filter(k=>k!==key):[...p,key]));
   useEffect(()=>{
     if(!menuFor)return;
     const close=()=>setMenuFor(null);
@@ -11659,11 +11662,14 @@ function PriceList({priceList=[],setPriceList,setView,pricing=[],markupTable=[],
       const split=f.rows.every(r=>plSplitVariant(r.variant));
       const prices=f.rows.filter(r=>r.now).map(r=>r.now.price);
       const dates=f.rows.map(r=>r.it.pricedAt).filter(Boolean).sort();
-      return{...f,split,min:prices.length?Math.min(...prices):0,max:prices.length?Math.max(...prices):0,
+      const web=f.rows.filter(r=>!r.it.needsPricing).map(r=>r.saved>0?r.saved:(r.now?r.now.price:0)).filter(v=>v>0);
+      return{...f,split,min:prices.length?Math.min(...prices):0,max:prices.length?Math.max(...prices):0,webMin:web.length?Math.min(...web):0,webMax:web.length?Math.max(...web):0,
         changed:f.rows.filter(r=>r.now&&r.diff!==0).length,toPrice:f.rows.filter(r=>r.it.needsPricing).length,lastPriced:dates[dates.length-1]||""};
     }).sort((a,b)=>(a.group||"~").localeCompare(b.group||"~")||plNaturalSort(a.title,b.title));
   };
-  const families=buildFamilies(shown);
+  // The "show" filter works per product, so a product keeps all its variants (and true counts) on screen.
+  const families=buildFamilies(shown).filter(f=>show==="changed"?f.changed>0:show==="toprice"?f.toPrice>0:true);
+  const setAllOpen=on=>setOpenKeys(storeOpen(on?[...new Set([...openKeys,...families.map(f=>f.key)])]:openKeys.filter(k=>!families.some(f=>f.key===k))));
   const allFamilies=useMemo(()=>buildFamilies(rows),[rows]);   // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Copy variants from another product ──
@@ -11742,7 +11748,7 @@ function PriceList({priceList=[],setPriceList,setView,pricing=[],markupTable=[],
   };
   const applyAll=()=>{
     if(!changed.length)return;
-    if(!window.confirm(`Update ${changed.length} product${changed.length!==1?"s":""} to today's price? Remember to change the same prices on your website.`))return;
+    if(!window.confirm(`Accept today's price for ${changed.length} variant${changed.length!==1?"s":""}? This becomes your saved website price. Remember to change the same prices on your website.`))return;
     applyRows(changed);
   };
   const duplicate=it=>{
@@ -11765,13 +11771,20 @@ function PriceList({priceList=[],setPriceList,setView,pricing=[],markupTable=[],
   };
 
   const linkBtn={background:"none",border:"none",padding:0,color:GOLD_D,fontWeight:700,fontSize:12,cursor:"pointer",fontFamily:"inherit"};
-  const change=r=>!r.now?null:r.diff===0
-    ?<span style={{fontSize:11.5,color:WG}}>No change</span>
-    :<span style={{fontSize:11.5,fontWeight:700,color:r.diff>0?OK:DANGER}}>{r.diff>0?"▲ ":"▼ "}{fmtR(Math.abs(r.diff))}{r.saved>0?` (${r.diff>0?"+":""}${(r.diff/r.saved*100).toFixed(1)}%)`:""}</span>;
   const menuItem={display:"block",width:"100%",textAlign:"left",background:"none",border:"none",padding:"8px 14px",fontSize:12.5,color:INK,cursor:"pointer",fontFamily:"inherit",whiteSpace:"nowrap"};
-  const actions=r=><div style={{display:"flex",gap:6,alignItems:"center",justifyContent:isMobile?"flex-start":"flex-end",position:"relative"}}>
-    {r.now&&r.diff!==0&&<Btn xs onClick={()=>applyRows([r])}>Update</Btn>}
-    {r.now&&<Btn xs ghost onClick={()=>copyPrice(r.it.id,r.now.price)}>{copied===r.it.id?"✓ Copied":"Copy"}</Btn>}
+  // The price that's live on the website = the price last saved here (falls back to today's for never-saved rows).
+  const webPrice=r=>r.saved>0?r.saved:(r.now?r.now.price:0);
+  const pill=(txt,color,bg)=><span style={{fontSize:11,fontWeight:700,color,background:bg,borderRadius:20,padding:"3px 10px",whiteSpace:"nowrap"}}>{txt}</span>;
+  const needsBadge=pill("Needs pricing",GOLD_D,GOLD_L);
+  const todayCell=r=>!r.now?null:r.diff===0
+    ?<span style={{fontSize:12,color:WG}}>Same</span>
+    :<div>
+        <div style={{fontWeight:800,fontSize:14,color:GOLD_D}}>{fmtR(r.now.price)}</div>
+        <div style={{fontSize:11,fontWeight:700,color:GOLD_D,marginTop:1,whiteSpace:"nowrap"}}>{r.diff>0?"▲ ":"▼ "}{fmtR(Math.abs(r.diff))}{r.saved>0?` (${r.diff>0?"+":""}${(r.diff/r.saved*100).toFixed(1)}%)`:""}</div>
+      </div>;
+  const actions=r=><div style={{display:"flex",gap:6,alignItems:"center",justifyContent:isMobile?"flex-start":"flex-end",position:"relative",flexWrap:"wrap"}}>
+    {r.now&&r.diff!==0&&<Btn xs onClick={()=>applyRows([r])}>Accept {fmtR(r.now.price)}</Btn>}
+    {webPrice(r)>0&&!r.it.needsPricing&&<Btn xs ghost onClick={()=>copyPrice(r.it.id,webPrice(r))}>{copied===r.it.id?"✓ Copied":"Copy price"}</Btn>}
     <Btn xs ghost={!r.it.needsPricing} onClick={()=>setView("plPrice_"+r.it.id)}>{r.it.pricing&&!r.it.needsPricing?"Edit":"Price it"}</Btn>
     <button aria-label="More actions" onClick={e=>{e.stopPropagation();setMenuFor(m=>m===r.it.id?null:r.it.id);}}
       style={{background:menuFor===r.it.id?PARCH:"none",border:`1px solid ${menuFor===r.it.id?BD:"transparent"}`,borderRadius:8,width:30,height:28,cursor:"pointer",color:WG,fontSize:16,lineHeight:1,fontFamily:"inherit"}}>⋯</button>
@@ -11781,48 +11794,63 @@ function PriceList({priceList=[],setPriceList,setView,pricing=[],markupTable=[],
       <button style={{...menuItem,color:DANGER}} onClick={()=>{setMenuFor(null);remove(r.it);}}>Delete</button>
     </div>}
   </div>;
-  const needsBadge=<span style={{fontSize:11,fontWeight:700,color:GOLD_D,background:GOLD_L,borderRadius:4,padding:"3px 8px",whiteSpace:"nowrap"}}>Needs pricing</span>;
-  const cols="minmax(180px,1fr) 110px 150px 70px 90px 230px";
+  const cols="minmax(160px,1fr) 110px 130px 80px 70px 290px";
+  const colHead=<div style={{display:"grid",gridTemplateColumns:cols,gap:12,padding:"8px 18px",borderTop:`1px solid ${BD_SOFT}`}}>
+    {[["Variant"],["Website price","The price you last saved here. This is what your website should show."],["Today's price","What this variant works out to at today's metal prices and your current markups."],["Your cost","Today's cost, excluding "+TAX_LABEL+"."],["Margin","Your website price against today's cost, excluding "+TAX_LABEL+"."],[""]].map(([h,tip])=>
+      <div key={h||"act"} style={{fontSize:10,fontWeight:700,color:WG,textTransform:"uppercase",letterSpacing:"0.05em",display:"flex",alignItems:"center"}}>{h}{tip&&<InfoDot text={tip}/>}</div>)}
+  </div>;
   const variantRow=(r,label,indent)=>{
-    const m=r.now?stockMargin(r.now.price,r.now.cost):null;
+    const web=webPrice(r);
+    const m=r.now&&web>0?stockMargin(web,r.now.cost):null;
     const bg=flash===r.it.id?GOLD_L:"transparent";
-    if(isMobile)return <div key={r.it.id} id={"pl-row-"+r.it.id} style={{padding:"12px 16px",borderTop:`1px solid ${BD_SOFT}`,background:bg,transition:"background .4s"}}>
+    const priced=!r.it.needsPricing&&web>0;
+    if(isMobile)return <div key={r.it.id} id={"pl-row-"+r.it.id} style={{padding:`12px 14px 12px ${indent?22:14}px`,borderTop:`1px solid ${BD_SOFT}`,background:bg,transition:"background .4s"}}>
       <div style={{fontSize:13,color:INK,fontWeight:600}}>{label}</div>
       <div style={{display:"flex",alignItems:"baseline",gap:10,flexWrap:"wrap",marginTop:4}}>
-        {r.now?<span style={{fontSize:17,fontWeight:800,color:INK}}>{fmtR(r.now.price)}</span>:r.it.needsPricing?needsBadge:<span style={{fontSize:13,color:WG}}>Not priced</span>}
-        {r.now&&r.diff!==0&&change(r)}
-        {r.now&&<span style={{fontSize:11.5,color:WG}}>cost {fmtR(r.now.cost)}{m?` · ${m.pct}%`:""}</span>}
+        {priced?<span style={{fontSize:17,fontWeight:800,color:INK}}>{fmtR(web)}</span>:r.it.needsPricing?needsBadge:<span style={{fontSize:13,color:WG}}>Not priced</span>}
+        {r.now&&r.diff!==0&&<span style={{fontSize:12,fontWeight:700,color:GOLD_D}}>Today {fmtR(r.now.price)} {r.diff>0?"▲":"▼"}</span>}
       </div>
+      {r.now&&priced&&<div style={{fontSize:11.5,color:WG,marginTop:3}}>Cost {fmtR(r.now.cost)}{m?` · ${m.pct}% margin`:""}</div>}
       <div style={{marginTop:8}}>{actions(r)}</div>
     </div>;
-    return <div key={r.it.id} id={"pl-row-"+r.it.id} style={{display:"grid",gridTemplateColumns:cols,gap:12,padding:`9px 18px 9px ${indent?34:18}px`,borderTop:`1px solid ${BD_SOFT}`,alignItems:"center",fontSize:13,background:bg,transition:"background .4s"}}>
+    return <div key={r.it.id} id={"pl-row-"+r.it.id} style={{display:"grid",gridTemplateColumns:cols,gap:12,padding:`10px 18px 10px ${indent?34:18}px`,borderTop:`1px solid ${BD_SOFT}`,alignItems:"center",fontSize:13,background:bg,transition:"background .4s"}}>
       <div style={{minWidth:0,color:INK,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}} title={r.it.name}>{label}</div>
-      <div style={{fontWeight:800,color:INK,fontSize:14}}>{r.now?fmtR(r.now.price):r.it.needsPricing?needsBadge:<span style={{color:WG,fontWeight:400,fontSize:12}}>Not priced</span>}</div>
-      <div>{change(r)}{r.now&&r.diff!==0&&<div style={{fontSize:11,color:WG,marginTop:2}}>was {fmtR(r.saved)}</div>}</div>
+      <div style={{fontWeight:800,color:INK,fontSize:14}}>{priced?fmtR(web):r.it.needsPricing?needsBadge:<span style={{color:WG,fontWeight:400,fontSize:12}}>Not priced</span>}</div>
+      <div>{priced?todayCell(r):null}</div>
+      <div style={{color:WG,fontSize:12.5}}>{r.now&&priced?fmtR(r.now.cost):""}</div>
       <div style={{color:m?(m.pct>=0?OK:DANGER):WG,fontWeight:700,fontSize:12}}>{m?`${m.pct}%`:""}</div>
-      <div style={{color:WG,fontSize:12.5}}>{r.now?fmtR(r.now.cost):""}</div>
       {actions(r)}
     </div>;
   };
   const familyBody=f=>{
-    if(f.rows.length===1&&!f.split)return variantRow(f.rows[0],f.rows[0].variant&&f.rows[0].variant!==f.rows[0].it.name?f.rows[0].variant:"Price",false);
-    if(!f.split)return f.rows.map(r=>variantRow(r,r.variant||r.it.name,false));
+    const head=isMobile?null:colHead;
+    if(f.rows.length===1&&!f.split)return[head,variantRow(f.rows[0],f.rows[0].variant&&f.rows[0].variant!==f.rows[0].it.name?f.rows[0].variant:"Price",false)];
+    if(!f.split)return[head,...f.rows.map(r=>variantRow(r,r.variant||r.it.name,false))];
     // Sub-head by metal; rows show just the stone option.
-    const out=[];let last=null;
+    const out=[head];let last=null;
     f.rows.forEach(r=>{
       const[metal,stone]=plSplitVariant(r.variant);
-      if(metal!==last){last=metal;out.push(<div key={"h-"+metal} style={{padding:isMobile?"10px 16px 4px":"10px 18px 4px",borderTop:`1px solid ${BD_SOFT}`,background:PARCH,fontSize:11,fontWeight:700,color:GOLD_D,textTransform:"uppercase",letterSpacing:"0.06em"}}>{metal}</div>);}
+      if(metal!==last){last=metal;out.push(<div key={"h-"+metal} style={{padding:isMobile?"8px 14px 4px":"8px 18px 4px",borderTop:`1px solid ${BD_SOFT}`,background:PARCH,fontSize:11,fontWeight:700,color:GOLD_D,textTransform:"uppercase",letterSpacing:"0.06em"}}>{metal}</div>);}
       out.push(variantRow(r,stone,true));
     });
     return out;
   };
+  // Products laid out under a heading per group (families are already sorted by group, then name).
+  const sections=[];
+  families.forEach(f=>{const g=f.group||"No group";let s=sections[sections.length-1];if(!s||s.group!==g){s={group:g,fams:[]};sections.push(s);}s.fams.push(f);});
+  const forcedOpen=!!needle||show!=="all";
+  const isOpen=f=>forcedOpen||openKeys.includes(f.key)||f.rows.some(r=>r.it.id===flash);
+  const allOpen=families.length>0&&families.every(isOpen);
+  const changedFamilies=allFamilies.filter(f=>f.changed>0).length;
+  const toPriceTotal=rows.filter(r=>r.it.needsPricing).length;
+  const variantTotal=priceList.length;
 
   return <div>
-    <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-end",flexWrap:"wrap",gap:16,marginBottom:24}}>
+    <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-end",flexWrap:"wrap",gap:16,marginBottom:22}}>
       <div>
         <div style={{fontSize:11,fontWeight:700,color:WG,letterSpacing:"0.14em",textTransform:"uppercase",marginBottom:5}}>Website pricing</div>
         <h1 style={{margin:0,fontSize:32,fontWeight:700,color:INK,letterSpacing:"-0.02em",fontFamily:"'Poppins',sans-serif"}}>Price list</h1>
-        <div style={{color:INK,fontSize:15,marginTop:6,lineHeight:1.5,maxWidth:640}}>Price your website and catalogue designs with the quote builder, without a client or job. When metal prices move, see every new price at a glance and update them in one click.</div>
+        <div style={{color:INK,fontSize:15,marginTop:6,lineHeight:1.5,maxWidth:620}}>Your website prices in one place. When metal prices move, see which ones are out of date and update them in a click.</div>
       </div>
       <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
         {priceList.length>0&&<Btn ghost onClick={exportCsv}>{ICON_CSV}Export CSV</Btn>}
@@ -11838,47 +11866,65 @@ function PriceList({priceList=[],setPriceList,setView,pricing=[],markupTable=[],
           <Btn onClick={()=>setView("plPrice_new")}>+ Price your first product</Btn>
         </div></Card>
       : <>
-          {/* Today's prices vs saved prices */}
-          <div style={{display:"flex",alignItems:"center",gap:12,flexWrap:"wrap",background:changed.length?GOLD_L:PARCH,border:`1px solid ${changed.length?GOLD+"66":BD}`,borderRadius:8,padding:"12px 16px",marginBottom:18,fontSize:13,color:INK,lineHeight:1.55}}>
-            <div style={{flex:"1 1 320px"}}>
-              {changed.length
-                ? <><strong>{changed.length} price{changed.length!==1?"s have":" has"} moved</strong> since last saved, based on spot prices from {fmtDate(spotPrices.updatedAt)} and your current markups.</>
-                : <>All prices match today's costs, using spot prices from {fmtDate(spotPrices.updatedAt)}.</>}
-              {onUpdateSpot&&<>{" "}<button onClick={onUpdateSpot} style={linkBtn}>Update spot prices</button></>}
-            </div>
-            {changed.length>0&&<Btn sm onClick={applyAll}>Update all {changed.length} price{changed.length!==1?"s":""}</Btn>}
-          </div>
+          {/* What needs attention: new prices at today's metal rates */}
+          {changed.length
+            ? <div style={{display:"flex",alignItems:"center",gap:14,flexWrap:"wrap",background:GOLD_L,border:`1px solid ${GOLD}55`,borderRadius:10,padding:"14px 18px",marginBottom:18}}>
+                <div style={{flex:"1 1 340px",fontSize:13,lineHeight:1.55,color:INK}}>
+                  <div style={{fontWeight:700,fontSize:14}}>{changed.length} variant{changed.length!==1?"s have":" has"} a new price at today's metal prices <span style={{fontWeight:500,color:WG}}>({changedFamilies} product{changedFamilies!==1?"s":""})</span></div>
+                  <div style={{color:WG,marginTop:3}}>Your website prices stay as they are until you accept the new ones. After accepting, change the same prices on your website. Based on spot prices from {fmtDate(spotPrices.updatedAt)}.{onUpdateSpot&&<>{" "}<button onClick={onUpdateSpot} style={linkBtn}>Refresh spot prices</button></>}</div>
+                </div>
+                <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
+                  {show!=="changed"&&<Btn sm ghost onClick={()=>setShow("changed")}>Review them</Btn>}
+                  <Btn sm onClick={applyAll}>Accept all {changed.length}</Btn>
+                </div>
+              </div>
+            : <div style={{display:"flex",alignItems:"center",gap:10,flexWrap:"wrap",background:OK_BG,border:`1px solid ${OK}33`,borderRadius:10,padding:"12px 18px",marginBottom:18,fontSize:13,color:INK}}>
+                <span style={{color:OK,fontWeight:800}}>✓</span>
+                <span style={{flex:"1 1 300px"}}>All website prices match today's metal prices (spot prices from {fmtDate(spotPrices.updatedAt)}).</span>
+                {onUpdateSpot&&<button onClick={onUpdateSpot} style={linkBtn}>Refresh spot prices</button>}
+              </div>}
 
-          <div style={{display:"flex",gap:10,flexWrap:"wrap",alignItems:"center",marginBottom:16}}>
-            <input value={q} onChange={e=>setQ(e.target.value)} placeholder="Search products…" style={{...SS.inp,marginTop:0,flex:"1 1 240px",maxWidth:340}}/>
+          {/* Search, group, and what to show */}
+          <div style={{display:"flex",gap:10,flexWrap:"wrap",alignItems:"center",marginBottom:4}}>
+            <input value={q} onChange={e=>setQ(e.target.value)} placeholder="Search products…" style={{...SS.inp,marginTop:0,flex:"1 1 220px",maxWidth:320}}/>
             {groups.length>1&&<select value={group} onChange={e=>setGroup(e.target.value)} style={{...SS.inp,marginTop:0,width:"auto"}}>{groups.map(g=><option key={g} value={g}>{g==="All"?"All groups":g}</option>)}</select>}
+            <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
+              {[["all",`All products · ${allFamilies.length}`],["changed",`New prices · ${changed.length}`],...(toPriceTotal?[["toprice",`To price · ${toPriceTotal}`]]:[])].map(([v,l])=>{
+                const on=show===v;
+                return <button key={v} onClick={()=>setShow(v)} style={{padding:"7px 13px",borderRadius:20,fontSize:12,fontWeight:700,fontFamily:"inherit",cursor:"pointer",border:`1.5px solid ${on?GOLD:BD}`,background:on?GOLD_L:WHITE,color:on?GOLD_D:WG}}>{l}</button>;
+              })}
+            </div>
+            {!forcedOpen&&families.length>0&&<button onClick={()=>setAllOpen(!allOpen)} style={{...linkBtn,marginLeft:"auto",fontSize:12.5}}>{allOpen?"Collapse all":"Expand all"}</button>}
           </div>
+          <div style={{fontSize:12,color:WG,marginBottom:4}}>{variantTotal} variant{variantTotal!==1?"s":""} across {allFamilies.length} product{allFamilies.length!==1?"s":""}. Prices include {TAX_LABEL}.</div>
 
           {families.length===0
-            ? <div style={{fontSize:13,color:WG,fontStyle:"italic",padding:"24px 0",textAlign:"center"}}>No products match your search.</div>
-            : <>
-                {!isMobile&&<div style={{display:"grid",gridTemplateColumns:cols,gap:12,padding:"0 18px 8px"}}>
-                  {["Variant","Price today","Change since saved","Margin","Your cost",""].map(h=><div key={h} style={{fontSize:10,fontWeight:700,color:WG,textTransform:"uppercase",letterSpacing:"0.05em"}}>{h}</div>)}
-                </div>}
-                {families.map(f=>{
-                  const open=!collapsed.includes(f.key)||!!needle||f.rows.some(r=>r.it.id===flash);
-                  return <Card key={f.key} style={{padding:0,overflow:"visible"}}>
-                    <div onClick={()=>toggleFamily(f.key)} style={{display:"flex",alignItems:"center",gap:12,padding:isMobile?"14px 16px":"14px 18px",cursor:"pointer",flexWrap:"wrap"}}>
-                      <span style={{color:WG,fontSize:12,width:12,display:"inline-block",transform:open?"rotate(90deg)":"none",transition:"transform .15s"}}>▶</span>
-                      <div style={{flex:"1 1 260px",minWidth:0}}>
+            ? <div style={{fontSize:13,color:WG,fontStyle:"italic",padding:"30px 0",textAlign:"center"}}>{show==="changed"?"Nothing to update. Every website price matches today's price.":show==="toprice"?"Nothing left to price.":"No products match your search."}</div>
+            : sections.map(s=><div key={s.group}>
+                <div style={{display:"flex",alignItems:"baseline",gap:8,margin:"22px 2px 10px"}}>
+                  <span style={{fontSize:11.5,fontWeight:800,color:INK,textTransform:"uppercase",letterSpacing:"0.08em"}}>{s.group}</span>
+                  <span style={{fontSize:12,color:WG}}>{s.fams.length} product{s.fams.length!==1?"s":""}</span>
+                </div>
+                {s.fams.map(f=>{
+                  const open=isOpen(f);
+                  return <Card key={f.key} style={{padding:0,overflow:"visible",marginBottom:10}}>
+                    <div onClick={()=>toggleFamily(f.key)} style={{display:"flex",alignItems:"center",gap:12,padding:isMobile?"12px 14px":"13px 18px",cursor:"pointer",flexWrap:isMobile?"wrap":"nowrap"}}>
+                      <span style={{color:WG,fontSize:11,width:12,display:"inline-block",transform:open?"rotate(90deg)":"none",transition:"transform .15s"}}>▶</span>
+                      <div style={{flex:"1 1 220px",minWidth:0}}>
                         <div style={{display:"flex",alignItems:"center",gap:6}}>
-                          <span style={{fontWeight:700,fontSize:15,color:INK}}>{f.title||"Untitled product"}</span>
+                          <span style={{fontWeight:700,fontSize:14.5,color:INK}}>{f.title||"Untitled product"}</span>
                           <button onClick={e=>{e.stopPropagation();openRename(f);}} title="Rename product" style={{background:"none",border:"none",cursor:"pointer",color:WG,fontSize:12,lineHeight:1,padding:"2px 3px",flexShrink:0}}>✎</button>
                         </div>
-                        <div style={{fontSize:12,color:WG,marginTop:2}}>{[f.group,f.rows.length>1?`${f.rows.length} variants`:"",f.lastPriced?`priced ${fmtDate(f.lastPriced)}`:""].filter(Boolean).join(" · ")}</div>
+                        <div style={{fontSize:12,color:WG,marginTop:2}}>{[`${f.rows.length} variant${f.rows.length!==1?"s":""}`,f.lastPriced?`last priced ${fmtDate(f.lastPriced)}`:""].filter(Boolean).join(" · ")}</div>
                       </div>
-                      {f.toPrice>0&&<span style={{fontSize:11,fontWeight:700,color:GOLD_D,background:GOLD_L,borderRadius:4,padding:"3px 8px"}}>{f.toPrice} to price</span>}
-                      {f.changed>0&&<span style={{fontSize:11,fontWeight:700,color:GOLD_D,background:GOLD_L,borderRadius:4,padding:"3px 8px"}}>{f.changed} to update</span>}
-                      {f.max>0&&<div style={{fontSize:14,fontWeight:800,color:INK,whiteSpace:"nowrap"}}>{f.min===f.max?fmtR(f.min):`${fmtR(f.min)} to ${fmtR(f.max)}`}</div>}
+                      {f.toPrice>0&&pill(`${f.toPrice} to price`,GOLD_D,GOLD_L)}
+                      {f.changed>0?pill(`${f.changed} new price${f.changed!==1?"s":""}`,GOLD_D,GOLD_L):f.toPrice===0&&f.webMax>0?pill("✓ Up to date",OK,OK_BG):null}
+                      {f.webMax>0&&<div style={{fontSize:14,fontWeight:800,color:INK,whiteSpace:"nowrap",minWidth:isMobile?0:150,textAlign:"right"}}>{f.webMin===f.webMax?fmtR(f.webMin):`${fmtR(f.webMin)} to ${fmtR(f.webMax)}`}</div>}
                       <div style={{position:"relative"}} onClick={e=>e.stopPropagation()}>
                         <button aria-label="Product actions" onClick={e=>{e.stopPropagation();setMenuFor(m=>m==="fam:"+f.key?null:"fam:"+f.key);}}
                           style={{background:menuFor==="fam:"+f.key?PARCH:"none",border:`1px solid ${menuFor==="fam:"+f.key?BD:"transparent"}`,borderRadius:8,width:30,height:28,cursor:"pointer",color:WG,fontSize:16,lineHeight:1,fontFamily:"inherit"}}>⋯</button>
                         {menuFor==="fam:"+f.key&&<div style={{position:"absolute",top:"calc(100% + 4px)",right:0,zIndex:20,background:WHITE,border:`1px solid ${BD}`,borderRadius:10,boxShadow:SHADOW,padding:"4px 0",minWidth:230}}>
+                          {f.changed>0&&<button style={menuItem} onClick={()=>{setMenuFor(null);applyRows(f.rows.filter(r=>r.now&&r.diff!==0));}}>Accept {f.changed} new price{f.changed!==1?"s":""}</button>}
                           <button style={menuItem} onClick={()=>openRename(f)}>Rename product</button>
                           <button style={menuItem} onClick={()=>openGroup(f)}>Change group</button>
                           <button style={menuItem} onClick={()=>openCopy(f)}>Copy variants from another product</button>
@@ -11888,8 +11934,8 @@ function PriceList({priceList=[],setPriceList,setView,pricing=[],markupTable=[],
                     {open&&<div>{familyBody(f)}</div>}
                   </Card>;
                 })}
-              </>}
-          <div style={{fontSize:12,color:WG,marginTop:12,lineHeight:1.6}}>Variants are grouped by name: everything before "in 18ct…" or a final "(…)" is treated as the product. Prices include {TAX_LABEL} and your payment processing allowance, the same as your quotes. Margin is worked out excluding {TAX_LABEL}. Metal added from the Pricing DB follows spot prices. Stones, labour and any cost you typed in yourself stay as you entered them.</div>
+              </div>)}
+          <div style={{fontSize:12,color:WG,marginTop:14,lineHeight:1.6}}>Website price is the price you last saved. Today's price recalculates the metal at current spot prices with your current markups; stones, labour and any cost you typed yourself stay as entered. Prices include {TAX_LABEL} and your payment processing allowance, the same as your quotes. Variants are grouped by name: everything before "in 18ct…" or a final "(…)" is the product.</div>
         </>}
 
     {newOpen&&<Modal title="New product" onClose={()=>setNewOpen(false)}>
