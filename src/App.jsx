@@ -5058,7 +5058,7 @@ function JobDetailInner({jobId,jobs,setJobs,clients,setClients,quotes,setQuotes,
             </div>}
             <div style={{cursor:"pointer",flex:1,minWidth:0}} onClick={()=>setView("quoteDetail_"+q.id)}>
               <div style={{fontWeight:600,fontSize:14,color:INK}}>{quoteLabel(q)} <span style={{fontWeight:400,color:WG,fontSize:12}}>{q.title?.trim()?quoteRef(q):""}</span></div>
-              <div style={{fontSize:12,color:WG,marginTop:1}}>{manual?<>Manual quoted price → </>:<>Base: {fmt(calc.baseLow)} → {calc.mult}× → </>}<strong style={{color:OK}}>{priceStr}</strong>{qDisc>0&&priceStr!=="—"&&<span> (after {fmtR(qDisc)} {quoteDiscountLabel(q).toLowerCase()})</span>}</div>
+              <div style={{fontSize:12,color:WG,marginTop:1}}>{manual?<>Manual quoted price → </>:<>Base: {fmt(calc.baseLow)} → {calc.mult}× → </>}<strong style={{color:OK}}>{priceStr}</strong>{qDisc>0&&priceStr!=="—"&&<span> (after {fmtR(qDisc)} {quoteDiscountLabel(q).toLowerCase()})</span>}{(Number(q.tradeInCredit)||0)>0&&priceStr!=="—"&&<span> · <strong style={{color:OK}}>{fmtR(Math.max(0,quoteGrandTotal(q,markupTable)-(Number(q.tradeInCredit)||0)))}</strong> payable after {fmtR(Number(q.tradeInCredit)||0)} gold trade-in</span>}</div>
             </div>
           </div>
           <div style={{display:"flex",gap:8,alignItems:"center",flexWrap:"wrap",flexShrink:0}}>
