@@ -12135,12 +12135,22 @@ const scrapCalc=(r,sp)=>{
   const meltNow=spotNow>0&&pure>0?pure*spotNow:null;
   const payout=scrapPayoutOf(sp)/100;
   const sold=r.status==="Sold",used=r.status==="Used";
-  const received=Number(r.amountReceived)||0,fees=Number(r.fees)||0;
+  // Refinery docket: each melted bar is assayed (purity %), weighed (gross less stone = net) and paid
+  // at a price per gram of the bar. Net amount = sum of bar totals (GST is reverse-charged, so it nets
+  // to nil). With bars entered, that IS the amount received; older records keep a typed amount.
+  const bars=(r.bars||[]).map(b=>{
+    const gross=Number(b.gross)||0,stone=Number(b.stone)||0,net=Math.max(0,gross-stone);
+    const ppg=Number(b.pricePerGram)||0,pur=Number(b.purity)||0;
+    return{...b,gross,stone,net,ppg,pur,pure:net*pur/100,total:Math.round(net*ppg*100)/100};
+  });
+  const barsTotal=bars.reduce((s,b)=>s+b.total,0);
+  const bar={gross:bars.reduce((s,b)=>s+b.gross,0),stone:bars.reduce((s,b)=>s+b.stone,0),net:bars.reduce((s,b)=>s+b.net,0),pure:bars.reduce((s,b)=>s+b.pure,0),total:barsTotal};
+  const received=barsTotal>0?barsTotal:(Number(r.amountReceived)||0),fees=Number(r.fees)||0;
   const profit=sold?received-paid-fees:null;
   // Still held: what it would fetch today at the refiner payout %, less what was paid.
   const expected=!sold&&!used&&meltNow!=null?meltNow*payout-paid:null;
   const margin=profit!=null&&paid>0?profit/paid*100:null;
-  return{grams,pure,paid,costPerGram:grams>0?paid/grams:null,spotNow,meltThen,meltNow,payout,profit,expected,margin,received,fees,mk};
+  return{grams,pure,paid,costPerGram:grams>0?paid/grams:null,spotNow,meltThen,meltNow,payout,profit,expected,margin,received,fees,mk,bars,bar};
 };
 const scrapSellerName=(r,clients)=>{const c=clients.find(x=>x.id===r.clientId);return (r.sellerName||"").trim()||(c?clientDisplayName(c):"");};
 
@@ -12158,7 +12168,14 @@ function ScrapGold({scrap,setScrap,clients=[],jobs=[],spotPrices={},onUpdateSpot
   const blankLine=()=>({id:uid(),grade:"9",grams:"",from:"9",to:"14",purityPct:""});
   const blank=()=>({id:uid(),purchaseDate:today(),sellerName:"",clientId:"",sellerRef:"",metal:"Yellow gold",lines:[blankLine()],
     pricePaid:"",paymentMethod:"Cash",spotAtPurchase:String(Number(spotPrices?.gold)||""),notes:"",images:[],status:"Purchased",
-    disposal:"Sold to refiner",buyer:"",saleDate:"",amountReceived:"",fees:"",usedJobId:"",usedDate:"",createdAt:today()});
+    disposal:"Sold to refiner",buyer:"",saleDate:"",docketRef:"",bars:[],salePayment:"Bank transfer",amountReceived:"",fees:"",usedJobId:"",usedDate:"",createdAt:today()});
+  const blankBar=()=>({id:uid(),barcode:"",purity:"",gross:"",stone:"",pricePerGram:""});
+  const setBar=(bid,k,v)=>setDraft(d=>({...d,bars:(d.bars||[]).map(b=>b.id===bid?{...b,[k]:v}:b)}));
+  const addBar=()=>setDraft(d=>{const bs=d.bars||[];const last=bs[bs.length-1];
+    // Bar codes run on from the docket (BR026981/1, /2…), so suggest the next one.
+    const m=last&&/^(.*\/)(\d+)$/.exec(last.barcode||"");
+    return{...d,bars:[...bs,{...blankBar(),barcode:m?m[1]+(Number(m[2])+1):""}]};});
+  const removeBar=bid=>setDraft(d=>({...d,bars:(d.bars||[]).filter(b=>b.id!==bid)}));
   const isExisting=d=>scrap.some(r=>r.id===d.id);
   const openNew=()=>setDraft(blank());
   const openEdit=(r,patch={})=>setDraft({...JSON.parse(JSON.stringify(r)),...patch});
@@ -12214,6 +12231,7 @@ function ScrapGold({scrap,setScrap,clients=[],jobs=[],spotPrices={},onUpdateSpot
   const removeLine=lid=>setDraft(d=>({...d,lines:d.lines.length>1?d.lines.filter(l=>l.id!==lid):d.lines}));
   const setStatus=s=>setDraft(d=>({...d,status:s,
     ...(s==="Sold"&&!d.saleDate?{saleDate:today()}:{}),
+    ...(s==="Sold"&&!(d.bars||[]).length&&!(Number(d.amountReceived)>0)?{bars:[blankBar()]}:{}),
     ...(s==="Used"&&!d.usedDate?{usedDate:today()}:{})}));
 
   const commit=()=>{
@@ -12221,9 +12239,11 @@ function ScrapGold({scrap,setScrap,clients=[],jobs=[],spotPrices={},onUpdateSpot
     const c=scrapCalc(d,spotPrices);
     if(!(c.grams>0)){alert("Add the weight in grams for at least one carat line.");return;}
     if(!(c.paid>0)){alert("Enter the price you paid.");return;}
-    if(d.status==="Sold"&&!(Number(d.amountReceived)>0)){alert("Enter the amount you received for the sale.");return;}
+    if(d.status==="Sold"&&!(c.received>0)){alert("Enter the bars from the refinery docket (net weight and price per gram), or the amount received.");return;}
     if(d.status==="Used"&&!d.usedJobId){alert("Pick the job this scrap was used in.");return;}
-    const clean={...d,sellerName:scrapSellerName(d,clients),lines:d.lines.filter(l=>Number(l.grams)>0)};
+    const keptBars=(d.bars||[]).filter(b=>Number(b.gross)>0||Number(b.pricePerGram)>0);
+    const clean={...d,sellerName:scrapSellerName(d,clients),lines:d.lines.filter(l=>Number(l.grams)>0),bars:keptBars,
+      ...(keptBars.length?{amountReceived:String(c.received)}:{})};
     save(isExisting(d)?scrap.map(r=>r.id===d.id?clean:r):[clean,...scrap]);
     close();
   };
@@ -12299,7 +12319,7 @@ function ScrapGold({scrap,setScrap,clients=[],jobs=[],spotPrices={},onUpdateSpot
                       <div style={{fontSize:13.5,color:INK,marginBottom:4}}>{r.metal} · {(r.lines||[]).map(l=>scrapLineLabel(r,l)).join(" · ")}</div>
                       <div style={{fontSize:12.5,color:WG}}>
                         Bought {fmtDate(r.purchaseDate)} for {fmtR(c.paid)} · {+c.grams.toFixed(2)}g{c.costPerGram!=null?` at ${fmt(c.costPerGram)}/g`:""}
-                        {r.status==="Sold"?` · ${r.disposal||"Sold"}${r.buyer?` to ${r.buyer}`:""} ${fmtDate(r.saleDate)} for ${fmtR(c.received)}`:""}
+                        {r.status==="Sold"?` · ${r.disposal||"Sold"}${r.buyer?` to ${r.buyer}`:""} ${fmtDate(r.saleDate)} for ${fmt(c.received)}${c.bars.length?` (${c.bars.length} bar${c.bars.length!==1?"s":""}, ${+c.bar.net.toFixed(2)}g)`:""}${r.docketRef?` · Docket ${r.docketRef}`:""}`:""}
                         {r.status==="Used"?` · Used in ${job?jobLabel(job):"a job"}`:""}
                         {(r.images||[]).length?` · 📷 ${(r.images||[]).length}`:""}
                       </div>
@@ -12311,7 +12331,7 @@ function ScrapGold({scrap,setScrap,clients=[],jobs=[],spotPrices={},onUpdateSpot
                       </div>}
                       <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
                         {r.status==="Purchased"&&<Btn sm={!isMobile} xs={isMobile} ghost onClick={()=>markInStock(r)}>Mark in stock</Btn>}
-                        {held&&<Btn sm={!isMobile} xs={isMobile} onClick={()=>openEdit(r,{status:"Sold",saleDate:r.saleDate||today()})}>Record sale</Btn>}
+                        {held&&<Btn sm={!isMobile} xs={isMobile} onClick={()=>openEdit(r,{status:"Sold",saleDate:r.saleDate||today(),...((r.bars||[]).length?{}:{bars:[blankBar()]})})}>Record sale</Btn>}
                         <Btn sm={!isMobile} xs={isMobile} ghost onClick={()=>openEdit(r)}>Edit</Btn>
                       </div>
                     </div>
@@ -12383,12 +12403,73 @@ function ScrapGold({scrap,setScrap,clients=[],jobs=[],spotPrices={},onUpdateSpot
         <div style={{fontWeight:700,fontSize:13,color:INK,marginBottom:10}}>Sale</div>
         <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"0 14px"}}>
           <Input label="Disposal method" value={draft.disposal} onChange={setF("disposal")} as="select" options={SCRAP_DISPOSALS}/>
-          <Input label="Buyer / refiner" value={draft.buyer} onChange={setF("buyer")} placeholder="e.g. ABC Refining"/>
+          <Input label="Buyer / refiner" value={draft.buyer} onChange={setF("buyer")} placeholder="e.g. Arora Precious Metals Refinery"/>
           <Input label="Sale date" value={draft.saleDate} onChange={setF("saleDate")} type="date"/>
-          <Input label={`Amount received (${CUR_SYM})`} value={draft.amountReceived} onChange={setF("amountReceived")} type="number" min="0" step="1" placeholder="0"/>
-          <Input label={`Refining fees / costs (${CUR_SYM})`} value={draft.fees} onChange={setF("fees")} type="number" min="0" step="1" placeholder="0"/>
+          <Input label="Docket / RCTI no." value={draft.docketRef||""} onChange={setF("docketRef")} placeholder="e.g. BR026981"/>
+        </div>
+
+        {/* Refinery docket: one row per melted bar, laid out like the refiner's statement */}
+        <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:8,margin:"2px 0 8px"}}>
+          <label style={{...SS.lbl,marginBottom:0}}>Bars on the docket</label>
+          <Btn sm ghost onClick={addBar}>+ Add bar</Btn>
+        </div>
+        {(()=>{
+          const barCols="1.3fr 0.8fr 0.9fr 0.8fr 0.8fr 0.9fr 1fr auto";
+          const hd={fontSize:10,fontWeight:700,color:WG,textTransform:"uppercase",letterSpacing:"0.04em"};
+          const cell={...smInp,marginTop:0,background:WHITE};
+          const ro={fontSize:12.5,color:INK,textAlign:"right",padding:"8px 2px"};
+          const bars=dc.bars;
+          return <div style={{background:WHITE,border:`1px solid ${BD}`,borderRadius:10,padding:isMobile?"8px 10px":"10px 12px",marginBottom:12}}>
+            {!isMobile&&<div style={{display:"grid",gridTemplateColumns:barCols,gap:8,paddingBottom:6,borderBottom:`1px solid ${BD}`,marginBottom:6}}>
+              <div style={hd}>Barcode</div><div style={hd}>Purity %</div><div style={hd}>Gross wt (g)</div><div style={hd}>Stone (g)</div><div style={{...hd,textAlign:"right"}}>Net wt</div><div style={hd}>{`${CUR_SYM} / gram`}</div><div style={{...hd,textAlign:"right"}}>Total</div><div/>
+            </div>}
+            {bars.length===0&&<div style={{fontSize:12.5,color:WG,padding:"6px 0"}}>No bars yet. Add one for each bar on the refinery docket.</div>}
+            {bars.map(b=>isMobile
+              ?<div key={b.id} style={{borderBottom:`1px solid ${BD}`,padding:"8px 0"}}>
+                <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>
+                  <div style={{gridColumn:"1 / -1"}}><label style={SS.lbl}>Barcode</label><input value={b.barcode} onChange={e=>setBar(b.id,"barcode",e.target.value)} placeholder="BR026981/1" style={cell}/></div>
+                  <div><label style={SS.lbl}>Purity %</label><input value={(draft.bars.find(x=>x.id===b.id)||{}).purity} onChange={e=>setBar(b.id,"purity",e.target.value)} type="number" min="0" max="100" step="0.1" placeholder="63.7" style={cell}/></div>
+                  <div><label style={SS.lbl}>Gross wt (g)</label><input value={(draft.bars.find(x=>x.id===b.id)||{}).gross} onChange={e=>setBar(b.id,"gross",e.target.value)} type="number" min="0" step="0.01" placeholder="0.00" style={cell}/></div>
+                  <div><label style={SS.lbl}>Stone (g)</label><input value={(draft.bars.find(x=>x.id===b.id)||{}).stone} onChange={e=>setBar(b.id,"stone",e.target.value)} type="number" min="0" step="0.01" placeholder="0" style={cell}/></div>
+                  <div><label style={SS.lbl}>{`${CUR_SYM} / gram`}</label><input value={(draft.bars.find(x=>x.id===b.id)||{}).pricePerGram} onChange={e=>setBar(b.id,"pricePerGram",e.target.value)} type="number" min="0" step="0.01" placeholder="0.00" style={cell}/></div>
+                </div>
+                <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",fontSize:12.5,marginTop:6}}>
+                  <span style={{color:WG}}>Net {+b.net.toFixed(2)}g · <strong style={{color:INK}}>{fmt(b.total)}</strong></span>
+                  <button onClick={()=>removeBar(b.id)} style={{background:"none",border:"none",color:DANGER,fontSize:12,fontWeight:700,cursor:"pointer",fontFamily:"inherit"}}>Remove</button>
+                </div>
+              </div>
+              :<div key={b.id} style={{display:"grid",gridTemplateColumns:barCols,gap:8,alignItems:"center",marginBottom:4}}>
+                <input value={b.barcode} onChange={e=>setBar(b.id,"barcode",e.target.value)} placeholder="BR026981/1" style={cell}/>
+                <input value={(draft.bars.find(x=>x.id===b.id)||{}).purity} onChange={e=>setBar(b.id,"purity",e.target.value)} type="number" min="0" max="100" step="0.1" placeholder="63.7" style={cell}/>
+                <input value={(draft.bars.find(x=>x.id===b.id)||{}).gross} onChange={e=>setBar(b.id,"gross",e.target.value)} type="number" min="0" step="0.01" placeholder="0.00" style={cell}/>
+                <input value={(draft.bars.find(x=>x.id===b.id)||{}).stone} onChange={e=>setBar(b.id,"stone",e.target.value)} type="number" min="0" step="0.01" placeholder="0" style={cell}/>
+                <div style={ro}>{+b.net.toFixed(2)}</div>
+                <input value={(draft.bars.find(x=>x.id===b.id)||{}).pricePerGram} onChange={e=>setBar(b.id,"pricePerGram",e.target.value)} type="number" min="0" step="0.01" placeholder="0.00" style={cell}/>
+                <div style={{...ro,fontWeight:700}}>{fmt(b.total)}</div>
+                <button onClick={()=>removeBar(b.id)} title="Remove bar" style={{background:"none",border:"none",color:DANGER,fontSize:16,fontWeight:700,cursor:"pointer",fontFamily:"inherit",padding:"0 4px"}}>×</button>
+              </div>)}
+            {bars.length>0&&<div style={{display:"grid",gridTemplateColumns:isMobile?"1fr 1fr":"repeat(4,1fr)",gap:"6px 14px",borderTop:`2px solid ${INK}`,marginTop:8,paddingTop:10,fontSize:12}}>
+              {[["Gross wt",`${+dc.bar.gross.toFixed(2)}g`],["Stone wt",`${+dc.bar.stone.toFixed(2)}g`],["Net wt",`${+dc.bar.net.toFixed(2)}g`],[`${TAX_LABEL} (reverse charged)`,fmt(dc.bar.total*0.1)]].map(([l,v])=>
+                <div key={l}><div style={{color:WG,fontSize:10.5,fontWeight:700,textTransform:"uppercase",letterSpacing:"0.04em"}}>{l}</div><div style={{color:INK,fontWeight:600,marginTop:2}}>{v}</div></div>)}
+            </div>}
+            {bars.length>0&&<div style={{display:"flex",justifyContent:"space-between",alignItems:"baseline",marginTop:10,paddingTop:8,borderTop:`1px solid ${BD}`}}>
+              <span style={{fontSize:12,color:WG,fontWeight:700,textTransform:"uppercase",letterSpacing:"0.05em"}}>Net amount</span>
+              <span style={{fontSize:17,fontWeight:800,color:INK}}>{fmt(dc.bar.total)}</span>
+            </div>}
+          </div>;
+        })()}
+        {dc.bars.length>0&&dc.bar.pure>0&&<div style={{fontSize:12,color:WG,marginTop:-4,marginBottom:12,lineHeight:1.5}}>
+          Assayed pure gold <strong style={{color:INK}}>{dc.bar.pure.toFixed(2)}g</strong> against your estimate of {dc.pure.toFixed(2)}g at purchase
+          {dc.pure>0?<> (<strong style={{color:dc.bar.pure>=dc.pure?OK:DANGER}}>{dc.bar.pure>=dc.pure?"+":""}{(dc.bar.pure-dc.pure).toFixed(2)}g</strong>)</>:""}.
+        </div>}
+
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"0 14px"}}>
+          <Input label="Payment type" value={draft.salePayment||"Bank transfer"} onChange={setF("salePayment")} as="select" options={SCRAP_PAY_METHODS}/>
+          <Input label={`Refining fees / costs (${CUR_SYM})`} value={draft.fees} onChange={setF("fees")} type="number" min="0" step="0.01" placeholder="0"/>
+          {dc.bars.length===0&&<Input label={`Amount received (${CUR_SYM})`} value={draft.amountReceived} onChange={setF("amountReceived")} type="number" min="0" step="0.01" placeholder="0"/>}
         </div>
         <div style={{padding:"4px 0 10px"}}>
+          {statLine("Amount received",fmt(dc.received))}
           {statLine("Profit",fmtR(dc.profit||0),true,(dc.profit||0)>=0?OK:DANGER)}
           {statLine("Margin",dc.margin!=null?`${Math.round(dc.margin)}%`:"—")}
         </div>
