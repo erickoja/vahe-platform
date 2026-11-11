@@ -1990,7 +1990,7 @@ const calcStoneQuote=(items,table,overrideMult)=>{
   return{totalCost,bracket,mult,autoMult,overridden:ov>0,markedUp,gst,clientTotal};
 };
 
-const K={cl:"jlr4_clients",jo:"jlr4_jobs",qu:"jlr4_quotes",pa:"jlr4_payments",pr:"jlr4_pricing_v9",biz:"jlr4_biz",no:"jlr4_notes",inv:"jlr4_invoices",spot:"jlr4_spot",mt:"jlr4_markup",smn:"jlr4_stone_nat",sml:"jlr4_stone_lab",csr:"jlr4_centre_rates",ap:"jlr4_appointments",pp:"jlr4_proposals",td:"jlr4_todos",st:"jlr4_stock",gc:"jlr4_gem_custody",pl:"jlr4_price_list",delpr:"jlr4_deleted_pricing",tmt:"jlr4_trade_markup",tsmn:"jlr4_trade_stone_nat",tsml:"jlr4_trade_stone_lab"};
+const K={cl:"jlr4_clients",jo:"jlr4_jobs",qu:"jlr4_quotes",pa:"jlr4_payments",pr:"jlr4_pricing_v9",biz:"jlr4_biz",no:"jlr4_notes",inv:"jlr4_invoices",spot:"jlr4_spot",mt:"jlr4_markup",smn:"jlr4_stone_nat",sml:"jlr4_stone_lab",csr:"jlr4_centre_rates",ap:"jlr4_appointments",pp:"jlr4_proposals",td:"jlr4_todos",st:"jlr4_stock",sc:"jlr4_scrap",gc:"jlr4_gem_custody",pl:"jlr4_price_list",delpr:"jlr4_deleted_pricing",tmt:"jlr4_trade_markup",tsmn:"jlr4_trade_stone_nat",tsml:"jlr4_trade_stone_lab"};
 
 // Name of the public, anon-readable table holding immutable proposal snapshots for client links.
 const PUBLIC_PROPOSALS_TABLE="public_proposals";
@@ -2493,7 +2493,7 @@ const _storeGet=async(k)=>{
 // High-churn data keys are arrays of {id}. To stop one session's save clobbering a record another
 // session added/edited (last-write-wins lost update), those keys read the latest cloud copy and
 // 3-way merge by id before writing. Settings/catalogue keys keep the simple write.
-const MERGE_KEYS=new Set([K.cl,K.jo,K.qu,K.pa,K.no,K.inv,K.ap,K.pp,K.st,K.gc,K.pl]);
+const MERGE_KEYS=new Set([K.cl,K.jo,K.qu,K.pa,K.no,K.inv,K.ap,K.pp,K.st,K.gc,K.pl,K.sc]);
 const _known={};        // last local value per key = the merge base (what this session last synced/wrote)
 const _writeChain={};   // per-key promise chain so this client's own writes never race each other
 const _byId=arr=>{const m={};(arr||[]).forEach(x=>{if(x&&x.id!=null)m[x.id]=x;});return m;};
@@ -9892,7 +9892,7 @@ function SpotPriceUpdater({spotPrices,setSpotPrices,pricing,setPricing,onClose})
 }
 
 // ── Reports ───────────────────────────────────────────────────────────────
-function Reports({jobs,clients,quotes,payments,invoices,markupTable,setView,setSelJob,openJobs,biz}){
+function Reports({jobs,clients,quotes,payments,invoices,markupTable,setView,setSelJob,openJobs,biz,scrap=[],spotPrices={}}){
   const isMobile=useIsMobile();
   const isNarrow=useIsMobile(1024);   // tablet + phone: stack the wide trade-accounts table into cards
   // Compact money for the tight bar-chart labels on mobile (e.g. $84k) so they don't overflow.
@@ -10076,6 +10076,7 @@ function Reports({jobs,clients,quotes,payments,invoices,markupTable,setView,setS
         </div>
       ))}
     </Card>
+    <ScrapReportCard scrap={scrap} spotPrices={spotPrices} setView={setView}/>
     {(()=>{
       const trades=clients.filter(c=>c.accountType==="trade");
       if(!trades.length)return null;
@@ -10884,6 +10885,7 @@ const NAV=[
   {id:"statements",label:"Statements"},
   {id:"gemcustody",label:"Safekeeping"},
   {id:"stock",label:"Stock"},
+  {id:"scrap",label:"Scrap gold"},
   {id:"pricelist",label:"Price list"},
   {id:"pricing",label:"Pricing DB"},
   {id:"reports",label:"Reports"},
@@ -10894,7 +10896,7 @@ const NAV_GROUPS=[
   {label:null,ids:["dashboard","todo"]},
   {label:"Workflow",ids:["appointments","clients","jobs","quotes","invoices","gemcustody"]},
   {label:"Trade",ids:["statements"]},
-  {label:"Studio",ids:["stock","pricelist","pricing","reports","settings"]},
+  {label:"Studio",ids:["stock","scrap","pricelist","pricing","reports","settings"]},
 ];
 // Cohesive line-icon set for the sidebar (single 24-grid, 1.6 stroke, inherits color).
 function NavIcon({name,size=17}){
@@ -10911,6 +10913,7 @@ function NavIcon({name,size=17}){
     case "gemcustody": return <svg {...p}><path d="M6 3h12l3 5-9 13L3 8Z"/><path d="M3 8h18"/><path d="M9 3 7.5 8 12 21"/><path d="M15 3l1.5 5L12 21"/></svg>;
     case "pricing": return <svg {...p}><path d="M20.6 11.4 12.6 3.4a2 2 0 0 0-1.4-.6H4.5a1 1 0 0 0-1 1v6.7a2 2 0 0 0 .6 1.4l8 8a1.9 1.9 0 0 0 2.7 0l5.8-5.8a1.9 1.9 0 0 0 0-2.7Z"/><circle cx="7.8" cy="7.8" r="1.4"/></svg>;
     case "reports": return <svg {...p}><line x1="3.5" y1="20.5" x2="20.5" y2="20.5"/><rect x="5" y="12" width="3.4" height="7" rx="0.6"/><rect x="10.3" y="8" width="3.4" height="11" rx="0.6"/><rect x="15.6" y="4.5" width="3.4" height="14.5" rx="0.6"/></svg>;
+    case "scrap": return <svg {...p}><path d="M4 18h16l-2.2-6.5H6.2Z"/><path d="M8.2 11.5 9.8 6h4.4l1.6 5.5"/><line x1="12" y1="2.8" x2="12" y2="4.2"/></svg>;
     case "stock": return <svg {...p}><path d="M12 2.8 21 7.4v9.2L12 21.2 3 16.6V7.4Z"/><path d="M3 7.4 12 12l9-4.6"/><line x1="12" y1="12" x2="12" y2="21.2"/><path d="M7.5 5.1 16.5 9.7"/></svg>;
     case "pricelist": return <svg {...p}><rect x="4" y="3" width="16" height="18" rx="2"/><line x1="8" y1="8" x2="12" y2="8"/><line x1="8" y1="12" x2="12" y2="12"/><line x1="8" y1="16" x2="12" y2="16"/><line x1="15" y1="8" x2="16.5" y2="8"/><line x1="15" y1="12" x2="16.5" y2="12"/><line x1="15" y1="16" x2="16.5" y2="16"/></svg>;
     case "settings": return <svg {...p}><line x1="4" y1="8" x2="20" y2="8"/><circle cx="9" cy="8" r="2.3"/><line x1="4" y1="16" x2="20" y2="16"/><circle cx="15" cy="16" r="2.3"/></svg>;
@@ -12085,6 +12088,408 @@ const PIECE_TYPES=["Ring","Necklace","Pendant","Bracelet","Bangle","Earrings","B
 // ── Gem Custody — safekeeping register + printable receipt ─────────────────
 // Log any client-owned stone you're physically holding, and print a receipt as
 // proof for the customer. It's a bailment record: ownership stays with the client.
+// ── Scrap gold (metal bought over the counter) ─────────────────────────────
+// The studio's own records: what was paid for scrap, its metal content, and the profit once it's
+// sold to a refiner/dealer (or the cost per gram it carries into a customer job). No client quote
+// or invoice is involved, so it lives apart from Jobs and touches none of the sales figures.
+const SCRAP_METALS=["Yellow gold","White gold","Rose gold","Mixed gold","Silver","Platinum"];
+const scrapMetalKey=m=>m==="Silver"?"silver":m==="Platinum"?"platinum":"gold";
+const SCRAP_GRADES={
+  gold:[["9","9ct",0.375],["10","10ct",0.417],["14","14ct",0.585],["18","18ct",0.75],["22","22ct",0.916]],
+  silver:[["925","Sterling 925",0.925],["999","Fine 999",0.999]],
+  platinum:[["900","Platinum 900",0.9],["950","Platinum 950",0.95]],
+};
+const SCRAP_STATUSES=[["Purchased","Purchased"],["In stock","In stock"],["Sold","Sold / refined"],["Used","Used in a job"]];
+const scrapStatusLabel=s=>(SCRAP_STATUSES.find(x=>x[0]===s)||[s,s])[1];
+const SCRAP_STATUS_COLOR={Purchased:WARN,"In stock":GOLD_D,Sold:OK,Used:WG};
+const SCRAP_PAY_METHODS=["Cash","Bank transfer","Other"];
+const SCRAP_DISPOSALS=["Sold to refiner","Sold to bullion dealer"];
+const scrapGradePurity=(mk,g)=>(SCRAP_GRADES[mk]||[]).find(x=>x[0]===String(g))?.[2]||0;
+const scrapGradeName=(mk,g)=>(SCRAP_GRADES[mk]||[]).find(x=>x[0]===String(g))?.[1]||"";
+// A mixed-range line (unsorted scrap) uses the purity the user estimates, else the range midpoint.
+const scrapMidPurity=(mk,l)=>{const a=scrapGradePurity(mk,l.from),b=scrapGradePurity(mk,l.to);return a&&b?(a+b)/2:(a||b||0);};
+const scrapLinePurity=(r,l)=>{
+  const mk=scrapMetalKey(r.metal);
+  if(l.grade!=="mixed")return scrapGradePurity(mk,l.grade);
+  const est=Number(l.purityPct);
+  return est>0?est/100:scrapMidPurity(mk,l);
+};
+const scrapLineLabel=(r,l)=>{
+  const mk=scrapMetalKey(r.metal);
+  const g=Number(l.grams)||0;
+  const name=l.grade==="mixed"
+    ?`Mixed ${[scrapGradeName(mk,l.from),scrapGradeName(mk,l.to)].filter(Boolean).join(" to ")||"range"}`
+    :scrapGradeName(mk,l.grade);
+  return `${name} ${+g.toFixed(2)}g`;
+};
+// All the numbers for one purchase. Spot prices are per gram of pure metal (same as Pricing DB).
+const scrapCalc=(r,sp)=>{
+  const lines=r.lines||[];
+  const grams=lines.reduce((s,l)=>s+(Number(l.grams)||0),0);
+  const pure=lines.reduce((s,l)=>s+(Number(l.grams)||0)*scrapLinePurity(r,l),0);
+  const paid=Number(r.pricePaid)||0;
+  const mk=scrapMetalKey(r.metal);
+  const spotNow=Number(sp?.[mk])||0;
+  const spotThen=Number(r.spotAtPurchase)||0;
+  const meltThen=spotThen>0&&pure>0?pure*spotThen:null;
+  const meltNow=spotNow>0&&pure>0?pure*spotNow:null;
+  const payout=scrapPayoutOf(sp)/100;
+  const sold=r.status==="Sold",used=r.status==="Used";
+  const received=Number(r.amountReceived)||0,fees=Number(r.fees)||0;
+  const profit=sold?received-paid-fees:null;
+  // Still held: what it would fetch today at the refiner payout %, less what was paid.
+  const expected=!sold&&!used&&meltNow!=null?meltNow*payout-paid:null;
+  const margin=profit!=null&&paid>0?profit/paid*100:null;
+  return{grams,pure,paid,costPerGram:grams>0?paid/grams:null,spotNow,meltThen,meltNow,payout,profit,expected,margin,received,fees,mk};
+};
+const scrapSellerName=(r,clients)=>{const c=clients.find(x=>x.id===r.clientId);return (r.sellerName||"").trim()||(c?clientDisplayName(c):"");};
+
+function ScrapGold({scrap,setScrap,clients=[],jobs=[],spotPrices={},onUpdateSpot}){
+  const isMobile=useIsMobile();
+  const save=next=>{if(!guardEdit())return;setScrap(next);persist(K.sc,next);};
+  const[draft,setDraft]=useState(null);
+  const[filter,setFilter]=useState("Held");   // Held | Sold | Used | All
+  const[qStr,setQStr]=useState("");
+  const[modalUrls,setModalUrls]=useState({});
+  const[busy,setBusy]=useState(false);
+  const[imgErr,setImgErr]=useState("");
+  const[zoom,setZoom]=useState(null);
+
+  const blankLine=()=>({id:uid(),grade:"9",grams:"",from:"9",to:"14",purityPct:""});
+  const blank=()=>({id:uid(),purchaseDate:today(),sellerName:"",clientId:"",sellerRef:"",metal:"Yellow gold",lines:[blankLine()],
+    pricePaid:"",paymentMethod:"Cash",spotAtPurchase:String(Number(spotPrices?.gold)||""),notes:"",images:[],status:"Purchased",
+    disposal:"Sold to refiner",buyer:"",saleDate:"",amountReceived:"",fees:"",usedJobId:"",usedDate:"",createdAt:today()});
+  const isExisting=d=>scrap.some(r=>r.id===d.id);
+  const openNew=()=>setDraft(blank());
+  const openEdit=(r,patch={})=>setDraft({...JSON.parse(JSON.stringify(r)),...patch});
+  const close=()=>{setDraft(null);setModalUrls({});setBusy(false);setImgErr("");};
+
+  useEffect(()=>{
+    let cancelled=false;
+    (async()=>{
+      if(!draft||!imagesEnabled())return;
+      const map={};
+      for(const img of (draft.images||[])){const u=await signedImageUrl(img.path);if(u)map[img.path]=u;}
+      if(!cancelled)setModalUrls(map);
+    })();
+    return()=>{cancelled=true;};
+  },[draft?.id]);   // eslint-disable-line
+
+  const onFiles=async(fileList)=>{
+    if(!draft)return;
+    const files=Array.from(fileList||[]).filter(f=>f.type.startsWith("image/"));
+    if(!files.length)return;
+    setBusy(true);setImgErr("");
+    try{
+      const added=[];
+      for(const file of files){
+        const blob=await compressImage(file);
+        const path=await uploadJobImage(draft.id,blob);
+        const u=await signedImageUrl(path);
+        added.push({id:uid(),path,uploadedAt:new Date().toISOString()});
+        if(u)setModalUrls(prev=>({...prev,[path]:u}));
+      }
+      setDraft(d=>({...d,images:[...(d.images||[]),...added]}));
+    }catch(e){setImgErr(e.message||"Upload failed.");}
+    setBusy(false);
+  };
+  const removeImg=img=>{
+    if(!confirm("Remove this photo?"))return;
+    setDraft(d=>({...d,images:(d.images||[]).filter(i=>i.id!==img.id)}));
+    deleteJobImage(img.path);
+  };
+
+  const setF=k=>v=>setDraft(d=>({...d,[k]:v}));
+  const pickClient=id=>{const c=clients.find(x=>x.id===id);setDraft(d=>({...d,clientId:id,sellerName:c?clientDisplayName(c):d.sellerName}));};
+  // Changing metal family resets each line's grade to one that exists for that metal.
+  const setMetal=m=>setDraft(d=>{
+    const mk=scrapMetalKey(m),first=SCRAP_GRADES[mk][0][0],ok=g=>!!scrapGradeName(mk,g);
+    const spot=Number(spotPrices?.[mk])||0;
+    const sameFamily=scrapMetalKey(d.metal)===mk;
+    return{...d,metal:m,spotAtPurchase:sameFamily?d.spotAtPurchase:(spot?String(spot):""),
+      lines:d.lines.map(l=>({...l,grade:l.grade==="mixed"||ok(l.grade)?l.grade:first,from:ok(l.from)?l.from:first,to:ok(l.to)?l.to:(SCRAP_GRADES[mk][1]||SCRAP_GRADES[mk][0])[0]}))};
+  });
+  const setLine=(lid,k,v)=>setDraft(d=>({...d,lines:d.lines.map(l=>l.id===lid?{...l,[k]:v}:l)}));
+  const addLine=()=>setDraft(d=>{const mk=scrapMetalKey(d.metal);return{...d,lines:[...d.lines,{...blankLine(),grade:SCRAP_GRADES[mk][0][0],from:SCRAP_GRADES[mk][0][0],to:(SCRAP_GRADES[mk][1]||SCRAP_GRADES[mk][0])[0]}]};});
+  const removeLine=lid=>setDraft(d=>({...d,lines:d.lines.length>1?d.lines.filter(l=>l.id!==lid):d.lines}));
+  const setStatus=s=>setDraft(d=>({...d,status:s,
+    ...(s==="Sold"&&!d.saleDate?{saleDate:today()}:{}),
+    ...(s==="Used"&&!d.usedDate?{usedDate:today()}:{})}));
+
+  const commit=()=>{
+    const d=draft;
+    const c=scrapCalc(d,spotPrices);
+    if(!(c.grams>0)){alert("Add the weight in grams for at least one carat line.");return;}
+    if(!(c.paid>0)){alert("Enter the price you paid.");return;}
+    if(d.status==="Sold"&&!(Number(d.amountReceived)>0)){alert("Enter the amount you received for the sale.");return;}
+    if(d.status==="Used"&&!d.usedJobId){alert("Pick the job this scrap was used in.");return;}
+    const clean={...d,sellerName:scrapSellerName(d,clients),lines:d.lines.filter(l=>Number(l.grams)>0)};
+    save(isExisting(d)?scrap.map(r=>r.id===d.id?clean:r):[clean,...scrap]);
+    close();
+  };
+  const del=id=>{if(!guardEdit())return;if(!confirm("Delete this scrap purchase? This can't be undone."))return;save(scrap.filter(r=>r.id!==id));close();};
+  const markInStock=r=>save(scrap.map(x=>x.id===r.id?{...x,status:"In stock"}:x));
+
+  // ── Summary ──
+  const held=scrap.filter(r=>r.status==="Purchased"||r.status==="In stock");
+  const heldCalcs=held.map(r=>scrapCalc(r,spotPrices));
+  const heldGrams=heldCalcs.reduce((s,c)=>s+c.grams,0);
+  const heldCost=heldCalcs.reduce((s,c)=>s+c.paid,0);
+  const heldExpected=heldCalcs.reduce((s,c)=>s+(c.expected||0),0);
+  const yr=String(new Date().getFullYear());
+  const soldThisYear=scrap.filter(r=>r.status==="Sold"&&String(r.saleDate||"").startsWith(yr));
+  const profitThisYear=soldThisYear.reduce((s,r)=>s+(scrapCalc(r,spotPrices).profit||0),0);
+
+  const shown=scrap.filter(r=>{
+    const isHeld=r.status==="Purchased"||r.status==="In stock";
+    if(filter==="Held"&&!isHeld)return false;
+    if(filter==="Sold"&&r.status!=="Sold")return false;
+    if(filter==="Used"&&r.status!=="Used")return false;
+    if(qStr){const s=`${scrapSellerName(r,clients)} ${r.sellerRef||""} ${r.metal||""} ${r.buyer||""} ${r.notes||""}`.toLowerCase();if(!s.includes(qStr.toLowerCase()))return false;}
+    return true;
+  }).sort((a,b)=>String(b.purchaseDate||b.createdAt||"").localeCompare(String(a.purchaseDate||a.createdAt||"")));
+
+  const smInp={...SS.inp,padding:"8px 10px",fontSize:12.5,marginTop:3};
+  const jobLabel=j=>{if(!j)return "";const c=clients.find(x=>x.id===j.clientId);return `${clientDisplayName(c)||"No client"} · ${j.type}${j.description?` · ${j.description.slice(0,40)}`:""}`;};
+  const statLine=(label,value,strong,color)=><div style={{display:"flex",justifyContent:"space-between",gap:12,padding:"5px 0",fontSize:13}}><span style={{color:WG}}>{label}</span><span style={{fontWeight:strong?800:600,color:color||INK}}>{value}</span></div>;
+
+  const dc=draft?scrapCalc(draft,spotPrices):null;
+  const dmk=draft?scrapMetalKey(draft.metal):"gold";
+
+  return <div>
+    <SectionHeader eyebrow="Studio" title="Scrap gold" subtitle="Record scrap metal you buy over the counter, then log the sale so the profit lands in Reports." action={<Btn onClick={openNew}>+ New purchase</Btn>}/>
+
+    {scrap.length===0
+      ? <Card style={{marginTop:4}}><div style={{color:WG,fontSize:14,textAlign:"center",padding:"46px 0"}}>
+          <div style={{fontWeight:700,fontSize:16,color:INK,marginBottom:6}}>No scrap purchases yet</div>
+          <div style={{maxWidth:420,margin:"0 auto 18px",lineHeight:1.55}}>When you buy scrap gold, enter the weight of each carat and what you paid. Once it's sold or refined, add what you received and see your profit.</div>
+          <Btn onClick={openNew}>+ Record your first purchase</Btn>
+        </div></Card>
+      : <>
+          <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(176px,1fr))",gap:12,marginBottom:22}}>
+            <Stat label="Held now" value={`${+heldGrams.toFixed(1)}g`} sub={`${held.length} purchase${held.length!==1?"s":""} not yet sold`} tint="slate" icon={ICON_ALLJOBS}/>
+            <Stat label="Cost of scrap held" value={fmtR(heldCost)} tint="slate" icon={ICON_MONEY}/>
+            <Stat label="Expected profit" value={fmtR(heldExpected)} sub={`if sold today at ${scrapPayoutOf(spotPrices)}% of spot`} tint={heldExpected>=0?"mint":"peach"} icon={ICON_DOLLAR}/>
+            <Stat label={`Profit ${yr}`} value={fmtR(profitThisYear)} sub={`${soldThisYear.length} sold this year`} tint={profitThisYear>=0?"mint":"peach"} icon={ICON_CHECK}/>
+          </div>
+
+          <div style={{display:"flex",gap:10,flexWrap:"wrap",alignItems:"center",marginBottom:16}}>
+            {[["Held","Held"],["Sold","Sold"],["Used","Used in jobs"],["All","All"]].map(([f,lbl])=>(
+              <button key={f} onClick={()=>setFilter(f)} style={{padding:"7px 15px",borderRadius:8,border:`1px solid ${filter===f?GOLD:BD}`,background:filter===f?GOLD:WHITE,color:filter===f?WHITE:WG,fontSize:11,fontWeight:700,letterSpacing:"0.06em",textTransform:"uppercase",cursor:"pointer",fontFamily:"inherit"}}>{lbl}</button>
+            ))}
+            <input value={qStr} onChange={e=>setQStr(e.target.value)} placeholder="Search seller, ID, buyer…" style={{...SS.inp,marginTop:0,maxWidth:isMobile?"none":280,width:isMobile?"100%":undefined}}/>
+            {onUpdateSpot&&<button onClick={onUpdateSpot} style={{marginLeft:isMobile?0:"auto",background:"none",border:"none",color:GOLD_D,fontSize:12.5,fontWeight:700,cursor:"pointer",fontFamily:"inherit"}}>Gold spot {fmt(Number(spotPrices?.gold)||0)}/g · Update</button>}
+          </div>
+
+          {shown.length===0
+            ? <Card><div style={{color:WG,textAlign:"center",padding:"28px 0"}}>Nothing here.</div></Card>
+            : shown.map(r=>{
+                const c=scrapCalc(r,spotPrices);
+                const held=r.status==="Purchased"||r.status==="In stock";
+                const job=r.status==="Used"?jobs.find(j=>j.id===r.usedJobId):null;
+                const pl=r.status==="Sold"?c.profit:c.expected;
+                return <Card key={r.id}>
+                  <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:16,flexWrap:"wrap"}}>
+                    <div style={{flex:1,minWidth:220}}>
+                      <div style={{display:"flex",alignItems:"center",gap:10,flexWrap:"wrap",marginBottom:4}}>
+                        <span style={{fontWeight:800,fontSize:16,color:INK}}>{scrapSellerName(r,clients)||"Unnamed seller"}</span>
+                        <Badge label={scrapStatusLabel(r.status)} color={SCRAP_STATUS_COLOR[r.status]||WG}/>
+                        <span style={{fontSize:11,color:WG,letterSpacing:"0.04em"}}>#{r.id.slice(-6).toUpperCase()}</span>
+                      </div>
+                      <div style={{fontSize:13.5,color:INK,marginBottom:4}}>{r.metal} · {(r.lines||[]).map(l=>scrapLineLabel(r,l)).join(" · ")}</div>
+                      <div style={{fontSize:12.5,color:WG}}>
+                        Bought {fmtDate(r.purchaseDate)} for {fmtR(c.paid)} · {+c.grams.toFixed(2)}g{c.costPerGram!=null?` at ${fmt(c.costPerGram)}/g`:""}
+                        {r.status==="Sold"?` · ${r.disposal||"Sold"}${r.buyer?` to ${r.buyer}`:""} ${fmtDate(r.saleDate)} for ${fmtR(c.received)}`:""}
+                        {r.status==="Used"?` · Used in ${job?jobLabel(job):"a job"}`:""}
+                        {(r.images||[]).length?` · 📷 ${(r.images||[]).length}`:""}
+                      </div>
+                    </div>
+                    <div style={{display:"flex",flexDirection:"column",alignItems:isMobile?"flex-start":"flex-end",gap:8}}>
+                      {pl!=null&&<div style={{textAlign:isMobile?"left":"right"}}>
+                        <div style={{fontWeight:800,fontSize:17,color:pl>=0?OK:DANGER}}>{pl>=0?"":"−"}{fmtR(Math.abs(pl))}</div>
+                        <div style={{fontSize:11,color:WG}}>{r.status==="Sold"?`profit${c.margin!=null?` · ${Math.round(c.margin)}% margin`:""}`:"expected profit today"}</div>
+                      </div>}
+                      <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
+                        {r.status==="Purchased"&&<Btn sm={!isMobile} xs={isMobile} ghost onClick={()=>markInStock(r)}>Mark in stock</Btn>}
+                        {held&&<Btn sm={!isMobile} xs={isMobile} onClick={()=>openEdit(r,{status:"Sold",saleDate:r.saleDate||today()})}>Record sale</Btn>}
+                        <Btn sm={!isMobile} xs={isMobile} ghost onClick={()=>openEdit(r)}>Edit</Btn>
+                      </div>
+                    </div>
+                  </div>
+                </Card>;
+              })}
+        </>}
+
+    {draft&&<Modal wide title={isExisting(draft)?"Edit scrap purchase":"New scrap purchase"} onClose={close}
+      footer={<div style={{display:"flex",justifyContent:"space-between",alignItems:"center",gap:12,flexWrap:"wrap"}}>
+        <div>{isExisting(draft)&&<button onClick={()=>del(draft.id)} style={{background:"none",border:`1px solid ${DANGER}`,color:DANGER,borderRadius:10,padding:"8px 17px",fontSize:12.5,fontWeight:600,cursor:"pointer",fontFamily:"inherit"}}>Delete</button>}</div>
+        <div style={{display:"flex",gap:10}}><Btn sm ghost onClick={close}>Cancel</Btn><Btn sm onClick={commit}>Save</Btn></div>
+      </div>}>
+      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"0 14px"}}>
+        <Input label="Purchase date" value={draft.purchaseDate} onChange={setF("purchaseDate")} type="date"/>
+        <Input label="Status" value={draft.status} onChange={setStatus} as="select" options={SCRAP_STATUSES.map(([value,label])=>({value,label}))}/>
+        <Input label="Existing client (optional)" value={draft.clientId} onChange={pickClient} as="select" options={[{value:"",label:"Not a saved client"},...clients.map(c=>({value:c.id,label:clientDisplayName(c)}))]}/>
+        <Input label="Seller name" value={draft.sellerName} onChange={setF("sellerName")} placeholder="Jane Smith"/>
+        <Input label="Seller ID / reference" value={draft.sellerRef} onChange={setF("sellerRef")} placeholder="Licence no. for second-hand dealer records"/>
+        <Input label="Metal" value={draft.metal} onChange={setMetal} as="select" options={SCRAP_METALS}/>
+      </div>
+
+      <div style={{margin:"4px 0 8px",display:"flex",alignItems:"center",justifyContent:"space-between",gap:8}}>
+        <label style={{...SS.lbl,marginBottom:0}}>Weight by {dmk==="gold"?"carat":"purity"}</label>
+        <Btn sm ghost onClick={addLine}>+ Add line</Btn>
+      </div>
+      {draft.lines.map(l=>{
+        const mixed=l.grade==="mixed";
+        const grades=SCRAP_GRADES[dmk];
+        const mid=scrapMidPurity(dmk,l);
+        return <div key={l.id} style={{border:`1px solid ${BD}`,borderRadius:10,padding:"10px 12px",marginBottom:8,background:PARCH}}>
+          <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr 1fr":mixed?"1.2fr 0.9fr 0.9fr 1fr 1fr auto":"1.2fr 1fr auto",gap:10,alignItems:"end"}}>
+            <div><label style={SS.lbl}>{dmk==="gold"?"Carat":"Purity"}</label><select value={l.grade} onChange={e=>setLine(l.id,"grade",e.target.value)} style={smInp}>
+              {grades.map(([v,lbl])=><option key={v} value={v}>{lbl}</option>)}
+              <option value="mixed">Mixed range (not sorted)</option>
+            </select></div>
+            {mixed&&<>
+              <div><label style={SS.lbl}>From</label><select value={l.from} onChange={e=>setLine(l.id,"from",e.target.value)} style={smInp}>{grades.map(([v,lbl])=><option key={v} value={v}>{lbl}</option>)}</select></div>
+              <div><label style={SS.lbl}>To</label><select value={l.to} onChange={e=>setLine(l.id,"to",e.target.value)} style={smInp}>{grades.map(([v,lbl])=><option key={v} value={v}>{lbl}</option>)}</select></div>
+              <div><label style={SS.lbl}>Est. purity %</label><input value={l.purityPct} onChange={e=>setLine(l.id,"purityPct",e.target.value)} type="number" min="0" max="100" step="0.1" placeholder={`${+(mid*100).toFixed(1)} (midpoint)`} style={smInp}/></div>
+            </>}
+            <div><label style={SS.lbl}>Weight (g)</label><input value={l.grams} onChange={e=>setLine(l.id,"grams",e.target.value)} type="number" min="0" step="0.01" placeholder="0.00" style={smInp}/></div>
+            <div style={{paddingBottom:6}}>{draft.lines.length>1&&<button onClick={()=>removeLine(l.id)} style={{background:"none",border:"none",color:DANGER,fontSize:12,fontWeight:700,cursor:"pointer",fontFamily:"inherit"}}>Remove</button>}</div>
+          </div>
+        </div>;
+      })}
+      <div style={{display:"flex",justifyContent:"flex-end",gap:18,flexWrap:"wrap",fontSize:12.5,color:WG,margin:"2px 2px 14px"}}>
+        <span>Total weight <strong style={{color:INK}}>{+dc.grams.toFixed(2)}g</strong></span>
+        <span>Pure {dmk} <strong style={{color:INK}}>{+dc.pure.toFixed(2)}g</strong></span>
+      </div>
+
+      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:"0 14px"}}>
+        <Input label={`Price paid (${CUR_SYM})`} value={draft.pricePaid} onChange={setF("pricePaid")} type="number" min="0" step="1" placeholder="0"/>
+        <Input label="Payment method" value={draft.paymentMethod} onChange={setF("paymentMethod")} as="select" options={SCRAP_PAY_METHODS}/>
+        <Input label={`Spot on purchase day (${CUR_SYM}/g pure)`} value={draft.spotAtPurchase} onChange={setF("spotAtPurchase")} type="number" min="0" step="0.01" placeholder={String(dc.spotNow||"")}/>
+      </div>
+      <div style={{fontSize:11.5,color:WG,marginTop:-8,marginBottom:12,lineHeight:1.5}}>Spot fills from today's {dmk} price ({fmt(dc.spotNow)}/g). Change it if you bought on a different day.</div>
+
+      <div style={{border:`1px solid ${BD}`,borderRadius:10,padding:"10px 16px",marginBottom:16}}>
+        {statLine("Cost per gram",dc.costPerGram!=null?fmt(dc.costPerGram):"—")}
+        {statLine("Melt value at purchase",dc.meltThen!=null?fmtR(dc.meltThen):"—")}
+        {draft.status!=="Sold"&&draft.status!=="Used"&&<>
+          {statLine("Melt value today",dc.meltNow!=null?fmtR(dc.meltNow):"—")}
+          {statLine(`Expected profit (at ${scrapPayoutOf(spotPrices)}% refiner payout)`,dc.expected!=null?fmtR(dc.expected):"—",true,dc.expected!=null?(dc.expected>=0?OK:DANGER):INK)}
+        </>}
+      </div>
+
+      {draft.status==="Sold"&&<div style={{background:OK_BG,border:`1px solid ${OK}33`,borderRadius:10,padding:"14px 16px 4px",marginBottom:16}}>
+        <div style={{fontWeight:700,fontSize:13,color:INK,marginBottom:10}}>Sale</div>
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"0 14px"}}>
+          <Input label="Disposal method" value={draft.disposal} onChange={setF("disposal")} as="select" options={SCRAP_DISPOSALS}/>
+          <Input label="Buyer / refiner" value={draft.buyer} onChange={setF("buyer")} placeholder="e.g. ABC Refining"/>
+          <Input label="Sale date" value={draft.saleDate} onChange={setF("saleDate")} type="date"/>
+          <Input label={`Amount received (${CUR_SYM})`} value={draft.amountReceived} onChange={setF("amountReceived")} type="number" min="0" step="1" placeholder="0"/>
+          <Input label={`Refining fees / costs (${CUR_SYM})`} value={draft.fees} onChange={setF("fees")} type="number" min="0" step="1" placeholder="0"/>
+        </div>
+        <div style={{padding:"4px 0 10px"}}>
+          {statLine("Profit",fmtR(dc.profit||0),true,(dc.profit||0)>=0?OK:DANGER)}
+          {statLine("Margin",dc.margin!=null?`${Math.round(dc.margin)}%`:"—")}
+        </div>
+      </div>}
+
+      {draft.status==="Used"&&<div style={{background:GOLD_L,border:`1px solid ${GOLD}55`,borderRadius:10,padding:"14px 16px 4px",marginBottom:16}}>
+        <div style={{fontWeight:700,fontSize:13,color:INK,marginBottom:10}}>Used in a customer job</div>
+        <div style={{display:"grid",gridTemplateColumns:"2fr 1fr",gap:"0 14px"}}>
+          <Input label="Job" value={draft.usedJobId} onChange={setF("usedJobId")} as="select" options={[{value:"",label:"Pick a job"},...[...jobs].sort((a,b)=>String(b.createdAt||"").localeCompare(String(a.createdAt||""))).map(j=>({value:j.id,label:jobLabel(j)}))]}/>
+          <Input label="Date used" value={draft.usedDate} onChange={setF("usedDate")} type="date"/>
+        </div>
+        <div style={{fontSize:12,color:GOLD_D,marginTop:-6,marginBottom:10,lineHeight:1.5}}>Price the job's metal at your scrap cost of <strong>{dc.costPerGram!=null?fmt(dc.costPerGram):"—"}/g</strong> instead of spot. Used scrap isn't counted as profit in Reports.</div>
+      </div>}
+
+      <Input label="Notes" value={draft.notes} onChange={setF("notes")} as="textarea" rows={2} placeholder="Items in the lot, hallmarks, anything worth remembering"/>
+
+      <label style={{...SS.lbl,marginTop:2,marginBottom:0}}>Photos</label>
+      {!imagesEnabled()
+        ? <div style={{fontSize:12,color:WG,lineHeight:1.55,marginTop:4}}>Photo uploads need the cloud backend.</div>
+        : <div style={{marginTop:6}}>
+            <label style={{display:"inline-block",background:GOLD,color:WHITE,borderRadius:8,padding:"7px 15px",fontSize:12,fontWeight:700,cursor:busy?"default":"pointer",letterSpacing:"0.02em",opacity:busy?0.6:1}}>
+              {busy?"Uploading…":"+ Upload photos"}
+              <input type="file" accept="image/*" multiple disabled={busy} onChange={e=>{onFiles(e.target.files);e.target.value="";}} style={{display:"none"}}/>
+            </label>
+            {imgErr&&<div style={{color:DANGER,fontSize:12,marginTop:8}}>{imgErr}</div>}
+            {(draft.images||[]).length>0&&<div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(84px,1fr))",gap:8,marginTop:10}}>
+              {(draft.images||[]).map(img=>(
+                <div key={img.id} onClick={()=>modalUrls[img.path]&&setZoom(modalUrls[img.path])} style={{position:"relative",aspectRatio:"1 / 1",borderRadius:8,overflow:"hidden",border:`1px solid ${BD}`,cursor:modalUrls[img.path]?"zoom-in":"default",background:`${PARCH} center/cover no-repeat`,backgroundImage:modalUrls[img.path]?`url(${modalUrls[img.path]})`:"none"}}>
+                  {!modalUrls[img.path]&&<span style={{position:"absolute",inset:0,display:"flex",alignItems:"center",justifyContent:"center",fontSize:10,color:WG}}>loading…</span>}
+                  <button onClick={e=>{e.stopPropagation();removeImg(img);}} title="Remove photo" style={{position:"absolute",top:3,right:3,width:20,height:20,borderRadius:"50%",border:"none",background:"rgba(0,0,0,0.55)",color:WHITE,fontSize:13,lineHeight:1,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",padding:0}}>×</button>
+                </div>
+              ))}
+            </div>}
+          </div>}
+    </Modal>}
+
+    {zoom&&<div onClick={()=>setZoom(null)} style={{position:"fixed",inset:0,zIndex:1000,background:"rgba(0,0,0,0.82)",display:"flex",alignItems:"center",justifyContent:"center",padding:24,cursor:"zoom-out"}}>
+      <img src={zoom} alt="Scrap photo" style={{maxWidth:"100%",maxHeight:"100%",borderRadius:8,boxShadow:"0 10px 40px rgba(0,0,0,0.5)"}}/>
+    </div>}
+  </div>;
+}
+
+// Reports card: scrap bought, spent and profit, by month for a year or by year for all time.
+// Bought/spent count by purchase date; profit and margin count sales by sale date.
+function ScrapReportCard({scrap=[],spotPrices={},setView}){
+  const isMobile=useIsMobile();
+  const years=Array.from(new Set(scrap.flatMap(r=>[String(r.purchaseDate||"").slice(0,4),r.status==="Sold"?String(r.saleDate||"").slice(0,4):""]).filter(y=>/^\d{4}$/.test(y)))).sort((a,b)=>b.localeCompare(a));
+  const[year,setYear]=useState(years[0]||String(new Date().getFullYear()));
+  if(!scrap.length)return null;
+  const keyOf=d=>year==="all"?String(d||"").slice(0,4):String(d||"").slice(0,7);
+  const buckets=year==="all"?[...years].sort():Array.from({length:12},(_,i)=>`${year}-${String(i+1).padStart(2,"0")}`);
+  const rows=buckets.map(k=>{
+    const bought=scrap.filter(r=>keyOf(r.purchaseDate)===k);
+    const sold=scrap.filter(r=>r.status==="Sold"&&keyOf(r.saleDate)===k);
+    const bc=bought.map(r=>scrapCalc(r,spotPrices)),sc=sold.map(r=>scrapCalc(r,spotPrices));
+    const soldPaid=sc.reduce((s,c)=>s+c.paid,0),profit=sc.reduce((s,c)=>s+(c.profit||0),0);
+    return{k,label:year==="all"?k:new Date(k+"-01T00:00:00").toLocaleDateString(LOCALE,{month:"short"}),
+      grams:bc.reduce((s,c)=>s+c.grams,0),spent:bc.reduce((s,c)=>s+c.paid,0),soldCount:sold.length,soldPaid,profit};
+  });
+  const tot=rows.reduce((a,r)=>({grams:a.grams+r.grams,spent:a.spent+r.spent,soldCount:a.soldCount+r.soldCount,soldPaid:a.soldPaid+r.soldPaid,profit:a.profit+r.profit}),{grams:0,spent:0,soldCount:0,soldPaid:0,profit:0});
+  // Average margin = total profit ÷ total paid for what sold (weighted, so big lots count more).
+  const mPct=r=>r.soldPaid>0?`${Math.round(r.profit/r.soldPaid*100)}%`:"—";
+  const cols="0.9fr 1fr 1fr 1fr 0.8fr";
+  const shownRows=rows.filter(r=>year==="all"||r.grams>0||r.soldCount>0);
+  return <Card style={{marginTop:14}}>
+    <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:8,marginBottom:4}}>
+      <div style={{fontWeight:700,fontSize:15,color:INK}}>Scrap gold</div>
+      <div style={{display:"flex",alignItems:"center",gap:8}}>
+        <span style={{fontSize:11,color:WG,fontWeight:700,textTransform:"uppercase",letterSpacing:"0.05em"}}>Year</span>
+        <select value={year} onChange={e=>setYear(e.target.value)} style={{...SS.inp,marginTop:0,width:"auto",padding:"5px 10px",fontSize:13}}>
+          {years.map(y=><option key={y} value={y}>{y}</option>)}
+          <option value="all">All time</option>
+        </select>
+      </div>
+    </div>
+    <div style={{fontSize:12,color:WG,marginBottom:14}}>Grams bought and money spent by purchase date; profit and margin on lots sold, by sale date. Scrap used in a job isn't counted as profit. <span onClick={()=>setView&&setView("scrap")} style={{color:GOLD_D,fontWeight:700,cursor:"pointer"}}>Open Scrap gold →</span></div>
+    {shownRows.length===0?<div style={{color:WG,fontSize:13}}>No scrap bought or sold in {year}.</div>:<>
+      {!isMobile&&<div style={{display:"grid",gridTemplateColumns:cols,gap:8,padding:"0 2px 8px",fontSize:10,fontWeight:700,color:WG,textTransform:"uppercase",letterSpacing:"0.05em",borderBottom:`2px solid ${INK}`}}>
+        <div>{year==="all"?"Year":"Month"}</div><div style={{textAlign:"right"}}>Bought (g)</div><div style={{textAlign:"right"}}>Spent</div><div style={{textAlign:"right"}}>Profit</div><div style={{textAlign:"right"}}>Avg margin</div>
+      </div>}
+      {shownRows.map(r=>isMobile
+        ?<div key={r.k} style={{padding:"10px 2px",borderBottom:`1px solid ${BD}`}}>
+          <div style={{display:"flex",justifyContent:"space-between",fontSize:14}}><span style={{fontWeight:700,color:INK}}>{r.label}</span><span style={{fontWeight:800,color:r.profit>=0?OK:DANGER}}>{fmtR(r.profit)}</span></div>
+          <div style={{fontSize:12,color:WG,marginTop:3}}>{+r.grams.toFixed(1)}g bought · {fmtR(r.spent)} spent · margin {mPct(r)}</div>
+        </div>
+        :<div key={r.k} style={{display:"grid",gridTemplateColumns:cols,gap:8,padding:"9px 2px",borderBottom:`1px solid ${BD}`,fontSize:13,alignItems:"center"}}>
+          <div style={{fontWeight:700,color:INK}}>{r.label}</div>
+          <div style={{textAlign:"right",color:INK}}>{+r.grams.toFixed(1)}</div>
+          <div style={{textAlign:"right",color:INK}}>{fmtR(r.spent)}</div>
+          <div style={{textAlign:"right",fontWeight:700,color:r.soldCount?(r.profit>=0?OK:DANGER):WG}}>{r.soldCount?fmtR(r.profit):"—"}</div>
+          <div style={{textAlign:"right",color:WG}}>{mPct(r)}</div>
+        </div>)}
+      <div style={isMobile?{display:"flex",justifyContent:"space-between",padding:"11px 2px 2px",fontSize:13,fontWeight:800,color:INK,borderTop:`2px solid ${INK}`,marginTop:2}:{display:"grid",gridTemplateColumns:cols,gap:8,padding:"11px 2px 2px",fontSize:13,fontWeight:800,color:INK,borderTop:`2px solid ${INK}`,marginTop:2}}>
+        {isMobile?<><span>Total</span><span>{+tot.grams.toFixed(1)}g · {fmtR(tot.spent)} · <span style={{color:tot.profit>=0?OK:DANGER}}>{fmtR(tot.profit)}</span> · {mPct(tot)}</span></>:<>
+          <div>Total</div><div style={{textAlign:"right"}}>{+tot.grams.toFixed(1)}</div><div style={{textAlign:"right"}}>{fmtR(tot.spent)}</div><div style={{textAlign:"right",color:tot.profit>=0?OK:DANGER}}>{fmtR(tot.profit)}</div><div style={{textAlign:"right"}}>{mPct(tot)}</div>
+        </>}
+      </div>
+    </>}
+  </Card>;
+}
+
 function GemCustody({custody,setCustody,clients,biz}){
   const isMobile=useIsMobile();
   const save=next=>{if(!guardEdit())return;setCustody(next);persist(K.gc,next);};
@@ -12679,6 +13084,7 @@ export default function App(){
   const[todos,setTodos]=useState({people:[],items:[]});
   const[stock,setStock]=useState([]);
   const[gemCustody,setGemCustody]=useState([]);
+  const[scrap,setScrap]=useState([]);
   const[priceList,setPriceList]=useState([]);
   const[view,setViewRaw]=useState("dashboard");
   const[selClient,setSelClient]=useState(null);
@@ -12843,7 +13249,7 @@ export default function App(){
       [K.pr]:setPricing,[K.biz]:setBiz,[K.no]:setNotes,[K.inv]:setInvoices,
       [K.mt]:setMarkupTable,[K.smn]:setNaturalStoneMarkup,[K.sml]:setLabStoneMarkup,[K.csr]:setCentreRates,
       [K.ap]:setAppointments,[K.pp]:setProposals,[K.td]:setTodos,[K.st]:setStock,
-      [K.gc]:setGemCustody,[K.pl]:setPriceList,[K.spot]:setSpotPrices,
+      [K.gc]:setGemCustody,[K.sc]:setScrap,[K.pl]:setPriceList,[K.spot]:setSpotPrices,
       [K.tmt]:setTradeMarkupTable,[K.tsmn]:setTradeNatStoneMarkup,[K.tsml]:setTradeLabStoneMarkup,
     };
     // When a studio has no saved row for a key (a brand-new/empty studio, or one that just
@@ -12852,7 +13258,7 @@ export default function App(){
     // so a new studio is immediately usable. Keys must match keyToSetter exactly.
     const studioDefaults={
       [K.cl]:[],[K.jo]:[],[K.qu]:[],[K.pa]:[],[K.no]:[],[K.inv]:[],[K.pp]:[],[K.ap]:[],
-      [K.td]:{people:[],items:[]},[K.st]:[],[K.gc]:[],[K.pl]:[],[K.biz]:{},
+      [K.td]:{people:[],items:[]},[K.st]:[],[K.gc]:[],[K.sc]:[],[K.pl]:[],[K.biz]:{},
       [K.pr]:SEED_PRICING,[K.mt]:DEFAULT_MARKUP_TABLE,[K.smn]:DEFAULT_NATURAL_STONE_MARKUP,
       [K.sml]:DEFAULT_LAB_STONE_MARKUP,[K.csr]:DEFAULT_SETTING_RATES,[K.spot]:SEED_SPOT,
       [K.tmt]:DEFAULT_TRADE_MARKUP_TABLE,[K.tsmn]:DEFAULT_TRADE_NATURAL_STONE_MARKUP,[K.tsml]:DEFAULT_TRADE_LAB_STONE_MARKUP,
@@ -12997,12 +13403,12 @@ export default function App(){
   const buildDataSnapshot=useCallback(()=>({
     [K.cl]:clients,[K.jo]:jobs,[K.qu]:quotes,[K.pa]:payments,[K.pr]:pricing,[K.biz]:biz,[K.no]:notes,[K.inv]:invoices,
     [K.mt]:markupTable,[K.smn]:naturalStoneMarkup,[K.sml]:labStoneMarkup,[K.csr]:centreRates,[K.ap]:appointments,
-    [K.pp]:proposals,[K.td]:todos,[K.st]:stock,[K.gc]:gemCustody,[K.pl]:priceList,[K.spot]:spotPrices,
+    [K.pp]:proposals,[K.td]:todos,[K.st]:stock,[K.gc]:gemCustody,[K.sc]:scrap,[K.pl]:priceList,[K.spot]:spotPrices,
     [K.tmt]:tradeMarkupTable,[K.tsmn]:tradeNatStoneMarkup,[K.tsml]:tradeLabStoneMarkup,
-  }),[clients,jobs,quotes,payments,pricing,biz,notes,invoices,markupTable,naturalStoneMarkup,labStoneMarkup,centreRates,appointments,proposals,todos,stock,gemCustody,priceList,spotPrices,tradeMarkupTable,tradeNatStoneMarkup,tradeLabStoneMarkup]);
+  }),[clients,jobs,quotes,payments,pricing,biz,notes,invoices,markupTable,naturalStoneMarkup,labStoneMarkup,centreRates,appointments,proposals,todos,stock,gemCustody,scrap,priceList,spotPrices,tradeMarkupTable,tradeNatStoneMarkup,tradeLabStoneMarkup]);
   // Write each slice from a snapshot back to state + cloud. Setters are stable so no deps needed.
   const applyRestore=useCallback((data)=>{
-    const map={[K.cl]:setClients,[K.jo]:setJobs,[K.qu]:setQuotes,[K.pa]:setPayments,[K.pr]:setPricing,[K.biz]:setBiz,[K.no]:setNotes,[K.inv]:setInvoices,[K.mt]:setMarkupTable,[K.smn]:setNaturalStoneMarkup,[K.sml]:setLabStoneMarkup,[K.csr]:setCentreRates,[K.ap]:setAppointments,[K.pp]:setProposals,[K.td]:setTodos,[K.st]:setStock,[K.gc]:setGemCustody,[K.pl]:setPriceList,[K.spot]:setSpotPrices,[K.tmt]:setTradeMarkupTable,[K.tsmn]:setTradeNatStoneMarkup,[K.tsml]:setTradeLabStoneMarkup};
+    const map={[K.cl]:setClients,[K.jo]:setJobs,[K.qu]:setQuotes,[K.pa]:setPayments,[K.pr]:setPricing,[K.biz]:setBiz,[K.no]:setNotes,[K.inv]:setInvoices,[K.mt]:setMarkupTable,[K.smn]:setNaturalStoneMarkup,[K.sml]:setLabStoneMarkup,[K.csr]:setCentreRates,[K.ap]:setAppointments,[K.pp]:setProposals,[K.td]:setTodos,[K.st]:setStock,[K.gc]:setGemCustody,[K.sc]:setScrap,[K.pl]:setPriceList,[K.spot]:setSpotPrices,[K.tmt]:setTradeMarkupTable,[K.tsmn]:setTradeNatStoneMarkup,[K.tsml]:setTradeLabStoneMarkup};
     Object.entries(data||{}).forEach(([k,v])=>{const set=map[k];if(set&&v!==undefined&&v!==null){set(v);persist(k,v);}});
   },[]);
   const backupNow=useCallback(()=>cloudSnapshot(buildDataSnapshot(),"manual"),[buildDataSnapshot]);
@@ -13165,12 +13571,13 @@ export default function App(){
     if(view==="statements")return <StatementsList clients={clients} jobs={jobs} invoices={invoices} payments={payments} biz={biz} setView={setView}/>;
     if(view.startsWith("statementDetail_"))return <StatementDetail clientId={view.split("_")[1]} clients={clients} jobs={jobs} invoices={invoices} payments={payments} setPayments={setPayments} biz={biz} setView={setView}/>;
     if(view==="stock")return <StockBoard stock={stock} setStock={setStock} setView={setView} pricing={pricing} spotPrices={spotPrices} setSpotPrices={setSpotPrices} onUpdateSpot={()=>setSpotModal(true)}/>;
+    if(view==="scrap")return <ScrapGold scrap={scrap} setScrap={setScrap} clients={clients} jobs={jobs} spotPrices={spotPrices} onUpdateSpot={()=>setSpotModal(true)}/>;
     if(view==="gemcustody")return <GemCustody custody={gemCustody} setCustody={setGemCustody} clients={clients} biz={biz}/>;
     if(view.startsWith("stockPrice_"))return <QuoteBuilder stockId={view.split("_")[1]} stock={stock} setStock={setStock} jobs={jobs} clients={clients} quotes={quotes} setQuotes={setQuotes} pricing={pricing} setPricing={setPricing} markupTable={markupTable} naturalStoneMarkup={naturalStoneMarkup} labStoneMarkup={labStoneMarkup} tradeMarkupTable={tradeMarkupTable} tradeNatStoneMarkup={tradeNatStoneMarkup} tradeLabStoneMarkup={tradeLabStoneMarkup} centreRates={centreRates} setCentreRates={setCentreRates} setView={setView}/>;
     if(view==="pricelist")return <PriceList priceList={priceList} setPriceList={setPriceList} setView={setView} pricing={pricing} markupTable={markupTable} naturalStoneMarkup={naturalStoneMarkup} labStoneMarkup={labStoneMarkup} spotPrices={spotPrices} onUpdateSpot={()=>setSpotModal(true)}/>;
     if(view.startsWith("plPrice_"))return <QuoteBuilder key={view} priceListId={view.split("_")[1]} priceList={priceList} setPriceList={setPriceList} jobs={jobs} clients={clients} quotes={quotes} setQuotes={setQuotes} pricing={pricing} setPricing={setPricing} markupTable={markupTable} naturalStoneMarkup={naturalStoneMarkup} labStoneMarkup={labStoneMarkup} tradeMarkupTable={tradeMarkupTable} tradeNatStoneMarkup={tradeNatStoneMarkup} tradeLabStoneMarkup={tradeLabStoneMarkup} centreRates={centreRates} setCentreRates={setCentreRates} setView={setView}/>;
     if(view==="pricing")return <PricingDB pricing={pricing} setPricing={setPricing} spotPrices={spotPrices} setSpotPrices={setSpotPrices} markupTable={markupTable} centreRates={centreRates} setCentreRates={setCentreRates} onUpdateSpot={()=>setSpotModal(true)}/>;
-    if(view==="reports")return <Reports jobs={jobs} clients={clients} quotes={quotes} payments={payments} invoices={invoices} markupTable={markupTable} setView={setView} setSelJob={setSelJob} openJobs={openJobs} biz={biz}/>;
+    if(view==="reports")return <Reports jobs={jobs} clients={clients} quotes={quotes} payments={payments} invoices={invoices} markupTable={markupTable} setView={setView} setSelJob={setSelJob} openJobs={openJobs} biz={biz} scrap={scrap} spotPrices={spotPrices}/>;
     if(view==="settings")return <Settings biz={biz} setBiz={setBiz} markupTable={markupTable} setMarkupTable={setMarkupTable} naturalStoneMarkup={naturalStoneMarkup} setNaturalStoneMarkup={setNaturalStoneMarkup} labStoneMarkup={labStoneMarkup} setLabStoneMarkup={setLabStoneMarkup} tradeMarkupTable={tradeMarkupTable} setTradeMarkupTable={setTradeMarkupTable} tradeNatStoneMarkup={tradeNatStoneMarkup} setTradeNatStoneMarkup={setTradeNatStoneMarkup} tradeLabStoneMarkup={tradeLabStoneMarkup} setTradeLabStoneMarkup={setTradeLabStoneMarkup} dataSafety={{backupNow,loadSnapshots:listCloudSnapshots,restoreSnapshot}} billing={billing}/>;
     return null;
   };
