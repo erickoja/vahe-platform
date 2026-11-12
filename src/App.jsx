@@ -9958,6 +9958,10 @@ function Reports({jobs,clients,quotes,payments,invoices,markupTable,setView,setS
     return Object.values(m).sort((a,b)=>b.sales-a.sales);
   })();
   const unassignedSales=salesJobs.filter(j=>!(j.salesperson||"").trim()).length;
+  // Scrap gold profit this calendar year (by sale date) for the headline tile; detail in the Scrap gold card.
+  const scrapYr=String(new Date().getFullYear());
+  const scrapSoldYr=scrap.filter(r=>r.status==="Sold"&&String(r.saleDate||"").startsWith(scrapYr));
+  const scrapProfitYr=scrapSoldYr.reduce((s,r)=>s+(scrapCalc(r,spotPrices).profit||0),0);
   const salesTot=salesRows.reduce((a,r)=>({jobs:a.jobs+r.jobs,sales:a.sales+r.sales,received:a.received+r.received}),{jobs:0,sales:0,received:0});
   return <div>
     <SectionHeader eyebrow="Business" title="Reports" subtitle="How the studio's tracking — sales, margins and conversion at a glance."/>
@@ -9970,6 +9974,7 @@ function Reports({jobs,clients,quotes,payments,invoices,markupTable,setView,setS
       <Stat label="Avg final price" value={fmtR(avgFinal)} tint="slate" icon={ICON_DOLLAR}/>
       <Stat label="Total received" value={fmtR(totalPaid)} sub={totalGoldDue>0.005?`${totalTradeIn>0?"cash + gold trade-ins · ":""}${fmtR(totalGoldDue)} gold to come`:totalTradeIn>0?"cash + gold trade-ins":undefined} tint="mint" icon={ICON_MONEY}/>
       <Stat label="Outstanding" value={fmtR(outstanding)} sub="balance owed" tint={outstanding>0?"peach":"mint"} icon={ICON_MONEY}/>
+      {scrap.length>0&&<Stat label={`Scrap gold profit ${scrapYr}`} value={fmtR(scrapProfitYr)} sub={`${scrapSoldYr.length} lot${scrapSoldYr.length!==1?"s":""} sold · tap for detail`} onClick={()=>{try{document.getElementById("scrap-report")?.scrollIntoView({behavior:"smooth",block:"start"});}catch(e){}}} tint={scrapProfitYr>=0?"mint":"peach"} icon={ICON_DOLLAR}/>}
       {fundsHeld>0.5&&<Stat label="Funds held" value={fmtR(fundsHeld)} sub={showHeld?"hide breakdown":"deposits beyond agreed charge · tap to see jobs"} onClick={()=>setShowHeld(v=>!v)} tint="peach" icon={ICON_MONEY}/>}
     </div>
     {showHeld&&fundsHeld>0.5&&<Card style={{marginBottom:22}}>
@@ -10024,6 +10029,7 @@ function Reports({jobs,clients,quotes,payments,invoices,markupTable,setView,setS
         ))}
       </Card>
     </div>
+    <ScrapReportCard scrap={scrap} spotPrices={spotPrices} setView={setView}/>
     <Card style={{marginTop:14}}>
       <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:8,marginBottom:4}}>
         <div style={{fontWeight:700,fontSize:15,color:INK}}>Salesperson performance</div>
@@ -10076,7 +10082,6 @@ function Reports({jobs,clients,quotes,payments,invoices,markupTable,setView,setS
         </div>
       ))}
     </Card>
-    <ScrapReportCard scrap={scrap} spotPrices={spotPrices} setView={setView}/>
     {(()=>{
       const trades=clients.filter(c=>c.accountType==="trade");
       if(!trades.length)return null;
@@ -12158,7 +12163,8 @@ function ScrapGold({scrap,setScrap,clients=[],jobs=[],spotPrices={},onUpdateSpot
   const isMobile=useIsMobile();
   const save=next=>{if(!guardEdit())return;setScrap(next);persist(K.sc,next);};
   const[draft,setDraft]=useState(null);
-  const[filter,setFilter]=useState("Held");   // Held | Sold | Used | All
+  const[filter,setFilter]=useState("All");    // Held | Sold | Used | All
+  const[flashId,setFlashId]=useState(null);   // record just saved: highlighted so there's a clear record of it
   const[qStr,setQStr]=useState("");
   const[modalUrls,setModalUrls]=useState({});
   const[busy,setBusy]=useState(false);
@@ -12244,7 +12250,14 @@ function ScrapGold({scrap,setScrap,clients=[],jobs=[],spotPrices={},onUpdateSpot
     const keptBars=(d.bars||[]).filter(b=>Number(b.gross)>0||Number(b.pricePerGram)>0);
     const clean={...d,sellerName:scrapSellerName(d,clients),lines:d.lines.filter(l=>Number(l.grams)>0),bars:keptBars,
       ...(keptBars.length?{amountReceived:String(c.received)}:{})};
+    delete clean.spotOzInput;
     save(isExisting(d)?scrap.map(r=>r.id===d.id?clean:r):[clean,...scrap]);
+    // Make sure the saved record is on screen (not hidden behind the current tab) and highlight it.
+    const tab=clean.status==="Sold"?"Sold":clean.status==="Used"?"Used":"Held";
+    if(filter!=="All"&&filter!==tab)setFilter(tab);
+    setQStr("");setFlashId(clean.id);
+    setTimeout(()=>{try{document.getElementById("scrap-"+clean.id)?.scrollIntoView({behavior:"smooth",block:"center"});}catch(e){}},80);
+    setTimeout(()=>setFlashId(f=>f===clean.id?null:f),3500);
     close();
   };
   const del=id=>{if(!guardEdit())return;if(!confirm("Delete this scrap purchase? This can't be undone."))return;save(scrap.filter(r=>r.id!==id));close();};
@@ -12294,7 +12307,7 @@ function ScrapGold({scrap,setScrap,clients=[],jobs=[],spotPrices={},onUpdateSpot
           </div>
 
           <div style={{display:"flex",gap:10,flexWrap:"wrap",alignItems:"center",marginBottom:16}}>
-            {[["Held","Held"],["Sold","Sold"],["Used","Used in jobs"],["All","All"]].map(([f,lbl])=>(
+            {[["All","All"],["Held","Held"],["Sold","Sold"],["Used","Used in jobs"]].map(([f,lbl])=>(
               <button key={f} onClick={()=>setFilter(f)} style={{padding:"7px 15px",borderRadius:8,border:`1px solid ${filter===f?GOLD:BD}`,background:filter===f?GOLD:WHITE,color:filter===f?WHITE:WG,fontSize:11,fontWeight:700,letterSpacing:"0.06em",textTransform:"uppercase",cursor:"pointer",fontFamily:"inherit"}}>{lbl}</button>
             ))}
             <input value={qStr} onChange={e=>setQStr(e.target.value)} placeholder="Search seller, ID, buyer…" style={{...SS.inp,marginTop:0,maxWidth:isMobile?"none":280,width:isMobile?"100%":undefined}}/>
@@ -12308,7 +12321,7 @@ function ScrapGold({scrap,setScrap,clients=[],jobs=[],spotPrices={},onUpdateSpot
                 const held=r.status==="Purchased"||r.status==="In stock";
                 const job=r.status==="Used"?jobs.find(j=>j.id===r.usedJobId):null;
                 const pl=r.status==="Sold"?c.profit:c.expected;
-                return <Card key={r.id}>
+                return <Card key={r.id} id={"scrap-"+r.id} style={flashId===r.id?{border:`1px solid ${GOLD}`,boxShadow:`0 0 0 3px ${GOLD}33`}:{}}>
                   <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:16,flexWrap:"wrap"}}>
                     <div style={{flex:1,minWidth:220}}>
                       <div style={{display:"flex",alignItems:"center",gap:10,flexWrap:"wrap",marginBottom:4}}>
@@ -12383,12 +12396,32 @@ function ScrapGold({scrap,setScrap,clients=[],jobs=[],spotPrices={},onUpdateSpot
         <span>Pure {dmk} <strong style={{color:INK}}>{+dc.pure.toFixed(2)}g</strong></span>
       </div>
 
-      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:"0 14px"}}>
+      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"0 14px"}}>
         <Input label={`Price paid (${CUR_SYM})`} value={draft.pricePaid} onChange={setF("pricePaid")} type="number" min="0" step="1" placeholder="0"/>
         <Input label="Payment method" value={draft.paymentMethod} onChange={setF("paymentMethod")} as="select" options={SCRAP_PAY_METHODS}/>
-        <Input label={`Spot on purchase day (${CUR_SYM}/g pure)`} value={draft.spotAtPurchase} onChange={setF("spotAtPurchase")} type="number" min="0" step="0.01" placeholder={String(dc.spotNow||"")}/>
       </div>
-      <div style={{fontSize:11.5,color:WG,marginTop:-8,marginBottom:12,lineHeight:1.5}}>Spot fills from today's {dmk} price ({fmt(dc.spotNow)}/g). Change it if you bought on a different day.</div>
+
+      {/* Spot on the purchase day. The app only knows TODAY's spot, so a back-dated purchase needs the
+          day's price typed in. Most people know spot per ounce, so either unit can be entered. */}
+      {(()=>{
+        const OZ=31.1035;
+        const perG=Number(draft.spotAtPurchase)||0;
+        const backDated=draft.purchaseDate&&draft.purchaseDate!==today();
+        const isToday=Math.abs(perG-(dc.spotNow||0))<0.005;
+        return <div style={{border:`1px solid ${backDated&&isToday?WARN+"77":BD}`,background:backDated&&isToday?WARN+"0F":WHITE,borderRadius:10,padding:"12px 14px 2px",marginBottom:14}}>
+          <div style={{fontWeight:700,fontSize:13,color:INK,marginBottom:2}}>{dmk==="gold"?"Gold":dmk==="silver"?"Silver":"Platinum"} spot on {draft.purchaseDate?fmtDate(draft.purchaseDate):"the purchase day"}</div>
+          <div style={{fontSize:11.5,color:backDated&&isToday?WARN:WG,marginBottom:10,lineHeight:1.5}}>
+            {backDated&&isToday
+              ?<>This purchase is dated {fmtDate(draft.purchaseDate)}, but today's spot is filled in. Type that day's spot in either box.</>
+              :<>Filled from today's spot ({fmt(dc.spotNow)}/g). Type a different price in either box if needed.</>}
+          </div>
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr auto",gap:"0 14px",alignItems:"end"}}>
+            <Input label={`Per gram pure (${CUR_SYM})`} value={draft.spotAtPurchase} onChange={v=>setDraft(d=>({...d,spotAtPurchase:v,spotOzInput:null}))} type="number" min="0" step="0.01" placeholder={String(dc.spotNow||"")}/>
+            <Input label={`Per troy ounce (${CUR_SYM})`} value={draft.spotOzInput!=null?draft.spotOzInput:(perG?String(+(perG*OZ).toFixed(2)):"")} onChange={v=>setDraft(d=>({...d,spotOzInput:v,spotAtPurchase:Number(v)>0?String(+(Number(v)/OZ).toFixed(4)):""}))} type="number" min="0" step="0.01" placeholder={dc.spotNow?String(+(dc.spotNow*OZ).toFixed(2)):""}/>
+            <div style={{paddingBottom:14}}>{!isToday&&dc.spotNow>0&&<button onClick={()=>setDraft(d=>({...d,spotAtPurchase:String(dc.spotNow),spotOzInput:null}))} style={{background:"none",border:"none",color:GOLD_D,fontSize:12,fontWeight:700,cursor:"pointer",fontFamily:"inherit",whiteSpace:"nowrap"}}>Use today's</button>}</div>
+          </div>
+        </div>;
+      })()}
 
       <div style={{border:`1px solid ${BD}`,borderRadius:10,padding:"10px 16px",marginBottom:16}}>
         {statLine("Cost per gram",dc.costPerGram!=null?fmt(dc.costPerGram):"—")}
@@ -12534,7 +12567,7 @@ function ScrapReportCard({scrap=[],spotPrices={},setView}){
   const mPct=r=>r.soldPaid>0?`${Math.round(r.profit/r.soldPaid*100)}%`:"—";
   const cols="0.9fr 1fr 1fr 1fr 0.8fr";
   const shownRows=rows.filter(r=>year==="all"||r.grams>0||r.soldCount>0);
-  return <Card style={{marginTop:14}}>
+  return <Card id="scrap-report" style={{marginTop:14}}>
     <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:8,marginBottom:4}}>
       <div style={{fontWeight:700,fontSize:15,color:INK}}>Scrap gold</div>
       <div style={{display:"flex",alignItems:"center",gap:8}}>
