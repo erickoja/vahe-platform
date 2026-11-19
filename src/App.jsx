@@ -13176,6 +13176,25 @@ function useIsMobile(bp=900){
   return m;
 }
 
+// Full-screen "Loading…" used while auth / studio / data resolve. If it is still showing after
+// 15s the database is almost certainly not answering (e.g. the Supabase project went unhealthy),
+// so explain that instead of spinning forever. Reloading is safe here: nothing has loaded yet,
+// so there is nothing on screen that could be saved over good cloud data.
+function SlowLoading(){
+  const[slow,setSlow]=useState(false);
+  useEffect(()=>{const t=setTimeout(()=>setSlow(true),15000);return()=>clearTimeout(t);},[]);
+  const wrap={display:"flex",alignItems:"center",justifyContent:"center",minHeight:"100vh",background:CREAM,fontFamily:"'Poppins',sans-serif",padding:20};
+  if(!slow)return <div style={{...wrap,color:WG,fontSize:14}}>Loading…</div>;
+  return <div style={wrap}>
+    <div style={{maxWidth:420,textAlign:"center",background:WHITE,border:`1px solid ${BD}`,borderRadius:RADIUS,padding:"32px 30px",boxShadow:SHADOW}}>
+      <div style={{fontSize:32,marginBottom:12}}>⏳</div>
+      <div style={{fontSize:17,fontWeight:800,color:INK,marginBottom:8}}>Can't reach your database</div>
+      <div style={{fontSize:13,color:WG,lineHeight:1.6,marginBottom:22}}>This is taking much longer than usual. Your saved data is safe. Check your internet connection and try again. If it keeps happening, the database server may need a restart in your Supabase dashboard.</div>
+      <Btn onClick={()=>window.location.reload()}>Try again</Btn>
+    </div>
+  </div>;
+}
+
 export default function App(){
   // Public client-facing proposal link (?p=<token>) — render the standalone proposal page,
   // outside the auth gate and the studio shell. Derived from the URL (constant per page load).
@@ -13705,10 +13724,10 @@ export default function App(){
 
   // Auth gate — only when Supabase is configured (cloud mode)
   if(supabaseEnabled){
-    if(!authReady)return <div style={{display:"flex",alignItems:"center",justifyContent:"center",minHeight:"100vh",background:CREAM,fontFamily:"'Poppins',sans-serif",color:WG,fontSize:14}}>Loading…</div>;
+    if(!authReady)return <SlowLoading/>;
     if(!session)return <Login/>;
     // Resolving which studio this user belongs to — hold before showing any data
-    if(studioId===null)return <div style={{display:"flex",alignItems:"center",justifyContent:"center",minHeight:"100vh",background:CREAM,fontFamily:"'Poppins',sans-serif",color:WG,fontSize:14}}>Loading…</div>;
+    if(studioId===null)return <SlowLoading/>;
     // Signed in but not linked to any studio (onboarding comes in phase 2)
     if(studioId==="none")return <StudioOnboarding defaultName={session?.user?.user_metadata?.studio_name||""} onCreated={id=>{lastStudioIdRef.current=id;lastStudioUserRef.current=userId;try{localStorage.setItem("resolvedStudio:"+userId,id);}catch(_){}setStudioIdModule(id);setStudioId(id);}}/>;
     // Cloud load failed — block the app so stale/seed data can't be saved over good cloud data
@@ -13732,7 +13751,7 @@ export default function App(){
     }
     // Data still loading — hold on a spinner rather than flash seed/placeholder figures
     // (e.g. wrong "balance owing by job" for a moment before real data arrives).
-    if(!storageReady)return <div style={{display:"flex",alignItems:"center",justifyContent:"center",minHeight:"100vh",background:CREAM,fontFamily:"'Poppins',sans-serif",color:WG,fontSize:14}}>Loading…</div>;
+    if(!storageReady)return <SlowLoading/>;
   }
 
   return <div style={{display:"flex",minHeight:"100vh",background:CREAM,fontFamily:"'Poppins',sans-serif"}}>
