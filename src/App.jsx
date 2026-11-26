@@ -1857,6 +1857,11 @@ const invTradeInPending=(inv,quotes)=>{
 };
 // Month a received trade-in lands in: the day it was ticked received, else the quote's last update
 const quoteTradeInMonth=q=>String(q.tradeInReceivedAt||q.updatedAt||q.createdAt||"").slice(0,7);
+// Repair trade-ins are handed over at intake: dated when the credit was entered (older ones: the date in)
+const repairTradeInMonth=j=>String(j.repairTradeInAt||j.dateIn||j.createdAt||"").slice(0,7);
+const repairTradeInsForMonth=(jobs,mk)=>(jobs||[]).filter(j=>(Number(j.repairTradeIn)||0)>0&&repairTradeInMonth(j)===mk).reduce((s,j)=>s+Number(j.repairTradeIn),0);
+// Keep the date a repair trade-in was given; re-stamp only when the amount changes
+const repairTradeInStamp=(job,amt)=>amt>0?(amt===(Number(job?.repairTradeIn)||0)?(job?.repairTradeInAt||null):today()):null;
 // True if the job has any agreed charge (override or approved quote)
 const jobHasCharge=(job,quotes)=>Number(job?.totalOverride)>0||(quotes||[]).some(q=>q.jobId===job.id&&q.status==="Approved");
 // ── Follow-ups: correspondence still awaiting a client response, for manual one-click reminders ──
@@ -3670,6 +3675,7 @@ function Dashboard({clients,jobs,quotes,payments,invoices,appointments=[],propos
   const scrapMonthProfit=scrapProfitForMonth(thisMonth);
   const monthReceived=payments.filter(p=>p.status==="Received"&&p.date?.startsWith(thisMonth)).reduce((s,p)=>s+Number(p.amount||0),0)
     +quotes.filter(q=>q.status==="Approved"&&(Number(q.tradeInCredit)||0)>0&&quoteTradeInReceived(q)&&quoteTradeInMonth(q)===thisMonth).reduce((s,q)=>s+Number(q.tradeInCredit),0)
+    +repairTradeInsForMonth(jobs,thisMonth)
     +scrapMonthProfit;
   const balanceOwing=jobs.map(j=>{
     if(!jobHasCharge(j,quotes))return null;
@@ -3692,6 +3698,7 @@ function Dashboard({clients,jobs,quotes,payments,invoices,appointments=[],propos
   // ── Revenue trend (6 months) + month-over-month comparison ──
   const receivedForMonth=mk=>payments.filter(p=>p.status==="Received"&&p.date?.startsWith(mk)).reduce((s,p)=>s+Number(p.amount||0),0)
     +quotes.filter(q=>q.status==="Approved"&&(Number(q.tradeInCredit)||0)>0&&quoteTradeInReceived(q)&&quoteTradeInMonth(q)===mk).reduce((s,q)=>s+Number(q.tradeInCredit),0)
+    +repairTradeInsForMonth(jobs,mk)
     +scrapProfitForMonth(mk);
   const revSeries=[...Array(6)].map((_,i)=>{const d=new Date();d.setDate(1);d.setMonth(d.getMonth()-(5-i));const mk=`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}`;return {mk,label:new Date(mk+"-01").toLocaleDateString(LOCALE,{month:"short"}),value:receivedForMonth(mk)};});
   const lastMonthReceived=revSeries.length>1?revSeries[revSeries.length-2].value:0;
@@ -4022,15 +4029,16 @@ function ClientDetail({clientId,clients,setClients,jobs,setJobs,quotes,payments,
   // quiet). Floored per job so a job you owe money ON never nets against one you're holding.
   const heldByJob=cj.map(j=>{
     const jp=payments.filter(p=>p.jobId===j.id&&p.status==="Received");
-    const rec=jp.reduce((s,p)=>s+Number(p.amount||0),0);
+    const gold=jobTradeInReceived(j,quotes);   // gold trade-in in hand is value received too (e.g. gold worth more than the repair)
+    const rec=jp.reduce((s,p)=>s+Number(p.amount||0),0)+gold;
     const inv=invoices.filter(i=>i.jobId===j.id).reduce((s,i)=>s+(Number(i.totalIncGST)||0),0);
     const charge=jobChargeTotal(j,quotes,markupTable,invoices);
     const delivered=DONE_STAGES.includes(j.stage);
     // Delivered: earned = the charge (or invoice) — but if neither was ever recorded, treat what was
     // received as earned so a finished job isn't wrongly flagged. In progress: only invoices are earned.
     const earned=delivered?((charge>0||inv>0)?Math.max(inv,charge):rec):inv;
-    const lastPay=jp.map(p=>String(p.date||"").slice(0,10)).filter(Boolean).sort().slice(-1)[0]||"";
-    return {job:j,held:Math.max(0,rec-earned),lastPay};
+    const lastPay=jp.map(p=>String(p.date||"").slice(0,10)).filter(Boolean).sort().slice(-1)[0]||(gold>0?String(j.repairTradeInAt||j.dateIn||"").slice(0,10):"");
+    return {job:j,held:Math.max(0,rec-earned),lastPay,gold,cash:jp.length>0};
   }).filter(x=>x.held>0.005).sort((a,b)=>String(a.lastPay).localeCompare(String(b.lastPay)));   // oldest first
   const totalHeld=heldByJob.reduce((s,x)=>s+x.held,0);
   const _daysAgo=iso=>iso?Math.round((Date.now()-new Date(iso).getTime())/86400000):0;
@@ -4058,12 +4066,12 @@ function ClientDetail({clientId,clients,setClients,jobs,setJobs,quotes,payments,
         <div style={{fontWeight:800,fontSize:15,color:INK}}>💰 Funds held for this client</div>
         <div style={{fontSize:20,fontWeight:800,color:WARN}}>{fmt(totalHeld)}</div>
       </div>
-      <div style={{fontSize:12.5,color:WG,lineHeight:1.5,marginBottom:heldByJob.length?12:0}}>Money received that hasn't been earned yet — a deposit on work still in progress, or an overpayment. Finishing and handing over the job (or invoicing it) clears it.</div>
+      <div style={{fontSize:12.5,color:WG,lineHeight:1.5,marginBottom:heldByJob.length?12:0}}>Money received that hasn't been earned yet — a deposit on work still in progress, or an overpayment (including gold traded in worth more than the job). Finishing and handing over the job (or invoicing it) clears it.</div>
       {heldByJob.map(x=>{const stale=_daysAgo(x.lastPay)>=90;return(
         <div key={x.job.id} onClick={()=>{setSelJob(x.job.id);setView("jobDetail");}} style={{display:"flex",justifyContent:"space-between",alignItems:"center",gap:12,padding:"9px 12px",background:WHITE,border:`1px solid ${(stale?DANGER:WARN)}33`,borderRadius:6,cursor:"pointer",marginBottom:6}}>
           <div style={{minWidth:0}}>
             <div style={{fontWeight:700,fontSize:13.5,color:INK}}>{x.job.type}<span style={{fontWeight:400,color:WG}}> · {x.job.stage}</span></div>
-            <div style={{fontSize:11.5,color:stale?DANGER:WG,marginTop:2,fontWeight:stale?700:400}}>{x.lastPay?<>Deposit taken {fmtDate(x.lastPay)} · {_ageLabel(x.lastPay)}</>:"Deposit on file"}</div>
+            <div style={{fontSize:11.5,color:stale?DANGER:WG,marginTop:2,fontWeight:stale?700:400}}>{x.gold>0&&!x.cash?<>Gold trade-in credit beyond the charge{x.lastPay?<> · {fmtDate(x.lastPay)}</>:null}</>:x.lastPay?<>Deposit taken {fmtDate(x.lastPay)} · {_ageLabel(x.lastPay)}{x.gold>0?" · incl. gold trade-in":""}</>:"Deposit on file"}</div>
           </div>
           <div style={{display:"flex",alignItems:"center",gap:10,flexShrink:0}}><span style={{fontWeight:800,fontSize:14,color:WARN}}>{fmt(x.held)}</span><span style={{fontSize:11,fontWeight:700,color:GOLD_D}}>Open →</span></div>
         </div>
@@ -4577,7 +4585,7 @@ function RepairIntakeCard({job,setJobs,biz,clients,markupTable,pricing=[],invoic
   // Persist the whole intake (items + instructions) as the new shape, and refresh the link snapshot
   const saveIntake=(nextItems,nextInstr)=>{setJobs(p=>{const n=p.map(j=>j.id===job.id?{...j,intake:{items:nextItems,instructions:nextInstr}}:j);persist(K.jo,n);return n;});refreshSnapshot(nextItems,nextInstr);};
   const persistJob=patch=>{setJobs(p=>{const n=p.map(j=>j.id===job.id?{...j,...patch}:j);persist(K.jo,n);return n;});if("dateIn"in patch||"dateOut"in patch||"repairTradeIn"in patch)refreshSnapshot(items,instructions,patch);};
-  const commitTradeIn=()=>persistJob({repairTradeIn:Number(tradeIn)||0,repairTradeInNote:tradeInNote.trim()});
+  const commitTradeIn=()=>{const amt=Number(tradeIn)||0;persistJob({repairTradeIn:amt,repairTradeInAt:repairTradeInStamp(job,amt),repairTradeInNote:tradeInNote.trim()});};
   const setItemField=(id,k,v)=>setItems(p=>p.map(i=>i.id===id?{...i,[k]:v}:i));
   const commit=()=>saveIntake(items,instructions);
   const addItem=()=>{const ni=[...items,blankIntakeItem()];setItems(ni);saveIntake(ni,instructions);};
@@ -4603,7 +4611,7 @@ function RepairIntakeCard({job,setJobs,biz,clients,markupTable,pricing=[],invoic
     const tiCredit=Number(tradeIn)||0;   // gold trade-in nets the balance (not the GST/total)
     const tiNote=tradeInNote.trim();
     const inv={id:uid(),jobId:job.id,quoteId:null,quoteIds:[],fromRepair:true,number:nextInvoiceNumber(invoices,biz),date:today(),status:"Unpaid",exGST,gst,totalIncGST,subtotalIncGST:totalIncGST,discount:0,discountLabel:"Discount",tradeInCredit:tiCredit,tradeInNote:tiNote,lineItems,customerLines,notes:instructions||"",descriptionOverride:""};
-    persistJob({totalOverride:repairTotal,repairTradeIn:tiCredit,repairTradeInNote:tiNote});   // keep the job's amount owing in sync with the invoice
+    persistJob({totalOverride:repairTotal,repairTradeIn:tiCredit,repairTradeInAt:repairTradeInStamp(job,tiCredit),repairTradeInNote:tiNote});   // keep the job's amount owing in sync with the invoice
     setInvoices(p=>{const n=[...p,inv];persist(K.inv,n);return n;});
     if(setView)setView("invoiceDetail_"+inv.id);
   };
@@ -9908,7 +9916,8 @@ function Reports({jobs,clients,quotes,payments,invoices,markupTable,setView,setS
   const monthData=months.map(m=>({
     month:new Date(m+"-01").toLocaleDateString(LOCALE,{month:"short",year:"numeric"}),
     paid:payments.filter(p=>p.date?.startsWith(m)&&p.status==="Received").reduce((s,p)=>s+Number(p.amount||0),0)
-      +quotes.filter(q=>q.status==="Approved"&&(Number(q.tradeInCredit)||0)>0&&quoteTradeInReceived(q)&&quoteTradeInMonth(q)===m).reduce((s,q)=>s+Number(q.tradeInCredit),0),
+      +quotes.filter(q=>q.status==="Approved"&&(Number(q.tradeInCredit)||0)>0&&quoteTradeInReceived(q)&&quoteTradeInMonth(q)===m).reduce((s,q)=>s+Number(q.tradeInCredit),0)
+      +repairTradeInsForMonth(jobs,m),
   }));
   const maxPaid=Math.max(...monthData.map(m=>m.paid),1);
   const jobsByType=JOB_TYPES.map(t=>({type:t,count:jobs.filter(j=>j.type===t).length})).filter(x=>x.count>0).sort((a,b)=>b.count-a.count);
